@@ -1,0 +1,143 @@
+#!/bin/sh
+# Start the named-window tmux workspace on the isolated N810 server.
+set -eu
+
+socket=${N810_TMUX_SOCKET:-n810}
+session=${N810_POCKET_SESSION:-pocket}
+config=${N810_TMUX_CONFIG:-/usr/local/share/n810/tmux-n810.conf}
+profile=${N810_PROFILE_BIN:-n810-profile}
+
+tmux_cmd()
+{
+	tmux -L "$socket" "$@"
+}
+
+window_command()
+{
+	case "$1" in
+	home) printf '%s\n' '';;
+	net) printf '%s\n' 'n810-pocket-status --section network --watch';;
+	power) printf '%s\n' 'n810-pocket-status --section power --watch';;
+	logs) printf '%s\n' 'n810-logs';;
+	bt) printf '%s\n' 'n810-bluetooth tui';;
+	mail) printf '%s\n' 'neomutt';;
+	irc) printf '%s\n' 'irssi';;
+	xmpp) printf '%s\n' 'profanity';;
+	audio) printf '%s\n' 'n810-audio mixer';;
+	music) printf '%s\n' 'n810-media music';;
+	web) printf '%s\n' 'n810-media web';;
+	mesh) printf '%s\n' 'nomadnet';;
+	gopher) printf '%s\n' 'n810-gopher';;
+	setup) printf '%s\n' 'n810-setup';;
+	help) printf '%s\n' 'n810-help --wait';;
+	apps) printf '%s\n' 'n810-communicator';;
+	*) return 1;;
+	esac
+}
+
+require_window_command()
+{
+	case "$1" in
+	net|power) required=n810-pocket-status; package='pocket desktop';;
+	logs) required=n810-logs; package='pocket desktop';;
+	mesh) required=nomadnet; package='optional mesh tools';;
+	gopher) required=n810-gopher; package='optional mesh tools';;
+	mail) required=neomutt; package=communications;;
+	irc) required=irssi; package=communications;;
+	xmpp) required=profanity; package=communications;;
+	audio) required=n810-audio; package='console UX or pocket desktop';;
+	music|web) required=n810-media; package='media add-on';;
+	bt) required=n810-bluetooth; package='console UX or pocket desktop';;
+	help) required=n810-help; package='pocket desktop';;
+	apps) required=n810-communicator; package='pocket desktop';;
+	setup) required=n810-setup; package='pocket desktop';;
+	*) return 0;;
+	esac
+	command -v "$required" >/dev/null 2>&1 || {
+		echo "$required is not installed; install the $package package set first." >&2
+		return 1
+	}
+}
+
+run_window()
+{
+	name=$1
+	command=$(window_command "$name") || { echo "Unknown pocket window: $name" >&2; exit 2; }
+	test -n "$command" || exec "${SHELL:-/bin/sh}"
+	require_window_command "$name" || exit 127
+	exec sh -c "$command"
+}
+
+ensure_session()
+{
+	if ! tmux_cmd has-session -t "$session" 2>/dev/null; then
+		tmux -L "$socket" -f "$config" new-session -d -s "$session" -n home
+	fi
+}
+
+ensure_window()
+{
+	name=$1
+	command=$(window_command "$name") || { echo "Unknown pocket window: $name" >&2; exit 2; }
+	if tmux_cmd list-windows -t "$session" -F '#W' | grep -Fxq "$name"; then
+		return
+	fi
+	if test -n "$command"; then
+		# Keep a named window useful when an optional program exits or a safety
+		# gate refuses it. The error remains visible and the user gets a shell.
+		command="n810-pocket run $name; exec \"\${SHELL:-/bin/sh}\""
+		tmux_cmd new-window -d -t "$session:" -n "$name" "$command"
+	else
+		tmux_cmd new-window -d -t "$session:" -n "$name"
+	fi
+}
+
+ensure_configured()
+{
+	windows=$($profile get windows)
+	oldifs=$IFS; IFS=,
+	for name in $windows; do ensure_window "$name"; done
+	IFS=$oldifs
+}
+
+select_or_attach()
+{
+	name=$1
+	if test -n "${TMUX:-}"; then
+		tmux_cmd select-window -t "$session:$name"
+	else
+		tmux_cmd attach-session -t "$session:$name"
+	fi
+}
+
+action=${1:-launch}
+if test "$action" = run; then
+	test "$#" -eq 2 || { echo 'Usage: n810-pocket run WINDOW' >&2; exit 2; }
+	run_window "$2"
+fi
+command -v tmux >/dev/null 2>&1 || { echo 'tmux is not installed.' >&2; exit 1; }
+case "$action" in
+launch)
+	ensure_session
+	ensure_configured
+	select_or_attach home
+	;;
+start)
+	ensure_session
+	ensure_configured
+	;;
+open)
+	test "$#" -eq 2 || { echo 'Usage: n810-pocket open WINDOW' >&2; exit 2; }
+	ensure_session
+	ensure_window "$2"
+	select_or_attach "$2"
+	;;
+list)
+	ensure_session
+	tmux_cmd list-windows -t "$session" -F '#I #W#{?window_active, *,}'
+	;;
+*)
+	echo 'Usage: n810-pocket [launch|start|open {home|net|power|logs|apps|bt|mail|irc|xmpp|audio|music|web|mesh|gopher|setup|help}|list]' >&2
+	exit 2
+	;;
+esac

@@ -1,0 +1,27 @@
+#!/bin/sh
+# User desktop choice; fixed GUI launcher owns X. Session changes are explicit.
+set -eu
+case ${1:-choose} in
+status) printf 'Default desktop: %s\n' "$(n810-profile get desktop)";;
+choose)
+ choice=$(n810-dialog menu 'Desktop' 'Choose a desktop. Switching closes graphical apps.' n810 'N810 desktop (Matchbox)' xfce 'XFCE desktop' back 'Keep current desktop') || exit 0
+ case "$choice" in n810|xfce) exec "$0" switch "$choice";; *) exit 0;; esac;;
+switch)
+ test "$#" = 2
+ case "$2" in n810) :;; xfce) command -v xfce4-session >/dev/null || { echo 'XFCE is not installed.' >&2; exit 1; };; *) exit 2;; esac
+ if n810-gui status >/dev/null 2>&1; then
+  n810-dialog confirm 'Switch desktop' 'This ends the current GUI and closes graphical apps. Save your work first. Switch now?' || exit 0
+ fi
+ n810-profile set desktop "$2"
+ nohup setsid "$0" --restart </dev/null >/tmp/n810-desktop-switch.log 2>&1 &
+ echo "Switching to $2; log: /tmp/n810-desktop-switch.log";;
+--restart)
+ test "$#" = 1
+ n810-gui stop
+ for attempt in 1 2 3 4 5 6 7 8 9 10; do
+  if ! pgrep -x Xorg >/dev/null; then break; fi
+  sleep 1
+ done
+ n810-gui;;
+*) echo 'Usage: n810-desktop [choose|status|switch n810|switch xfce]' >&2; exit 2;;
+esac

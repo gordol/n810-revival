@@ -1,0 +1,2 @@
+# Optional native service-frame acceleration; portable codec remains bundled.
+msgpack>=1.0.3,<2

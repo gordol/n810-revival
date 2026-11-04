@@ -1,0 +1,4 @@
+# Enter these as WeeChat commands after reviewing the executable path.
+# The stock beep trigger covers highlights and private messages. Extending it
+# keeps ordinary channel traffic quiet and delegates LED ownership to n810-ledd.
+/set trigger.trigger.beep.command "/print -beep;/exec -bg /usr/local/bin/n810-comms-notify chat 8 Chat\ highlight"

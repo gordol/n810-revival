@@ -1,0 +1,154 @@
+#!/bin/sh
+set -eu
+
+bluetoothctl=${N810_BLUETOOTHCTL:-bluetoothctl}
+ledctl=${N810_LEDCTL:-n810-ledctl}
+tmux=${N810_TMUX_BIN:-tmux}
+
+usage()
+{
+	cat >&2 <<'USAGE'
+Usage: n810-bluetooth COMMAND [ARGUMENT]
+  status               show the controller and paired devices
+  on                   enable Bluetooth without making it discoverable
+  off                  disable Bluetooth; keep saved pairings
+  discover [SECONDS]   scan for nearby devices, then stop (default: 20)
+  tui                  open bluetoothctl with a pairing agent
+  info ADDRESS         show one discovered or paired device
+  pair ADDRESS         pair and trust a discovered device
+  connect ADDRESS      connect a paired device
+  disconnect ADDRESS   disconnect a device
+  remove ADDRESS       forget a device
+USAGE
+	exit 2
+}
+
+need_controller()
+{
+	command -v "$bluetoothctl" >/dev/null 2>&1 || {
+		echo 'bluetoothctl is missing; install the Debian bluez package' >&2
+		exit 1
+	}
+	controllers=$("$bluetoothctl" list) || {
+		echo 'BlueZ is unavailable; bluetoothctl could not contact bluetoothd' >&2
+		exit 1
+	}
+	if ! printf '%s\n' "$controllers" | grep -q '^Controller '; then
+		echo 'No Bluetooth controller is registered (expected hci0)' >&2
+		echo 'The N810 internal BC4-ROM UART driver must work before BlueZ can pair devices.' >&2
+		exit 1
+	fi
+}
+
+address()
+{
+	case ${1:-} in
+	[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]) printf '%s\n' "$1" ;;
+	*) echo 'Expected a Bluetooth address such as 01:23:45:67:89:AB' >&2; exit 2 ;;
+	esac
+}
+
+notify_connected()
+{
+	command -v "$ledctl" >/dev/null 2>&1 && "$ledctl" notify bluetooth 4 >/dev/null 2>&1 || true
+	if test -n "${TMUX:-}" && command -v "$tmux" >/dev/null 2>&1; then
+		"$tmux" display-message -- "$1" >/dev/null 2>&1 || true
+	fi
+}
+
+seconds()
+{
+	case ${1:-20} in
+	''|*[!0-9]*) echo 'Discovery duration must be 1 through 120 seconds' >&2; exit 2 ;;
+	esac
+	test "${1:-20}" -ge 1 && test "${1:-20}" -le 120 || {
+		echo 'Discovery duration must be 1 through 120 seconds' >&2
+		exit 2
+	}
+	printf '%s\n' "${1:-20}"
+}
+
+case ${1:-} in
+on|off)
+	test "$#" -eq 1 || usage
+	need_controller
+	if test "$1" = on; then
+		"$bluetoothctl" power on
+	else
+		"$bluetoothctl" power off
+	fi
+	;;
+status)
+	test "$#" -eq 1 || usage
+	need_controller
+	"$bluetoothctl" show
+	"$bluetoothctl" devices Paired
+	;;
+discover)
+	test "$#" -le 2 || usage
+	need_controller
+	duration=$(seconds "${2:-20}")
+	"$bluetoothctl" power on
+	"$bluetoothctl" scan on
+	trap '"$bluetoothctl" scan off >/dev/null 2>&1 || true' EXIT INT TERM
+	sleep "$duration"
+	"$bluetoothctl" scan off
+	trap - EXIT INT TERM
+	"$bluetoothctl" devices
+	;;
+tui)
+	test "$#" -eq 1 || usage
+	need_controller
+	cat <<'HELP'
+Pairing console:
+  power on
+  scan on
+  devices
+  pair ADDRESS
+  trust ADDRESS
+  connect ADDRESS
+  scan off
+  quit
+
+KeyboardDisplay handles keyboard passkeys and confirmation. Trust only devices
+you recognize.
+HELP
+	exec "$bluetoothctl" --agent=KeyboardDisplay
+	;;
+info)
+	test "$#" -eq 2 || usage
+	need_controller
+	device=$(address "${2:-}")
+	"$bluetoothctl" info "$device"
+	;;
+pair)
+	test "$#" -eq 2 || usage
+	need_controller
+	device=$(address "${2:-}")
+	"$bluetoothctl" power on
+	"$bluetoothctl" --agent=KeyboardDisplay pair "$device"
+	"$bluetoothctl" trust "$device"
+	"$bluetoothctl" info "$device"
+	notify_connected 'Bluetooth paired and trusted'
+	;;
+connect)
+	test "$#" -eq 2 || usage
+	need_controller
+	device=$(address "${2:-}")
+	"$bluetoothctl" connect "$device"
+	notify_connected 'Bluetooth connected'
+	;;
+disconnect)
+	test "$#" -eq 2 || usage
+	need_controller
+	device=$(address "${2:-}")
+	"$bluetoothctl" disconnect "$device"
+	;;
+remove)
+	test "$#" -eq 2 || usage
+	need_controller
+	device=$(address "${2:-}")
+	"$bluetoothctl" remove "$device"
+	;;
+*) usage ;;
+esac

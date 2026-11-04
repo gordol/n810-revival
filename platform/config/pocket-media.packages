@@ -1,0 +1,7 @@
+# On-demand console media tools. None installs a resident player daemon.
+alsa-utils
+cmus
+mpg123
+w3m
+curl
+ca-certificates

@@ -1,0 +1,6 @@
+{
+  "source": "rns-1.5.7-py3-none-any.whl:RNS/__init__.py leading permission/copyright comment block",
+  "wheel_sha256": "0e4aaf8cc47f770da34572d2215b45fea900e104b009551600eb9741a41faddf",
+  "notice_sha256": "20803159e7089ad1b123e5c688eafb7b01d8a30b5a47ee08a6bd7875bae8cd94",
+  "extracted_in": "offline read-only Docker runtime; only permission notice retained"
+}

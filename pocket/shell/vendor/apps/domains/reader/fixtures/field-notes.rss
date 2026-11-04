@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>Offline reader example</title>
+  <description>Authored example entries for local import and reading-state checks.</description>
+  <item>
+    <guid isPermaLink="false">reader-example-notebook</guid>
+    <title>A useful field notebook</title>
+    <description><![CDATA[<p>Keep observations separate from interpretations.</p><p>Attach the original source and timestamp to each note. Save this article, mark it read, and reopen the Reader to check local persistence.</p>]]></description>
+  </item>
+  <item>
+    <guid isPermaLink="false">reader-example-offline</guid>
+    <title>Preparing an offline collection</title>
+    <description><![CDATA[<p>Choose an explicit folder of manuals and reference documents.</p><p>The Library can search local text and show metadata for other formats. Missing collections stay missing until you provide them.</p>]]></description>
+  </item>
+</channel></rss>

@@ -1,0 +1,14 @@
+[Unit]
+Description=Managed N810 wlan0 supplicant and DHCP
+After=local-fs.target
+Before=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/n810-wifi-service start
+ExecStop=/usr/local/sbin/n810-wifi-service stop
+
+[Install]
+WantedBy=multi-user.target

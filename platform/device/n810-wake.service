@@ -1,0 +1,13 @@
+[Unit]
+Description=N810 keyboard display wake (opt-in)
+After=systemd-udev-settle.service
+StartLimitIntervalSec=0
+
+[Service]
+ExecStartPre=/sbin/modprobe evdev
+ExecStart=/usr/local/sbin/n810-wake
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

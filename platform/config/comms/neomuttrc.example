@@ -1,0 +1,24 @@
+# Copy or source from ~/.config/neomutt/neomuttrc.
+set folder = ~/Mail/primary
+set spoolfile = +INBOX
+set record = +Sent
+set postponed = +Drafts
+set trash = +Trash
+set mbox_type = Maildir
+set sendmail = "/usr/bin/msmtp -a primary"
+set use_from = yes
+set realname = "Your Name"
+set from = "you@example.net"
+set edit_headers = yes
+set sort = threads
+set sort_aux = reverse-last-date-received
+set pager_index_lines = 8
+set mail_check = 60
+set timeout = 30
+set beep_new = yes
+
+mailboxes +INBOX +Sent +Drafts +Trash
+
+# Fetch explicitly with this key; a periodic user timer may call the same tool.
+macro index,pager <F5> "<shell-escape>n810-mail-sync primary<enter><sync-mailbox>" \
+  "Synchronize mail"

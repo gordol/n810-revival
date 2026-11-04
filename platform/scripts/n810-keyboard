@@ -1,0 +1,20 @@
+#!/bin/sh
+# Apply only an overlay. Capture all previous tables and strings first.
+set -eu
+dir=/var/lib/n810-maintenance
+case "${1:-}" in
+    apply)
+        mkdir -p "$dir"
+        if [ ! -s "$dir/keyboard-before.map" ]; then
+            dumpkeys -C /dev/tty1 > "$dir/keyboard-before.map.tmp"
+            test -s "$dir/keyboard-before.map.tmp"
+            mv "$dir/keyboard-before.map.tmp" "$dir/keyboard-before.map"
+        fi
+        loadkeys -C /dev/tty1 /usr/local/share/n810/n810-console.map
+        ;;
+    restore)
+        test -s "$dir/keyboard-before.map"
+        loadkeys -C /dev/tty1 "$dir/keyboard-before.map"
+        ;;
+    *) echo "Usage: $0 {apply|restore}" >&2; exit 2 ;;
+esac

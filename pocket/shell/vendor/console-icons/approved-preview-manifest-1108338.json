@@ -1,0 +1,247 @@
+{
+  "state": "preview-only",
+  "icons": [
+    {
+      "name": "Home",
+      "slot": 306,
+      "codepoint": "U+E100"
+    },
+    {
+      "name": "Station",
+      "slot": 307,
+      "codepoint": "U+E101"
+    },
+    {
+      "name": "Handheld",
+      "slot": 308,
+      "codepoint": "U+E102"
+    },
+    {
+      "name": "Car",
+      "slot": 309,
+      "codepoint": "U+E103"
+    },
+    {
+      "name": "Person",
+      "slot": 310,
+      "codepoint": "U+E104"
+    },
+    {
+      "name": "Digi",
+      "slot": 311,
+      "codepoint": "U+E105"
+    },
+    {
+      "name": "iGate",
+      "slot": 312,
+      "codepoint": "U+E106"
+    },
+    {
+      "name": "Weather",
+      "slot": 313,
+      "codepoint": "U+E107"
+    },
+    {
+      "name": "Object",
+      "slot": 314,
+      "codepoint": "U+E108"
+    },
+    {
+      "name": "Waypoint",
+      "slot": 315,
+      "codepoint": "U+E109"
+    },
+    {
+      "name": "Selected",
+      "slot": 316,
+      "codepoint": "U+E10A"
+    },
+    {
+      "name": "Cluster",
+      "slot": 317,
+      "codepoint": "U+E10B"
+    },
+    {
+      "name": "Unknown",
+      "slot": 318,
+      "codepoint": "U+E10C"
+    },
+    {
+      "name": "Mesh node",
+      "slot": 319,
+      "codepoint": "U+E10D"
+    },
+    {
+      "name": "Mesh relay",
+      "slot": 320,
+      "codepoint": "U+E10E"
+    },
+    {
+      "name": "Room",
+      "slot": 321,
+      "codepoint": "U+E10F"
+    },
+    {
+      "name": "Direct",
+      "slot": 322,
+      "codepoint": "U+E110"
+    },
+    {
+      "name": "Relayed",
+      "slot": 323,
+      "codepoint": "U+E111"
+    },
+    {
+      "name": "DX spot",
+      "slot": 324,
+      "codepoint": "U+E112"
+    },
+    {
+      "name": "Beacon",
+      "slot": 325,
+      "codepoint": "U+E113"
+    },
+    {
+      "name": "Satellite",
+      "slot": 326,
+      "codepoint": "U+E114"
+    },
+    {
+      "name": "Compass",
+      "slot": 327,
+      "codepoint": "U+E115"
+    },
+    {
+      "name": "Envelope",
+      "slot": 328,
+      "codepoint": "U+E116"
+    },
+    {
+      "name": "Mailbox",
+      "slot": 329,
+      "codepoint": "U+E117"
+    },
+    {
+      "name": "Chat",
+      "slot": 330,
+      "codepoint": "U+E118"
+    },
+    {
+      "name": "Packet",
+      "slot": 331,
+      "codepoint": "U+E119"
+    },
+    {
+      "name": "Feed",
+      "slot": 332,
+      "codepoint": "U+E11A"
+    },
+    {
+      "name": "Directory",
+      "slot": 333,
+      "codepoint": "U+E11B"
+    },
+    {
+      "name": "Gear",
+      "slot": 334,
+      "codepoint": "U+E11C"
+    },
+    {
+      "name": "Sliders",
+      "slot": 335,
+      "codepoint": "U+E11D"
+    },
+    {
+      "name": "Bluetooth",
+      "slot": 336,
+      "codepoint": "U+E11E"
+    },
+    {
+      "name": "WiFi",
+      "slot": 337,
+      "codepoint": "U+E11F"
+    },
+    {
+      "name": "Battery",
+      "slot": 338,
+      "codepoint": "U+E120"
+    },
+    {
+      "name": "Power",
+      "slot": 339,
+      "codepoint": "U+E121"
+    },
+    {
+      "name": "GPS fix",
+      "slot": 340,
+      "codepoint": "U+E122"
+    },
+    {
+      "name": "No fix",
+      "slot": 341,
+      "codepoint": "U+E123"
+    },
+    {
+      "name": "RX",
+      "slot": 342,
+      "codepoint": "U+E124"
+    },
+    {
+      "name": "TX",
+      "slot": 343,
+      "codepoint": "U+E125"
+    },
+    {
+      "name": "Pending",
+      "slot": 344,
+      "codepoint": "U+E126"
+    },
+    {
+      "name": "Ack",
+      "slot": 345,
+      "codepoint": "U+E127"
+    },
+    {
+      "name": "Failed",
+      "slot": 346,
+      "codepoint": "U+E128"
+    },
+    {
+      "name": "Save",
+      "slot": 347,
+      "codepoint": "U+E129"
+    },
+    {
+      "name": "Audio",
+      "slot": 348,
+      "codepoint": "U+E12A"
+    },
+    {
+      "name": "Mute",
+      "slot": 349,
+      "codepoint": "U+E12B"
+    },
+    {
+      "name": "Repeater",
+      "slot": 350,
+      "codepoint": "U+E12C"
+    },
+    {
+      "name": "Link",
+      "slot": 351,
+      "codepoint": "U+E12D"
+    },
+    {
+      "name": "History",
+      "slot": 352,
+      "codepoint": "U+E12E"
+    },
+    {
+      "name": "Lock",
+      "slot": 353,
+      "codepoint": "U+E12F"
+    }
+  ],
+  "remaining_slots": 158,
+  "sha256": "b546f245e57e994021c0211bfde84c3b33d6ca3df7a4369f1151ea8e3ac650c4"
+}

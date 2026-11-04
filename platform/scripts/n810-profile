@@ -1,0 +1,110 @@
+#!/bin/sh
+# Read and update the non-secret N810 user profile without evaluating it as shell.
+set -eu
+
+config=${N810_POCKET_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/n810/pocket.conf}
+defaults=${N810_POCKET_DEFAULTS:-/usr/local/share/n810/pocket-defaults.conf}
+
+valid_key()
+{
+	case "$1" in
+	desktop|session|package_profile|notifications|notification_color|notification_seconds|brightness|blank_minutes|windows) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+valid_value()
+{
+	key=$1 value=$2
+	case "$key" in
+	desktop) case "$value" in n810|xfce) return 0;; esac ;;
+	session) case "$value" in pocket|gui|shell) return 0;; esac ;;
+	package_profile) case "$value" in minimal|connected|developer) return 0;; esac ;;
+	notifications) case "$value" in on|off) return 0;; esac ;;
+	notification_color) case "$value" in red|amber|green|blue|white) return 0;; esac ;;
+	notification_seconds|blank_minutes)
+		case "$value" in ''|*[!0-9]*) return 1;; esac
+		test "$value" -le 60 && return 0
+		;;
+	brightness)
+		case "$value" in ''|*[!0-9]*) return 1;; esac
+		test "$value" -ge 1 && test "$value" -le 127 && return 0
+		;;
+	windows)
+		case ",$value," in
+		*,home,*) ;;
+		*) return 1 ;;
+		esac
+		oldifs=$IFS; IFS=,
+		for name in $value; do
+			case "$name" in home|net|power|logs|bt|mail|irc|xmpp|audio|music|web|mesh|gopher|setup|help) :;; *) IFS=$oldifs; return 1;; esac
+		done
+		IFS=$oldifs
+		return 0
+		;;
+	esac
+	return 1
+}
+
+get_value()
+{
+	key=$1
+	value=
+	if test -r "$config"; then
+		value=$(sed -n "s/^${key}=//p" "$config" | tail -n 1)
+	fi
+	if test -z "$value" && test -r "$defaults"; then
+		value=$(sed -n "s/^${key}=//p" "$defaults" | tail -n 1)
+	fi
+	printf '%s\n' "$value"
+}
+
+write_value()
+{
+	key=$1 value=$2
+	valid_key "$key" && valid_value "$key" "$value" || {
+		echo "Invalid profile setting: $key=$value" >&2
+		exit 2
+	}
+	dir=$(dirname "$config")
+	mkdir -p "$dir"
+	tmp=$config.$$
+	umask 077
+	{
+		if test -r "$config"; then
+			sed "/^${key}=/d" "$config"
+		elif test -r "$defaults"; then
+			cat "$defaults"
+		fi
+		printf '%s=%s\n' "$key" "$value"
+	} > "$tmp"
+	mv "$tmp" "$config"
+}
+
+case "${1:-show}" in
+get)
+	test "$#" -eq 2 && valid_key "$2" || { echo 'Usage: n810-profile get KEY' >&2; exit 2; }
+	get_value "$2"
+	;;
+set)
+	test "$#" -eq 3 || { echo 'Usage: n810-profile set KEY VALUE' >&2; exit 2; }
+	write_value "$2" "$3"
+	;;
+show)
+	for key in desktop session package_profile notifications notification_color notification_seconds brightness blank_minutes windows; do
+		printf '%s=%s\n' "$key" "$(get_value "$key")"
+	done
+	;;
+init)
+	if test ! -e "$config"; then
+		test -r "$defaults" || { echo "Missing defaults: $defaults" >&2; exit 1; }
+		mkdir -p "$(dirname "$config")"
+		umask 077
+		cp "$defaults" "$config"
+	fi
+	;;
+*)
+	echo 'Usage: n810-profile {init|show|get KEY|set KEY VALUE}' >&2
+	exit 2
+	;;
+esac

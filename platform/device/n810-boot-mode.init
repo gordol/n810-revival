@@ -1,0 +1,53 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          n810-boot-mode
+# Required-Start:    $local_fs n810-wake n810-console-ux n810-backlightd n810-wifi
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Quiet charging on a NOLO charger-start boot
+### END INIT INFO
+set -eu
+reader=${N810_BOOT_REASON_COMMAND:-/usr/local/sbin/n810-bootreason}
+mode=${N810_BOOT_MODE_COMMAND:-/usr/local/sbin/n810-mode}
+state=${N810_BOOT_MODE_STATE:-/run/n810-mode/boot-reason}
+online=${N810_BOOT_CHARGER_ONLINE:-/sys/class/power_supply/tahvo-charger/online}
+wait_seconds=${N810_BOOT_CHARGER_WAIT:-30}
+case "${1:-}" in
+start)
+	# Decide once per boot, never on a later runlevel or service restart.
+	test ! -e "$state" || exit 0
+	mkdir -p "$(dirname "$state")"
+	log=$(dirname "$state")/boot.log
+	: > "$log"
+	if reason=$("$reader" 2>>"$log"); then
+		case "$reason" in
+		charger)
+			case "$wait_seconds" in ''|*[!0-9]*) echo 'Invalid charger startup wait.' >&2; exit 2;; esac
+			test "$wait_seconds" -le 120 || exit 2
+			elapsed=0
+			# NOLO's reason and the live ADC supply indication are separate.
+			while test "$(cat "$online" 2>/dev/null || true)" != 1 && test "$elapsed" -lt "$wait_seconds"; do
+				sleep 1
+				elapsed=$((elapsed + 1))
+			done
+			if test "$(cat "$online" 2>/dev/null || true)" = 1; then
+				if ! "$mode" charging >"$log" 2>&1; then cat "$log" >&2; exit 1; fi
+			else
+				echo "Charger supply not detected within $wait_seconds seconds; retaining normal mode." > "$log"
+				cat "$log" >&2
+			fi
+			;;
+		*) :;;
+		esac
+	else
+		reason=unavailable
+		echo 'NOLO boot reason unavailable; retaining normal mode.' >&2
+	fi
+	mkdir -p "$(dirname "$state")"
+	printf '%s\n' "$reason" > "$state"
+	;;
+stop) :;;
+status) if test -r "$state"; then cat "$state"; else exit 3; fi;;
+*) echo 'Usage: n810-boot-mode {start|stop|status}' >&2; exit 2;;
+esac

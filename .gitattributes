@@ -1,0 +1,3 @@
+# Keep upstream notice text byte-for-byte, including its original line endings.
+pocket/shell/vendor/fonts/LICENSE-Inconsolata.txt -diff
+pocket/shell/vendor/terminal/pyte-AUTHORS.txt -diff

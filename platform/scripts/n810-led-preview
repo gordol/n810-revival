@@ -1,0 +1,164 @@
+#!/bin/sh
+# Low-power N810 battery indication and preview using direct LP5521 PWM.
+set -eu
+
+led_root=${N810_LED_SYSFS:-/sys/class/leds}
+battery=${N810_BATTERY_SYSFS:-/sys/class/power_supply/n8x0-battery}
+pid_file=${N810_LED_PID_FILE:-/run/n810-led-preview.pid}
+
+die() { echo "$*" >&2; exit 1; }
+
+test "$(id -u)" -eq 0 || die "Run as root"
+for channel in red green blue; do
+	test -d "$led_root/$channel" || die "Missing LED channel: $channel"
+done
+
+stop_daemon()
+{
+	test -r "$pid_file" || return 0
+	pid=$(cat "$pid_file")
+	case "$pid" in *[!0-9]*|'') rm -f "$pid_file"; return 0;; esac
+	if kill -0 "$pid" 2>/dev/null; then
+		kill "$pid"
+		count=0
+		while kill -0 "$pid" 2>/dev/null && test "$count" -lt 40; do
+			sleep 0.05
+			count=$((count + 1))
+		done
+	fi
+	rm -f "$pid_file"
+}
+
+direct_mode()
+{
+	for channel in red green blue; do
+		echo none > "$led_root/$channel/trigger"
+		echo 0 > "$led_root/$channel/brightness"
+	done
+}
+
+restore_charging_trigger()
+{
+	for channel in red green blue; do
+		echo 0 > "$led_root/$channel/brightness"
+	done
+	echo 47 > "$led_root/red/led_current"
+	echo 1 > "$led_root/green/led_current"
+	echo 2 > "$led_root/blue/led_current"
+	echo panic > "$led_root/red/trigger"
+	echo none > "$led_root/green/trigger"
+	echo n8x0-battery-charging > "$led_root/blue/trigger"
+}
+
+select_color()
+{
+	capacity=$1
+	if test "$capacity" -le 5; then
+		color=critical; red_weight=8; green_weight=0; blue_weight=0
+	elif test "$capacity" -le 20; then
+		color=amber; red_weight=8; green_weight=2; blue_weight=0
+	elif test "$capacity" -lt 60; then
+		color=warm-white; red_weight=8; green_weight=4; blue_weight=2
+	elif test "$capacity" -lt 95; then
+		color=cool-white; red_weight=3; green_weight=5; blue_weight=8
+	else
+		color=blue; red_weight=0; green_weight=0; blue_weight=8
+	fi
+}
+
+set_level()
+{
+	level=$1
+	echo $((level * red_weight / 8)) > "$led_root/red/brightness"
+	echo $((level * green_weight / 8)) > "$led_root/green/brightness"
+	echo $((level * blue_weight / 8)) > "$led_root/blue/brightness"
+}
+
+pulse()
+{
+	profile=$1; peak=$2; pulse_rest=$3
+	case "$profile" in
+	quiet) shape='0 2 4 6 8 6 4 2 0'; delay=0.22 ;;
+	breathe) shape='0 1 2 3 4 5 6 7 8 7 6 5 4 3 2 1 0'; delay=0.24; pulse_rest=0.7 ;;
+	glint) shape='0 3 6 8 6 3 0'; delay=0.10 ;;
+	critical)
+		set_level 160; sleep 0.15; set_level 0; sleep 0.12
+		set_level 160; sleep 0.15; set_level 0; sleep 0.58
+		return ;;
+	*) die "Unknown profile: $profile" ;;
+	esac
+	for part in $shape; do
+		set_level $((peak * part / 8))
+		sleep "$delay"
+	done
+	sleep "$pulse_rest"
+}
+
+run_indicator()
+{
+	profile=$1; capacity=$2; current_ua=$3
+	select_color "$capacity"
+	if test "$color" = critical; then
+		profile=critical; peak=160; rest=0
+	elif test "$current_ua" -ge 150000; then
+		peak=144; rest=4
+	elif test "$current_ua" -ge 50000; then
+		peak=112; rest=7
+	else
+		peak=80; rest=10
+	fi
+
+	direct_mode
+	for channel in red green blue; do
+		echo 20 > "$led_root/$channel/led_current"
+	done
+	trap 'restore_charging_trigger; rm -f "$pid_file"' EXIT
+	trap 'exit 0' HUP INT TERM
+	while :; do pulse "$profile" "$peak" "$rest"; done
+}
+
+start_indicator()
+{
+	profile=$1
+	capacity=${2:-$(cat "$battery/capacity")}
+	current_ua=${3:-$(cat "$battery/current_now")}
+	select_color "$capacity"
+	stop_daemon
+	nohup "$0" _run "$profile" "$capacity" "$current_ua" \
+		> /run/n810-led-preview.log 2>&1 < /dev/null &
+	pid=$!
+	echo "$pid" > "$pid_file"
+	sleep 0.2
+	kill -0 "$pid" 2>/dev/null || die "LED indicator failed to start"
+	printf '%s: %s, %s%%, %s uA (PID %s)\n' \
+		"$profile" "$color" "$capacity" "$current_ua" "$pid"
+}
+
+status()
+{
+	printf 'Battery: %s%%, %s, %s uA\n' \
+		"$(cat "$battery/capacity")" "$(cat "$battery/status")" \
+		"$(cat "$battery/current_now")"
+	if test -r "$pid_file" && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
+		echo "Indicator PID: $(cat "$pid_file")"
+	else
+		echo "Indicator: stopped"
+	fi
+	for channel in red green blue; do
+		printf '%s: current=%s brightness=%s trigger=%s\n' "$channel" \
+			"$(cat "$led_root/$channel/led_current")" \
+			"$(cat "$led_root/$channel/brightness")" \
+			"$(sed -n 's/.*\[\([^]]*\)\].*/\1/p' "$led_root/$channel/trigger")"
+	done
+}
+
+case "${1:-status}" in
+_run) run_indicator "$2" "$3" "$4" ;;
+off) stop_daemon; direct_mode ;;
+restore) stop_daemon; restore_charging_trigger ;;
+status) status ;;
+quiet|breathe|glint) start_indicator "$@" ;;
+*)
+	echo "Usage: $0 {status|off|restore|quiet|breathe|glint} [capacity] [current_ua]" >&2
+	exit 2 ;;
+esac

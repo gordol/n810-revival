@@ -1,0 +1,5 @@
+{
+  "url": "https://raw.githubusercontent.com/markqvist/LXMF/master/LICENSE",
+  "sha256": "218c0aed9d54856af562c14f7fa7d3b09619501f4f9bc5a34ed8499eaa7c0b06",
+  "note": "Authoritative upstream LICENSE; wheel metadata names Reticulum License but wheel omits standalone LICENSE. This is not a wheel-content extraction."
+}

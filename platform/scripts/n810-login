@@ -1,0 +1,27 @@
+#!/bin/sh
+# Fixed optional tty1 autologin policy for the current SysV image.
+set -eu
+case ${1:-status} in on|off|status) action=${1:-status};; *) echo 'Usage: n810-login [on|off|status]' >&2; exit 2;; esac
+test "$#" -le 1
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+if test "$(id -u)" != 0; then exec sudo -n -- /usr/local/sbin/n810-login "$action"; fi
+normal='1:2345:respawn:/sbin/getty --noclear 38400 tty1'
+auto='1:2345:respawn:/sbin/getty --autologin nokia --noclear 38400 tty1'
+current=$(sed -n '/^1:/p' /etc/inittab)
+case "$current" in "$normal"|"$auto") :;; *) echo 'Unrecognized tty1 configuration; leaving it untouched.' >&2; exit 1;; esac
+case "$action" in
+ status) if test "$current" = "$auto"; then echo 'Local tty1 autologin: on'; else echo 'Local tty1 autologin: off'; fi; exit 0;;
+ on) getent passwd nokia >/dev/null; replacement=$auto;;
+ off) replacement=$normal;;
+esac
+if test "$current" = "$replacement"; then exit 0; fi
+backup=$(mktemp /etc/inittab.before-n810-login.XXXXXXXX)
+cp -p /etc/inittab "$backup"
+tmp=$(mktemp /etc/inittab.n810.XXXXXXXX)
+trap 'rm -f "$tmp"' EXIT HUP INT TERM
+sed "s|^1:.*|$replacement|" /etc/inittab > "$tmp"
+chmod 644 "$tmp"; chown root:root "$tmp"
+mv "$tmp" /etc/inittab
+telinit q
+echo "Local autologin $action; applies when tty1 next starts. Backup: $backup"

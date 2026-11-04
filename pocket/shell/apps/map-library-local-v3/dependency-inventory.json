@@ -1,0 +1,125 @@
+{
+  "files": [
+    {
+      "bytes": 5093,
+      "path": "explorations/current-world/experiments/map-drag-trial/geographic_palette.py",
+      "sha256": "bba79870ecff7d1d686530c3fdb32973464492b22e5590e49625e77af472d636"
+    },
+    {
+      "bytes": 5122,
+      "path": "explorations/current-world/experiments/map-drag-trial/regional-pack-v2/bake.py",
+      "sha256": "713e8112a89103dea06fbf1943b865c13c0c0f124957d61e1f8893bca09bb1e2"
+    },
+    {
+      "bytes": 5093,
+      "path": "explorations/current-world/map_palette.py",
+      "sha256": "bba79870ecff7d1d686530c3fdb32973464492b22e5590e49625e77af472d636"
+    },
+    {
+      "bytes": 14375,
+      "path": "explorations/current-world/map_tiles.py",
+      "sha256": "95c5ab8f45d4d1103f1d5ff9e54e1179e60b77db3be53004bd75b3929a9db5f1"
+    },
+    {
+      "bytes": 14744,
+      "path": "explorations/current-world/offline_map.py",
+      "sha256": "6ea86afce60d95ed9894cbd6e5c0acd90dc59efadb5d5f655b6243c59bfb796d"
+    },
+    {
+      "bytes": 7425,
+      "path": "explorations/current-world/paint.py",
+      "sha256": "de2bd7632e7f5458269b5a2ed0114e06240d08be032f2cae99ad618727f7465a"
+    },
+    {
+      "bytes": 7298,
+      "path": "packet-console/maps/README.md",
+      "sha256": "29a27aaf09a107dc62d93a08ed2b8bf18fcc7566aabbfe4af166794de1ef105e"
+    },
+    {
+      "bytes": 54616,
+      "path": "packet-console/maps/lakewood-relief.json.gz",
+      "sha256": "add73c8e8bc02b31d77301cbb44ccf7b671b2c4f0b96c2840ca087782620d9ae"
+    },
+    {
+      "bytes": 72191,
+      "path": "packet-console/maps/lakewood-relief.meta.json",
+      "sha256": "2cd2046e8f3877106baba7c08e41ea8c0e0f4fe97c5c1d3d288a29dd6ab5a5cf"
+    },
+    {
+      "bytes": 233,
+      "path": "packet-console/maps/lakewood-walk.json.gz",
+      "sha256": "5cf8d67e6bcdfaf321291c3a3390407d012d52c85fd11e11e1974b73b0315045"
+    },
+    {
+      "bytes": 113614,
+      "path": "packet-console/maps/lakewood-walk.roads.gz",
+      "sha256": "ec25c2d4f8b7ecfff9bd3a9f4027c4086470860e40b1a6a894477b0d6a2020bc"
+    },
+    {
+      "bytes": 61111,
+      "path": "packet-console/maps/pnw-overview.json.gz",
+      "sha256": "0de79cfb0dbb294a99d9ecf0c21354b1157e7b5e4a8df10588b76d9bb3356561"
+    },
+    {
+      "bytes": 81947,
+      "path": "packet-console/maps/pnw-overview.meta.json",
+      "sha256": "0670b770f8b2f142d92ed5cf036dd1534a244ffe49ee853a74119cf531be77ec"
+    },
+    {
+      "bytes": 43655,
+      "path": "packet-console/maps/puget-sound.json.gz",
+      "sha256": "8ad4fa882eff824e607c5319c249c09c4fdb2a2e963b0eac50b2884a5e2d653a"
+    },
+    {
+      "bytes": 61818,
+      "path": "packet-console/maps/puget-sound.meta.json",
+      "sha256": "7a7c407204167ee925550c1c51b3523311a58d21cb003932d8bc6959908cfa69"
+    },
+    {
+      "bytes": 93273,
+      "path": "packet-console/maps/puget-sound.roads.gz",
+      "sha256": "723d1128395ef13f318889e7c852a43a43fb15d91d132f3369fe52b9beffaf8b"
+    },
+    {
+      "bytes": 1389594,
+      "path": "packet-console/maps/terrain-next.n8t",
+      "sha256": "49e096749a1be452f9c689306baaeecfa39cb73c7a064ff3774d1b6c6c86cfcd"
+    },
+    {
+      "bytes": 2646,
+      "path": "packet-console/maps/terrain-next.n8t.meta.json",
+      "sha256": "188d5e32f416209b621bfacde2590abbc3d5e382126e197abe3edb5fd778c923"
+    },
+    {
+      "bytes": 277256,
+      "path": "packet-console/maps/walk-layers.n8w",
+      "sha256": "1126412aac90afc5f0de4780e14b8b9ade228e637b6e6533bc873246dc587325"
+    },
+    {
+      "bytes": 1025,
+      "path": "packet-console/maps/walk-layers.n8w.meta.json",
+      "sha256": "dba53cff14ca65629280a18767f613364853efe1447a6e27dc6557d0a7c180b5"
+    },
+    {
+      "bytes": 27468,
+      "path": "packet-console/n810-map-next.py",
+      "sha256": "889d526fe32bf95e8de8eb91c9078cb984b6650d8151aec610f7305588d39fc0"
+    },
+    {
+      "bytes": 5522,
+      "path": "packet-console/n810-map-rgb.py",
+      "sha256": "be82cf02d63bda180c7bccd6045df097444a7fdabd71d4cbf4c58f3dd75146b5"
+    },
+    {
+      "bytes": 13927,
+      "path": "packet-console/n810-map.py",
+      "sha256": "f8fd8e17844a6755d681b736ae5782b3b23f2b3e18debc065ff2c90d1e67b3a3"
+    },
+    {
+      "bytes": 8559,
+      "path": "packet-console/n810-walk-map.py",
+      "sha256": "a659dce5b74c5c53697944594a75e586d382db258f1ae31b3e4d57cf45ad364f"
+    }
+  ],
+  "version": 1
+}

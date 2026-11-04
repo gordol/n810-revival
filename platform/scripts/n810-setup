@@ -1,0 +1,403 @@
+#!/bin/sh
+# Rerunnable first-run menu. It writes no credentials to the user profile.
+set -eu
+
+profile=${N810_PROFILE_BIN:-n810-profile}
+packages=${N810_PACKAGES_BIN:-n810-packages}
+wifi=${N810_WIFI_BIN:-n810-wifi-config}
+wifi_soak=${N810_WIFI_SOAK_BIN:-n810-wifi-soak}
+wifi_persist=${N810_WIFI_PERSIST_BIN:-n810-wifi-persist}
+pocket=${N810_POCKET_BIN:-n810-pocket}
+apply=${N810_APPLY_BIN:-n810-pocket-apply}
+bluetooth=${N810_BLUETOOTH_BIN:-n810-bluetooth}
+secrets=${N810_SECRETS_BIN:-n810-secrets}
+mail_setup=${N810_MAIL_SETUP_BIN:-n810-mail-setup}
+notify_config=${N810_NOTIFY_CONFIG_BIN:-n810-notification-config}
+complete=${N810_SETUP_COMPLETE:-${XDG_CONFIG_HOME:-$HOME/.config}/n810/setup-complete}
+
+$profile init
+
+menu()
+{
+	title=$1 prompt=$2; shift 2
+	if test "${N810_SETUP_TEXT:-0}" != 1 && command -v whiptail >/dev/null 2>&1; then
+		whiptail --title "$title" --menu "$prompt" 20 74 10 "$@" 3>&1 1>&2 2>&3
+		return
+	fi
+	echo >&2
+	echo "$title - $prompt" >&2
+	menu_tags=
+	menu_number=1
+	while test "$#" -gt 0; do
+		echo "  $menu_number) $2" >&2
+		menu_tags="${menu_tags}${menu_tags:+
+}$1"
+		menu_number=$((menu_number + 1))
+		shift 2
+	done
+	printf '> ' >&2
+	IFS= read -r answer
+	case "$answer" in
+	''|*[!0-9]*) return 1;;
+	esac
+	test "$answer" -ge 1 && test "$answer" -lt "$menu_number" || return 1
+	printf '%s\n' "$menu_tags" | sed -n "${answer}p"
+}
+
+input()
+{
+	title=$1 prompt=$2 initial=$3
+	if test "${N810_SETUP_TEXT:-0}" != 1 && command -v whiptail >/dev/null 2>&1; then
+		whiptail --title "$title" --inputbox "$prompt" 10 68 "$initial" 3>&1 1>&2 2>&3
+		return
+	fi
+	printf '%s [%s]: ' "$prompt" "$initial" >&2
+	IFS= read -r answer
+	printf '%s\n' "${answer:-$initial}"
+}
+
+confirm()
+{
+	title=$1 prompt=$2
+	if test "${N810_SETUP_TEXT:-0}" != 1 && command -v whiptail >/dev/null 2>&1; then
+		whiptail --title "$title" --yesno "$prompt" 10 68
+		return
+	fi
+	printf '%s [y/N]: ' "$prompt" >&2
+	IFS= read -r answer
+	case "$answer" in y|Y|yes|YES) return 0;; *) return 1;; esac
+}
+
+as_root()
+{
+	if test "$(id -u)" -eq 0; then "$@"
+	elif command -v sudo >/dev/null 2>&1; then sudo "$@"
+	else echo "Run as root: $*" >&2; return 1
+	fi
+}
+
+change_password()
+{
+	echo 'passwd will ask for the current password, then the new password twice.'
+	echo 'Password input is handled only by passwd and is not logged or saved by setup.'
+	passwd
+}
+
+choose_packages()
+{
+	choice=$(menu 'Device role' 'Choose the smallest package role that fits this N810.' \
+		minimal 'Maintenance: tmux and console essentials' \
+		connected 'Connected: maintenance + Wi-Fi and SSH' \
+		developer 'Developer: connected + git, full Vim and tracing') || return
+	case "$choice" in minimal|connected|developer) :;; *) return;; esac
+	$profile set package_profile "$choice"
+	echo "Packages: $($packages "$choice" --show)"
+	if confirm 'Device role' 'Install this package role now?'; then
+		as_root "$packages" "$choice" --install
+	fi
+}
+
+install_addon()
+{
+	choice=$(menu 'Optional tools' 'Choose an add-on package set.' \
+		communications 'NeoMutt, pass, IRC and XMPP' \
+		media 'ALSA mixer, cmus, mpg123 and w3m' \
+		bluetooth 'BlueZ command-line tools') || return
+	case "$choice" in communications|media|bluetooth) :;; *) return;; esac
+	echo "Packages: $($packages "$choice" --show)"
+	if confirm 'Optional tools' 'Install this add-on now?'; then
+		as_root "$packages" "$choice" --install
+	fi
+}
+
+choose_color()
+{
+	title=$1 prompt=$2 current=$3
+	menu "$title" "$prompt (current: $current)" \
+		blue Blue green Green amber Amber red Red white 'Warm white'
+}
+
+choose_notifications()
+{
+	choice=$(menu Notifications 'LED notification preference.' on 'Enable LED and tmux messages' off 'Disable notifications') || return
+	case "$choice" in on|off) $profile set notifications "$choice";; *) return;; esac
+	if test "$choice" = on; then
+		color=$(choose_color Notifications 'General LED color.' "$($profile get notification_color)") || return
+		case "$color" in red|amber|green|blue|white) $profile set notification_color "$color";; esac
+		seconds=$(input Notifications 'LED duration in seconds (0-60; 0 disables LED only).' "$($profile get notification_seconds)") || return
+		$profile set notification_seconds "$seconds"
+		for namespace in mail chat; do
+			current=$($notify_config get "$namespace")
+			color=$(choose_color Notifications "$namespace notification color." "$current") || return
+			$notify_config set "$namespace" "$color"
+		done
+	fi
+}
+
+choose_display()
+{
+	brightness=$(input Display 'Backlight brightness (1-127).' "$($profile get brightness)") || return
+	$profile set brightness "$brightness"
+	blank=$(input Display 'Screen blank timeout in minutes (0-60; 0 disables).' "$($profile get blank_minutes)") || return
+	$profile set blank_minutes "$blank"
+	if confirm Display 'Apply these settings to the current console now?'; then "$apply" || true; fi
+}
+
+choose_power_preset()
+{
+	choice=$(menu 'Display and power' 'Choose a backlight and screen-blanking preset.' \
+		saver 'Battery saver: brightness 16, blank after 2 minutes' \
+		balanced 'Balanced: brightness 24, blank after 5 minutes' \
+		desk 'Desk use: brightness 40, blank after 10 minutes' \
+		custom 'Enter brightness and blank timeout') || return
+	case "$choice" in
+	saver) brightness=16; blank=2;;
+	balanced) brightness=24; blank=5;;
+	desk) brightness=40; blank=10;;
+	custom) choose_display; return;;
+	*) return;;
+	esac
+	$profile set brightness "$brightness"
+	$profile set blank_minutes "$blank"
+	echo "Saved brightness $brightness and a $blank-minute blank timeout."
+	if confirm 'Display and power' 'Apply these settings to the current console now?'; then "$apply" || true; fi
+}
+
+choose_windows()
+{
+	choice=$(menu Windows 'Choose the default lightweight workspace.' \
+		lean 'home' \
+		connected 'home, network and power' \
+		communicator 'home, communicator menu, network and power' \
+		operator 'home, network, power, logs, Bluetooth and setup') || return
+	case "$choice" in
+	lean) value=home;;
+	connected) value=home,net,power;;
+	communicator) value=home,apps,net,power;;
+	operator) value=home,net,power,logs,bt,setup;;
+	*) return;;
+	esac
+	$profile set windows "$value"
+}
+
+configure_mail()
+{
+	if ! command -v pass >/dev/null 2>&1 || ! command -v neomutt >/dev/null 2>&1 || ! command -v mbsync >/dev/null 2>&1 || ! command -v msmtp >/dev/null 2>&1; then
+		echo "Communications packages: $($packages communications --show)"
+		if confirm Mail 'Install the communications package set now?'; then
+			as_root "$packages" communications --install || return
+		else
+			return
+		fi
+	fi
+	if ! "$secrets" status >/dev/null 2>&1; then
+		fingerprint=$(input Mail 'Existing GPG secret-key fingerprint (import the key first).' '') || return
+		"$secrets" init "$fingerprint" || return
+	fi
+	"$mail_setup"
+}
+
+pause()
+{
+	printf '\nPress Enter to continue.' >&2
+	IFS= read -r ignored
+}
+
+show_status()
+{
+	echo 'SAVED SETTINGS'
+	$profile show
+	echo
+	echo 'NOTIFICATION COLORS'
+	$notify_config show
+	echo
+	echo 'AVAILABLE APPLICATIONS'
+	for item in 'mail:neomutt' 'IRC:irssi' 'XMPP:profanity' 'music:cmus' 'web:w3m' 'Bluetooth:bluetoothctl'; do
+		label=${item%%:*}; command=${item#*:}
+		if command -v "$command" >/dev/null 2>&1; then state=ready; else state='not installed'; fi
+		printf '%-12s %s\n' "$label" "$state"
+	done
+	pause
+}
+
+network_menu()
+{
+	while :; do
+		choice=$(menu Network 'Secure Wi-Fi setup and validation.' \
+			configure 'Enter or replace a Wi-Fi network' \
+			validate 'Run the attended soak, then enable at boot' \
+			status 'Show current network state' \
+			back 'Return to the main menu') || return
+		case "$choice" in
+		configure) as_root "$wifi" || true;;
+		validate) if as_root "$wifi_soak" 600; then as_root "$wifi_persist"; fi || true;;
+		status) "$pocket" open net || true;;
+		back) return;;
+		esac
+	done
+}
+
+communications_menu()
+{
+	while :; do
+		choice=$(menu Communications 'Local mail and reconnectable console chat.' \
+			apps 'Open communicator menu' \
+			mail_setup 'Configure encrypted IMAP/SMTP mail' \
+			mail 'Open NeoMutt' \
+			irc 'Open Irssi' \
+			xmpp 'Open Profanity' \
+			packages 'Install communications tools' \
+			back 'Return to the main menu') || return
+		case "$choice" in
+		apps) "$pocket" open apps || true;;
+		mail_setup) configure_mail || true;;
+		mail) "$pocket" open mail || true;;
+		irc) "$pocket" open irc || true;;
+		xmpp) "$pocket" open xmpp || true;;
+		packages) echo "Communications packages: $($packages communications --show)"; if confirm Communications 'Install now?'; then as_root "$packages" communications --install; fi;;
+		back) return;;
+		esac
+	done
+}
+
+devices_menu()
+{
+	while :; do
+		choice=$(menu 'Devices and media' 'Bluetooth, sound and local media.' \
+			bluetooth 'Open Bluetooth pairing console' \
+			audio 'Open ALSA mixer' \
+			music 'Open cmus' \
+			web 'Open w3m' \
+			packages 'Install media or Bluetooth tools' \
+			back 'Return to the main menu') || return
+		case "$choice" in
+		bluetooth) "$bluetooth" tui || true;;
+		audio) "$pocket" open audio || true;;
+		music) "$pocket" open music || true;;
+		web) "$pocket" open web || true;;
+		packages) install_addon;;
+		back) return;;
+		esac
+	done
+}
+
+workspace_menu()
+{
+	while :; do
+		choice=$(menu Workspace 'Choose what the tmux desktop opens.' \
+			windows 'Choose default named windows' \
+			packages 'Choose the base package profile' \
+			launch 'Launch the pocket desktop' \
+			help 'Open keyboard and workspace help' \
+			back 'Return to the main menu') || return
+		case "$choice" in
+		windows) choose_windows;;
+		packages) choose_packages;;
+		launch) exec "$pocket" launch;;
+		help) "$pocket" open help || true;;
+		back) return;;
+		esac
+	done
+}
+
+appearance_menu()
+{
+	while :; do
+		choice=$(menu Appearance 'Display, power-saving and quiet notification preferences.' \
+			display 'Backlight and blank timeout preset' \
+			custom 'Custom brightness and blank timeout' \
+			notify 'LED and tmux notification preferences' \
+			timezone 'Timezone' \
+			session 'Default local session: pocket, GUI or shell' \
+			login 'Optional local autologin' \
+			back 'Return to the main menu') || return
+		case "$choice" in display) choose_power_preset;; custom) choose_display;; notify) choose_notifications;; timezone) as_root /usr/sbin/dpkg-reconfigure --frontend=dialog tzdata || true;; session) n810-session choose ;; login)
+ login_choice=$(menu Login 'Local tty1 autologin (SSH unchanged).' on 'Enable autologin as nokia' off 'Require password login' back 'Keep current setting') || continue
+ case "$login_choice" in
+ on) if confirm Login 'Anyone holding the tablet can enter the session. Enable local autologin?'; then as_root /usr/local/sbin/n810-login on; fi;;
+ off) as_root /usr/local/sbin/n810-login off;;
+ esac;; back) return;; esac
+ done
+}
+
+finish_setup()
+{
+	dir=$(dirname "$complete")
+	mkdir -p "$dir"
+	umask 077
+	: > "$complete"
+	chmod 600 "$complete"
+}
+
+guided_setup()
+{
+	echo
+	echo 'This short setup saves only non-secret preferences in your profile.'
+	echo 'Wi-Fi credentials go directly to a protected root-owned file.'
+	echo
+	choose_packages || return 1
+	if confirm Account 'Change the public bootstrap password now?'; then
+		change_password || echo 'Password was not changed; you can retry from Account.' >&2
+	fi
+	choose_windows || return 1
+	n810-session choose || return 1
+	if confirm Network 'Configure a Wi-Fi network now? The passphrase input is hidden.'; then
+		as_root "$wifi" || {
+			echo 'Wi-Fi was not configured. You can retry from Network.' >&2
+		}
+	fi
+	choose_power_preset || return 1
+	choose_notifications || return 1
+	echo
+	echo 'SETUP SUMMARY'
+	$profile show
+	if ! confirm 'N810 first run' 'Finish setup with these settings?'; then
+		echo 'Setup is still incomplete; your saved choices are safe to revisit.'
+		return 1
+	fi
+	finish_setup
+	if confirm 'N810 first run' 'Launch your selected session now?'; then exec n810-session launch; fi
+	return 0
+}
+
+if test "${1:-}" = --show; then exec "$profile" show; fi
+if test "${1:-}" = --launch; then finish_setup; exec n810-session launch; fi
+if test "${1:-}" != ''; then echo 'Usage: n810-setup [--show|--launch]' >&2; exit 2; fi
+
+if test ! -e "$complete"; then
+	choice=$(menu 'Welcome to the N810' 'Choose a guided first run or open the task menu.' \
+		guided 'Guided setup (recommended)' \
+		tasks 'Choose individual setup tasks' \
+		later 'Exit and continue at the next tty1 login') || exit 0
+	case "$choice" in
+	guided) if guided_setup; then exit 0; fi;;
+	tasks) :;;
+	later) exit 0;;
+	esac
+fi
+
+while :; do
+	choice=$(menu 'N810 first run' 'Choose a task. Settings remain safe to revisit.' \
+		account 'Change the login password' \
+		network 'Network' \
+		communications 'Mail and chat' \
+		workspace 'Tmux workspace and package role' \
+		appearance 'Display, power saving and notifications' \
+		devices 'Bluetooth, audio and media' \
+		status 'Readiness and saved settings' \
+		help 'Keyboard reference' \
+		launch 'Finish setup and launch the selected session' \
+		done 'Finish setup') || exit 0
+	case "$choice" in
+	account) change_password;;
+	network) network_menu;;
+	communications) communications_menu;;
+	workspace) workspace_menu;;
+	appearance) appearance_menu;;
+	devices) devices_menu;;
+	status) show_status;;
+	help) "$pocket" open help || true;;
+	launch) finish_setup; exec n810-session launch;;
+	done) finish_setup; exit 0;;
+	esac
+done

@@ -1,0 +1,80 @@
+#!/bin/sh
+# Reversible userspace charging mode. Charger policy remains in the kernel.
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+screen_dir=${N810_MODE_SCREEN_DIR:-/run/n810-screen}
+state=${N810_MODE_STATE_DIR:-/run/n810-mode}
+init_dir=${N810_MODE_INIT_DIR:-/etc/init.d}
+screen=${N810_MODE_SCREEN_COMMAND:-/usr/local/sbin/n810-screen}
+online=${N810_MODE_ONLINE:-/sys/class/power_supply/tahvo-charger/online}
+marker=$screen_dir/quiet-charging
+case "${1:-}" in
+status) if test -e "$marker"; then echo charging; else echo normal; fi; exit 0;;
+charging|normal) ;;
+*) echo 'Usage: n810-mode {charging|normal|status}' >&2; exit 2;;
+esac
+test "$(id -u)" = 0 || { echo 'Mode changes require root.' >&2; exit 1; }
+mkdir -p "$state" "$screen_dir"
+exec 9>"$state/lock"
+flock -n 9 || { echo 'Another mode change is in progress.' >&2; exit 1; }
+
+restore()
+{
+	# Keep recovery state until every paused service has restarted successfully.
+	failed=0
+	for name in n810-backlightd n810-displayd n810-wifi chrony; do
+		if test -e "$state/$name"; then
+			if "$init_dir/$name" start 9>&-; then rm -f "$state/$name"; else failed=1; fi
+		fi
+	done
+	if test -e "$screen_dir/locked" ||
+	   { test "${1:-normal}" = rollback && test -e "$state/screen-off"; }; then
+		"$screen" off 9>&- || failed=1
+	else
+		"$screen" on 9>&- || failed=1
+	fi
+	if test "$failed" != 0; then
+		echo 'Restore incomplete; retry n810-mode normal over USB SSH.' >&2
+		return 1
+	fi
+	rm -f "$marker" "$state/screen-off"
+}
+
+if test "$1" = normal; then
+	test -e "$marker" || exit 0
+	restore
+	echo 'Normal mode restored.'
+	exit 0
+fi
+test -e "$marker" && { echo 'Quiet charging mode is already active.'; exit 0; }
+test "$(cat "$online")" = 1 || { echo 'Connect the round charger first.' >&2; exit 1; }
+"$init_dir/n810-wake" status 9>&- >/dev/null 2>&1 || {
+	echo 'Power-button wake service is unavailable.' >&2; exit 1;
+}
+# Probe before changing anything. Unknown service status is not safe to guess.
+for name in n810-backlightd n810-displayd n810-wifi chrony; do
+	if "$init_dir/$name" status 9>&- >/dev/null 2>&1; then
+		: > "$state/$name"
+	else
+		result=$?
+		if test "$result" != 3; then
+			rm -f "$state/n810-backlightd" "$state/n810-displayd" "$state/n810-wifi" "$state/chrony"
+			echo "Cannot determine $name state (exit $result)." >&2
+			exit 1
+		fi
+	fi
+done
+if test -e "$screen_dir/blanked" || test -e "$screen_dir/hold"; then : > "$state/screen-off"; fi
+: > "$marker"
+# A failed entry restores what was active. No service startup is disabled.
+trap 'restore rollback || true; exit 1' HUP INT TERM
+for name in chrony n810-wifi n810-displayd n810-backlightd; do
+	if test -e "$state/$name" && ! "$init_dir/$name" stop 9>&-; then
+		restore rollback || true
+		exit 1
+	fi
+done
+if ! "$screen" off 9>&-; then restore rollback || true; exit 1; fi
+trap - HUP INT TERM
+echo 'Quiet charging: LCD and keyboard light off; managed Wi-Fi, time sync and LCD lighting policy paused. Short Power press returns to normal. USB SSH remains available.'

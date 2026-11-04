@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "nets": [
+    {"id":"k7led-social","name":"Mike & Key Social Net","call":"K7LED","frequency_mhz":146.82,"mode":"FM","weekdays":[0,1,3,4,5,6],"time":"19:30","timezone":"America/Los_Angeles","source_url":"https://mikeandkey.org/nets.php","checked":"2026-10-15","notes":"Published nightly net except Wednesday. Reception from QTH unverified."},
+    {"id":"k7led-technical","name":"Mike & Key Technical Net","call":"K7LED","frequency_mhz":146.82,"mode":"FM","weekdays":[2],"time":"19:30","timezone":"America/Los_Angeles","source_url":"https://mikeandkey.org/nets.php","checked":"2026-10-15","notes":"Published Wednesday technical net."},
+    {"id":"k7led-checkin","name":"Mike & Key Member / Visitor Check-In","call":"K7LED","frequency_mhz":146.82,"mode":"FM","weekdays":[3],"time":"18:30","timezone":"America/Los_Angeles","source_url":"https://mikeandkey.org/nets.php","checked":"2026-10-15","notes":"Published Thursday check-in; open to members and visitors."},
+    {"id":"k7led-emcomm","name":"Mike & Key Emergency Comms Net","call":"K7LED","frequency_mhz":146.82,"mode":"FM","weekdays":[2],"time":"19:00","timezone":"America/Los_Angeles","source_url":"https://mikeandkey.org/nets.php","checked":"2026-10-15","notes":"Published Wednesday net. Confirm current operating details with club."}
+  ]
+}

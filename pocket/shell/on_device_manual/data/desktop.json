@@ -1,0 +1,139 @@
+{
+  "owner": "desktop",
+  "revision": "2026-10-24.2",
+  "pages": [
+    {
+      "id": "desktop.navigation",
+      "app": "Desktop",
+      "title": "Navigation and window commands",
+      "owner": "desktop",
+      "revision": "2026-10-24.2",
+      "scope": "Offline manual; app-owned versioned help",
+      "keywords": [
+        "keyboard",
+        "shortcuts",
+        "move",
+        "resize"
+      ],
+      "sources": [
+        "explorations/current-world/core.py",
+        "explorations/current-world/demo.py"
+      ],
+      "sections": {
+        "Overview": [
+          "The desktop distinguishes application input from window-manager commands. Focus determines which application receives ordinary keys."
+        ],
+        "Setup / example": [
+          "Open the application menu with the configured WM escape followed by comma. The default WM escape is Ctrl+]. Choose an application; merely reading Help never opens it."
+        ],
+        "Controls": [
+          "F6 / Shift-F6 selects the next / previous window. In WM mode, m starts moving and r starts resizing; arrows or hjkl adjust, Enter commits and Esc cancels. X closes and Z maximizes/restores in WM mode.",
+          "Tab inside an application changes its pane or control; it does not mean next desktop window. Use the configured WM escape to return to app input."
+        ],
+        "Settings / defaults / storage": [
+          "WM escape, move drawing and resize drawing are desktop settings. Outline and live modes are distinct. Layout is saved by the desktop session when that launch permits saving."
+        ],
+        "Lifecycle": [
+          "Closing an app window is not the same operation as quitting the desktop. Preserve your session before selecting another installed app release."
+        ],
+        "Troubleshooting": [
+          "If keys move windows instead of entering text, check whether WM mode is active. If physical dragging is delayed, a documented binding does not establish that the installed input path is responsive."
+        ]
+      },
+      "see_also": [
+        "desktop.focus",
+        "desktop.launch",
+        "services.lifecycle"
+      ]
+    },
+    {
+      "id": "desktop.focus",
+      "app": "Desktop",
+      "title": "Panes, search and contextual Help",
+      "owner": "desktop",
+      "revision": "2026-10-24.2",
+      "scope": "Offline manual; app-owned versioned help",
+      "keywords": [
+        "help",
+        "find",
+        "search",
+        "focus"
+      ],
+      "sources": [
+        "explorations/current-world/help_browser.py",
+        "explorations/current-world/app_help_content.py"
+      ],
+      "sections": {
+        "Overview": [
+          "A desktop window can contain several app-owned panes. The focused pane determines list navigation and scrolling."
+        ],
+        "Setup / example": [
+          "Open Help from the desktop. Contextual Help is built from the focused app when that app supplies help_pages or registration help. Unavailable app help falls back to Desktop."
+        ],
+        "Controls": [
+          "In the existing Help browser, Up/Down or j/k selects entries, Enter opens, Tab changes pane and Esc backs out. / searches the current list. PageUp/PageDown and Home/End scroll reading.",
+          "Ctrl-F searches the manual titles, keywords and text. Legacy app-help pages remain available through their app/topic lists and / list search. Open a result with Enter; numbered See also references follow local topics. Backspace returns from a linked topic."
+        ],
+        "Settings / defaults / storage": [
+          "Help remembers pane ratio/focus through its existing session adapter. Reading documentation does not change an application setting."
+        ],
+        "Lifecycle": [
+          "Opening or searching this manual does not instantiate domain apps, connect services or start radio work. Search indexes the authored manual pages; it does not index every legacy app-help page. See also references open local documentation only."
+        ],
+        "Troubleshooting": [
+          "A list search can miss a word that appears only in topic text. Use Ctrl-F for manual text. If a key belongs to a search field, Esc cancels that search before changing focus."
+        ]
+      },
+      "see_also": [
+        "desktop.navigation",
+        "desktop.launch"
+      ]
+    },
+    {
+      "id": "desktop.launch",
+      "app": "Desktop",
+      "title": "Laptop, replay and Nokia launch paths",
+      "owner": "desktop",
+      "revision": "2026-10-24.2",
+      "scope": "Offline manual; app-owned versioned help",
+      "keywords": [
+        "make",
+        "version",
+        "rollback",
+        "launch",
+        "tmux"
+      ],
+      "sources": [
+        "explorations/current-world/Makefile",
+        "explorations/current-world/current_release.py",
+        "packet-console/device/pocket-console/console_helper.py"
+      ],
+      "sections": {
+        "Overview": [
+          "The laptop launcher, physical Nokia console helper and development source are separate execution paths. A successful laptop preview is not a Nokia installation."
+        ],
+        "Setup / example": [
+          "From the consolidated pocket tree, make n810 launches the local desktop shell. Local services attach after its first display; remote services are selected in Connections. This command does not install a release on the tablet.",
+          "On a tablet with the fixed helpers installed, n810-versions selects from the installed app catalog outside the desktop. Close Pocket before switching. The normal tablet launcher is sudo -n /usr/local/sbin/n810-pocket-console run."
+        ],
+        "Controls": [
+          "The tablet chooser uses Up/Down or j/k, Enter to select, R to run and Q to quit. Its installed catalog is authoritative."
+        ],
+        "Settings / defaults / storage": [
+          "make n810 runs the current consolidated source. The physical tablet runs its selected installed release. Its version can differ until a checked package is installed. Use --no-local-services to start with local services detached."
+        ],
+        "Lifecycle": [
+          "A saved configuration snapshot is separate from an app artifact. Restoring an old snapshot must be deliberate with the desktop closed; do not overwrite a running session."
+        ],
+        "Troubleshooting": [
+          "If a preview differs from the default, check the selected release and launch path before comparing behavior. Read a current run receipt instead of guessing the newest file is active."
+        ]
+      },
+      "see_also": [
+        "desktop.navigation",
+        "services.lifecycle",
+        "aprs.setup"
+      ]
+    }
+  ]
+}

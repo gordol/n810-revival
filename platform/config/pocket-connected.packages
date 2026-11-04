@@ -1,0 +1,10 @@
+# Minimal profile plus wireless networking and remote access tools.
+tmux
+whiptail
+kbd
+wpasupplicant
+isc-dhcp-client
+iw
+iproute2
+ca-certificates
+openssh-client

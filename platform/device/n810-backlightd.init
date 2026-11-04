@@ -1,0 +1,40 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          n810-backlightd
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Nokia N810 keyboard backlight policy
+### END INIT INFO
+
+set -eu
+daemon=/usr/local/sbin/n810-backlightd
+pidfile=/run/n810-backlightd.pid
+
+case "${1:-}" in
+	start)
+		start-stop-daemon --start --quiet --background --make-pidfile \
+			--pidfile "$pidfile" --exec "$daemon"
+		;;
+	stop)
+		start-stop-daemon --stop --quiet --retry TERM/3/KILL/2 \
+			--pidfile "$pidfile" --remove-pidfile || true
+		;;
+	restart|force-reload)
+		"$0" stop
+		"$0" start
+		;;
+	status)
+		if start-stop-daemon --stop --test --quiet --pidfile "$pidfile" --exec "$daemon"; then
+			"$daemon" --status
+		else
+			echo 'n810-backlightd is not running' >&2
+			exit 3
+		fi
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+		exit 2
+		;;
+esac

@@ -1,0 +1,35 @@
+# Legacy pre-charge17 experiment retained for comparison; not installed.
+# Nokia N810 console Fn layer. The keyboard controller reports Fn as Left Alt.
+# Keep the plain and Shift layers unchanged; replace only Alt+key symbols.
+
+# Fn + Q..P: number row
+alt keycode 16 = one
+alt keycode 17 = two
+alt keycode 18 = three
+alt keycode 19 = four
+alt keycode 20 = five
+alt keycode 21 = six
+alt keycode 22 = seven
+alt keycode 23 = eight
+alt keycode 24 = nine
+alt keycode 25 = zero
+
+# Fn + A..L: common shell punctuation
+alt keycode 30 = exclam
+alt keycode 31 = at
+alt keycode 32 = numbersign
+alt keycode 33 = dollar
+alt keycode 34 = percent
+alt keycode 35 = asciicircum
+alt keycode 36 = ampersand
+alt keycode 37 = asterisk
+alt keycode 38 = bar
+
+# Fn + Z..M: programmer punctuation
+alt keycode 44 = bracketleft
+alt keycode 45 = bracketright
+alt keycode 46 = braceleft
+alt keycode 47 = braceright
+alt keycode 48 = backslash
+alt keycode 49 = slash
+alt keycode 50 = asciitilde

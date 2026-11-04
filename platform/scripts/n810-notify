@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+profile=${N810_PROFILE_BIN:-n810-profile}
+enabled=$($profile get notifications)
+color=$($profile get notification_color)
+seconds=$($profile get notification_seconds)
+message=${2:-${1:-Notification}}
+
+test "$enabled" = on || exit 0
+if test "$seconds" -gt 0 && command -v n810-ledctl >/dev/null 2>&1; then
+	n810-ledctl notify "$color" "$seconds" >/dev/null 2>&1 || true
+fi
+if test -n "${TMUX:-}" && command -v tmux >/dev/null 2>&1; then
+	tmux display-message -- "$message" 2>/dev/null || true
+else
+	printf '%s\n' "$message"
+fi

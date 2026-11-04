@@ -1,0 +1,20 @@
+{
+  "approved_artwork_commit": "1108338e1984e79300bc8cc23a3d655f5cac49b4",
+  "semantic_mapping_commit": "ed84e67eb2e76c10150fa085cb1682278bee4176",
+  "canonical_base": "Fresh operator-confirmed selected512glyph8x16 resource, copied byte exact from current-world/heard/fonts/n810-ui-512.psf; local integration heard/font differs and was rejected by identity guard",
+  "canonical_base_sha256": "12753ff115ad2fc254436f0e4684832a9998f1021f99a974ad1cfec6cbbc7461",
+  "capability": "N810_ICON_PROFILE=compact-v1 only after operator verifies installed matching font. Unset uses semantic one-cell BMP or ASCII fallback; no TERM/SSH guesses.",
+  "deployment": "No font selection, helper, device, permission or default changes in this source commit.",
+  "files": {
+    "README.md": "1ad7a472062a2364898f36104ba277dd10666407f49575ff09bbb379cac31c32",
+    "approved-preview-1108338.psf": "b546f245e57e994021c0211bfde84c3b33d6ca3df7a4369f1151ea8e3ac650c4",
+    "approved-preview-manifest-1108338.json": "ef23fbdde932de008016d0ad725c594235d2eaf6e8c00d8ac1b4025df80c08d4",
+    "base-console-8x16.psf": "cf22797a36afe2a0f503128ab64ed8f1b1518afb5af728806f2cd9282d95301c",
+    "canonical-base-8x16.psf": "12753ff115ad2fc254436f0e4684832a9998f1021f99a974ad1cfec6cbbc7461",
+    "compatible-manifest.json": "5d22cf6959c0b04c490f8245e2908d63d1b3dc456b0bc40e5eedba34b2b834e3",
+    "graft.py": "43c26483e3b9a717155a767927808e4a8b234c146c81dc05a9fa4f877ff811af",
+    "manifest.json": "08429fef2757ad195af5e4f3552d08cc3ecb54e0fb4c67c4715d3d4a353ca39d",
+    "n810-icons-8x16.psf": "144268edc285ed2d65fb0abcae9bc5ef85607f32fa82f3b21d6853d86fd77284",
+    "n810-ui-icons-8x16.psf": "997fb9a4871c41e5d2205d1a43e214a7bd837929f9ed2a29c2b9731a37e8349d"
+  }
+}

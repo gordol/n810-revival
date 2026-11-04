@@ -1,0 +1,224 @@
+#!/bin/sh
+set -eu
+
+# Production builds keep test path overrides compiled off. The offline
+# validator instruments a private temporary copy and never packages it.
+test_overrides_allowed=0
+card=${N810_ALSA_CARD:-N810}
+pcm=${N810_ALSA_PCM:-hw:${card},0}
+if test "${N810_AUDIO_TEST_MODE:-0}" = 1; then
+	test "$test_overrides_allowed" = 1 || {
+		echo 'n810-audio test overrides are disabled in this build' >&2
+		exit 1
+	}
+	asound_cards=${N810_ASOUND_CARDS:-/proc/asound/cards}
+	pcm_gate=${N810_AUDIO_PCM_GATE:-/run/n810-audio/pcm-approved-kernel}
+	stat_cmd=${N810_STAT:-stat}
+	uname_cmd=${N810_UNAME:-uname}
+	cat_cmd=${N810_CAT:-cat}
+	wc_cmd=${N810_WC:-wc}
+	tr_cmd=${N810_TR:-tr}
+else
+	test -z "${N810_ASOUND_CARDS-}" || {
+		echo 'N810_ASOUND_CARDS is available only in an instrumented test build' >&2
+		exit 1
+	}
+	test -z "${N810_AUDIO_PCM_GATE-}" || {
+		echo 'N810_AUDIO_PCM_GATE is available only in an instrumented test build' >&2
+		exit 1
+	}
+	test -z "${N810_STAT-}" || {
+		echo 'N810_STAT is available only in an instrumented test build' >&2
+		exit 1
+	}
+	test -z "${N810_UNAME-}" || {
+		echo 'N810_UNAME is available only in an instrumented test build' >&2
+		exit 1
+	}
+	test -z "${N810_CAT-}" || {
+		echo 'N810_CAT is available only in an instrumented test build' >&2
+		exit 1
+	}
+	test -z "${N810_WC-}" || {
+		echo 'N810_WC is available only in an instrumented test build' >&2
+		exit 1
+	}
+	test -z "${N810_TR-}" || {
+		echo 'N810_TR is available only in an instrumented test build' >&2
+		exit 1
+	}
+	asound_cards=/proc/asound/cards
+	pcm_gate=/run/n810-audio/pcm-approved-kernel
+	stat_cmd=/usr/bin/stat
+	uname_cmd=/usr/bin/uname
+	cat_cmd=/usr/bin/cat
+	wc_cmd=/usr/bin/wc
+	tr_cmd=/usr/bin/tr
+fi
+
+usage()
+{
+	cat >&2 <<'USAGE'
+Usage: n810-audio COMMAND
+  status             list ALSA cards and playback/capture devices
+  probe              load the N810 audio modules, then report probe state
+  mixer              open alsamixer for the N810 card
+  speaker            route output to the built-in speakers
+  headphones         route output to the headphone jack
+  mute               disable speaker and headphone routes
+  dmic               select the internal digital microphone
+  pcm-status         show whether PCM streaming is approved for this boot
+  play-test          play one short stereo test tone (safety-gated)
+  record-test FILE   capture five seconds of stereo 48 kHz audio (safety-gated)
+  run PROGRAM [ARG ...]
+                     run a playback frontend through the same safety gate
+USAGE
+	exit 2
+}
+
+exact_args()
+{
+	test "$#" -eq 2 && test "$1" -eq "$2" || usage
+}
+
+pcm_approved()
+{
+	test -f "$pcm_gate" && test -r "$pcm_gate" || return 1
+	metadata=$("$stat_cmd" -c '%u %a' "$pcm_gate" 2>/dev/null) || return 1
+	set -- $metadata
+	test "$#" -eq 2 && test "$1" -eq 0 || return 1
+	# Group/other may read the release, but only root may replace its contents.
+	case $2 in
+	*[2367][0-7]|*[0-7][2367]) return 1 ;;
+	esac
+	kernel=$("$uname_cmd" -r)
+	contents=$("$cat_cmd" "$pcm_gate") || return 1
+	test "$contents" = "$kernel" || return 1
+	bytes=$("$wc_cmd" -c < "$pcm_gate" | "$tr_cmd" -d ' ')
+	# Command substitution strips trailing newlines. Accept the exact kernel
+	# release with zero or one final newline, but reject any extra bytes.
+	test "$bytes" -eq "${#kernel}" ||
+		test "$bytes" -eq $((${#kernel} + 1))
+}
+
+need_pcm_approval()
+{
+	pcm_approved && return 0
+	cat >&2 <<EOF
+PCM streaming is disabled for this boot. The first N810 playback test hard-
+locked the tablet. After an attended kernel candidate passes its idle safety
+gate, a person may approve only that running kernel by writing its exact
+uname -r value to:
+  $pcm_gate
+The file belongs under /run so approval never survives a reboot.
+EOF
+	exit 1
+}
+
+has_n810_card()
+{
+	test -r "$asound_cards" &&
+		grep -Eq '^[[:space:]]*[0-9]+[[:space:]]+\[N810[[:space:]]*\]' "$asound_cards"
+}
+
+probe()
+{
+	test "$(id -u)" -eq 0 || {
+		echo 'n810-audio probe must run as root' >&2
+		exit 1
+	}
+	modprobe snd-soc-tlv320aic3x-i2c
+	modprobe snd-soc-omap-mcbsp
+	modprobe snd-soc-n810
+	sleep 1
+	cat "$asound_cards" 2>/dev/null || echo 'No ALSA cards file'
+	if ! has_n810_card; then
+		echo 'Audio modules loaded, but the N810 ALSA card did not register.' >&2
+		echo 'Capture: dmesg; /proc/modules; /proc/asound/cards; aplay -l; arecord -l' >&2
+		exit 1
+	fi
+}
+
+need_card()
+{
+	has_n810_card || {
+		echo 'The N810 ALSA sound card is not registered' >&2
+		echo 'Run n810-audio probe before changing userland audio.' >&2
+		exit 1
+	}
+}
+
+case ${1:-} in
+probe)
+	exact_args "$#" 1
+	probe
+	;;
+status)
+	exact_args "$#" 1
+	cat "$asound_cards" 2>/dev/null || echo 'No ALSA cards file'
+	aplay -l 2>/dev/null || true
+	arecord -l 2>/dev/null || true
+	;;
+mixer)
+	exact_args "$#" 1
+	need_card
+	exec alsamixer -c "$card"
+	;;
+speaker)
+	exact_args "$#" 1
+	need_card
+	amixer -c "$card" sset 'Jack Function' Off
+	amixer -c "$card" sset 'Speaker Function' On
+	;;
+headphones)
+	exact_args "$#" 1
+	need_card
+	amixer -c "$card" sset 'Speaker Function' Off
+	amixer -c "$card" sset 'Jack Function' Headphone
+	;;
+mute)
+	exact_args "$#" 1
+	need_card
+	amixer -c "$card" sset 'Speaker Function' Off
+	amixer -c "$card" sset 'Jack Function' Off
+	;;
+dmic)
+	exact_args "$#" 1
+	need_card
+	amixer -c "$card" sset 'Input Select' 'Digital Mic'
+	;;
+pcm-status)
+	exact_args "$#" 1
+	if pcm_approved; then
+		printf 'pcm_streaming=approved kernel=%s gate=%s\n' "$("$uname_cmd" -r)" "$pcm_gate"
+	else
+		printf 'pcm_streaming=blocked kernel=%s gate=%s\n' "$("$uname_cmd" -r)" "$pcm_gate"
+		exit 1
+	fi
+	;;
+play-test)
+	exact_args "$#" 1
+	need_card
+	need_pcm_approval
+	exec speaker-test -D "$pcm" -c 2 -r 48000 -F S16_LE -t sine -l 1
+	;;
+record-test)
+	exact_args "$#" 2
+	need_card
+	need_pcm_approval
+	exec arecord -D "$pcm" -c 2 -r 48000 -f S16_LE -d 5 -- "$2"
+	;;
+run)
+	test "$#" -ge 2 || usage
+	need_card
+	need_pcm_approval
+	shift
+	test "$#" -gt 0 || usage
+	command -v "$1" >/dev/null 2>&1 || {
+		echo "$1 is not installed" >&2
+		exit 1
+	}
+	exec "$@"
+	;;
+*) usage ;;
+esac

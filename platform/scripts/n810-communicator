@@ -1,0 +1,103 @@
+#!/bin/sh
+# Small runtime menu and readiness summary for the pocket communicator.
+set -eu
+
+pocket=${N810_POCKET_BIN:-n810-pocket}
+mail_sync=${N810_MAIL_SYNC_BIN:-n810-mail-sync}
+audio=${N810_AUDIO_BIN:-n810-audio}
+
+installed()
+{
+	if command -v "$1" >/dev/null 2>&1; then printf installed; else printf missing; fi
+}
+
+mail_configured()
+{
+	test -s "$HOME/.mbsyncrc" && test -s "$HOME/.msmtprc" &&
+		test -s "${XDG_CONFIG_HOME:-$HOME/.config}/neomutt/neomuttrc"
+}
+
+status()
+{
+	if mail_configured; then mail_state=configured; else mail_state='not configured'; fi
+	if command -v "$audio" >/dev/null 2>&1; then
+		audio_state=$($audio pcm-status 2>&1 || true)
+	else
+		audio_state='n810-audio missing'
+	fi
+	cat <<EOF
+POCKET COMMUNICATOR READINESS
+
+Mail       neomutt=$(installed neomutt) mbsync=$(installed mbsync) msmtp=$(installed msmtp)
+           configuration=$mail_state
+Chat       irssi=$(installed irssi) profanity=$(installed profanity)
+Web        w3m=$(installed w3m) lynx=$(installed lynx)
+Mesh       nomadnet=$(installed nomadnet) rnstatus=$(installed rnstatus)
+Bluetooth  bluetoothctl=$(installed bluetoothctl); controller requires attended hci0 validation
+Audio      $audio_state
+
+Google Chat   maintained-host gateway required; no native client is claimed
+Google Voice  receive-only mail notifications; calls/SMS are not claimed
+EOF
+}
+
+open_window()
+{
+	exec "$pocket" open "$1"
+}
+
+pause()
+{
+	printf '\nPress Enter to return.' >&2
+	IFS= read -r ignored
+}
+
+menu()
+{
+	while :; do
+		cat <<'EOF'
+
+N810 COMMUNICATOR
+  1) Readiness
+  2) Sync mail
+  3) Mail       4) IRC        5) XMPP
+  6) Web        7) Bluetooth  8) Audio mixer
+  9) Music      m) NomadNet   g) Gopher
+  q) Quit
+EOF
+		printf '> ' >&2
+		IFS= read -r choice || return 0
+		case "$choice" in
+		1) status; pause;;
+		2) "$mail_sync" || true; pause;;
+		3) open_window mail;;
+		4) open_window irc;;
+		5) open_window xmpp;;
+		6) open_window web;;
+		7) open_window bt;;
+		8) open_window audio;;
+		9) open_window music;;
+		m) open_window mesh;;
+		g) open_window gopher;;
+		q|Q) return 0;;
+		*) echo 'Choose 1-9, m, g or q.' >&2;;
+		esac
+	done
+}
+
+case ${1:-menu} in
+status)
+	test "$#" -eq 1 || { echo 'Usage: n810-communicator [status|open WINDOW]' >&2; exit 2; }
+	status
+	;;
+open)
+	test "$#" -eq 2 || { echo 'Usage: n810-communicator open WINDOW' >&2; exit 2; }
+	case "$2" in mail|irc|xmpp|web|bt|audio|music|mesh|gopher) open_window "$2";;
+	*) echo 'Unknown communicator window.' >&2; exit 2;; esac
+	;;
+menu)
+	test "$#" -le 1 || { echo 'Usage: n810-communicator [status|open WINDOW]' >&2; exit 2; }
+	menu
+	;;
+*) echo 'Usage: n810-communicator [status|open WINDOW]' >&2; exit 2;;
+esac

@@ -1,0 +1,3 @@
+# Logical swap capacity; compressed pages consume RAM only as used.
+SIZE_MIB=128
+ALGORITHM=lzo-rle

@@ -1,0 +1,21 @@
+# N810 console overlay for hardware buttons and Control+arrow sequences. Fn chords are translated by
+# n810-fn-remap on the grabbed internal LM8323 device, so an external
+# keyboard's AltGr layer remains exactly as configured by the user.
+# Menu/Home/Fullscreen/Zoom+/Zoom- arrive as F13--F17.
+keycode 183 = F13
+keycode 184 = F14
+keycode 185 = F15
+keycode 186 = F16
+keycode 187 = F17
+
+# N810 Ctrl-arrow resize fix v1
+# Preserve plain arrows and modifiers; give Control+arrows distinct sequences.
+# F100-F103 are unused string slots in the inspected N810 console map.
+control keycode 103 = F100
+control keycode 108 = F101
+control keycode 106 = F102
+control keycode 105 = F103
+string F100 = "\033[1;5A"
+string F101 = "\033[1;5B"
+string F102 = "\033[1;5C"
+string F103 = "\033[1;5D"

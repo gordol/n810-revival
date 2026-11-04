@@ -1,0 +1,63 @@
+#!/bin/sh
+# Report WLAN state without reading or printing protected configuration.
+set -eu
+PATH=${N810_PATH:-$PATH:/usr/sbin:/sbin}
+export PATH
+
+iface=${N810_WIFI_INTERFACE:-wlan0}
+country=${N810_WIFI_COUNTRY:-US}
+case "$iface" in *[!A-Za-z0-9_.:-]*) echo 'Invalid interface name.' >&2; exit 2;; esac
+test "$iface" = wlan0 || { echo 'The managed Wi-Fi path supports wlan0 only.' >&2; exit 2; }
+case "$country" in [A-Z][A-Z]) :;; *) echo 'Country must be a two-letter uppercase code.' >&2; exit 2;; esac
+
+count=0
+if command -v pgrep >/dev/null 2>&1; then
+	count=$(pgrep -xc wpa_supplicant 2>/dev/null || true)
+fi
+printf 'wpa_supplicant_instances=%s\n' "$count"
+service_command=${N810_WIFI_SERVICE_COMMAND:-/usr/local/sbin/n810-wifi-service}
+managed=0
+backend=none
+init_system=${N810_INIT_SYSTEM:-auto}
+if test "$init_system" = auto; then
+	if test -d /run/systemd/system && command -v systemctl >/dev/null 2>&1; then init_system=systemd
+	elif test -x "${N810_WIFI_INIT_SCRIPT:-/etc/init.d/n810-wifi}"; then init_system=sysv
+	else init_system=none
+	fi
+fi
+if test "$init_system" = systemd && command -v systemctl >/dev/null 2>&1; then
+	backend=systemd
+	if systemctl is-active --quiet n810-wifi.service &&
+	   test -x "$service_command" && "$service_command" status >/dev/null 2>&1; then
+		managed=1
+	fi
+elif test "$init_system" = sysv && test -x "${N810_WIFI_INIT_SCRIPT:-/etc/init.d/n810-wifi}"; then
+	backend=sysv
+	if "${N810_WIFI_INIT_SCRIPT:-/etc/init.d/n810-wifi}" status >/dev/null 2>&1; then managed=1; fi
+fi
+printf 'managed_service_backend=%s\n' "$backend"
+printf 'managed_service_active=%s\n' "$managed"
+test "$count" = 1 && test "$managed" = 1 || \
+	echo 'Expected exactly one wpa_supplicant plus DHCP owned by the managed service.' >&2
+
+reg=$(iw reg get)
+link=$(iw dev "$iface" link)
+status=$(wpa_cli -i "$iface" status)
+address=$(ip -4 address show dev "$iface")
+
+printf '%s\n' "$reg"
+printf '%s\n' "$link"
+printf '%s\n' "$status" | sed -n \
+	-e '/^wpa_state=/p' -e '/^ssid=/p' -e '/^bssid=/p' \
+	-e '/^freq=/p' -e '/^pairwise_cipher=/p' -e '/^key_mgmt=/p' \
+	-e '/^ip_address=/p'
+printf '%s\n' "$address"
+
+test "$count" = 1
+test "$managed" = 1
+printf '%s\n' "$reg" | grep -Eq "^country $country:"
+printf '%s\n' "$link" | grep -Fq 'Connected to '
+printf '%s\n' "$status" | grep -Fxq 'wpa_state=COMPLETED'
+printf '%s\n' "$status" | grep -Fxq 'pairwise_cipher=CCMP'
+printf '%s\n' "$status" | grep -Fxq 'key_mgmt=WPA2-PSK'
+printf '%s\n' "$address" | grep -Eq '(^|[[:space:]])inet [0-9]'

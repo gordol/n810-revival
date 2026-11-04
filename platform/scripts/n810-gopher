@@ -1,0 +1,4 @@
+#!/bin/sh
+# Text browser usable from the console or an ordinary GUI terminal.
+set -eu
+exec lynx "${1:-gopher://gopher.floodgap.com}"

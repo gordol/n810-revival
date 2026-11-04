@@ -1,0 +1,211 @@
+#!/bin/sh
+# N810 display control; never suspends the CPU or changes USB networking.
+set -eu
+
+tty=${N810_SCREEN_TTY:-/dev/tty1}
+fb=${N810_SCREEN_FB:-/sys/class/graphics/fb0}
+backlight=${N810_SCREEN_BACKLIGHT:-}
+run_dir=${N810_SCREEN_RUN_DIR:-/run/n810-screen}
+hold=$run_dir/hold
+blanked=$run_dir/blanked
+idle_percent=$run_dir/idle-percent
+manual_brightness=$run_dir/manual-brightness
+saved_brightness=$run_dir/brightness
+effective_brightness=$run_dir/effective-brightness
+default_brightness=${N810_SCREEN_DEFAULT_BRIGHTNESS:-24}
+wake_delay=${N810_SCREEN_WAKE_DELAY:-0.2}
+ambient_path=${N810_AMBIENT_PATH:-/sys/bus/i2c/devices/1-0029/iio:device1/in_illuminance0_input}
+
+if test -z "$backlight"; then
+	attempt=0
+	while test "$attempt" -lt 20 && test -z "$backlight"; do
+		for candidate in /sys/class/backlight/*; do
+			test -w "$candidate/brightness" || continue
+			backlight=$candidate
+			break
+		done
+		test -n "$backlight" || sleep 0.25
+		attempt=$((attempt + 1))
+	done
+fi
+test -w "$fb/blank" || { echo "Missing framebuffer blank control: $fb/blank" >&2; exit 1; }
+test -n "$backlight" && test -w "$backlight/brightness" || {
+	echo "Missing LCD backlight under /sys/class/backlight" >&2
+	exit 1
+}
+mkdir -p "$run_dir"
+
+valid_brightness()
+{
+	case "$1" in *[!0-9]*|'') return 1;; esac
+	test "$1" -ge 1 && test "$1" -le "$(cat "$backlight/max_brightness")"
+}
+
+read_ambient()
+{
+	for path in "$ambient_path" /sys/bus/i2c/devices/1-0029/iio:device*/in_illuminance0_input; do
+		test -r "$path" || continue
+		cat "$path"
+		return
+	done
+	echo 50
+}
+
+remember_brightness()
+{
+	value=$(cat "$backlight/brightness")
+	if test -r "$effective_brightness" && test "$value" = "$(cat "$effective_brightness")"; then
+		return
+	fi
+	if valid_brightness "$value"; then
+		temporary=$saved_brightness.$$
+		printf '%s\n' "$value" > "$temporary"
+		mv "$temporary" "$saved_brightness"
+	fi
+}
+
+restore_brightness()
+{
+	value=$default_brightness
+	if test -r "$saved_brightness"; then
+		candidate=$(cat "$saved_brightness")
+		valid_brightness "$candidate" && value=$candidate
+	fi
+	if ! valid_brightness "$value"; then
+		# A policy default may have been copied from hardware with a larger
+		# brightness range.  Clamp safely to this driver's advertised maximum.
+		value=$(cat "$backlight/max_brightness")
+		valid_brightness "$value" || {
+			echo "Invalid LCD maximum brightness: $value" >&2
+			exit 1
+		}
+	fi
+	lux=$(read_ambient)
+	lux=${lux%%.*}
+	case "$lux" in *[!0-9]*|'') lux=50;; esac
+	if test "$lux" -lt 5; then percent=50
+	elif test "$lux" -lt 50; then percent=70
+	elif test "$lux" -lt 200; then percent=85
+	else percent=100
+	fi
+	idle=100
+	if test -r "$idle_percent"; then idle=$(cat "$idle_percent"); fi
+	case "$idle" in ''|*[!0-9]*) idle=100;; esac
+	test "$idle" -ge 1 && test "$idle" -le 100 || idle=100
+	effective=$((value * percent * idle / 10000))
+	if test -r "$manual_brightness"; then
+		manual=$(cat "$manual_brightness")
+		if valid_brightness "$manual"; then effective=$((manual * idle / 100)); fi
+	fi
+	test "$effective" -ge 1 || effective=1
+	if test -w "$backlight/bl_power"; then echo 0 > "$backlight/bl_power"; fi
+	echo "$effective" > "$backlight/brightness"
+	printf '%s\n' "$effective" > "$effective_brightness"
+}
+
+case "${1:-}" in
+lock)
+    : > "$run_dir/locked"
+    echo 0 > /sys/class/leds/n810::keyboard/brightness
+    exec "$0" off
+    ;;
+unlock)
+    rm -f "$run_dir/locked"
+    exec "$0" on
+    ;;
+off|blank)
+	# Save the user's current desktop brightness before switching the lamp off.
+	remember_brightness
+	if test "$1" = off; then : > "$hold"; else rm -f "$hold"; fi
+	echo 0 > "$backlight/brightness"
+	if test -w "$backlight/bl_power"; then echo 4 > "$backlight/bl_power"; fi
+	echo 1 > "$fb/blank"
+	: > "$blanked"
+	;;
+on)
+	rm -f "$idle_percent"
+	# Poke the VT first: it can itself unblank fb0 when the console blanker
+	# owns the blank state. Keep the settling delay after the final explicit
+	# unblank before restoring the user's last nonzero brightness.
+	if test ! -e "$run_dir/x11-managed"; then
+		TERM=linux setterm --blank poke < "$tty" > "$tty" 2>/dev/null || true
+	fi
+	echo 0 > "$fb/blank"
+	sleep "$wake_delay"
+	restore_brightness
+	rm -f "$hold" "$blanked"
+	;;
+dim)
+	test ! -e "$blanked" && test ! -e "$hold" || exit 0
+	remember_brightness
+	echo 50 > "$idle_percent"
+	restore_brightness
+	;;
+arm)
+	rm -f "$hold"
+	;;
+brighter|dimmer)
+	test ! -e "$blanked" && test ! -e "$hold" || exit 0
+	value=$(cat "$backlight/brightness")
+	max=$(cat "$backlight/max_brightness")
+	step=$((max / 10)); test "$step" -gt 0 || step=1
+	if test "$1" = brighter; then value=$((value + step)); else value=$((value - step)); fi
+	test "$value" -ge 1 || value=1
+	test "$value" -le "$max" || value=$max
+	printf '%s\n' "$value" > "$manual_brightness"
+	echo "$value" > "$backlight/brightness"
+	printf '%s\n' "$value" > "$effective_brightness"
+	;;
+auto)
+	rm -f "$manual_brightness"
+	test ! -e "$blanked" && test ! -e "$hold" || exit 0
+	restore_brightness
+	;;
+brightness)
+	if test "$#" -eq 1; then
+		cat "$backlight/brightness"
+		exit 0
+	fi
+	value=$2
+	valid_brightness "$value" || {
+		echo "Brightness must be 1..$(cat "$backlight/max_brightness")" >&2
+		exit 2
+	}
+	printf '%s\n' "$value" > "$saved_brightness"
+	printf '%s\n' "$value" > "$manual_brightness"
+	echo "$value" > "$backlight/brightness"
+	rm -f "$effective_brightness"
+	;;
+status)
+	blank=$(cat "$fb/blank" 2>/dev/null || true)
+	test -n "$blank" || blank=unknown
+	printf 'framebuffer_blank=%s\n' "$blank"
+	printf 'backlight_brightness='; cat "$backlight/brightness"
+	if test -r "$backlight/actual_brightness"; then
+		printf 'backlight_actual='; cat "$backlight/actual_brightness"
+	fi
+	if test -r "$backlight/bl_power"; then
+		printf 'backlight_power='; cat "$backlight/bl_power"
+	fi
+	printf 'backlight_max='; cat "$backlight/max_brightness"
+	printf 'ambient_lux='; read_ambient
+	if test -r "$effective_brightness"; then
+		printf 'ambient_adjusted_brightness='; cat "$effective_brightness"
+	fi
+	if test -r "$saved_brightness"; then
+		printf 'saved_brightness='; cat "$saved_brightness"
+	else
+		echo 'saved_brightness=unset'
+	fi
+	if test -r "$manual_brightness"; then echo 'brightness_mode=manual'; else echo 'brightness_mode=auto'; fi
+	if test -e "$hold"; then
+		echo 'keyboard-wake=held-off'
+	else
+		echo 'keyboard-wake=armed (requires wake service)'
+	fi
+	;;
+*)
+	echo "Usage: $0 {on|off|blank|dim|arm|brighter|dimmer|auto|brightness [1-MAX]|status}" >&2
+	exit 2
+	;;
+esac

@@ -1,0 +1,50 @@
+{
+  "owner": "messages",
+  "revision": "2026-10-25.1",
+  "pages": [
+    {
+      "id": "messages.chat",
+      "app": "Messages",
+      "title": "Send and receive Reticulum or MeshCore messages",
+      "owner": "messages",
+      "revision": "2026-10-25.1",
+      "scope": "Messages manual",
+      "keywords": [
+        "chat",
+        "LXMF",
+        "MeshCore"
+      ],
+      "sources": [
+        "shell/chat_view.py",
+        "docs/messaging.md"
+      ],
+      "sections": {
+        "Overview": [
+          "Messages provides Reticulum/LXMF direct conversations and MeshCore companion direct/channel chat. APRS remains a receive view with local drafts."
+        ],
+        "Setup / example": [
+          "In Connections, choose the matching service and attach its owner. In Messages press P to select the protocol, then O to connect. Select a contact, press V, and compare the full fingerprint or public key before confirming.",
+          "MeshCore requires a private meshcore-owner.toml and a separate runtime. See docs/messaging.md for installation and configuration."
+        ],
+        "Controls": [
+          "C composes; Ctrl-S explicitly sends. Enter keeps the draft. Escape leaves the editor. Tab switches panes. D disconnects MeshCore.",
+          "Reticulum A publishes or hides messaging discovery. Publication requires confirmation. Discovery starts off."
+        ],
+        "Settings / defaults / storage": [
+          "Drafts stay in memory per owner and conversation. Owners retain bounded binary message history. MeshCore serial is cleartext to the attached radio and requires explicit trusted_peripheral configuration."
+        ],
+        "Lifecycle": [
+          "No radio connects or transmits chat at shell launch. Sent is not delivered. MeshCore direct acknowledgements confirm reception; channel sends provide no group receipt. Shared-key channels do not authenticate individual members."
+        ],
+        "Troubleshooting": [
+          "Unconfirmed means delivery is unknown; review before resending. No route may require explicit Reticulum discovery. Hiding discovery cannot erase earlier announcements.",
+          "Both service endpoints must use binary wire version 2. MeshCore BLE and arbitrary Pocket services over MeshCore are not implemented. Physical MeshCore acceptance remains pending."
+        ]
+      },
+      "see_also": [
+        "reticulum.setup",
+        "reticulum.data"
+      ]
+    }
+  ]
+}

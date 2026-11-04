@@ -1,0 +1,17 @@
+/* The showcase is deliberately scoped; the operator manual stays quiet. */
+.demo-hero { position: relative; overflow: hidden; margin: 1.6rem 0 2rem; padding: 2.1rem 1.6rem 0; color: #ecfff7; background: #081010; border: 1px solid #234d48; box-shadow: 7px 7px 0 #142c30; font-family: var(--md-code-font); }
+.demo-hero::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .18; background: repeating-linear-gradient(0deg, transparent 0 3px, #000 3px 4px); }
+.demo-kicker { position: relative; color: #88cbb6; font-size: .52rem; letter-spacing: .12em; line-height: 1.7; }
+.demo-title { position: relative; margin: 1.3rem 0 1rem; font-size: clamp(1.6rem, 4vw, 3.2rem); font-weight: 900; line-height: 1.06; letter-spacing: -.055em; text-shadow: 3px 3px 0 #135c6a; }
+.md-typeset .demo-deck { position: relative; margin-bottom: 1.7rem; font-size: .7rem; color: #b8cfc6; line-height: 1.7; }
+.demo-bars { display: flex; height: .65rem; margin: 0 -1.6rem; }
+.demo-bars i { flex: 1; background: #1d4b41; }
+.demo-bars i:nth-child(2) { background: #b1b67c; }.demo-bars i:nth-child(3) { background: #41bdd6; }.demo-bars i:nth-child(4) { background: #f5d373; }.demo-bars i:nth-child(5) { background: #fb5263; }.demo-bars i:nth-child(6) { background: #8d52cc; }.demo-bars i:nth-child(7) { background: #498eff; }.demo-bars i:nth-child(8) { background: #c6ffb3; }
+.demo-ribbon { margin: 0 -1.6rem; padding: .5rem .8rem; background: #0c1a1b; font-size: .5rem; letter-spacing: .17em; color: #8faaa4; }
+.demo-lab-label { margin: 1rem 0 .5rem; padding: .55rem .7rem; border-left: 3px solid #b984e6; background: #eee8f6; color: #49345c; font: .53rem/1.6 var(--md-code-font); letter-spacing: .035em; }
+.demo-video { display: block; width: 100%; height: auto; margin: .8rem 0; background: #050808; border: 1px solid #263a3b; border-radius: 3px; }
+.demo-outro { margin: 2rem 0 1rem; padding: 1rem; background: #081010; color: #a6e6c8; font: .65rem/1.6 var(--md-code-font); letter-spacing: .06em; }
+.demo-outro span { display: inline-block; animation: demo-cursor 3s steps(2, jump-none) infinite; }
+@keyframes demo-cursor { 0%, 65% { opacity: 1; } 100% { opacity: .2; } }
+@media (prefers-reduced-motion: reduce) { .demo-outro span { animation: none; } }
+@media (max-width: 500px) { .demo-hero { padding: 1.3rem 1rem 0; box-shadow: 4px 4px 0 #142c30; }.demo-bars,.demo-ribbon { margin-left: -1rem; margin-right: -1rem; }.demo-kicker { font-size: .45rem; }.demo-ribbon { letter-spacing: .07em; } }

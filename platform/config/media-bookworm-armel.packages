@@ -1,0 +1,15 @@
+# Install only after the matching hardware gate in README.md passes.
+# Minimal local audio and console clients:
+alsa-utils
+cmus
+mpg123
+w3m
+curl
+ca-certificates
+
+# Add after the internal controller registers as hci0:
+bluez
+
+# Add after both hci0 and local ALSA pass:
+bluez-alsa-utils
+libasound2-plugin-bluez

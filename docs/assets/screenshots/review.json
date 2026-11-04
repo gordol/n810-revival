@@ -1,0 +1,42 @@
+{
+  "assets/screenshots/console-rgb-20261015.png": {
+    "reviewed": true,
+    "sha256": "70db1d9d9fb1b68a244474add5b0d49b1c34c3044f60d7b70fd4b89568525a81",
+    "provenance": "Physical N810 /dev/fb0 RGB565 capture from isolated tty8 during r4 RGB-ON RAM test, 2026-10-15. Twelve RGB565 swatches matched exact expected values. Unaltered PNG. Visually reviewed: generic color test text and swatches only; no private identifiers, credentials or location data."
+  },
+  "assets/screenshots/console-glyphs-20261016.png": {
+    "reviewed": true,
+    "sha256": "49f3d2dfe74ef2dc97e674281ba492b65992341f7e685361e992547c41822524",
+    "provenance": "Physical N810 framebuffer during corrected R2 temporary 512-slot font trial through tmux, 2026-10-16. All 50 added glyphs matched directly and through tmux; original fonts restored. Unaltered PNG. Visually reviewed: glyph labels, colors and generic kernel diagnostic only; no identifiers, credentials or locations."
+  },
+  "assets/screenshots/native-water-20261020.png": {
+    "reviewed": true,
+    "sha256": "4b0bf7645c58445561458e477ed11d50dfe342ff12db26f9709c926267fada5a",
+    "provenance": "Actual N810 framebuffer, normal console-launch water demonstration, 20 October 2026. Unaltered frame-03.png from native-water-visible-v1-device; RECEIPT.json records native VFP, 726 water samples, 7.1408 s geometry and 65.218 s first coherent output. Visually reviewed: authored landscape, generic performance labels and window chrome only; no credentials, personal positions, identifiers or messages. Single completed view, not animation or scanout timing proof."
+  },
+  "assets/screenshots/terrain-laptop-20261016.png": {
+    "reviewed": true,
+    "sha256": "7015331869589c6593985ec10b389fe0b4a96ac5a266654abc8af9ff62510fdc",
+    "provenance": "Local authored terminal-renderer day/night development preview, 2026-10-16; not a physical N810 screenshot or speed measurement. USGS 3DEP-derived Rainier terrain, procedural vegetation/moon/sky. Unaltered PNG. Visually reviewed: landscape and generic render labels only; no personal tracks, identifiers or secrets."
+  },
+  "assets/demos/terrain-day.mp4": {
+    "reviewed": true,
+    "sha256": "bcbf0846b4a6aceeb62ee5628e37091edde7d774e092ec35d7b840f7022c71c9",
+    "provenance": "Authored local terminal-renderer day loader animation from explorations/current-world/artifacts/loader-day.gif, 2026-10-16. Laptop PTY sequence, not a physical N810 capture or device performance measurement. USGS 3DEP-derived public Rainier terrain with procedural scene/formation effects. MP4 H.264 encoded from original frames and original GIF durations using macOS AVFoundation; PNG is the unaltered middle source frame. Reviewed source scene, labels and sampled frames: no personal identifiers, device credentials, tracks or radio payloads. Eight seconds, 960x600, silent."
+  },
+  "assets/demos/terrain-day-poster.png": {
+    "reviewed": true,
+    "sha256": "38e805741208c6f715ec32d36c83981991f6a76f5b756570f2f5f9b69f53a332",
+    "provenance": "Authored local terminal-renderer day loader animation from explorations/current-world/artifacts/loader-day.gif, 2026-10-16. Laptop PTY sequence, not a physical N810 capture or device performance measurement. USGS 3DEP-derived public Rainier terrain with procedural scene/formation effects. MP4 H.264 encoded from original frames and original GIF durations using macOS AVFoundation; PNG is the unaltered middle source frame. Reviewed source scene, labels and sampled frames: no personal identifiers, device credentials, tracks or radio payloads. Eight seconds, 960x600, silent."
+  },
+  "assets/demos/terrain-night.mp4": {
+    "reviewed": true,
+    "sha256": "dd08611ea1a23226ec513b2a81e8197e18e4a8369e4a50034472c00441309c08",
+    "provenance": "Authored local terminal-renderer night loader animation from explorations/current-world/artifacts/loader-night.gif, 2026-10-16. Laptop PTY sequence, not a physical N810 capture or device performance measurement. USGS 3DEP-derived public Rainier terrain with procedural scene/formation effects. MP4 H.264 encoded from original frames and original GIF durations using macOS AVFoundation; PNG is the unaltered middle source frame. Reviewed source scene, labels and sampled frames: no personal identifiers, device credentials, tracks or radio payloads. Eight seconds, 960x600, silent."
+  },
+  "assets/demos/terrain-night-poster.png": {
+    "reviewed": true,
+    "sha256": "d6d9e154e54533a8fedcfb1d2a75bfef24ed093828394e35f23b6efa21b960b4",
+    "provenance": "Authored local terminal-renderer night loader animation from explorations/current-world/artifacts/loader-night.gif, 2026-10-16. Laptop PTY sequence, not a physical N810 capture or device performance measurement. USGS 3DEP-derived public Rainier terrain with procedural scene/formation effects. MP4 H.264 encoded from original frames and original GIF durations using macOS AVFoundation; PNG is the unaltered middle source frame. Reviewed source scene, labels and sampled frames: no personal identifiers, device credentials, tracks or radio payloads. Eight seconds, 960x600, silent."
+  }
+}

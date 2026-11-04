@@ -1,0 +1,8 @@
+# Optional encrypted mail and lightweight chat clients.
+ca-certificates
+pass
+neomutt
+isync
+msmtp
+irssi
+profanity-light

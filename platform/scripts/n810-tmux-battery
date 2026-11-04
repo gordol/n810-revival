@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+battery=${N810_BATTERY_SYSFS:-/sys/class/power_supply/n8x0-battery}
+
+capacity=$(cat "$battery/capacity" 2>/dev/null || printf '?')
+status=$(cat "$battery/status" 2>/dev/null || printf 'Unknown')
+
+case "$status" in
+	Charging) marker=+ ;;
+	Discharging) marker=- ;;
+	Full) marker== ;;
+	*) marker='?' ;;
+esac
+
+printf 'B:%s%%%s\n' "$capacity" "$marker"

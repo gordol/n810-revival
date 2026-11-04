@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Gopher
+Comment=Browse Gopher with Lynx
+Exec=xterm -title Gopher -e /usr/local/bin/n810-gopher
+TryExec=/usr/local/bin/n810-gopher
+Terminal=false
+Icon=network-workgroup
+Categories=Network;

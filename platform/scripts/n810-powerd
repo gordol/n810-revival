@@ -1,0 +1,230 @@
+#!/bin/sh
+# Minimal N810 battery watchdog. Charging remains kernel-managed.
+set -eu
+
+charger=${N810_CHARGER_SYSFS:-/sys/class/power_supply/tahvo-charger}
+battery=${N810_BATTERY_SYSFS:-/sys/class/power_supply/n8x0-battery}
+run_dir=${N810_POWERD_RUN_DIR:-/run/n810-powerd}
+proc_root=${N810_PROC_ROOT:-/proc}
+interval=${N810_POWERD_INTERVAL:-5}
+shutdown_delay=${N810_POWERD_SHUTDOWN_DELAY:-60}
+shutdown_cmd=${N810_POWERD_SHUTDOWN:-/sbin/shutdown}
+
+read_value()
+{
+	# Match command-substitution text reads without starting cat or a subshell.
+	value=
+	{
+		read_line=
+		while IFS= read -r read_line || test -n "$read_line"; do
+			value="$value$read_line
+"
+			read_line=
+		done
+	} 2>/dev/null < "$1" || value=
+	while :; do
+		case "$value" in *'
+') value=${value%?};; *) break;; esac
+	done
+}
+
+valid_integer()
+{
+	case "$1" in ''|-) return 1;; -*) digits=${1#-};; *) digits=$1;; esac
+	case "$digits" in ''|*[!0-9]*) return 1;; esac
+}
+
+process_starttime()
+{
+	read_value "$proc_root/$1/stat"
+	# comm may contain spaces and parentheses; fields follow its final ')'.
+	case "$value" in *') '*) process_fields=${value##*) };; *) return 1;; esac
+	set -- $process_fields
+	test "$#" -ge 20 || return 1
+	shift 19
+	process_started=$1
+	case "$process_started" in ''|*[!0-9]*) return 1;; esac
+	printf '%s\n' "$process_started"
+}
+
+recorded_process_running()
+{
+	prefix=$1 expected=$2
+	pid=
+	test -r "$prefix/pid" && IFS= read -r pid < "$prefix/pid" || return 1
+	case "$pid" in ''|*[!0-9]*) return 1;; esac
+	kill -0 "$pid" 2>/dev/null || return 1
+	test -d "$proc_root" || return 0
+	if test -r "$prefix/starttime"; then
+		recorded=
+		IFS= read -r recorded < "$prefix/starttime" || return 1
+		process_starttime "$pid" >/dev/null || return 1
+		test -n "$recorded" && test "$recorded" = "$process_started"
+	else
+		tr '\000' '\n' < "$proc_root/$pid/cmdline" 2>/dev/null | grep -Fq "/$expected"
+	fi
+}
+
+case "$shutdown_delay" in *[!0-9]*|'') echo "Invalid shutdown delay" >&2; exit 2;; esac
+test "$shutdown_delay" -ge 10 || { echo "Shutdown delay must be at least 10 seconds" >&2; exit 2; }
+case "$interval" in *[!0-9]*|'') echo 'Invalid observation interval.' >&2; exit 2;; esac
+test "$interval" -ge 1 && test "$interval" -le 60 || { echo 'Observation interval must be 1..60 seconds.' >&2; exit 2; }
+
+acquire_lock()
+{
+	lock_dir=$run_dir.lock
+	if ! mkdir "$lock_dir" 2>/dev/null; then
+		if recorded_process_running "$lock_dir" n810-powerd; then
+			echo "n810-powerd is already running (PID $(cat "$lock_dir/pid"))" >&2
+			exit 1
+		fi
+		rm -f "$lock_dir/pid" "$lock_dir/starttime"
+		rmdir "$lock_dir" 2>/dev/null || {
+			echo "Cannot recover stale n810-powerd lock" >&2
+			exit 1
+		}
+		mkdir "$lock_dir"
+	fi
+	test ! -d "$proc_root" || process_starttime $$ > "$lock_dir/starttime"
+	echo $$ > "$lock_dir/pid"
+}
+
+for unused in $(seq 1 30); do
+	test -d "$charger" && test -d "$battery" && break
+	sleep 1
+done
+test -d "$charger" || { echo "Missing charger power supply" >&2; exit 1; }
+test -d "$battery" || { echo "Missing battery power supply" >&2; exit 1; }
+
+mkdir -p "$(dirname "$run_dir")"
+acquire_lock
+mkdir -p "$run_dir/requests"
+chmod 1777 "$run_dir/requests"
+test ! -d "$proc_root" || process_starttime $$ > "$run_dir/starttime"
+echo $$ > "$run_dir/pid"
+critical_count=0
+shutdown_deadline=0
+inhibit_until=0
+previous_state=
+
+cleanup()
+{
+	rm -f "$run_dir/pid" "$run_dir/starttime" "$run_dir/status" "$run_dir/.status.$$"
+	rm -f "$run_dir.lock/pid" "$run_dir.lock/starttime"
+	rmdir "$run_dir.lock" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 0' INT TERM
+trap ':' HUP
+
+process_requests()
+{
+	request_now=$now
+	request_limit=$((request_now + 3600))
+	for request in "$run_dir"/requests/*; do
+		test -f "$request" || continue
+		read action value < "$request" || true
+		rm -f "$request"
+		case "$action:$value" in
+		inhibit:*[!0-9]*|inhibit:|cancel:*[!0-9]*|cancel:) ;;
+		inhibit:*|cancel:*)
+			if test "$value" -gt "$request_now" && test "$value" -le "$request_limit" && \
+				test "$value" -gt "$inhibit_until"; then
+				inhibit_until=$value
+			fi
+			;;
+		esac
+	done
+}
+
+while :; do
+	now=$(date +%s)
+	process_requests
+	read_value "$charger/online"; online=$value
+	read_value "$charger/status"; charger_status=$value
+	read_value "$battery/status"; battery_status=$value
+	read_value "$battery/capacity"; capacity=$value
+	read_value "$battery/voltage_now"; voltage_uv=$value
+	read_value "$battery/current_now"; current_ua=$value
+	read_value "$battery/temp"; temp=$value
+	read_value "$battery/health"; health=$value
+	state=normal
+	telemetry_valid=1
+	case "$online" in 0|1) :;; *) telemetry_valid=0;; esac
+	valid_integer "$capacity" && test "$capacity" -ge 0 && test "$capacity" -le 100 || telemetry_valid=0
+	valid_integer "$voltage_uv" && test "$voltage_uv" -gt 0 || telemetry_valid=0
+	valid_integer "$current_ua" || telemetry_valid=0
+	valid_integer "$temp" || telemetry_valid=0
+	test -n "$charger_status" && test -n "$battery_status" && test -n "$health" || telemetry_valid=0
+
+	if test "$now" -ge "$inhibit_until"; then
+		inhibit_until=0
+	fi
+
+	if test "$telemetry_valid" -eq 0; then
+		critical_count=0
+		shutdown_deadline=0
+		state=sensor-fault
+	elif test "$online" -eq 1; then
+		critical_count=0
+		shutdown_deadline=0
+		inhibit_until=0
+		state=external-power
+	elif test "$temp" -lt 50 || test "$temp" -gt 450 || test "$health" != Good; then
+		critical_count=0
+		shutdown_deadline=0
+		state=battery-fault
+	elif test "$capacity" -le 5 || test "$voltage_uv" -le 3650000; then
+		critical_count=$((critical_count + 1))
+		if test "$inhibit_until" -gt "$now"; then
+			shutdown_deadline=0
+			state=critical-inhibited
+		elif test "$critical_count" -ge 3; then
+			if test "$shutdown_deadline" -eq 0; then
+				shutdown_deadline=$((now + shutdown_delay))
+			fi
+			state=critical-countdown
+		else
+			state=critical-confirming
+		fi
+	else
+		critical_count=0
+		shutdown_deadline=0
+		test "$capacity" -gt 20 || state=low
+	fi
+
+	if test "$state" != "$previous_state"; then
+		case "$state" in
+		critical-countdown) logger -t n810-powerd "critical battery; shutdown in $shutdown_delay seconds unless power returns" ;;
+		external-power)
+			test "$previous_state" = critical-countdown && logger -t n810-powerd "external power restored; shutdown cancelled" || true
+			;;
+		esac
+		previous_state=$state
+	fi
+
+	shutdown_in=0
+	test "$shutdown_deadline" -eq 0 || shutdown_in=$((shutdown_deadline - now))
+	status_tmp=$run_dir/.status.$$
+	printf 'state=%s capacity=%s voltage_uv=%s current_ua=%s temp_decic=%s online=%s charger=%s battery=%s health=%s shutdown_in=%s inhibit_until=%s\n' \
+		"$state" "$capacity" "$voltage_uv" "$current_ua" "$temp" "$online" \
+		"$charger_status" "$battery_status" "$health" "$shutdown_in" "$inhibit_until" > "$status_tmp"
+	mv "$status_tmp" "$run_dir/status"
+
+	if test "$shutdown_deadline" -gt 0 && test "$now" -ge "$shutdown_deadline"; then
+		# Confirm external power at the decision point. Charger insertion
+		# always cancels a pending shutdown, including the final interval.
+		read_value "$charger/online"; final_online=$value
+		if test "$final_online" = 1; then
+			shutdown_deadline=0
+			critical_count=0
+			logger -t n810-powerd "external power restored; shutdown cancelled"
+		else
+			logger -t n810-powerd "critical battery; shutting down cleanly"
+			"$shutdown_cmd" -h now
+			exit 0
+		fi
+	fi
+
+	sleep "$interval"
+done

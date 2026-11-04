@@ -1,0 +1,213 @@
+#!/bin/sh
+# Own exactly one wpa_supplicant and one DHCP client for wlan0.
+set -eu
+
+PATH=${N810_PATH:-$PATH:/usr/sbin:/sbin}
+export PATH
+
+iface=${N810_WIFI_INTERFACE:-wlan0}
+conf_dir=${N810_WPA_CONF_DIR:-/etc/wpa_supplicant}
+run_dir=${N810_WIFI_RUN_DIR:-/run/n810-wifi}
+proc_root=${N810_PROC_ROOT:-/proc}
+supplicant=${N810_WPA_SUPPLICANT:-$(command -v wpa_supplicant 2>/dev/null || true)}
+dhclient=${N810_DHCLIENT:-$(command -v dhclient 2>/dev/null || true)}
+wpa_pidfile=$run_dir/wpa_supplicant-$iface.pid
+dhcp_pidfile=$run_dir/dhclient-$iface.pid
+lease_file=${N810_DHCLIENT_LEASES:-/var/lib/dhcp/dhclient.$iface.leases}
+conf=$conf_dir/wpa_supplicant-$iface.conf
+lock=$run_dir/service.lock
+
+case "$iface" in wlan0) :;; *) echo 'The managed Wi-Fi service supports wlan0 only.' >&2; exit 2;; esac
+
+if test "$(id -u)" != 0 && test "${N810_WIFI_TEST_MODE:-0}" != 1; then
+	echo 'The managed Wi-Fi service must run as root.' >&2
+	exit 1
+fi
+
+# Persistent airplane mode also gates direct and systemd starts.
+case ${1:-} in
+start|restart|force-reload)
+ if test -e /var/lib/n810-radio/airplane; then
+  echo 'Airplane mode is on; Wi-Fi startup skipped.'
+  exit 0
+ fi;;
+esac
+
+read_pid()
+{
+	file=$1
+	test -r "$file" || return 1
+	pid=$(cat "$file")
+	case "$pid" in ''|*[!0-9]*) return 1;; esac
+	printf '%s\n' "$pid"
+}
+
+live_pid()
+{
+	kill -0 "$1" 2>/dev/null || return 1
+	# A zombie has exited even though its parent has not reaped the PID yet.
+	! grep -Eq '^State:[[:space:]]+Z' "$proc_root/$1/status" 2>/dev/null
+}
+
+owned_pid()
+{
+	pid=$1
+	command_path=$2
+	test -n "$command_path" || return 1
+	live_pid "$pid" || return 1
+	if test -e "$proc_root/$pid/exe" && test "${N810_WIFI_TEST_MODE:-0}" != 1; then
+		# Debian's merged /usr gives /sbin and /usr/sbin the same executable.
+		expected=$(readlink -f "$command_path") || return 1
+		actual=$(readlink -f "$proc_root/$pid/exe") || return 1
+		test "$actual" = "$expected"
+	elif test -r "$proc_root/$pid/cmdline"; then
+		tr '\000' '\n' < "$proc_root/$pid/cmdline" | grep -Fxq "$command_path"
+	elif test "${N810_WIFI_TEST_MODE:-0}" = 1; then
+		ps -p "$pid" -o command= 2>/dev/null | grep -Fq "$command_path"
+	else
+		return 1
+	fi
+}
+
+one_supplicant()
+{
+	test "$(pgrep -xc wpa_supplicant 2>/dev/null || true)" = 1
+}
+
+acquire_lock()
+{
+	mkdir -p "$run_dir"
+	if ! mkdir "$lock" 2>/dev/null; then
+		echo 'Another managed Wi-Fi operation is in progress.' >&2
+		exit 1
+	fi
+	trap 'rmdir "$lock" 2>/dev/null || true' EXIT HUP INT TERM
+}
+
+release_lock()
+{
+	rmdir "$lock" 2>/dev/null || true
+	trap - EXIT HUP INT TERM
+}
+
+status_service()
+{
+	wpa_pid=$(read_pid "$wpa_pidfile") || { echo 'managed_wpa_supplicant=inactive'; return 3; }
+	owned_pid "$wpa_pid" "$supplicant" || { echo 'managed_wpa_supplicant=inactive'; return 3; }
+	one_supplicant || { echo 'managed_wpa_supplicant=duplicate'; return 1; }
+	# dhclient -nw forks before its child publishes the PID file.
+	count=0
+	while ! dhcp_pid=$(read_pid "$dhcp_pidfile"); do
+		count=$((count + 1))
+		test "$count" -lt 10 || break
+		sleep 1
+	done
+	dhcp_pid=$(read_pid "$dhcp_pidfile") || { echo 'managed_dhcp=inactive'; return 3; }
+	owned_pid "$dhcp_pid" "$dhclient" || { echo 'managed_dhcp=inactive'; return 3; }
+	printf 'managed_wpa_supplicant=active\nmanaged_dhcp=active\n'
+}
+
+stop_pid()
+{
+	file=$1
+	command_path=$2
+	label=$3
+	if pid=$(read_pid "$file"); then
+		if owned_pid "$pid" "$command_path"; then
+			kill "$pid"
+			count=0
+			while live_pid "$pid" && test "$count" -lt 30; do
+				sleep 1
+				count=$((count + 1))
+			done
+			live_pid "$pid" && { echo "$label did not stop." >&2; return 1; }
+		elif kill -0 "$pid" 2>/dev/null; then
+			echo "Refusing foreign pid $pid in $file." >&2
+			return 1
+		fi
+		rm -f "$file"
+	fi
+}
+
+start_service()
+{
+	if status_service >/dev/null 2>&1; then
+		echo 'Managed Wi-Fi is already active.'
+		return 0
+	fi
+	test -n "$supplicant" && test -x "$supplicant" || { echo 'wpa_supplicant is unavailable.' >&2; exit 1; }
+	test -n "$dhclient" && test -x "$dhclient" || { echo 'dhclient is unavailable; install isc-dhcp-client.' >&2; exit 1; }
+	test -r "$conf" || { echo "Missing protected configuration: $conf" >&2; exit 1; }
+	mkdir -p "$run_dir" "$(dirname "$lease_file")"
+	if wpa_pid=$(read_pid "$wpa_pidfile") && owned_pid "$wpa_pid" "$supplicant" && one_supplicant; then
+		echo 'Continuing the existing managed Wi-Fi connection.'
+	else
+		test "$(pgrep -xc wpa_supplicant 2>/dev/null || true)" = 0 || {
+			echo 'An unmanaged wpa_supplicant is already running.' >&2
+			exit 1
+		}
+		rm -f "$wpa_pidfile"
+		"$supplicant" -B -P "$wpa_pidfile" -i "$iface" -c "$conf"
+		# The background child publishes its PID after the parent exits.
+		count=0
+		while ! wpa_pid=$(read_pid "$wpa_pidfile"); do
+			count=$((count + 1))
+			test "$count" -lt 10 || break
+			sleep 1
+		done
+		wpa_pid=$(read_pid "$wpa_pidfile") || { echo 'wpa_supplicant did not create its pid file.' >&2; exit 1; }
+		if ! owned_pid "$wpa_pid" "$supplicant" || ! one_supplicant; then
+			stop_pid "$wpa_pidfile" "$supplicant" wpa_supplicant || true
+			echo 'wpa_supplicant did not start as the sole managed instance.' >&2
+			exit 1
+		fi
+	fi
+	test "$(pgrep -xc dhclient 2>/dev/null || true)" = 0 || {
+		echo 'An unmanaged DHCP client is already running.' >&2
+		exit 1
+	}
+	rm -f "$dhcp_pidfile"
+	if ! "$dhclient" -4 -nw -pf "$dhcp_pidfile" -lf "$lease_file" "$iface"; then
+		stop_pid "$wpa_pidfile" "$supplicant" wpa_supplicant || true
+		echo 'DHCP startup failed.' >&2
+		exit 1
+	fi
+	# dhclient -nw forks before its child publishes the PID file.
+	count=0
+	while ! dhcp_pid=$(read_pid "$dhcp_pidfile"); do
+		count=$((count + 1))
+		test "$count" -lt 10 || break
+		sleep 1
+	done
+	dhcp_pid=$(read_pid "$dhcp_pidfile") || {
+		stop_pid "$wpa_pidfile" "$supplicant" wpa_supplicant || true
+		echo 'dhclient did not create its pid file.' >&2
+		exit 1
+	}
+	if ! owned_pid "$dhcp_pid" "$dhclient"; then
+		stop_pid "$wpa_pidfile" "$supplicant" wpa_supplicant || true
+		echo 'The managed DHCP client exited during startup.' >&2
+		exit 1
+	fi
+	iw dev "$iface" set power_save off || {
+		stop_service
+		echo 'Could not apply the tested Wi-Fi power-save setting.' >&2
+		exit 1
+	}
+	echo "Started managed wpa_supplicant and DHCP on $iface."
+}
+
+stop_service()
+{
+	stop_pid "$dhcp_pidfile" "$dhclient" dhclient
+	stop_pid "$wpa_pidfile" "$supplicant" wpa_supplicant
+	echo "Stopped managed Wi-Fi on $iface."
+}
+
+case "${1:-}" in
+start) acquire_lock; start_service; release_lock;;
+stop) acquire_lock; stop_service; release_lock;;
+restart|force-reload) acquire_lock; stop_service; start_service; release_lock;;
+status) status_service;;
+*) echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2; exit 2;;
+esac

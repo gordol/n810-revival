@@ -1,0 +1,44 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          n810-powerd
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Nokia N810 low-battery watchdog
+### END INIT INFO
+daemon=/usr/local/sbin/n810-powerd
+run_dir=/run/n810-powerd
+
+daemon_running()
+{
+	pid=
+	starttime=
+	test -r "$run_dir/pid" && IFS= read -r pid < "$run_dir/pid" || return 1
+	case "$pid" in ''|*[!0-9]*) return 1;; esac
+	kill -0 "$pid" 2>/dev/null || return 1
+	if test -r "$run_dir/starttime"; then
+		IFS= read -r starttime < "$run_dir/starttime" || return 1
+		case "$starttime" in ''|*[!0-9]*) return 1;; esac
+		test "$starttime" = "$(awk '{print $22}' "/proc/$pid/stat" 2>/dev/null)"
+	else
+		tr '\000' '\n' < "/proc/$pid/cmdline" 2>/dev/null | grep -Fq '/n810-powerd'
+	fi
+}
+
+case "${1:-}" in
+start)
+	daemon_running && exit 0
+	start-stop-daemon --start --quiet --background --startas "$daemon"
+	;;
+stop)
+	if daemon_running; then
+		start-stop-daemon --stop --quiet --retry TERM/10/KILL/2 --pidfile "$run_dir/pid"
+	else
+		rm -f "$run_dir/pid" "$run_dir/starttime" "$run_dir/status"
+	fi
+	;;
+restart|force-reload) "$0" stop; "$0" start ;;
+status) daemon_running && test -r "$run_dir/status" && cat "$run_dir/status" || exit 3 ;;
+*) echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2; exit 2 ;;
+esac

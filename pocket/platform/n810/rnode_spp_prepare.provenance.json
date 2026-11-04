@@ -1,0 +1,5 @@
+{
+  "original_path": "/usr/local/sbin/n810-rnode-spp-prepare",
+  "original_sha256": "1ac26ef0eea5733da0fdddcced055da4b99d4f43d8ef4336a45a88d541f55920",
+  "purpose": "Preserved fixed helper with read-only fast path for unchanged bonded mappings"
+}

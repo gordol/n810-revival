@@ -1,0 +1,63 @@
+#!/bin/sh
+set -eu
+PATH=${N810_PATH:-$PATH:/usr/sbin:/sbin}
+export PATH
+
+section=all
+watch=no
+while test "$#" -gt 0; do
+	case "$1" in
+	--section) section=${2:-}; shift 2;;
+	--watch) watch=yes; shift;;
+	*) echo 'Usage: n810-pocket-status [--section all|network|power] [--watch]' >&2; exit 2;;
+	esac
+done
+case "$section" in all|network|power) :;; *) echo "Unknown section: $section" >&2; exit 2;; esac
+
+network_status()
+{
+	echo 'NETWORK'
+	if command -v ip >/dev/null 2>&1; then
+		ip -brief address 2>/dev/null || true
+	else
+		echo 'iproute2 is not installed'
+	fi
+	if command -v iw >/dev/null 2>&1; then
+		for iface in /sys/class/net/*/wireless; do
+			test -d "$iface" || continue
+			name=${iface%/wireless}; name=${name##*/}
+			iw dev "$name" link 2>/dev/null || true
+		done
+	fi
+}
+
+power_status()
+{
+	echo 'POWER'
+	if command -v n810-power >/dev/null 2>&1; then
+		n810-power 2>/dev/null || echo 'Power telemetry unavailable'
+	else
+		echo 'Battery telemetry unavailable'
+	fi
+}
+
+render()
+{
+	printf 'N810 pocket desktop  %s\n\n' "$(date '+%Y-%m-%d %H:%M:%S')"
+	case "$section" in all|network) network_status;; esac
+	case "$section" in
+	all) echo; power_status;;
+	power) power_status;;
+	esac
+}
+
+if test "$watch" = yes; then
+	trap 'exit 0' HUP INT TERM
+	while :; do
+		printf '\033[H\033[J'
+		render
+		sleep 15
+	done
+else
+	render
+fi

@@ -1,0 +1,252 @@
+#!/bin/sh
+# Single userspace owner for the N810 RGB LED.
+set -eu
+
+led_root=${N810_LED_SYSFS:-/sys/class/leds}
+charger=${N810_CHARGER_SYSFS:-/sys/class/power_supply/tahvo-charger}
+battery=${N810_BATTERY_SYSFS:-/sys/class/power_supply/n8x0-battery}
+power_run=${N810_POWERD_RUN_DIR:-/run/n810-powerd}
+run_dir=${N810_LEDD_RUN_DIR:-/run/n810-ledd}
+proc_root=${N810_PROC_ROOT:-/proc}
+interval=${N810_LEDD_INTERVAL:-5}
+ambient_path=${N810_AMBIENT_PATH:-/sys/bus/i2c/devices/1-0029/iio:device1/in_illuminance0_input}
+
+read_value()
+{
+	# Match command-substitution text reads without starting cat or a subshell.
+	value=
+	{
+		read_line=
+		while IFS= read -r read_line || test -n "$read_line"; do
+			value="$value$read_line
+"
+			read_line=
+		done
+	} 2>/dev/null < "$1" || value=
+	while :; do
+		case "$value" in *'
+') value=${value%?};; *) break;; esac
+	done
+}
+
+read_integer()
+{
+	read_value "$1"
+	case "$value" in ''|-) value=$2; return;; -*) digits=${value#-};; *) digits=$value;; esac
+	case "$digits" in ''|*[!0-9]*) value=$2;; esac
+}
+
+process_starttime()
+{
+	read_value "$proc_root/$1/stat"
+	# comm may contain spaces and parentheses; fields follow its final ')'.
+	case "$value" in *') '*) process_fields=${value##*) };; *) return 1;; esac
+	set -- $process_fields
+	test "$#" -ge 20 || return 1
+	shift 19
+	process_started=$1
+	case "$process_started" in ''|*[!0-9]*) return 1;; esac
+	printf '%s\n' "$process_started"
+}
+
+recorded_process_running()
+{
+	prefix=$1 expected=$2
+	pid=
+	test -r "$prefix/pid" && IFS= read -r pid < "$prefix/pid" || return 1
+	case "$pid" in ''|*[!0-9]*) return 1;; esac
+	kill -0 "$pid" 2>/dev/null || return 1
+	test -d "$proc_root" || return 0
+	if test -r "$prefix/starttime"; then
+		recorded=
+		IFS= read -r recorded < "$prefix/starttime" || return 1
+		process_starttime "$pid" >/dev/null || return 1
+		test -n "$recorded" && test "$recorded" = "$process_started"
+	else
+		tr '\000' '\n' < "$proc_root/$pid/cmdline" 2>/dev/null | grep -Fq "/$expected"
+	fi
+}
+
+acquire_lock()
+{
+	lock_dir=$run_dir.lock
+	if ! mkdir "$lock_dir" 2>/dev/null; then
+		if recorded_process_running "$lock_dir" n810-ledd; then
+			echo "n810-ledd is already running (PID $(cat "$lock_dir/pid"))" >&2
+			exit 1
+		fi
+		rm -f "$lock_dir/pid" "$lock_dir/starttime"
+		rmdir "$lock_dir" 2>/dev/null || {
+			echo "Cannot recover stale n810-ledd lock" >&2
+			exit 1
+		}
+		mkdir "$lock_dir"
+	fi
+	test ! -d "$proc_root" || process_starttime $$ > "$lock_dir/starttime"
+	echo $$ > "$lock_dir/pid"
+}
+
+case "$interval" in ''|*[!0-9]*) echo 'Invalid LED interval.' >&2; exit 2;; esac
+test "$interval" -ge 1 && test "$interval" -le 60 || { echo 'LED interval must be 1..60 seconds.' >&2; exit 2; }
+
+for unused in $(seq 1 30); do
+	test -d "$led_root/blue" && test -d "$charger" && test -d "$battery" && break
+	sleep 1
+done
+for channel in red green blue; do
+	test -d "$led_root/$channel" || { echo "Missing LED channel: $channel" >&2; exit 1; }
+done
+test -r "$charger/online" || { echo 'Missing charger online state.' >&2; exit 1; }
+test -r "$battery/capacity" || { echo 'Missing battery capacity.' >&2; exit 1; }
+
+mkdir -p "$(dirname "$run_dir")"
+acquire_lock
+mkdir -p "$run_dir/requests"
+chmod 1777 "$run_dir/requests"
+rm -f "$run_dir/wake"
+mkfifo "$run_dir/wake"
+chmod 0666 "$run_dir/wake"
+test ! -d "$proc_root" || process_starttime $$ > "$run_dir/starttime"
+echo $$ > "$run_dir/pid"
+notify_namespace=
+notify_color=
+notify_until=0
+ticker_pid=
+
+set_rgb()
+{
+	current=$1; red=$2; green=$3; blue=$4
+	if test "$current" -lt 95 && { test "$red" -ne 0 || test "$green" -ne 0 || test "$blue" -ne 0; }; then
+		lux=
+		for path in "$ambient_path" /sys/bus/i2c/devices/1-0029/iio:device*/in_illuminance0_input; do
+			test -r "$path" || continue
+			read_value "$path"; lux=$value
+			break
+		done
+		test -n "$lux" || lux=50
+		lux=${lux%%.*}
+		case "$lux" in *[!0-9]*|'') lux=50;; esac
+		if test "$lux" -lt 5; then percent=25
+		elif test "$lux" -lt 50; then percent=50
+		elif test "$lux" -lt 200; then percent=75
+		else percent=100
+		fi
+		current=$((current * percent / 100))
+		test "$current" -ge 1 || current=1
+	fi
+	rgb="$current $red $green $blue"
+	test "$rgb" != "${last_rgb:-}" || return 0
+	last_rgb=$rgb
+	for channel in red green blue; do
+		echo none > "$led_root/$channel/trigger"
+		echo "$current" > "$led_root/$channel/led_current"
+	done
+	echo "$red" > "$led_root/red/brightness"
+	echo "$green" > "$led_root/green/brightness"
+	echo "$blue" > "$led_root/blue/brightness"
+}
+
+restore_triggers()
+{
+	set_rgb 2 0 0 0
+	echo panic > "$led_root/red/trigger"
+}
+
+cleanup()
+{
+	test -z "$ticker_pid" || kill "$ticker_pid" 2>/dev/null || true
+	restore_triggers 2>/dev/null || true
+	rm -f "$run_dir/pid" "$run_dir/starttime" "$run_dir/status" "$run_dir/.status.$$" "$run_dir/wake"
+	rm -f "$run_dir/ticker-pid"
+	rm -f "$run_dir.lock/pid" "$run_dir.lock/starttime"
+	rmdir "$run_dir.lock" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 0' INT TERM
+trap ':' HUP USR1
+
+process_requests()
+{
+	request_now=$now
+	request_limit=$((request_now + 3600))
+	for request in "$run_dir"/requests/*; do
+		test -f "$request" || continue
+		read namespace color expires < "$request" || true
+		rm -f "$request"
+		case "$namespace" in *[!A-Za-z0-9_.-]*|'') continue;; esac
+		case "$color" in red|amber|green|blue|white|flashlight) ;; *) continue;; esac
+		case "$expires" in *[!0-9]*|'') continue;; esac
+		test "$expires" -ge "$request_now" && test "$expires" -le "$request_limit" || continue
+		notify_namespace=$namespace
+		notify_color=$color
+		notify_until=$expires
+	done
+}
+
+power_daemon_running()
+{
+	recorded_process_running "$power_run" n810-powerd
+}
+
+show_notification()
+{
+	case "$notify_color" in
+	red) set_rgb 20 255 0 0 ;;
+	amber) set_rgb 20 255 64 0 ;;
+	green) set_rgb 20 0 255 0 ;;
+	blue) set_rgb 20 0 0 255 ;;
+	white) set_rgb 12 255 160 96 ;;
+	flashlight) set_rgb 95 255 255 255 ;;
+	esac
+}
+
+# Take direct control without touching LP5521 engine-mode sysfs.
+set_rgb 2 0 0 0
+(while sleep "$interval"; do printf 'tick\n' > "$run_dir/wake" || exit 0; done) &
+ticker_pid=$!
+echo "$ticker_pid" > "$run_dir/ticker-pid"
+
+while :; do
+	now=$(date +%s)
+	process_requests
+	read_integer "$charger/online" 0; online=$value
+	case "$online" in 0|1) :;; *) online=0;; esac
+	read_integer "$battery/capacity" 100; capacity=$value
+	test "$capacity" -ge 0 && test "$capacity" -le 100 || capacity=100
+	power_state=
+	if power_daemon_running; then
+		read_value "$power_run/status"
+		case "$value" in state=*) power_state=${value#state=}; power_state=${power_state%% *};; esac
+	fi
+	state=idle
+	if test "$notify_until" -lt "$now"; then
+		notify_namespace=
+		notify_color=
+		notify_until=0
+	fi
+
+
+	if test "$power_state" = critical-countdown || test "$power_state" = battery-fault || \
+	   test "$power_state" = sensor-fault; then
+		state=$power_state
+		set_rgb 20 255 0 0; sleep 0.15
+		set_rgb 2 0 0 0; sleep 0.12
+		set_rgb 20 255 0 0; sleep 0.15
+		set_rgb 2 0 0 0
+	elif test "$notify_until" -ge "$now" && test -n "$notify_color"; then
+		state=notification-$notify_namespace-$notify_color
+		show_notification
+	elif test "$online" -eq 0 && test "$capacity" -le 20; then
+		state=low
+		set_rgb 2 255 64 0
+	else
+		set_rgb 2 0 0 0
+	fi
+
+	status_tmp=$run_dir/.status.$$
+	printf 'state=%s namespace=%s color=%s until=%s main_pid=%s ticker_pid=%s\n' \
+		"$state" "$notify_namespace" "$notify_color" "$notify_until" \
+		"$$" "$ticker_pid" > "$status_tmp"
+	mv "$status_tmp" "$run_dir/status"
+	read wake < "$run_dir/wake" || true
+done

@@ -1,0 +1,9 @@
+{
+  "purpose": "Public source fixtures only; no runtime state or identities",
+  "original_supervisor_sha256": "e92248ae39ac4d93abaf313e61268ff9e25b879466b11322b8734fb616db3538",
+  "command_extraction": "Exact original command() source, with required stdlib imports and fixed ASSETS constant",
+  "fixtures": {
+    "original_command.py": "c09a72074f126dd6a77c222be9ba78699fa833574b89e8e1f7dd2aa331a6821d",
+    "original_selector.py.txt": "e435f02faa766a199dc8fa6fb14a3f483894e34936e9b9942a69d1b7fe5a9e3d"
+  }
+}

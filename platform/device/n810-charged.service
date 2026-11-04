@@ -1,0 +1,12 @@
+[Unit]
+Description=Nokia N810 fail-safe charging policy
+After=sysinit.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/n810-charged
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
