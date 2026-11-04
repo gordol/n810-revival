@@ -23,10 +23,11 @@ and [connections](docs/connections.md).
 | Path | Contents |
 |---|---|
 | `shell/launch.py`, `shell/desktop.py` | Startup and the window host. |
-| `shell/apps/` | Pocket app entry points. |
+| `shell/apps/` | Registered app modules, including renderer, map library, touch lab, and optional Doom adapter. Registration is not device acceptance. |
 | `shell/owner-service/` | Processes that own shared radio and device services. |
 | `shell/native/` | Optional C code and its build instructions. |
-| `shell/vendor/` | Imported app domains and dependencies with their notices. |
+| [`shell/vendor/`](shell/vendor/README.md) | Imported domain code and dependencies used by Pocket. The older packet console implementation is carried here as source, without its separate Git history. |
+| `shell/heard/` | Heard station UI and model. |
 | `platform/n810/` | Packaging adapter for the existing Nokia supervisor. It is not the OS platform tree at the repository root. |
 | `tools/` | Explicit build, package, data preparation, and profiling commands. |
 | `tests/` | Local and integration tests; some need reference data or host facilities absent from this selected tree. |
