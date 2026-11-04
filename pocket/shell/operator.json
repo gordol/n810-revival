@@ -1,0 +1,8 @@
+{
+  "model": ["id", "operator", "medium", "text"],
+  "provider": "OperatorFeed@1",
+  "views": [
+    {"name": "Conversations", "fields": ["operator", "text"], "limit": 16, "filter": {}},
+    {"name": "Connectivity", "fields": ["operator", "medium"], "limit": 16, "filter": {}}
+  ]
+}

@@ -1,0 +1,2 @@
+# Only fixed, root-owned power actions. Never preserve caller-supplied policy env.
+%n810-power ALL=(root) NOPASSWD: NOSETENV: /usr/local/bin/n810-power topoff, /usr/local/bin/n810-power longevity, /usr/local/sbin/n810-screen on, /usr/local/sbin/n810-screen off, /usr/local/sbin/n810-screen auto, /sbin/shutdown -h now, /usr/local/sbin/n810-mode charging, /usr/local/sbin/n810-mode normal, /usr/local/sbin/n810-radio airplane-on, /usr/local/sbin/n810-radio airplane-off

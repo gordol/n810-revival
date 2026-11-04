@@ -1,0 +1,101 @@
+# Legacy experiment retained for comparison; no current installer uses it.
+# The authoritative r6 path is n810-fn-remap plus n810-buttons.map, which
+# isolates the internal keypad and does not change external AltGr behavior.
+# N810 US console overlay for the charge17 internal-keyboard device-tree map.
+# Internal Fn is translated to KEY_F20 (190), leaving external Alt keys alone.
+# Menu/Home/Fullscreen/Zoom+/Zoom- are translated to F13--F17.
+# Fn+Q..P=1..0, Fn+H=/, Fn+G=backslash, Fn+M=pipe.
+# Fn+Z=` and Shift+Fn+Z=~; Fn+Space=Tab.
+# Fn+arrows=PageUp/PageDown/Home/End.
+# Preserve unspecified base, Shift, Control and external keyboard keys.
+keymaps 0-15
+keycode 183 = F13
+keycode 184 = F14
+keycode 185 = F15
+keycode 186 = F16
+keycode 187 = F17
+keycode 190 = AltGr AltGr AltGr AltGr AltGr AltGr AltGr AltGr AltGr AltGr AltGr AltGr AltGr AltGr AltGr AltGr
+altgr keycode 16 = one
+shift altgr keycode 16 = one
+altgr keycode 17 = two
+shift altgr keycode 17 = two
+altgr keycode 18 = three
+shift altgr keycode 18 = three
+altgr keycode 19 = four
+shift altgr keycode 19 = four
+altgr keycode 20 = five
+shift altgr keycode 20 = five
+altgr keycode 21 = six
+shift altgr keycode 21 = six
+altgr keycode 22 = seven
+shift altgr keycode 22 = seven
+altgr keycode 23 = eight
+shift altgr keycode 23 = eight
+altgr keycode 24 = nine
+shift altgr keycode 24 = nine
+altgr keycode 25 = zero
+shift altgr keycode 25 = zero
+altgr keycode 30 = exclam
+shift altgr keycode 30 = exclam
+altgr keycode 31 = quotedbl
+shift altgr keycode 31 = quotedbl
+altgr keycode 32 = at
+shift altgr keycode 32 = at
+altgr keycode 33 = numbersign
+shift altgr keycode 33 = numbersign
+altgr keycode 34 = backslash
+shift altgr keycode 34 = backslash
+altgr keycode 35 = slash
+shift altgr keycode 35 = slash
+altgr keycode 36 = parenleft
+shift altgr keycode 36 = parenleft
+altgr keycode 37 = parenright
+shift altgr keycode 37 = parenright
+altgr keycode 38 = asterisk
+shift altgr keycode 38 = asterisk
+altgr keycode 40 = question
+shift altgr keycode 40 = question
+altgr keycode 44 = grave
+shift altgr keycode 44 = asciitilde
+altgr keycode 45 = asciicircum
+shift altgr keycode 45 = asciicircum
+altgr keycode 46 = asciitilde
+shift altgr keycode 46 = asciitilde
+altgr keycode 47 = percent
+shift altgr keycode 47 = percent
+altgr keycode 48 = ampersand
+shift altgr keycode 48 = ampersand
+altgr keycode 49 = dollar
+shift altgr keycode 49 = dollar
+altgr keycode 50 = bar
+shift altgr keycode 50 = bar
+altgr keycode 51 = less
+shift altgr keycode 51 = less
+altgr keycode 52 = greater
+shift altgr keycode 52 = greater
+# The ordinary Shift layer already supplies colon. Fn+semicolon is a second,
+# easy-to-find pipe binding alongside Fn+M.
+altgr keycode 39 = bar
+shift altgr keycode 39 = bar
+altgr keycode 12 = underscore
+shift altgr keycode 12 = underscore
+altgr keycode 13 = plus
+shift altgr keycode 13 = plus
+altgr keycode 14 = Delete
+shift altgr keycode 14 = Delete
+altgr keycode 28 = Return
+shift altgr keycode 28 = Return
+altgr keycode 57 = Tab
+shift altgr keycode 57 = Tab
+altgr keycode 103 = Prior
+shift altgr keycode 103 = Prior
+altgr keycode 108 = Next
+shift altgr keycode 108 = Next
+altgr keycode 105 = Home
+shift altgr keycode 105 = Home
+altgr keycode 106 = End
+shift altgr keycode 106 = End
+shift altgr keycode 36 = bracketleft
+shift altgr keycode 37 = bracketright
+shift altgr keycode 34 = braceleft
+shift altgr keycode 35 = braceright

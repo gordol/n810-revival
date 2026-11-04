@@ -1,0 +1,36 @@
+#!/bin/sh
+# Radio policy only: USB, charging and display state are independent.
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+state=/var/lib/n810-radio
+marker=$state/airplane
+case ${1:-} in
+status)
+ if test -e "$marker"; then echo 'Airplane mode on'; else echo 'Airplane mode off'; fi
+ exit 0;;
+airplane-on|airplane-off) ;;
+*) echo 'Usage: n810-radio {status|airplane-on|airplane-off}' >&2; exit 2;;
+esac
+test "$(id -u)" = 0 || { echo 'Radio changes require root.' >&2; exit 1; }
+install -d -m 755 "$state"
+exec 9>/run/n810-radio.lock
+flock -n 9 || { echo 'Another radio change is in progress.' >&2; exit 1; }
+if test "$1" = airplane-on; then
+ # Stop Bluetooth before saving the marker: Debian's default-file gate also
+ # applies to its stop action. A powered-off controller cannot reconnect.
+ /etc/init.d/n810-wifi stop 9>&-
+ if test -d /sys/class/bluetooth/hci0; then hciconfig hci0 down; fi
+ if pgrep -x bluetoothd >/dev/null; then /etc/init.d/bluetooth stop 9>&-; fi
+ : > "$marker"
+ echo 'Airplane mode on: Wi-Fi and Bluetooth off. USB remains available.'
+else
+ rm -f "$marker"
+ /etc/init.d/bluetooth start 9>&-
+ if test -e /run/n810-screen/quiet-charging; then
+  echo 'Wi-Fi stays paused during quiet charging.'
+ else
+  /etc/init.d/n810-wifi start 9>&-
+ fi
+ echo 'Airplane mode off: Bluetooth enabled; configured Wi-Fi starting.'
+fi

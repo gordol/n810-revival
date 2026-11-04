@@ -1,0 +1,2 @@
+# Optional owner runtime; keep separate from the shell and Reticulum runtime.
+meshcore @ git+https://github.com/meshcore-dev/meshcore_py.git@105f407b85b19709ffff8616d3bf1e83b79c0b9a

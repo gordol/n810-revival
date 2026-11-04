@@ -1,0 +1,495 @@
+{
+  "state": "compatible offline candidate; not installed",
+  "icons": [
+    {
+      "name": "Home",
+      "slot": 306,
+      "codepoint": "U+2302",
+      "primary_slot": 127,
+      "compatibility_alias": "U+E100",
+      "semantic_unicode": "U+2302",
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Station",
+      "slot": 307,
+      "codepoint": "U+E101",
+      "primary_slot": 307,
+      "compatibility_alias": "U+E101",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Handheld",
+      "slot": 308,
+      "codepoint": "U+E102",
+      "primary_slot": 308,
+      "compatibility_alias": "U+E102",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Car",
+      "slot": 309,
+      "codepoint": "U+E103",
+      "primary_slot": 309,
+      "compatibility_alias": "U+E103",
+      "semantic_unicode": "U+1F697",
+      "columns": 1,
+      "supplementary_deferred": true
+    },
+    {
+      "name": "Person",
+      "slot": 310,
+      "codepoint": "U+E104",
+      "primary_slot": 310,
+      "compatibility_alias": "U+E104",
+      "semantic_unicode": "U+1F464",
+      "columns": 1,
+      "supplementary_deferred": true
+    },
+    {
+      "name": "Digi",
+      "slot": 311,
+      "codepoint": "U+E105",
+      "primary_slot": 311,
+      "compatibility_alias": "U+E105",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "iGate",
+      "slot": 312,
+      "codepoint": "U+E106",
+      "primary_slot": 312,
+      "compatibility_alias": "U+E106",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Weather",
+      "slot": 313,
+      "codepoint": "U+2600",
+      "primary_slot": 313,
+      "compatibility_alias": "U+E107",
+      "semantic_unicode": "U+2600",
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Object",
+      "slot": 314,
+      "codepoint": "U+E108",
+      "primary_slot": 314,
+      "compatibility_alias": "U+E108",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Waypoint",
+      "slot": 315,
+      "codepoint": "U+E109",
+      "primary_slot": 315,
+      "compatibility_alias": "U+E109",
+      "semantic_unicode": "U+1F4CD",
+      "columns": 1,
+      "supplementary_deferred": true
+    },
+    {
+      "name": "Selected",
+      "slot": 316,
+      "codepoint": "U+E10A",
+      "primary_slot": 316,
+      "compatibility_alias": "U+E10A",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Cluster",
+      "slot": 317,
+      "codepoint": "U+E10B",
+      "primary_slot": 317,
+      "compatibility_alias": "U+E10B",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Unknown",
+      "slot": 318,
+      "codepoint": "U+E10C",
+      "primary_slot": 318,
+      "compatibility_alias": "U+E10C",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Mesh node",
+      "slot": 319,
+      "codepoint": "U+E10D",
+      "primary_slot": 319,
+      "compatibility_alias": "U+E10D",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Mesh relay",
+      "slot": 320,
+      "codepoint": "U+E10E",
+      "primary_slot": 320,
+      "compatibility_alias": "U+E10E",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Room",
+      "slot": 321,
+      "codepoint": "U+E10F",
+      "primary_slot": 321,
+      "compatibility_alias": "U+E10F",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Direct",
+      "slot": 322,
+      "codepoint": "U+E110",
+      "primary_slot": 322,
+      "compatibility_alias": "U+E110",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Relayed",
+      "slot": 323,
+      "codepoint": "U+E111",
+      "primary_slot": 323,
+      "compatibility_alias": "U+E111",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "DX spot",
+      "slot": 324,
+      "codepoint": "U+E112",
+      "primary_slot": 324,
+      "compatibility_alias": "U+E112",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Beacon",
+      "slot": 325,
+      "codepoint": "U+E113",
+      "primary_slot": 325,
+      "compatibility_alias": "U+E113",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Satellite",
+      "slot": 326,
+      "codepoint": "U+E114",
+      "primary_slot": 326,
+      "compatibility_alias": "U+E114",
+      "semantic_unicode": "U+1F6F0",
+      "columns": 1,
+      "supplementary_deferred": true
+    },
+    {
+      "name": "Compass",
+      "slot": 327,
+      "codepoint": "U+E115",
+      "primary_slot": 327,
+      "compatibility_alias": "U+E115",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Envelope",
+      "slot": 328,
+      "codepoint": "U+2709",
+      "primary_slot": 328,
+      "compatibility_alias": "U+E116",
+      "semantic_unicode": "U+2709",
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Mailbox",
+      "slot": 329,
+      "codepoint": "U+E117",
+      "primary_slot": 329,
+      "compatibility_alias": "U+E117",
+      "semantic_unicode": "U+1F4EC",
+      "columns": 1,
+      "supplementary_deferred": true
+    },
+    {
+      "name": "Chat",
+      "slot": 330,
+      "codepoint": "U+E118",
+      "primary_slot": 330,
+      "compatibility_alias": "U+E118",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Packet",
+      "slot": 331,
+      "codepoint": "U+E119",
+      "primary_slot": 331,
+      "compatibility_alias": "U+E119",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Feed",
+      "slot": 332,
+      "codepoint": "U+E11A",
+      "primary_slot": 332,
+      "compatibility_alias": "U+E11A",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Directory",
+      "slot": 333,
+      "codepoint": "U+E11B",
+      "primary_slot": 333,
+      "compatibility_alias": "U+E11B",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Gear",
+      "slot": 334,
+      "codepoint": "U+2699",
+      "primary_slot": 334,
+      "compatibility_alias": "U+E11C",
+      "semantic_unicode": "U+2699",
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Sliders",
+      "slot": 335,
+      "codepoint": "U+E11D",
+      "primary_slot": 335,
+      "compatibility_alias": "U+E11D",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Bluetooth",
+      "slot": 336,
+      "codepoint": "U+E11E",
+      "primary_slot": 336,
+      "compatibility_alias": "U+E11E",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "WiFi",
+      "slot": 337,
+      "codepoint": "U+E11F",
+      "primary_slot": 337,
+      "compatibility_alias": "U+E11F",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Battery",
+      "slot": 338,
+      "codepoint": "U+E120",
+      "primary_slot": 338,
+      "compatibility_alias": "U+E120",
+      "semantic_unicode": "U+1F50B",
+      "columns": 1,
+      "supplementary_deferred": true
+    },
+    {
+      "name": "Power",
+      "slot": 339,
+      "codepoint": "U+23FB",
+      "primary_slot": 339,
+      "compatibility_alias": "U+E121",
+      "semantic_unicode": "U+23FB",
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "GPS fix",
+      "slot": 340,
+      "codepoint": "U+E122",
+      "primary_slot": 340,
+      "compatibility_alias": "U+E122",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "No fix",
+      "slot": 341,
+      "codepoint": "U+E123",
+      "primary_slot": 341,
+      "compatibility_alias": "U+E123",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "RX",
+      "slot": 342,
+      "codepoint": "U+E124",
+      "primary_slot": 342,
+      "compatibility_alias": "U+E124",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "TX",
+      "slot": 343,
+      "codepoint": "U+E125",
+      "primary_slot": 343,
+      "compatibility_alias": "U+E125",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Pending",
+      "slot": 344,
+      "codepoint": "U+E126",
+      "primary_slot": 344,
+      "compatibility_alias": "U+E126",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Ack",
+      "slot": 345,
+      "codepoint": "U+E127",
+      "primary_slot": 345,
+      "compatibility_alias": "U+E127",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Failed",
+      "slot": 346,
+      "codepoint": "U+E128",
+      "primary_slot": 346,
+      "compatibility_alias": "U+E128",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Save",
+      "slot": 347,
+      "codepoint": "U+E129",
+      "primary_slot": 347,
+      "compatibility_alias": "U+E129",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Audio",
+      "slot": 348,
+      "codepoint": "U+E12A",
+      "primary_slot": 348,
+      "compatibility_alias": "U+E12A",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Mute",
+      "slot": 349,
+      "codepoint": "U+E12B",
+      "primary_slot": 349,
+      "compatibility_alias": "U+E12B",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Repeater",
+      "slot": 350,
+      "codepoint": "U+E12C",
+      "primary_slot": 350,
+      "compatibility_alias": "U+E12C",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Link",
+      "slot": 351,
+      "codepoint": "U+E12D",
+      "primary_slot": 351,
+      "compatibility_alias": "U+E12D",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "History",
+      "slot": 352,
+      "codepoint": "U+E12E",
+      "primary_slot": 352,
+      "compatibility_alias": "U+E12E",
+      "semantic_unicode": null,
+      "columns": 1,
+      "supplementary_deferred": false
+    },
+    {
+      "name": "Lock",
+      "slot": 353,
+      "codepoint": "U+E12F",
+      "primary_slot": 353,
+      "compatibility_alias": "U+E12F",
+      "semantic_unicode": "U+1F512",
+      "columns": 1,
+      "supplementary_deferred": true
+    }
+  ],
+  "remaining_slots": 158,
+  "sha256": "997fb9a4871c41e5d2205d1a43e214a7bd837929f9ed2a29c2b9731a37e8349d",
+  "profile": "compact-v1",
+  "width": 8,
+  "height": 16,
+  "slots": 512,
+  "base_sha256": "12753ff115ad2fc254436f0e4684832a9998f1021f99a974ad1cfec6cbbc7461",
+  "approved_font_sha256": "144268edc285ed2d65fb0abcae9bc5ef85607f32fa82f3b21d6853d86fd77284",
+  "approved_source_commit": "ed84e67eb2e76c10150fa085cb1682278bee4176",
+  "preservation": "Header, geometry, all pre-existing Unicode table entries and mapped bitmaps byte exact; only 48 previously unmapped slots changed."
+}

@@ -1,0 +1,12 @@
+[Unit]
+Description=N810 console hardware-button overlay
+Requires=n810-fn-remap.service
+After=console-setup.service keyboard-setup.service n810-fn-remap.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/n810-keyboard apply
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

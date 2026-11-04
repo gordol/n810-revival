@@ -1,0 +1,190 @@
+{
+  "owner": "reticulum",
+  "revision": "2026-10-25.3",
+  "pages": [
+    {
+      "id": "reticulum.setup",
+      "app": "Reticulum",
+      "title": "Choose an owner and connect its interfaces",
+      "owner": "reticulum",
+      "revision": "2026-10-25.3",
+      "scope": "Reticulum manual",
+      "keywords": [
+        "RNode",
+        "setup",
+        "LXMF",
+        "connect"
+      ],
+      "sources": [
+        "shell/vendor/apps/domains/reticulum/manager.py"
+      ],
+      "sections": {
+        "Overview": [
+          "Connect an RNode, send encrypted messages, and request services from verified peers. The shell and the radio run independently."
+        ],
+        "Setup / example": [
+          "To use another device, open Connections, enter user@host and choose SSH. Its configured Reticulum owner attaches with its other services. For individual owner selection, press T to select Reticulum. Enter the folder containing reticulum-owner.json and choose Local configuration, or enter an existing owner.sock and choose Owner socket.",
+          "Open Reticulum. Check the station name and selected RNode profile or carrier list. Choose Connect to activate the configured interfaces."
+        ],
+        "Controls": [
+          "Click bracketed controls or use their printed keys. Tab changes page; arrows select a row; ? opens Help.",
+          "RNode management: C connects; D disconnects. Carrier gateway: C connects; detach in Connections to stop an owner started by this shell. External owners remain running."
+        ],
+        "Settings / defaults / storage": [
+          "Shell launch makes no connection. Saving an address or selecting a profile does not connect or share services. Radio settings and identity remain in the chosen owner’s state directory.",
+          "Carrier configurations support TCP, LAN, serial/USB, Bluetooth serial, KISS and AX.25. See docs/service-transports.md for the reticulum-owner.json fields. OS device mappings must already exist."
+        ],
+        "Lifecycle": [
+          "Radio Disconnect stops its interface and keeps contacts and messages. Detaching an external owner leaves that service running for other clients. Detaching a local owner started by this shell stops that owner."
+        ],
+        "Troubleshooting": [
+          "Select an owner in Connections if controls are unavailable. Check the displayed error if attachment fails. For a missing port, check the configured USB or Bluetooth device; keep the existing identity and contacts."
+        ]
+      },
+      "see_also": [
+        "reticulum.profiles",
+        "reticulum.identities",
+        "devices.bluetooth",
+        "desktop.launch"
+      ]
+    },
+    {
+      "id": "reticulum.profiles",
+      "app": "Reticulum",
+      "title": "Save and select radio profiles",
+      "owner": "reticulum",
+      "revision": "2026-10-25.1",
+      "scope": "Reticulum manual",
+      "keywords": [
+        "profiles",
+        "parameters",
+        "saved",
+        "settings"
+      ],
+      "sources": [
+        "shell/vendor/apps/domains/reticulum/manager.py"
+      ],
+      "sections": {
+        "Overview": [
+          "A profile stores the radio frequency, bandwidth, power and modulation settings. Peers need compatible settings to communicate."
+        ],
+        "Setup / example": [
+          "Open Profiles, choose New, and enter each field. Enter advances and saves the last field. Select the saved row and choose Select. Connect from Radio when ready."
+        ],
+        "Controls": [
+          "N creates; E edits; Enter selects; X deletes. Escape cancels an edit."
+        ],
+        "Settings / defaults / storage": [
+          "The owner enforces its configured power limits. No frequency or universal profile is supplied. The active profile is marked in the list."
+        ],
+        "Lifecycle": [
+          "Edit and select while the radio is idle. Saving a profile does not activate the radio."
+        ],
+        "Troubleshooting": [
+          "Read the validation error for rejected values. Confirm that both radios use matching frequency, bandwidth, spreading factor and coding rate."
+        ]
+      },
+      "see_also": [
+        "reticulum.setup",
+        "reticulum.identities",
+        "services.lifecycle"
+      ]
+    },
+    {
+      "id": "reticulum.identities",
+      "app": "Reticulum",
+      "title": "Public cards, verification and messages",
+      "owner": "reticulum",
+      "revision": "2026-10-25.1",
+      "scope": "Reticulum manual",
+      "keywords": [
+        "identity",
+        "fingerprint",
+        "private key",
+        "public key",
+        "message",
+        "send"
+      ],
+      "sources": [
+        "shell/vendor/apps/domains/reticulum/manager.py"
+      ],
+      "sections": {
+        "Overview": [
+          "A contact card contains a public key and identity address. A name is a local label; it is not proof of identity."
+        ],
+        "Setup / example": [
+          "On Peers, choose Import and paste the public card. Select the contact, choose Verify, and compare the complete fingerprint through a trusted channel before confirming.",
+          "Select a verified peer and choose Message. Enter sends the displayed text; Escape cancels."
+        ],
+        "Controls": [
+          "I imports; V verifies; N renames; M composes. Messages shows delivery state and received text."
+        ],
+        "Settings / defaults / storage": [
+          "Contacts and messages belong to the selected owner. Heard lists signed announcements; saving a Heard entry does not verify its key or grant access."
+        ],
+        "Lifecycle": [
+          "Keep the private identity file when moving an owner. A new key is a new peer and requires verification. Revocation immediately removes that peer’s data grant and pending request."
+        ],
+        "Troubleshooting": [
+          "Queued is not delivered. A failed or unknown message needs operator review; the app does not silently resend. Check the peer key, destination path and radio connection."
+        ]
+      },
+      "see_also": [
+        "reticulum.setup",
+        "reticulum.profiles",
+        "aprs.heard"
+      ]
+    },
+    {
+      "id": "reticulum.data",
+      "app": "Reticulum",
+      "title": "Use and share a remote service",
+      "owner": "reticulum",
+      "keywords": [
+        "mesh",
+        "data",
+        "sharing",
+        "trust",
+        "revoke"
+      ],
+      "see_also": [
+        "reticulum.setup",
+        "reticulum.identities"
+      ],
+      "revision": "2026-10-25.3",
+      "scope": "Reticulum manual",
+      "sources": [
+        "shell/vendor/apps/domains/reticulum/manager.py"
+      ],
+      "sections": {
+        "Overview": [
+          "Use the same Reticulum app with a remote owner. Local sockets carry owner requests and events; the Reticulum adapter carries them across authenticated RNS links."
+        ],
+        "Setup / example": [
+          "On both devices, attach to a local Reticulum owner and connect its interface. Import the peer’s public card and compare its full fingerprint before verification.",
+          "On the serving device, open Data, select the verified client, and choose Share read (C). Review the scope and confirm Y. This shares contacts, messages and live events.",
+          "On the client, select the serving peer in Data and choose Use peer (U). The existing app now operates that owner. Alternatively, enter its full identity in Connections → Reticulum and choose Reticulum peer (C)."
+        ],
+        "Controls": [
+          "Share read (C): grant snapshot and subscription access. Allow send (W): grant those reads plus permission to send messages through this owner. Both require confirmation; Esc cancels.",
+          "Use peer (U): attach the app without granting access back. Revoke (D): remove this peer’s grants and terminate its subscriptions."
+        ],
+        "Settings / defaults / storage": [
+          "Grants are per peer and operation and are not restored after owner restart. Local gateway attachment remains alive while its remote service is selected. Return through Local configuration or Owner socket to manage local sharing.",
+          "Other owner-protocol services may be exported using the private service-exports.json configuration. See docs/service-transports.md in the source distribution.",
+          "Service contents use authenticated, encrypted RNS links even over serial cables. Public announces and traffic timing remain observable. AX.25 itself provides no encryption; use encrypted services only on carriers where permitted, not ordinary US amateur-radio links.",
+          "Service discovery defaults to off, including replies to public path probes. Data: A requests publication with confirmation. Sharing alone does not announce. Hiding cannot erase previously published presence."
+        ],
+        "Lifecycle": [
+          "Closing a remote service subscription detaches that client. It does not stop the remote service. Disconnect in Connections detaches the selected service and releases a local gateway owned by this shell.",
+          "Snapshots are coalesced on slow links. Commands are never automatically replayed after a timeout; check the service before submitting the operation again."
+        ],
+        "Troubleshooting": [
+          "Finding service path: discovery was requested; retry after the route is available. Ensure the serving peer has granted access and has a route. Fresh public discovery requires explicit publication; private RNS rendezvous is not implemented.",
+          "Service operation not granted: the owner must explicitly grant that operation. A read grant does not permit sending.",
+          "Request failed / outcome unknown: the link failed before confirmation. Inspect the remote service before retrying a command."
+        ]
+      }
+    }
+  ]
+}

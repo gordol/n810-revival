@@ -1,0 +1,29 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          n810-wake
+# Required-Start:    $local_fs n810-console-ux
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: N810 opt-in display idle and power menu
+### END INIT INFO
+set -eu
+daemon=/usr/local/sbin/n810-wake
+pidfile=/run/n810-wake.pid
+case "${1:-}" in
+start)
+    if ! grep -Eq '^enabled=1[[:space:]]*$' /etc/n810-idle.conf; then
+        echo 'Display idle/wake disabled pending hardware validation.'
+        exit 0
+    fi
+    start-stop-daemon --start --quiet --background --make-pidfile --pidfile "$pidfile" --exec "$daemon"
+    ;;
+stop)
+    start-stop-daemon --stop --quiet --retry TERM/3 --pidfile "$pidfile" --exec "$daemon" --remove-pidfile || true
+    ;;
+restart|force-reload) "$0" stop; "$0" start;;
+status)
+    start-stop-daemon --stop --test --quiet --pidfile "$pidfile" --exec "$daemon"
+    ;;
+*) echo "Usage: $0 {start|stop|restart|status}" >&2; exit 2;;
+esac

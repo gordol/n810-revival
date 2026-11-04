@@ -1,0 +1,45 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          n810-zram
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Configurable compressed swap for Nokia N810
+### END INIT INFO
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+device=/dev/zram0
+SIZE_MIB=128
+ALGORITHM=lzo-rle
+test ! -r /etc/default/n810-zram || . /etc/default/n810-zram
+case "$SIZE_MIB" in ''|*[!0-9]*) echo 'Invalid zram SIZE_MIB.' >&2; exit 2;; esac
+test "$SIZE_MIB" -ge 16 && test "$SIZE_MIB" -le 256 || { echo 'Zram SIZE_MIB must be 16-256.' >&2; exit 2; }
+case "$ALGORITHM" in lzo|lzo-rle|zstd) ;; *) echo 'Unsupported zram algorithm.' >&2; exit 2;; esac
+size=$((SIZE_MIB * 1024 * 1024))
+
+start_zram()
+{
+	grep -q "^$device " /proc/swaps 2>/dev/null && return 0
+	modprobe zram
+	test -w /sys/block/zram0/disksize || { echo 'zram0 disksize control is unavailable.' >&2; return 1; }
+	printf '%s\n' "$ALGORITHM" > /sys/block/zram0/comp_algorithm
+	printf '%s\n' "$size" > /sys/block/zram0/disksize
+	mkswap "$device" >/dev/null
+	swapon -p 100 "$device"
+}
+
+stop_zram()
+{
+	# Refuse to reset if swapoff cannot preserve the swapped pages.
+	if grep -q "^$device " /proc/swaps; then swapoff "$device"; fi
+	if test -w /sys/block/zram0/reset; then printf '1\n' > /sys/block/zram0/reset; fi
+}
+
+case "${1:-}" in
+start) start_zram;;
+stop) stop_zram;;
+restart|force-reload) stop_zram; start_zram;;
+status) grep -F "$device " /proc/swaps;;
+*) echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2; exit 2;;
+esac

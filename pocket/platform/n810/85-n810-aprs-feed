@@ -1,0 +1,10 @@
+#!/bin/sh
+# Run-parts entry: keep the receive owner independent of the Pocket UI session.
+set -eu
+
+if [ "$(/usr/local/sbin/n810-mode status)" != normal ]; then
+    exit 0
+fi
+
+nohup /usr/local/sbin/n810-aprs-feed-supervisor \
+    </dev/null >/dev/null 2>&1 &

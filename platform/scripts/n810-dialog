@@ -1,0 +1,34 @@
+#!/bin/sh
+# One menu contract, GTK when approved/installed, terminal otherwise.
+set -eu
+kind=${1:?}; title=${2:?}; text=${3:?}; shift 3
+if test -n "${DISPLAY:-}" && command -v yad >/dev/null 2>&1; then
+ case "$kind" in
+ menu)
+  # One radio selection; Return is selected initially, matching console safety.
+  set -- "$@"
+  rows=
+  tmp=$(mktemp)
+  trap 'rm -f "$tmp"' EXIT HUP INT TERM
+  while test "$#" -gt 0; do
+   tag=$1 label=$2; shift 2
+   if test "$tag" = back; then selected=TRUE; else selected=FALSE; fi
+   printf '%s\n%s\n%s\n' "$selected" "$tag" "$label" >> "$tmp"
+  done
+  result=$(yad --title="$title" --text="$text" --no-markup --center --on-top --width=550 --height=360 --list --radiolist --column='Select:RD' --column='ID:HD' --column='Action' --print-column=2 --separator='' --button='Back:1' --button='Select:0' < "$tmp") || exit 1
+  test -n "$result" || exit 1
+  printf '%s\n' "$result";;
+ confirm)
+  result=$(yad --title="$title" --text="$text" --no-markup --center --on-top --width=520 --height=220 --list --radiolist --column='Select:RD' --column='Action' --print-column=2 --separator='' --button='Back:1' --button='Select:0' TRUE Cancel FALSE Confirm) || exit 1
+  test "$result" = Confirm;;
+ message) yad --title="$title" --text="$text" --no-markup --center --on-top --width=520 --button='Back:0';;
+ *) exit 2;;
+ esac
+else
+ case "$kind" in
+ menu) whiptail --title "$title" --notags --default-item back --ok-button Select --cancel-button Back --menu "$text" 22 68 10 "$@" 3>&1 1>&2 2>&3;;
+ confirm) whiptail --title "$title" --defaultno --yesno "$text" 12 68;;
+ message) whiptail --title "$title" --msgbox "$text" 12 68;;
+ *) exit 2;;
+ esac
+fi

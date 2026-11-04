@@ -1,0 +1,215 @@
+[
+  {
+    "name": "quiet_connected",
+    "now": 1000,
+    "transport_connected": true,
+    "subscribed_on_this_stream": true,
+    "live_state": {
+      "version": 1,
+      "type": "state",
+      "revision": 2,
+      "owner": {
+        "instance_id": "7aa276518e374b74b677e6c235066cd0",
+        "context": "live_owner"
+      },
+      "controller": {
+        "available": true,
+        "powered": true,
+        "devices": [],
+        "error": null
+      },
+      "reception": {
+        "enabled": true,
+        "suspended_reason": null,
+        "stopping": false
+      },
+      "radio": {
+        "connected": true,
+        "observed_at": 100,
+        "last_disconnect": null
+      },
+      "capabilities": [
+        "subscribe",
+        "receive_start",
+        "receive_stop",
+        "radio_disconnect",
+        "controller_on",
+        "controller_off"
+      ]
+    },
+    "disk_telemetry": {
+      "version": 2,
+      "connected": true,
+      "connection_observed_at": 100,
+      "fields": {
+        "status": 100
+      },
+      "status": {
+        "sample": 42
+      },
+      "published_at": 1000
+    },
+    "expected_owner": "available",
+    "expected_radio": true
+  },
+  {
+    "name": "disconnected",
+    "now": 1100,
+    "transport_connected": true,
+    "subscribed_on_this_stream": true,
+    "live_state": {
+      "version": 1,
+      "type": "state",
+      "revision": 3,
+      "owner": {
+        "instance_id": "7aa276518e374b74b677e6c235066cd0",
+        "context": "live_owner"
+      },
+      "controller": {
+        "available": true,
+        "powered": true,
+        "devices": [],
+        "error": null
+      },
+      "reception": {
+        "enabled": true,
+        "suspended_reason": null,
+        "stopping": false
+      },
+      "radio": {
+        "connected": false,
+        "observed_at": 1100,
+        "last_disconnect": 1100
+      },
+      "capabilities": [
+        "subscribe",
+        "receive_start",
+        "receive_stop",
+        "radio_disconnect",
+        "controller_on",
+        "controller_off"
+      ]
+    },
+    "disk_telemetry": {
+      "version": 2,
+      "connected": true,
+      "connection_observed_at": 100,
+      "fields": {
+        "status": 100
+      },
+      "status": {
+        "sample": 42
+      },
+      "published_at": 1000
+    },
+    "expected_owner": "available",
+    "expected_radio": false
+  },
+  {
+    "name": "dead_owner",
+    "now": 1100,
+    "transport_connected": false,
+    "subscribed_on_this_stream": false,
+    "live_state": {
+      "version": 1,
+      "type": "state",
+      "revision": 2,
+      "owner": {
+        "instance_id": "7aa276518e374b74b677e6c235066cd0",
+        "context": "live_owner"
+      },
+      "controller": {
+        "available": true,
+        "powered": true,
+        "devices": [],
+        "error": null
+      },
+      "reception": {
+        "enabled": true,
+        "suspended_reason": null,
+        "stopping": false
+      },
+      "radio": {
+        "connected": true,
+        "observed_at": 100,
+        "last_disconnect": null
+      },
+      "capabilities": [
+        "subscribe",
+        "receive_start",
+        "receive_stop",
+        "radio_disconnect",
+        "controller_on",
+        "controller_off"
+      ]
+    },
+    "disk_telemetry": {
+      "version": 2,
+      "connected": true,
+      "connection_observed_at": 100,
+      "fields": {
+        "status": 100
+      },
+      "status": {
+        "sample": 42
+      },
+      "published_at": 1000
+    },
+    "expected_owner": "unavailable",
+    "expected_radio": null
+  },
+  {
+    "name": "retained_only",
+    "now": 1100,
+    "transport_connected": false,
+    "subscribed_on_this_stream": false,
+    "live_state": null,
+    "retained_state": {
+      "version": 1,
+      "type": "state",
+      "revision": 2,
+      "owner": {
+        "instance_id": "7aa276518e374b74b677e6c235066cd0",
+        "context": "live_owner"
+      },
+      "controller": {
+        "available": true,
+        "powered": true,
+        "devices": [],
+        "error": null
+      },
+      "reception": {
+        "enabled": true,
+        "suspended_reason": null,
+        "stopping": false
+      },
+      "radio": {
+        "connected": true,
+        "observed_at": 100,
+        "last_disconnect": null
+      },
+      "capabilities": [
+        "subscribe",
+        "receive_start",
+        "receive_stop",
+        "radio_disconnect",
+        "controller_on",
+        "controller_off"
+      ]
+    },
+    "disk_telemetry": {
+      "version": 2,
+      "connected": true,
+      "connection_observed_at": 100,
+      "fields": {
+        "status": 100
+      },
+      "status": {
+        "sample": 42
+      },
+      "published_at": 1000
+    },
+    "expected_owner": "unknown",
+    "expected_radio": null
+  }
+]

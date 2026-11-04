@@ -1,0 +1,8 @@
+[Unit]
+Description=Provision the N810 Bluetooth controller address
+Before=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/n810-bluetooth-address --wait 15
+RemainAfterExit=yes

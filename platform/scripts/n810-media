@@ -1,0 +1,99 @@
+#!/bin/sh
+# On-demand console media launchers. Audio always crosses n810-audio's gate.
+set -eu
+
+audio=${N810_AUDIO_BIN:-n810-audio}
+
+usage()
+{
+	cat >&2 <<'USAGE'
+Usage: n810-media COMMAND [ARGUMENT]
+  status        show installed frontends and the PCM safety-gate state
+  music         open cmus (safety-gated)
+  radio URL     play one HTTP(S) MP3 stream with mpg123 (safety-gated)
+  mpd           open ncmpc for an explicitly configured MPD (safety-gated)
+  web [URL]     open the start page in w3m, or an HTTP(S) address
+USAGE
+	exit 2
+}
+
+need()
+{
+	command -v "$1" >/dev/null 2>&1 || {
+		echo "$1 is not installed" >&2
+		exit 1
+	}
+}
+
+url()
+{
+	case ${1:-} in
+	http://*|https://*) printf '%s\n' "$1" ;;
+	*) echo 'Expected an http:// or https:// URL' >&2; exit 2 ;;
+	esac
+}
+
+case ${1:-} in
+status)
+	test "$#" -eq 1 || usage
+	for tool in cmus mpg123 ncmpc w3m; do
+		if command -v "$tool" >/dev/null 2>&1; then
+			printf '%s=installed\n' "$tool"
+		else
+			printf '%s=missing\n' "$tool"
+		fi
+	done
+	"$audio" pcm-status
+	;;
+music)
+	test "$#" -eq 1 || usage
+	need cmus
+	exec "$audio" run cmus
+	;;
+radio)
+	need mpg123
+	test "$#" -eq 2 || usage
+	stream=$(url "$2")
+	exec "$audio" run mpg123 -b 1024 -- "$stream"
+	;;
+mpd)
+	test "$#" -eq 1 || usage
+	need ncmpc
+	exec "$audio" run ncmpc
+	;;
+web)
+	test "$#" -le 2 || usage
+	need w3m
+	if test "$#" -eq 1 && test -r /usr/local/share/n810/n810-web-start.html; then
+		exec w3m /usr/local/share/n810/n810-web-start.html
+	fi
+	target=${2:-}
+	interactive=0
+	if test -z "$target"; then interactive=1; fi
+	while :; do
+		if test "$interactive" -eq 1; then
+			printf 'URL (blank to cancel): ' >&2
+			IFS= read -r target || exit 0
+			test -n "$target" || exit 0
+		fi
+		case "$target" in
+		*[[:space:]]*)
+			echo 'Enter an address without spaces.' >&2
+			test "$interactive" -eq 1 && continue
+			exit 2 ;;
+		*://*)
+			case "$target" in
+			http://?*|https://?*) ;;
+			*) echo 'Enter a website address or an HTTP(S) URL.' >&2
+			   test "$interactive" -eq 1 && continue
+			   exit 2 ;;
+			esac ;;
+		*) target="https://$target" ;;
+		esac
+		if test "$interactive" -eq 0; then exec w3m -- "$target"; fi
+		if w3m -- "$target"; then exit 0; fi
+		echo 'Could not open that page. Try another address, or press Enter to cancel.' >&2
+	done
+	;;
+*) usage ;;
+esac

@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+config=${N810_TMUX_CONFIG:-/usr/local/share/n810/tmux-n810.conf}
+
+if [ "$#" -eq 0 ]; then
+	set -- new-session -A -s main
+fi
+
+exec tmux -L n810 -f "$config" "$@"

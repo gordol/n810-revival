@@ -1,0 +1,230 @@
+#!/bin/sh
+# Optional ambient LCD policy. Never unblanks the framebuffer or suspends the CPU.
+set -eu
+
+config=${N810_DISPLAY_CONFIG:-/etc/n810-display.conf}
+fb=${N810_SCREEN_FB:-/sys/class/graphics/fb0}
+backlight=${N810_SCREEN_BACKLIGHT:-}
+battery=${N810_BATTERY_SYSFS:-/sys/class/power_supply/n8x0-battery}
+charger=${N810_CHARGER_SYSFS:-/sys/class/power_supply/tahvo-charger}
+ambient_path=${N810_AMBIENT_PATH:-/sys/bus/i2c/devices/1-0029/iio:device1/in_illuminance0_input}
+screen_run=${N810_SCREEN_RUN_DIR:-/run/n810-screen}
+run_dir=${N810_DISPLAYD_RUN_DIR:-/run/n810-displayd}
+proc_root=${N810_PROC_ROOT:-/proc}
+
+read_value()
+{
+	# Match command-substitution text reads without starting cat or a subshell.
+	value=
+	{
+		read_line=
+		while IFS= read -r read_line || test -n "$read_line"; do
+			value="$value$read_line
+"
+			read_line=
+		done
+	} 2>/dev/null < "$1" || value=
+	while :; do
+		case "$value" in *'
+') value=${value%?};; *) break;; esac
+	done
+}
+
+read_integer()
+{
+	read_value "$1"
+	case "$value" in ''|-) value=$2; return;; -*) digits=${value#-};; *) digits=$value;; esac
+	case "$digits" in ''|*[!0-9]*) value=$2;; esac
+}
+
+process_starttime()
+{
+	read_value "$proc_root/$1/stat"
+	# comm may contain spaces and parentheses; fields follow its final ')'.
+	case "$value" in *') '*) process_fields=${value##*) };; *) return 1;; esac
+	set -- $process_fields
+	test "$#" -ge 20 || return 1
+	shift 19
+	process_started=$1
+	case "$process_started" in ''|*[!0-9]*) return 1;; esac
+	printf '%s\n' "$process_started"
+}
+
+recorded_process_running()
+{
+	prefix=$1 expected=$2
+	pid=
+	test -r "$prefix/pid" && IFS= read -r pid < "$prefix/pid" || return 1
+	case "$pid" in ''|*[!0-9]*) return 1;; esac
+	kill -0 "$pid" 2>/dev/null || return 1
+	# PID reuse is observable on Linux through /proc start time.  The fallback
+	# keeps the host-side fake-sysfs test usable on systems without procfs.
+	test -d "$proc_root" || return 0
+	if test -r "$prefix/starttime"; then
+		recorded=
+		IFS= read -r recorded < "$prefix/starttime" || return 1
+		process_starttime "$pid" >/dev/null || return 1
+		test -n "$recorded" && test "$recorded" = "$process_started"
+	else
+		# Accept a still-running pre-r13 daemon during an in-place upgrade.
+		tr '\000' '\n' < "$proc_root/$pid/cmdline" 2>/dev/null | grep -Fq "/$expected"
+	fi
+}
+
+read_setting()
+{
+	key=$1 fallback=$2
+	value=$(sed -n "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*//p" "$config" 2>/dev/null | tail -n 1)
+	case "$value" in ''|*[!0-9]*) echo "$fallback";; *) echo "$value";; esac
+}
+
+interval=$(read_setting lcd_sample_seconds 5)
+dark_lux=$(read_setting lcd_dark_lux 5)
+indoor_lux=$(read_setting lcd_indoor_lux 50)
+bright_lux=$(read_setting lcd_bright_lux 200)
+off_lux=$(read_setting lcd_sunlight_off_lux 5000)
+on_lux=$(read_setting lcd_sunlight_on_lux 4000)
+dark_percent=$(read_setting lcd_dark_percent 45)
+indoor_percent=$(read_setting lcd_indoor_percent 65)
+bright_percent=$(read_setting lcd_bright_percent 85)
+default_brightness=$(read_setting lcd_default_brightness 24)
+
+test "$interval" -ge 1 && test "$interval" -le 60 || { echo 'Invalid LCD sample interval.' >&2; exit 2; }
+test "$dark_lux" -lt "$indoor_lux" && test "$indoor_lux" -lt "$bright_lux" || {
+	echo 'LCD lux thresholds must be strictly increasing.' >&2; exit 2;
+}
+test "$off_lux" -eq 0 || test "$on_lux" -lt "$off_lux" || {
+	echo 'LCD sunlight-on threshold must be below sunlight-off.' >&2; exit 2;
+}
+for percent in "$dark_percent" "$indoor_percent" "$bright_percent"; do
+	test "$percent" -ge 1 && test "$percent" -le 100 || { echo 'Invalid LCD brightness percentage.' >&2; exit 2; }
+done
+
+if test -z "$backlight"; then
+	for attempt in $(seq 1 20); do
+		for candidate in /sys/class/backlight/*; do
+			test -w "$candidate/brightness" || continue
+			backlight=$candidate
+			break
+		done
+		test -n "$backlight" && break
+		sleep 0.25
+	done
+fi
+test -w "$fb/blank" || { echo "Missing framebuffer blank control: $fb/blank" >&2; exit 1; }
+test -n "$backlight" && test -w "$backlight/brightness" || { echo 'Missing LCD backlight.' >&2; exit 1; }
+
+mkdir -p "$(dirname "$run_dir")"
+lock=$run_dir.lock
+if ! mkdir "$lock" 2>/dev/null; then
+	if recorded_process_running "$lock" n810-displayd; then
+		echo "n810-displayd is already running (PID $(cat "$lock/pid"))" >&2
+		exit 1
+	fi
+	rm -f "$lock/pid" "$lock/starttime"
+	rmdir "$lock" 2>/dev/null || { echo 'Cannot recover stale display lock.' >&2; exit 1; }
+	mkdir "$lock"
+fi
+test ! -d "$proc_root" || process_starttime $$ > "$lock/starttime"
+echo $$ > "$lock/pid"
+mkdir -p "$run_dir" "$screen_run"
+test ! -d "$proc_root" || process_starttime $$ > "$run_dir/starttime"
+echo $$ > "$run_dir/pid"
+
+cleanup()
+{
+	rm -f "$run_dir/pid" "$run_dir/starttime" "$run_dir/status" "$run_dir/.status.$$" \
+		"$lock/pid" "$lock/starttime"
+	rmdir "$lock" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 0' INT TERM
+
+saved=$screen_run/brightness
+effective=$screen_run/effective-brightness
+max=$(cat "$backlight/max_brightness")
+case "$max" in ''|*[!0-9]*) echo 'Invalid LCD maximum brightness.' >&2; exit 1;; esac
+test "$max" -ge 1 || { echo 'Invalid LCD maximum brightness.' >&2; exit 1; }
+last_applied=
+sunlight_off=0
+
+while :; do
+	{ read_value "$fb/blank"; fb_blank=$value; }
+	bl_power=0
+	test ! -r "$backlight/bl_power" || { read_value "$backlight/bl_power"; bl_power=$value; }
+	if { test -n "$fb_blank" && test "$fb_blank" != 0; } ||
+	   test "$bl_power" != 0 || test -e "$screen_run/blanked"; then
+		status_tmp=$run_dir/.status.$$
+		printf 'state=blank framebuffer=%s backlight_power=%s\n' "$fb_blank" "$bl_power" > "$status_tmp"
+		mv "$status_tmp" "$run_dir/status"
+		sleep "$interval"
+		continue
+	fi
+
+	read_integer "$backlight/brightness" -1; current=$value
+	if test "$current" -lt 0 || test "$current" -gt "$max"; then
+		status_tmp=$run_dir/.status.$$
+		printf 'state=sensor-fault source=backlight brightness=%s\n' "$current" > "$status_tmp"
+		mv "$status_tmp" "$run_dir/status"
+		sleep "$interval"
+		continue
+	fi
+	read_integer "$screen_run/manual-brightness" 0; manual=$value
+	test "$manual" -ge 1 && test "$manual" -le "$max" || manual=0
+	known_effective=
+	test ! -r "$effective" || { read_value "$effective"; known_effective=$value; }
+	if test "$manual" -eq 0 && test "$current" -gt 0 && test "$current" != "${last_applied:-}" && test "$current" != "$known_effective"; then
+		printf '%s\n' "$current" > "$saved"
+	fi
+	upper=$default_brightness
+	test ! -r "$saved" || { read_value "$saved"; upper=$value; }
+	case "$upper" in ''|*[!0-9]*) upper=$default_brightness;; esac
+	test "$upper" -ge 1 || upper=1
+	test "$upper" -le "$max" || upper=$max
+
+	read_value "$ambient_path"; lux=${value:-50}
+	lux=${lux%%.*}
+	case "$lux" in ''|*[!0-9]*) lux=50;; esac
+	if test "$off_lux" -gt 0 && test "$lux" -ge "$off_lux"; then
+		sunlight_off=1
+	elif test "$sunlight_off" -eq 1 && test "$lux" -le "$on_lux"; then
+		sunlight_off=0
+	fi
+	if test "$sunlight_off" -eq 1; then
+		percent=0
+	elif test "$lux" -lt "$dark_lux"; then
+		percent=$dark_percent
+	elif test "$lux" -lt "$indoor_lux"; then
+		percent=$indoor_percent
+	elif test "$lux" -lt "$bright_lux"; then
+		percent=$bright_percent
+	else
+		percent=100
+	fi
+
+	read_integer "$battery/capacity" 100; capacity=$value
+	test "$capacity" -ge 0 && test "$capacity" -le 100 || capacity=100
+	read_integer "$charger/online" 0; online=$value
+	case "$online" in 0|1) :;; *) online=0;; esac
+	if test "$online" -eq 0 && test "$capacity" -le 10; then
+		percent=$((percent * 50 / 100))
+	elif test "$online" -eq 0 && test "$capacity" -le 25; then
+		percent=$((percent * 75 / 100))
+	elif test "$online" -eq 0; then
+		percent=$((percent * 85 / 100))
+	fi
+	read_integer "$screen_run/idle-percent" 100; idle_percent=$value
+	test "$idle_percent" -ge 1 && test "$idle_percent" -le 100 || idle_percent=100
+	percent=$((percent * idle_percent / 100))
+	desired=$((upper * percent / 100))
+	if test "$manual" -gt 0; then desired=$((manual * idle_percent / 100)); percent=$idle_percent; fi
+	if test "$percent" -gt 0 && test "$desired" -lt 1; then desired=1; fi
+	if test "$current" != "$desired"; then echo "$desired" > "$backlight/brightness"; fi
+	printf '%s\n' "$desired" > "$effective"
+	last_applied=$desired
+	status_tmp=$run_dir/.status.$$
+	printf 'state=active lux=%s upper=%s percent=%s brightness=%s capacity=%s online=%s sunlight_off=%s\n' \
+		"$lux" "$upper" "$percent" "$desired" "$capacity" "$online" "$sunlight_off" > "$status_tmp"
+	mv "$status_tmp" "$run_dir/status"
+	sleep "$interval"
+done

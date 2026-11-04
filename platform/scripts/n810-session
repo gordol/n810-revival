@@ -1,0 +1,24 @@
+#!/bin/sh
+# User session choice; never inspect passwords or change authentication.
+set -eu
+case ${1:-choose} in
+launch)
+ case $(n810-profile get session) in
+  gui) n810-gui || echo 'GUI unavailable; remaining in the shell.' >&2;;
+  shell) :;;
+  pocket|'') n810-pocket launch;;
+  *) echo 'Invalid session preference.' >&2; exit 1;;
+ esac;;
+choose)
+ if test "${N810_SETUP_TEXT:-0}" != 1 && command -v whiptail >/dev/null 2>&1 && test -t 0; then
+  choice=$(whiptail --title 'Session after login' --menu 'Choose the default for local tty1 login.' 14 62 3 pocket 'Pocket console (tmux)' gui 'Graphical session' shell 'Plain shell' 3>&1 1>&2 2>&3) || exit 0
+ else
+  printf 'Session after login: 1 Pocket console, 2 GUI, 3 Plain shell: '
+  IFS= read -r answer
+  case "$answer" in 1) choice=pocket;; 2) choice=gui;; 3) choice=shell;; *) exit 0;; esac
+ fi
+ if test "$choice" = gui && ! command -v n810-gui >/dev/null 2>&1; then echo 'Install the GUI first.' >&2; exit 1; fi
+ n810-profile set session "$choice"
+ echo "Saved local session: $choice (next login).";;
+*) echo 'Usage: n810-session [choose|launch]' >&2; exit 2;;
+esac

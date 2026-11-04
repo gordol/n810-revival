@@ -1,0 +1,169 @@
+#!/bin/sh
+# Provision the Nokia H4+ driver's address before BlueZ opens the controller.
+set -eu
+
+program=${0##*/}
+test_mode=${N810_BDADDR_TEST_MODE:-0}
+sysfs_root=${N810_BDADDR_SYSFS_ROOT:-/sys/bus/serial/devices}
+state_file=${N810_BDADDR_STATE_FILE:-/var/lib/n810-bluetooth/bdaddr}
+random_source=${N810_BDADDR_RANDOM_SOURCE:-/dev/urandom}
+wait_seconds=0
+requested=
+temporary=
+
+usage()
+{
+	cat >&2 <<EOF
+Usage: $program [--address XX:XX:XX:XX:XX:XX] [--wait SECONDS]
+
+With no explicit address, reuse the saved address or generate and save one
+stable locally administered unicast address.  An explicit address replaces the
+saved value.  Exactly one nokia-bluetooth bdaddr sysfs attribute must exist.
+EOF
+	exit 2
+}
+
+fail()
+{
+	echo "$program: $*" >&2
+	exit 1
+}
+
+cleanup()
+{
+	test -z "$temporary" || rm -f "$temporary"
+}
+trap cleanup EXIT HUP INT TERM
+
+case "$test_mode" in
+0)
+	test "$(id -u)" -eq 0 || fail 'must run as root'
+	test -z "${N810_BDADDR_SYSFS_ROOT:-}" &&
+		test -z "${N810_BDADDR_STATE_FILE:-}" &&
+		test -z "${N810_BDADDR_RANDOM_SOURCE:-}" ||
+		fail 'test path overrides require N810_BDADDR_TEST_MODE=1'
+	;;
+1)
+	case "$sysfs_root:$state_file:$random_source" in
+	/tmp/*:/tmp/*:/tmp/*) ;;
+	*) fail 'test paths must all be below /tmp' ;;
+	esac
+	;;
+*) fail 'N810_BDADDR_TEST_MODE must be 0 or 1' ;;
+esac
+
+while test "$#" -gt 0; do
+	case "$1" in
+	--address)
+		test "$#" -ge 2 || usage
+		requested=$2
+		shift 2
+		;;
+	--wait)
+		test "$#" -ge 2 || usage
+		wait_seconds=$2
+		shift 2
+		;;
+	-h|--help) usage ;;
+	*) usage ;;
+	esac
+done
+
+case "$wait_seconds" in
+''|*[!0-9]*) usage ;;
+esac
+
+normalize_address()
+{
+	value=$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')
+	case "$value" in
+	[0-9A-F][0-9A-F]:[0-9A-F][0-9A-F]:[0-9A-F][0-9A-F]:[0-9A-F][0-9A-F]:[0-9A-F][0-9A-F]:[0-9A-F][0-9A-F]) ;;
+	*) return 1 ;;
+	esac
+	test "$value" != 00:00:00:00:00:00 || return 1
+	first=${value%%:*}
+	test $((0x$first & 1)) -eq 0 || return 1
+	printf '%s\n' "$value"
+}
+
+find_node()
+{
+	match=
+	count=0
+	for candidate in "$sysfs_root"/*/bdaddr; do
+		test -f "$candidate" || continue
+		driver=$(readlink "${candidate%/bdaddr}/driver" 2>/dev/null || true)
+		test "${driver##*/}" = nokia-bluetooth || continue
+		count=$((count + 1))
+		match=$candidate
+	done
+	case "$count" in
+	1) printf '%s\n' "$match" ;;
+	0) return 1 ;;
+	*) return 2 ;;
+	esac
+}
+
+remaining=$wait_seconds
+while :; do
+	set +e
+	node=$(find_node)
+	status=$?
+	set -e
+	case "$status" in
+	0) break ;;
+	2) fail "found multiple nokia-bluetooth bdaddr attributes below $sysfs_root" ;;
+	1)
+		test "$remaining" -gt 0 ||
+			fail "found no nokia-bluetooth bdaddr attribute below $sysfs_root"
+		remaining=$((remaining - 1))
+		sleep 1
+		;;
+	esac
+done
+
+state_dir=${state_file%/*}
+test "$state_dir" != "$state_file" || fail 'state file must include a directory'
+test ! -L "$state_dir" || fail "state directory is a symbolic link: $state_dir"
+mkdir -p "$state_dir"
+chmod 700 "$state_dir"
+
+if test -n "$requested"; then
+	address=$(normalize_address "$requested") ||
+		fail 'explicit address must be a nonzero unicast Bluetooth address'
+else
+	if test -L "$state_file"; then
+		fail "state file is a symbolic link: $state_file"
+	elif test -e "$state_file"; then
+		test -f "$state_file" || fail "state path is not a regular file: $state_file"
+		IFS= read -r saved < "$state_file" || true
+		address=$(normalize_address "${saved:-}") ||
+			fail "saved address is invalid: $state_file"
+	else
+		set -- $(od -An -N6 -tx1 "$random_source")
+		test "$#" -eq 6 || fail "could not read six random bytes from $random_source"
+		first=$(((0x$1 | 2) & 254))
+		address=$(printf '%02X:%s:%s:%s:%s:%s\n' "$first" "$2" "$3" "$4" "$5" "$6" |
+			tr '[:lower:]' '[:upper:]')
+	fi
+fi
+
+if test -n "$requested" || test ! -e "$state_file"; then
+	test ! -L "$state_file" || fail "state file is a symbolic link: $state_file"
+	temporary=$(mktemp "$state_file.tmp.XXXXXX")
+	chmod 600 "$temporary"
+	printf '%s\n' "$address" > "$temporary"
+	if test "$test_mode" = 0; then
+		chown 0:0 "$state_dir" "$temporary"
+	fi
+	mv -f "$temporary" "$state_file"
+	temporary=
+else
+	chmod 600 "$state_file"
+	if test "$test_mode" = 0; then
+		chown 0:0 "$state_dir" "$state_file"
+	fi
+fi
+
+printf '%s\n' "$address" > "$node"
+echo "$program: provisioned $address at $node"

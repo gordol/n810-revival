@@ -1,0 +1,127 @@
+#!/bin/sh
+# Attended N810 display diagnosis and one-shot recovery over SSH.
+set -eu
+
+action=${1:-diagnose}
+fb=${N810_SCREEN_FB:-/sys/class/graphics/fb0}
+backlight=${N810_SCREEN_BACKLIGHT:-}
+screen=${N810_SCREEN_COMMAND:-/usr/local/sbin/n810-screen}
+model=${N810_DEVICE_MODEL:-/proc/device-tree/model}
+display_run_dir=${N810_DISPLAYD_RUN_DIR:-/run/n810-displayd}
+display_pidfile=${N810_DISPLAYD_PIDFILE:-$display_run_dir/pid}
+display_startfile=${N810_DISPLAYD_STARTFILE:-$display_run_dir/starttime}
+proc_root=${N810_PROC_ROOT:-/proc}
+
+case "$action" in
+diagnose|wake) ;;
+*) echo "Usage: $0 {diagnose|wake}" >&2; exit 2;;
+esac
+
+test "$(id -u)" -eq 0 || { echo 'Run as root.' >&2; exit 1; }
+grep -aq 'Nokia N810' "$model" || { echo 'Not an N810.' >&2; exit 1; }
+
+if test -z "$backlight"; then
+	for candidate in /sys/class/backlight/*; do
+		test -r "$candidate/brightness" || continue
+		backlight=$candidate
+		break
+	done
+fi
+
+read_file()
+{
+	label=$1 path=$2
+	printf '%s=' "$label"
+	if test -r "$path"; then cat "$path"; else echo unavailable; fi
+}
+
+display_policy_running()
+{
+	display_pid=
+	test -r "$display_pidfile" && IFS= read -r display_pid < "$display_pidfile" || return 1
+	case "$display_pid" in ''|*[!0-9]*) return 1;; esac
+	kill -0 "$display_pid" 2>/dev/null || return 1
+	test -d "$proc_root" || return 0
+	if test -r "$display_startfile"; then
+		display_start=
+		IFS= read -r display_start < "$display_startfile" || return 1
+		test -n "$display_start" && test "$display_start" = "$(awk '{print $22}' "$proc_root/$display_pid/stat" 2>/dev/null)"
+	else
+		tr '\000' '\n' < "$proc_root/$display_pid/cmdline" 2>/dev/null | grep -Fq '/n810-displayd'
+	fi
+}
+
+snapshot()
+{
+	label=$1
+	echo "--- display $label ---"
+	printf 'kernel='; uname -r
+	read_file framebuffer_blank "$fb/blank"
+	if test -n "$backlight"; then
+		printf 'backlight_path=%s\n' "$backlight"
+		read_file backlight_brightness "$backlight/brightness"
+		read_file backlight_actual "$backlight/actual_brightness"
+		read_file backlight_power "$backlight/bl_power"
+		read_file backlight_max "$backlight/max_brightness"
+	else
+		echo 'backlight_path=unavailable'
+	fi
+	for service in n810-displayd.service n810-wake.service; do
+		if command -v systemctl >/dev/null 2>&1; then
+			printf '%s=' "$service"
+			systemctl is-active "$service" 2>/dev/null || true
+		fi
+	done
+	if test -r "$display_run_dir/status"; then
+		if display_policy_running; then
+			printf 'display_policy='; cat "$display_run_dir/status"
+		else
+			echo 'display_policy_status=stale'
+		fi
+	fi
+	if test -x "$screen"; then
+		"$screen" status 2>&1 || true
+	else
+		echo "screen_command=missing:$screen"
+	fi
+}
+
+kernel_messages()
+{
+	echo '--- recent display kernel messages ---'
+	dmesg 2>&1 | grep -Ei 'omapfb|n8x0.panel|backlight|blizzard|lcd|rfbi|spi.*display|error|fail|timeout' | tail -n 120 || true
+}
+
+snapshot before
+
+if test "$action" = wake; then
+	# The optional ambient policy owns LCD brightness. Stop it for this boot so
+	# it cannot immediately overwrite the one-shot recovery result.
+	if command -v systemctl >/dev/null 2>&1 && \
+	   systemctl is-active --quiet n810-displayd.service 2>/dev/null; then
+		systemctl stop n810-displayd.service
+		echo 'display_policy_stopped=1'
+	elif test -x /etc/init.d/n810-displayd && test -r /run/n810-displayd/pid; then
+		/etc/init.d/n810-displayd stop
+		echo 'display_policy_stopped=1'
+	else
+		echo 'display_policy_stopped=0'
+	fi
+	if display_policy_running; then
+		echo "Refusing wake: display policy is still running (PID $display_pid)." >&2
+		exit 1
+	fi
+	test -x "$screen" || { echo "Missing display control: $screen" >&2; exit 1; }
+	if "$screen" on; then
+		:
+	else
+		rc=$?
+		echo "display_wake_failed=$rc" >&2
+		snapshot after-failed
+		kernel_messages
+		exit "$rc"
+	fi
+	snapshot after
+fi
+
+kernel_messages

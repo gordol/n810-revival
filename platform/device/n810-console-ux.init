@@ -1,0 +1,164 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          n810-console-ux
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Should-Start:      udev
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: N810 internal Fn translator and console button map
+### END INIT INFO
+
+set -eu
+
+remap=${N810_FN_REMAP_COMMAND:-/usr/local/sbin/n810-fn-remap}
+keyboard=${N810_KEYBOARD_COMMAND:-/usr/local/sbin/n810-keyboard}
+modprobe=${N810_MODPROBE_COMMAND:-/sbin/modprobe}
+run_dir=${N810_CONSOLE_RUN_DIR:-/run/n810-console-ux}
+pidfile=$run_dir/n810-fn-remap.pid
+map_marker=$run_dir/keymap-applied
+lock=$run_dir/init-lock
+log=${N810_CONSOLE_LOG:-/var/log/n810-fn-remap.log}
+proc_root=${N810_PROC_ROOT:-/proc}
+
+if test "$(id -u)" != 0 && test "${N810_INIT_TESTING:-0}" != 1; then
+	echo 'n810-console-ux must run as root' >&2
+	exit 1
+fi
+
+mkdir -p "$run_dir"
+
+read_pid()
+{
+	test -r "$pidfile" || return 1
+	pid=$(cat "$pidfile")
+	case "$pid" in ''|*[!0-9]*) return 1;; esac
+	printf '%s\n' "$pid"
+}
+
+owned_pid()
+{
+	pid=$1
+	kill -0 "$pid" 2>/dev/null || return 1
+	test -r "$proc_root/$pid/cmdline" || return 1
+	tr '\000' '\n' < "$proc_root/$pid/cmdline" | grep -Fxq "$remap"
+}
+
+acquire_lock()
+{
+	if ! mkdir "$lock" 2>/dev/null; then
+		echo 'n810-console-ux init operation already in progress' >&2
+		return 1
+	fi
+	trap 'rmdir "$lock" 2>/dev/null || true' EXIT HUP INT TERM
+}
+
+release_lock()
+{
+	rmdir "$lock" 2>/dev/null || true
+	trap - EXIT HUP INT TERM
+}
+
+write_pid()
+{
+	temporary=$pidfile.$$
+	printf '%s\n' "$1" > "$temporary"
+	mv "$temporary" "$pidfile"
+}
+
+start_service()
+{
+	acquire_lock
+	if pid=$(read_pid); then
+		if owned_pid "$pid"; then
+			if test ! -e "$map_marker"; then
+				"$keyboard" apply
+				: > "$map_marker"
+			fi
+			echo "n810-fn-remap already running (pid $pid)"
+			release_lock
+			return 0
+		fi
+		if kill -0 "$pid" 2>/dev/null; then
+			echo "Refusing live foreign pid $pid in $pidfile" >&2
+			release_lock
+			return 1
+		fi
+		rm -f "$pidfile"
+	fi
+
+	"$modprobe" uinput
+	"$remap" --check
+	"$remap" >> "$log" 2>&1 &
+	pid=$!
+	write_pid "$pid"
+	sleep 1
+	if ! owned_pid "$pid"; then
+		wait "$pid" 2>/dev/null || true
+		rm -f "$pidfile"
+		echo 'n810-fn-remap exited during startup' >&2
+		release_lock
+		return 1
+	fi
+	if ! "$keyboard" apply; then
+		kill "$pid" 2>/dev/null || true
+		wait "$pid" 2>/dev/null || true
+		rm -f "$pidfile"
+		echo 'Hardware-button map failed; remapper stopped' >&2
+		release_lock
+		return 1
+	fi
+	: > "$map_marker"
+	echo "Started n810-fn-remap (pid $pid) and applied button map"
+	release_lock
+}
+
+stop_service()
+{
+	acquire_lock
+	if pid=$(read_pid); then
+		if owned_pid "$pid"; then
+			kill "$pid"
+			count=0
+			while kill -0 "$pid" 2>/dev/null && test "$count" -lt 5; do
+				sleep 1
+				count=$((count + 1))
+			done
+			if kill -0 "$pid" 2>/dev/null; then
+				echo "n810-fn-remap pid $pid did not stop cleanly" >&2
+				release_lock
+				return 1
+			fi
+		elif kill -0 "$pid" 2>/dev/null; then
+			echo "Refusing to signal foreign pid $pid from $pidfile" >&2
+			release_lock
+			return 1
+		fi
+		rm -f "$pidfile"
+	fi
+	if test -e "$map_marker"; then
+		"$keyboard" restore
+		rm -f "$map_marker"
+	fi
+	echo 'Stopped n810 console remapping and restored button map'
+	release_lock
+}
+
+status_service()
+{
+	if pid=$(read_pid) && owned_pid "$pid"; then
+		echo "n810-fn-remap is running (pid $pid)"
+		return 0
+	fi
+	echo 'n810-fn-remap is not running'
+	return 3
+}
+
+case "${1:-}" in
+start) start_service;;
+stop) stop_service;;
+restart|force-reload) stop_service; start_service;;
+status) status_service;;
+*) echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2; exit 2;;
+esac

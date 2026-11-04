@@ -1,0 +1,20 @@
+#!/bin/sh
+# Apply display preferences for the current console only. Never suspends the N810.
+set -eu
+
+profile=${N810_PROFILE_BIN:-n810-profile}
+brightness=$($profile get brightness)
+blank=$($profile get blank_minutes)
+
+if command -v n810-screen >/dev/null 2>&1; then
+	if ! n810-screen brightness "$brightness"; then
+		echo 'Brightness was saved but needs permission to update the backlight.' >&2
+	fi
+fi
+
+tty=${N810_POCKET_TTY:-/dev/tty1}
+if test -w "$tty" && command -v setterm >/dev/null 2>&1; then
+	setterm --blank "$blank" --powersave off < "$tty" > "$tty" 2>/dev/null || true
+else
+	echo "Blank timeout saved; apply it later on tty1: setterm --blank $blank" >&2
+fi

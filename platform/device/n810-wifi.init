@@ -1,0 +1,28 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          n810-wifi
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Should-Start:      $named
+# Should-Stop:       $named
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Managed N810 wlan0 supplicant and DHCP
+### END INIT INFO
+
+set -eu
+
+service=${N810_WIFI_SERVICE_COMMAND:-/usr/local/sbin/n810-wifi-service}
+test -x "$service" || { echo "Missing Wi-Fi service helper: $service" >&2; exit 1; }
+
+case "${1:-}" in
+start)
+	if test ! -r /etc/wpa_supplicant/wpa_supplicant-wlan0.conf; then
+		echo 'N810 Wi-Fi is not configured yet; skipping startup.'
+		exit 0
+	fi
+	exec "$service" start
+	;;
+stop|restart|force-reload|status) exec "$service" "$1";;
+*) echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2; exit 2;;
+esac

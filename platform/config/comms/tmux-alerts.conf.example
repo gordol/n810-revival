@@ -1,0 +1,6 @@
+# Optional additions to the N810 tmux profile. Applications such as Profanity
+# can emit BEL; tmux then marks that window without flashing the whole display.
+set-option -g bell-action any
+set-option -g visual-bell off
+set-window-option -g monitor-bell on
+set-window-option -g window-status-bell-style 'fg=black,bg=yellow,bold'

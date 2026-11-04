@@ -1,0 +1,143 @@
+#!/bin/sh
+# Standard Linux power_supply telemetry and charging policy.
+set -eu
+
+case "${1:-}" in
+'') action=status; compact=no;;
+--tmux) action=status; compact=yes;;
+topoff|longevity) action=$1; compact=no;;
+-h|--help)
+	echo 'Usage: n810-power [--tmux|topoff|longevity]'
+	exit 0
+	;;
+*) echo 'Usage: n810-power [--tmux|topoff|longevity]' >&2; exit 2;;
+esac
+
+root=${N810_POWER_SUPPLY_ROOT:-/sys/class/power_supply}
+
+read_attr()
+{
+	test -r "$1/$2" || return 1
+	IFS= read -r value < "$1/$2" || return 1
+	test -n "$value" || return 1
+	printf '%s\n' "$value"
+}
+
+find_supply()
+{
+	wanted=$1
+	for supply in "$root"/*; do
+		test -d "$supply" || continue
+		type=$(read_attr "$supply" type 2>/dev/null || true)
+		case "$wanted:$type" in
+		battery:Battery) printf '%s\n' "$supply"; return 0;;
+		charger:Mains|charger:USB|charger:USB_C|charger:Wireless)
+			printf '%s\n' "$supply"; return 0;;
+		esac
+	done
+	return 1
+}
+
+battery=${N810_BATTERY_SYSFS:-}
+charger=${N810_CHARGER_SYSFS:-}
+test -n "$battery" || battery=$(find_supply battery) || {
+	echo "Battery power supply not found under $root" >&2
+	exit 1
+}
+test -n "$charger" || charger=$(find_supply charger) || {
+	echo "Charger power supply not found under $root" >&2
+	exit 1
+}
+
+control_path()
+{
+	attr=$1
+	for supply in "$charger" "$battery"; do
+		test -e "$supply/$attr" && { printf '%s\n' "$supply/$attr"; return 0; }
+	done
+	return 1
+}
+
+set_policy()
+{
+	test "$(id -u)" -eq 0 || {
+		echo "Run 'sudo n810-power $1'." >&2
+		exit 1
+	}
+	start=$(control_path charge_control_start_threshold) || {
+		echo 'Charging thresholds are unavailable.' >&2; exit 1;
+	}
+	end=$(control_path charge_control_end_threshold) || {
+		echo 'Charging thresholds are unavailable.' >&2; exit 1;
+	}
+	case "$1" in
+	topoff) echo 95 > "$end"; echo 85 > "$start"; label='Top-off (85-95%)';;
+	longevity) echo 55 > "$start"; echo 80 > "$end"; label='Longevity (55-80%)';;
+	esac
+	printf '%s charging mode enabled.\n' "$label"
+}
+
+case "$action" in
+topoff|longevity) set_policy "$action";;
+esac
+
+online=$(read_attr "$charger" online 2>/dev/null || printf '?')
+charger_status=$(read_attr "$charger" status 2>/dev/null || printf 'Unknown')
+battery_status=$(read_attr "$battery" status 2>/dev/null || printf 'Unknown')
+capacity=$(read_attr "$battery" capacity 2>/dev/null || printf '?')
+voltage_uv=$(read_attr "$battery" voltage_now 2>/dev/null || printf '?')
+current_ua=$(read_attr "$battery" current_now 2>/dev/null || printf '?')
+temperature=$(read_attr "$battery" temp 2>/dev/null || printf '?')
+health=$(read_attr "$battery" health 2>/dev/null || printf 'Unknown')
+
+format_scaled()
+{
+	value=$1 divisor=$2 precision=$3
+	case "$value" in
+	''|*[!0-9-]*) printf '?';;
+	*) awk -v value="$value" -v divisor="$divisor" -v precision="$precision" \
+		'BEGIN { printf "%.*f", precision, value / divisor }';;
+	esac
+}
+
+volts=$(format_scaled "$voltage_uv" 1000000 3)
+current_ma=$(format_scaled "$current_ua" 1000 0)
+temp_c=$(format_scaled "$temperature" 10 1)
+
+case "$online:$battery_status:$charger_status" in
+0:*) mode=UNPLUGGED;;
+1:Charging:*|1:*:Charging) mode=CHARGING;;
+1:*) mode=EXTERNAL;;
+*) mode=UNKNOWN;;
+esac
+
+if test "$compact" = yes; then
+	printf 'N810 %s%% %sV %smA %sC %s\n' \
+		"$capacity" "$volts" "$current_ma" "$temp_c" "$mode"
+	exit 0
+fi
+
+printf 'Charger: %s (online=%s)\n' "$charger_status" "$online"
+printf 'Battery: %s, %s%%, %s V, %s mA, %s C, health %s\n' \
+	"$battery_status" "$capacity" "$volts" "$current_ma" "$temp_c" "$health"
+
+thresholds=
+for item in \
+	charge_control_start_threshold:start \
+	charge_control_end_threshold:end \
+	charge_control_limit:limit \
+	charge_control_limit_max:limit-max
+do
+	attr=${item%%:*}
+	label=${item#*:}
+	value=$(read_attr "$battery" "$attr" 2>/dev/null || \
+		read_attr "$charger" "$attr" 2>/dev/null || true)
+	test -n "$value" || continue
+	test -z "$thresholds" || thresholds="$thresholds, "
+	thresholds="$thresholds$label=$value"
+done
+if test -n "$thresholds"; then
+	printf 'Controls reported: %s (read only)\n' "$thresholds"
+else
+	printf 'Controls reported: none\n'
+fi

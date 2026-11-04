@@ -1,0 +1,62 @@
+#!/bin/sh
+# Enable Wi-Fi at boot only after a successful same-boot attended soak.
+set -eu
+PATH=${N810_PATH:-$PATH:/usr/sbin:/sbin}
+export PATH
+
+iface=${N810_WIFI_INTERFACE:-wlan0}
+run_dir=${N810_WIFI_RUN_DIR:-/run/n810-wifi}
+boot_id_path=${N810_BOOT_ID_PATH:-/proc/sys/kernel/random/boot_id}
+minimum_seconds=${N810_WIFI_MIN_PERSIST_SECONDS:-600}
+case "$iface" in *[!A-Za-z0-9_.:-]*) echo 'Invalid interface name.' >&2; exit 2;; esac
+test "$iface" = wlan0 || { echo 'The managed Wi-Fi path supports wlan0 only.' >&2; exit 2; }
+test "$(id -u)" -eq 0 || { echo 'Run as root.' >&2; exit 1; }
+case "$minimum_seconds" in ''|*[!0-9]*) echo 'Minimum soak duration must be an integer.' >&2; exit 2;; esac
+test "$minimum_seconds" -ge 600 || test "${N810_WIFI_TEST_MODE:-0}" = 1 || {
+	echo 'Production persistence requires at least a 600-second soak.' >&2
+	exit 2
+}
+stamp=$run_dir/validated-$iface
+test -r "$stamp" || { echo "No successful same-boot soak is recorded for $iface." >&2; exit 1; }
+
+field()
+{
+	sed -n "s/^$1=//p" "$stamp" | head -n 1
+}
+
+test "$(field interface)" = "$iface" || { echo 'Validation interface mismatch.' >&2; exit 1; }
+test -r "$boot_id_path" || { echo 'Cannot identify the current boot.' >&2; exit 1; }
+test "$(field boot_id)" = "$(cat "$boot_id_path")" || { echo 'Validation belongs to a different boot.' >&2; exit 1; }
+test "$(field kernel)" = "$(uname -r)" || { echo 'Validation belongs to a different kernel.' >&2; exit 1; }
+test "$(field associated_scan)" = passed || { echo 'No successful bounded associated scan is recorded.' >&2; exit 1; }
+duration=$(field duration_seconds)
+case "$duration" in ''|*[!0-9]*) echo 'Validation duration is invalid.' >&2; exit 1;; esac
+test "$duration" -ge "$minimum_seconds" || { echo "Validation lasted $duration seconds; $minimum_seconds required." >&2; exit 1; }
+status=$(wpa_cli -i "$iface" status)
+printf '%s\n' "$status" | grep -Fxq 'wpa_state=COMPLETED' || { echo 'Wi-Fi is no longer associated.' >&2; exit 1; }
+bssid=$(printf '%s\n' "$status" | sed -n 's/^bssid=//p' | head -n 1)
+test -n "$bssid" && test "$bssid" = "$(field bssid)" || { echo 'Association changed after the soak.' >&2; exit 1; }
+service_command=${N810_WIFI_SERVICE_COMMAND:-/usr/local/sbin/n810-wifi-service}
+test -x "$service_command" || { echo "Missing managed Wi-Fi helper: $service_command" >&2; exit 1; }
+"$service_command" status >/dev/null || { echo 'Managed supplicant and DHCP are not active.' >&2; exit 1; }
+test "$(pgrep -xc wpa_supplicant 2>/dev/null || true)" = 1 || { echo 'Expected exactly one wpa_supplicant.' >&2; exit 1; }
+init_system=${N810_INIT_SYSTEM:-auto}
+if test "$init_system" = auto; then
+	if test -d /run/systemd/system && command -v systemctl >/dev/null 2>&1; then init_system=systemd
+	elif test -x "${N810_WIFI_INIT_SCRIPT:-/etc/init.d/n810-wifi}"; then init_system=sysv
+	else init_system=none
+	fi
+fi
+if test "$init_system" = systemd && command -v systemctl >/dev/null 2>&1; then
+	systemctl is-active --quiet n810-wifi.service || { echo 'n810-wifi.service is not active.' >&2; exit 1; }
+	systemctl enable n810-wifi.service
+	systemctl is-enabled --quiet n810-wifi.service
+	echo 'Enabled n810-wifi.service after same-boot validation.'
+elif test "$init_system" = sysv && test -x "${N810_WIFI_INIT_SCRIPT:-/etc/init.d/n810-wifi}" && command -v update-rc.d >/dev/null 2>&1; then
+	"${N810_WIFI_INIT_SCRIPT:-/etc/init.d/n810-wifi}" status >/dev/null
+	update-rc.d n810-wifi defaults
+	echo 'Enabled the n810-wifi SysV service after same-boot validation.'
+else
+	echo 'Neither the systemd nor SysV managed Wi-Fi service is available.' >&2
+	exit 1
+fi

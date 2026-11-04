@@ -1,0 +1,34 @@
+#!/bin/sh
+# Present one communications event through the existing tmux and LED owners.
+set -eu
+
+namespace=${1:-}
+socket=${N810_TMUX_SOCKET:-n810}
+test "$#" -eq 0 || shift
+seconds=${1:-8}
+test "$#" -eq 0 || shift
+message=${*:-New message}
+
+case "$namespace" in
+	mail|chat) ;;
+	*) echo "Usage: $0 {mail|chat} [seconds] [message ...]" >&2; exit 2 ;;
+esac
+case "$seconds" in
+	''|*[!0-9]*) echo "Duration must be whole seconds" >&2; exit 2 ;;
+esac
+test "$seconds" -ge 1 && test "$seconds" -le 60 || {
+	echo "Duration must be between 1 and 60 seconds" >&2
+	exit 2
+}
+
+# Keep untrusted subjects and nicknames on one short terminal line.
+message=$(printf '%s' "$message" | tr '\r\n\t' '   ' | cut -c 1-72)
+
+if command -v n810-ledctl >/dev/null 2>&1; then
+	n810-ledctl notify "$namespace" "$seconds" >/dev/null 2>&1 || true
+fi
+
+if command -v tmux >/dev/null 2>&1 && tmux -L "$socket" list-clients >/dev/null 2>&1; then
+	tmux -L "$socket" display-message -d $((seconds * 1000)) "$message" >/dev/null 2>&1 || true
+	tmux -L "$socket" refresh-client -S >/dev/null 2>&1 || true
+fi

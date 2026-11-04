@@ -1,0 +1,8 @@
+# Portable application wheels; cryptography and pyserial come from Debian.
+nomadnet==1.4.4 --hash=sha256:7d8577e6c1b53e72ac9664382366d5e9163c96a6ccc273d765cae50c50d32e09
+rns==1.5.7 --hash=sha256:0e4aaf8cc47f770da34572d2215b45fea900e104b009551600eb9741a41faddf
+lxmf==1.2.1 --hash=sha256:4bd95325b00e5fae81241e28f26a5ed22b38fea941e128d1c63a33c99e931440
+urwid==4.2.5 --hash=sha256:4b1cd9916d5a3bce1a6cfec8a4f157d287f2f05471df7d908f5ae9cee7eace5f
+qrcode==8.2 --hash=sha256:16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f
+wcwidth==0.9.2 --hash=sha256:89ca642c5bf0101157a09366be69fad0379db1f700ae39a920e103234573670e
+typing-extensions==4.16.0 --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8

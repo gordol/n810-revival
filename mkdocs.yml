@@ -1,0 +1,39 @@
+site_name: N810 revival
+site_description: Debian and Pocket on the Nokia N810
+docs_dir: docs
+site_dir: site
+use_directory_urls: true
+theme:
+  name: material
+  font: false
+  palette:
+    primary: blue grey
+    accent: cyan
+  features:
+  - content.code.copy
+plugins:
+- search
+markdown_extensions:
+- admonition
+- attr_list
+- tables
+- fenced_code
+- toc:
+    permalink: true
+extra_css:
+- assets/stylesheets/project.css
+- assets/stylesheets/showcase.css
+validation:
+  nav:
+    omitted_files: info
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+nav:
+- Project: index.md
+- Status: status.md
+- Journal: journal.md
+- What is in this repo: source.md
+- Publication: publication.md

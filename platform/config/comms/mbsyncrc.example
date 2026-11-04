@@ -1,0 +1,25 @@
+# Prefer n810-mail-setup. If copied manually, use ~/.mbsyncrc mode 0600.
+# This file contains no secret; n810-secret reads an allowlisted pass entry.
+IMAPAccount primary
+Host imap.example.net
+User you@example.net
+PassCmd "/usr/local/bin/n810-secret mail-imap"
+TLSType IMAPS
+CertificateFile /etc/ssl/certs/ca-certificates.crt
+
+IMAPStore primary-remote
+Account primary
+
+MaildirStore primary-local
+SubFolders Verbatim
+Path ~/Mail/primary/
+Inbox ~/Mail/primary/INBOX
+
+Channel primary
+Far :primary-remote:
+Near :primary-local:
+# Start small. Replace these names with folders advertised by your provider.
+Patterns INBOX Sent Drafts Trash
+Create Near
+Expunge None
+SyncState *

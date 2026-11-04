@@ -1,0 +1,53 @@
+{
+  "owner": "devices",
+  "revision": "2026-10-24.2",
+  "pages": [
+    {
+      "id": "devices.bluetooth",
+      "app": "Devices",
+      "title": "Bluetooth pairing and serial ownership",
+      "owner": "devices",
+      "revision": "2026-10-24.2",
+      "scope": "Offline manual; app-owned versioned help",
+      "keywords": [
+        "pair",
+        "SPP",
+        "USB",
+        "radio",
+        "device"
+      ],
+      "sources": [
+        "packet-console/domains/reticulum/endpoints.py",
+        "packet-console/domains/reticulum/session_owner.py",
+        "packet-console/COORDINATION.md"
+      ],
+      "sections": {
+        "Overview": [
+          "Pairing a Bluetooth device, opening its serial connection and starting a radio protocol session are different states. A radio connection is not proof that the desktop feed or remote peer is connected."
+        ],
+        "Setup / example": [
+          "Pair through the platform device tools provided by the installed OS. Confirm the device belongs to the station that will open its serial port. This first manual slice does not invent a universal pairing command or Devices settings panel.",
+          "For an RNode, the documented path is a station-local USB or Classic Bluetooth serial endpoint. The audited endpoint code does not implement a BLE radio bridge."
+        ],
+        "Controls": [
+          "Use the app actions actually offered by its owner capabilities. A missing Pair action means this owner does not provide it; reading this page does not add that capability."
+        ],
+        "Settings / defaults / storage": [
+          "Device mappings belong to their local station. Do not pass a laptop path as a Nokia path. Keep identity keys and private configuration out of public screenshots and exports."
+        ],
+        "Lifecycle": [
+          "One owner controls a physical radio endpoint. Do not start another serial maintenance tool while that owner holds the port. A shared UI can observe its existing service instead."
+        ],
+        "Troubleshooting": [
+          "Check pairing, serial accessibility, owner connection and protocol/interface readiness separately. A timeout is an unknown outcome until current status is checked; do not blindly resubmit a device action."
+        ]
+      },
+      "see_also": [
+        "reticulum.setup",
+        "reticulum.profiles",
+        "services.lifecycle",
+        "aprs.setup"
+      ]
+    }
+  ]
+}

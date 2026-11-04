@@ -1,0 +1,14 @@
+.DS_Store
+__pycache__/
+*.pyc
+.venv-docs/
+site/
+dist/
+artifacts/
+backups/
+inputs/
+audit/
+*.pem
+*.key
+.env
+.env.*

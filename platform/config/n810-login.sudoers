@@ -1,0 +1,1 @@
+%n810-power ALL=(root) NOPASSWD: NOSETENV: /usr/local/sbin/n810-login on, /usr/local/sbin/n810-login off, /usr/local/sbin/n810-login status

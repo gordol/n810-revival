@@ -1,0 +1,106 @@
+#!/bin/sh
+# Read and atomically update the user's small LED namespace policy.
+set -eu
+
+config=${N810_LED_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/n810-led.conf}
+system_config=${N810_SYSTEM_LED_CONFIG:-/etc/n810-led.conf}
+
+valid_namespace()
+{
+	case "$1" in mail|chat) return 0;; *) return 1;; esac
+}
+
+valid_color()
+{
+	case "$1" in red|amber|green|blue|white) return 0;; *) return 1;; esac
+}
+
+get_color()
+{
+	namespace=$1
+	color=
+	if test -r "$config"; then
+		color=$(sed -n "s/^${namespace}=//p" "$config" | tail -n 1)
+	fi
+	if ! valid_color "$color" && test -r "$system_config"; then
+		color=$(sed -n "s/^${namespace}=//p" "$system_config" | tail -n 1)
+	fi
+	if ! valid_color "$color"; then
+		case "$namespace" in mail) color=green;; chat) color=blue;; esac
+	fi
+	printf '%s\n' "$color"
+}
+
+set_color()
+{
+	namespace=$1 color=$2
+	valid_namespace "$namespace" && valid_color "$color" || {
+		echo "Invalid notification setting: $namespace=$color" >&2
+		exit 2
+	}
+	dir=$(dirname "$config")
+	mkdir -p "$dir"
+	umask 077
+	tmp=$(mktemp "$config.tmp.XXXXXX")
+	trap 'rm -f "$tmp"' EXIT HUP INT TERM
+	if test -r "$config"; then
+		sed "/^${namespace}=/d" "$config" > "$tmp"
+	elif test -r "$system_config"; then
+		sed "/^${namespace}=/d" "$system_config" > "$tmp"
+	else
+		cat > "$tmp" <<'EOF'
+default=white
+mail=green
+chat=blue
+network=white
+bluetooth=green
+system=white
+warning=amber
+critical=red
+EOF
+	fi
+	# n810-ledctl treats a user file as the complete policy. Fill any system
+	# namespace missing from an older or hand-written partial user file.
+	if test -r "$system_config"; then
+		while IFS= read -r line; do
+			case "$line" in
+			[A-Za-z0-9_.-]*=*) key=${line%%=*}; system_color=${line#*=};;
+			*) continue;;
+			esac
+			case "$key" in *[!A-Za-z0-9_.-]*|'') continue;; esac
+			valid_color "$system_color" || continue
+			test "$key" = "$namespace" && continue
+			cut -d= -f1 "$tmp" | grep -Fxq "$key" ||
+				printf '%s=%s\n' "$key" "$system_color" >> "$tmp"
+		done < "$system_config"
+	fi
+	printf '%s=%s\n' "$namespace" "$color" >> "$tmp"
+	chmod 600 "$tmp"
+	mv "$tmp" "$config"
+	trap - EXIT HUP INT TERM
+}
+
+case "${1:-show}" in
+get)
+	test "$#" -eq 2 && valid_namespace "$2" || {
+		echo 'Usage: n810-notification-config get {mail|chat}' >&2; exit 2;
+	}
+	get_color "$2"
+	;;
+set)
+	test "$#" -eq 3 || {
+		echo 'Usage: n810-notification-config set {mail|chat} COLOR' >&2; exit 2;
+	}
+	set_color "$2" "$3"
+	;;
+show)
+	test "$#" -eq 1 || { echo 'Usage: n810-notification-config show' >&2; exit 2; }
+	for namespace in mail chat; do
+		printf '%s=%s\n' "$namespace" "$(get_color "$namespace")"
+	done
+	;;
+*)
+	echo 'Usage: n810-notification-config {show|get NAMESPACE|set NAMESPACE COLOR}' >&2
+	exit 2
+	;;
+esac

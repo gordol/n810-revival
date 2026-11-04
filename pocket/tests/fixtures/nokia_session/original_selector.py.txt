@@ -1,0 +1,184 @@
+#!/usr/bin/python3 -I
+"""Fixed installed-version selector for original reviewed Pocket releases. No profile/input/font writes."""
+import fcntl,hashlib,json,os,stat,sys,types
+from pathlib import Path
+from contextlib import ExitStack
+INPUT=Path('/tmp/n810-session-notifications-upgrade')
+ASSETS=Path('/usr/local/share/n810-pocket')
+RUNTIME=Path('/run/n810-pocket-console')
+BACKUP=Path('/var/backups/n810-pocket-console/session-notifications-cb97ead')
+PINS={'package': 'd5652a66d215f4815d727f41d4b130a9fb46aecf0a18f573e305f8a2bfa75aaf', 'primitives': 'eba67d87812486f5d40f50a80f7f3468e8785916819e723c4dc5a5501ed4938c', 'old_manifest': 'f4b683c77b43d8354ebb0ad9f7ae3c0e8d796692c59df17f37b410b6001d9505', 'new_manifest': '957abfa7ccb131417cfec9e9e504d8ee1ddb888ab537925819fe6f591d415f00'}
+CONTRACTS={'/usr/local/bin/n810-pocket': 'f9e4b91f166ba5d685d1057d43f42defb4ef089f6805741be4f44020f1e7af49', '/usr/local/sbin/n810-pocket-console': '3541fdee15f048339ea45bf534a3274d95fc940c6748d8b195bec51aea29e445', '/usr/local/lib/n810-pocket/console_helper.py': 'e92248ae39ac4d93abaf313e61268ff9e25b879466b11322b8734fb616db3538', '/usr/local/libexec/n810-pocket-session': 'bb0efaa3160060c67af307133ed6e250bc670daa76c171dfca3f7411a9b6a9de', '/usr/local/lib/n810-pocket/keyboard.json': '8c511f6e826f6444ce82be5b519739844b45b8498d2c032b192675737f07368c'}
+def pinned(path,digest):
+    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
+    with os.fdopen(fd,'rb') as stream:
+        info=os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size>10*1024*1024:raise ValueError('Unexpected payload file: '+str(path))
+        data=stream.read(10*1024*1024+1)
+    if len(data)>10*1024*1024 or hashlib.sha256(data).hexdigest()!=digest:raise ValueError('Pinned hash mismatch: '+str(path))
+    return data
+
+def primitives(data):
+    module=types.ModuleType('reviewed_install_primitives')
+    exec(compile(data,'<reviewed-install-primitives>','exec'),module.__dict__)
+    return module
+
+def acquire(path):
+    if path.is_symlink():raise PermissionError('Unexpected lock symlink')
+    lock=path.open('a')
+    try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    except BaseException:lock.close();raise
+    return lock
+
+def contracts(lib):
+    for name,digest in CONTRACTS.items():
+        path=Path(name);lib.parent(path.parent);lib.root_tree(path);pinned(path,digest)
+
+def locks(lib,stack):
+    for path in (RUNTIME/'upgrade.lock',Path('/run/n810-gui/launch.lock'),RUNTIME/'session.lock'):
+        lib.parent(path.parent);stack.enter_context(acquire(path))
+
+
+CONTRACTS['/usr/local/sbin/n810-pocket-version']='c14035f054b42e68a9836af968f6f5399a740b0c0281d5684aa19a1a7e99de89'
+import re,select,time
+CATALOG=Path('/usr/local/lib/n810-pocket/versions.json')
+BACKUP_BASE=Path('/var/backups/n810-pocket-console')
+LEGACY=('accepted','persistence','map-cache','app-control')
+ID=re.compile(r'[a-z][a-z0-9-]{0,47}\Z');SHA=re.compile(r'[0-9a-f]{64}\Z')
+
+
+def stdin_id(fd=0,timeout=5.):
+    deadline=time.monotonic()+timeout;data=bytearray()
+    while True:
+        wait=deadline-time.monotonic()
+        if wait<=0 or not select.select([fd],[],[],wait)[0]:raise ValueError('Version ID input timed out')
+        chunk=os.read(fd,65-len(data))
+        if not chunk:break
+        data.extend(chunk)
+        if len(data)>64:raise ValueError('Version ID input exceeds 64 bytes')
+    try:value=bytes(data).decode('ascii')
+    except UnicodeError:raise ValueError('Version ID must be ASCII') from None
+    if value.endswith('\n'):value=value[:-1]
+    if not ID.fullmatch(value):raise ValueError('Invalid installed version ID')
+    return value
+
+
+def trusted_directory(path):
+    for part in reversed((Path(path),*Path(path).parents)):
+        info=part.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid!=0 or info.st_gid!=0 or info.st_mode&0o022:
+            raise PermissionError('Untrusted installed directory: '+str(part))
+
+
+def validate_catalog(data):
+    if not isinstance(data,dict) or set(data)!={'version','entries'} or (type(data['version']) is not int or data['version']!=1):raise ValueError('Invalid installed catalog')
+    entries=data['entries']
+    if not isinstance(entries,dict) or not 1<=len(entries)<=64:raise ValueError('Invalid installed version count')
+    paths=set();manifests=set()
+    fields={'manifest_sha256','engine_sha256','retained','title','summary'}
+    for name,row in entries.items():
+        if not isinstance(name,str) or not ID.fullmatch(name) or not isinstance(row,dict) or set(row)!=fields:raise ValueError('Invalid catalog entry')
+        if any(not isinstance(row[k],str) or not SHA.fullmatch(row[k]) for k in ('manifest_sha256','engine_sha256')):raise ValueError('Invalid version identity')
+        relative=Path(row['retained']) if isinstance(row['retained'],str) else Path('/')
+        if relative.is_absolute() or len(relative.parts)!=2 or not ID.fullmatch(relative.parts[0]) or relative.parts[1] not in ('previous-assets','candidate-assets'):raise ValueError('Invalid retained slot')
+        if str(relative)!=row['retained'] or row['retained'] in paths or row['manifest_sha256'] in manifests:raise ValueError('Duplicate installed identity or slot')
+        for key,limit in (('title',80),('summary',200)):
+            value=row[key]
+            if not isinstance(value,str) or not 1<=len(value)<=limit or not all(32<=ord(c)<127 for c in value):raise ValueError('Invalid catalog display text')
+        paths.add(row['retained']);manifests.add(row['manifest_sha256'])
+    return entries
+
+
+def load_catalog(lib):
+    trusted_directory(CATALOG.parent);lib.root_tree(CATALOG)
+    fd=os.open(CATALOG,os.O_RDONLY|os.O_NOFOLLOW)
+    with os.fdopen(fd,'rb') as stream:
+        info=os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size>65536:raise ValueError('Oversized installed catalog')
+        data=stream.read(65537)
+    if len(data)>65536:raise ValueError('Oversized installed catalog')
+    return validate_catalog(json.loads(data))
+
+
+def retained(row):return BACKUP_BASE/row['retained']
+
+
+def inventory(lib,entries,require_active=True):
+    by_hash={row['manifest_sha256']:name for name,row in entries.items()};result={}
+    for path in (ASSETS,*(retained(row) for row in entries.values())):
+        trusted_directory(path.parent)
+        if not path.exists() and not path.is_symlink():continue
+        trusted_directory(path)
+        manifest=path/'device-poc/pocket-manifest.json';trusted_directory(manifest.parent);lib.root_tree(manifest)
+        fd=os.open(manifest,os.O_RDONLY|os.O_NOFOLLOW)
+        with os.fdopen(fd,'rb') as stream:
+            info=os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size>10*1024*1024:raise ValueError('Invalid installed manifest')
+            data=stream.read(10*1024*1024+1)
+        name=by_hash.get(hashlib.sha256(data).hexdigest())
+        if name is None or name in result:raise ValueError('Unknown or duplicate installed assets')
+        if json.loads(data).get('engine_sha256')!=entries[name]['engine_sha256']:raise ValueError('Installed engine identity mismatch')
+        result[name]=path
+    if set(result)!=set(entries):raise ValueError('Catalog contains missing installed version')
+    if require_active and ASSETS not in result.values():raise ValueError('Active assets missing; select an installed fallback to recover')
+    return result
+
+
+def verify_tree(lib,path,row):
+    trusted_directory(path.parent);lib.root_tree(path)
+    manifest=json.loads(pinned(path/'device-poc/pocket-manifest.json',row['manifest_sha256']))
+    if manifest.get('engine_sha256')!=row['engine_sha256']:raise ValueError('Engine identity mismatch')
+    files=manifest.get('files')
+    if not isinstance(files,dict) or not 1<=len(files)<=4096:raise ValueError('Invalid package file table')
+    for name,digest in files.items():
+        relative=Path(name)
+        if relative.is_absolute() or '..' in relative.parts or not isinstance(digest,str) or not SHA.fullmatch(digest):raise ValueError('Unsafe package member')
+        pinned(path/relative,digest)
+
+
+def choose(lib,entries,name):
+    if name not in entries:raise ValueError('Version is not installed')
+    versions=inventory(lib,entries,require_active=False);source=versions[name];verify_tree(lib,source,entries[name])
+    if source==ASSETS:return False
+    if not ASSETS.exists():
+        source.rename(ASSETS)
+        try:pinned(ASSETS/'device-poc/pocket-manifest.json',entries[name]['manifest_sha256']);contracts(lib)
+        except BaseException:ASSETS.rename(source);raise
+        return True
+    current=next(key for key,value in versions.items() if value==ASSETS);destination=retained(entries[current])
+    if destination.exists() or destination.is_symlink():raise ValueError('Retained destination occupied')
+    moved_old=moved_new=False
+    try:
+        ASSETS.rename(destination);moved_old=True
+        source.rename(ASSETS);moved_new=True
+        pinned(ASSETS/'device-poc/pocket-manifest.json',entries[name]['manifest_sha256']);contracts(lib)
+    except BaseException:
+        if moved_new:ASSETS.rename(source)
+        if moved_old and not ASSETS.exists():destination.rename(ASSETS)
+        raise
+    return True
+
+
+def main():
+    args=sys.argv[1:]
+    if args==['list']:name=None
+    elif args==['use']:name=stdin_id()
+    elif len(args)==2 and args[0]=='use' and args[1] in LEGACY:name=args[1]
+    else:raise ValueError('Usage: list | use (installed ID on stdin); four legacy argv IDs remain compatible')
+    if os.geteuid()!=0 or os.getegid()!=0:raise PermissionError('Use the fixed sudo version selector')
+    os.umask(0o022);source=BACKUP/'install-primitives.py';trusted_directory(source.parent)
+    info=source.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid!=0 or info.st_gid!=0 or info.st_mode&0o022:raise PermissionError('Untrusted install primitives')
+    lib=primitives(pinned(source,PINS['primitives']))
+    lib.root_tree(source);contracts(lib);entries=load_catalog(lib)
+    with ExitStack() as stack:
+        if name is not None:locks(lib,stack);lib.assert_no_console_client();choose(lib,entries,name)
+        versions=inventory(lib,entries,require_active=False)
+        active=next((key for key,path in versions.items() if path==ASSETS),None)
+        print(json.dumps(dict(active=active,versions={key:dict(installed=True,**row) for key,row in entries.items()},launch='sudo -n /usr/local/sbin/n810-pocket-console run',note='Close desktop before selecting. Layout/input/font remain unchanged.')))
+
+
+if __name__=='__main__':
+    try:main()
+    except (OSError,ValueError,RuntimeError) as error:
+        print(str(error),file=sys.stderr);raise SystemExit(1)

@@ -1,0 +1,2 @@
+# Install only after the internal controller registers as hci0.
+bluez

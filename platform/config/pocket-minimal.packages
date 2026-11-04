@@ -1,0 +1,4 @@
+# Essential framebuffer-console packages.
+tmux
+whiptail
+kbd

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NomadNet
+Comment=Reticulum messaging and pages
+Exec=xterm -title NomadNet -e /usr/local/bin/nomadnet
+TryExec=/usr/local/bin/nomadnet
+Terminal=false
+Icon=network-workgroup
+Categories=Network;

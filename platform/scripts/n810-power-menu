@@ -1,0 +1,51 @@
+#!/bin/sh
+# Unprivileged button menu; privileged actions have exact sudoers rules.
+set -eu
+case "${1:-}" in --help|-h) echo 'Usage: n810-power-menu'; exit 0;; '') ;; *) exit 2;; esac
+command -v whiptail >/dev/null 2>&1 || {
+ echo 'Power menu needs whiptail; install the image-managed dialog package.' >&2
+ exit 1
+}
+privileged() {
+ if test "$(id -u)" = 0; then "$@"; else sudo -n "$@"; fi
+}
+while :; do
+ status=$(/usr/local/bin/n810-power --tmux)
+ radio=$(/usr/local/sbin/n810-radio status)
+ case "$radio" in *on) radio_action=airplane-off; radio_label="Airplane mode: on (turn off)";; *) radio_action=airplane-on; radio_label="Airplane mode: off (turn on)";; esac
+ choice=$(n810-dialog menu 'N810 power' "$status
+
+Up/down: choose   Center: select   Back: cancel" \
+  topoff 'Top off battery (85-95%)' longevity 'Battery longevity (55-80%)' \
+  off 'Turn display off' on 'Turn display on' auto 'Auto brightness' quiet 'Quiet charging (Power returns)' radios "$radio_label" desktop 'Switch desktop' console 'Go to console (keep apps)' shutdown 'Shut down' back 'Return') || exit 0
+ case "$choice" in
+  topoff|longevity)
+   if ! result=$(privileged /usr/local/bin/n810-power "$choice" 2>&1); then
+    n810-dialog message 'Power action failed' "$result"
+   fi
+   ;;
+  off|on) privileged /usr/local/sbin/n810-screen "$choice"; exit 0;;
+  auto) privileged /usr/local/sbin/n810-screen auto;;
+  quiet)
+   if ! result=$(privileged /usr/local/sbin/n810-mode charging 2>&1); then
+    n810-dialog message 'Quiet charging unavailable' "$result"
+   else
+    exit 0
+   fi
+   ;;
+  radios)
+   if ! result=$(privileged /usr/local/sbin/n810-radio "$radio_action" 2>&1); then
+    n810-dialog message 'Radio action failed' "$result"
+   fi
+   ;;
+  desktop) n810-desktop choose; exit 0;;
+  console) n810-gui console; exit 0;;
+  shutdown)
+   if n810-dialog confirm 'Confirm shutdown' 'Shut down the N810?'; then
+    privileged /sbin/shutdown -h now; exit 0
+   fi
+   ;;
+  back) exit 0;;
+  *) echo 'Unknown power-menu action.' >&2; exit 2;;
+ esac
+done

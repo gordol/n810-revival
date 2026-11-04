@@ -1,0 +1,97 @@
+"""Short explanations for the currently selected desktop setting."""
+import textwrap
+
+DESCRIPTIONS = {
+    'Self addresses': 'Open the Stations editor. Enter exact callsigns separated by commas or spaces. N0ANT and N0ANT-7 are separate identities. Empty means none. This changes labels and counts, never what is received or transmitted.',
+    'Remote stations': 'All directory stations except your exact configured self addresses. This is a directory total, independent of filtering or pagination.',
+    'Self stations': 'Received station records matching your exact self addresses. A matching address does not prove an RF echo.',
+    'Raw history': 'The receive source retains up to 200 raw records. Directory aggregates persist separately; they are not a complete packet archive.',
+    'Collector enabled': 'The desktop has no independent collector service observation. It cannot report whether an external collector is enabled and does not enable one.',
+    'Collector running': 'A connected desktop receive client is separate from an independent background collector. No running-state observation is available for that collector.',
+    'Collector last ingest': 'No independent collector observation is available. The desktop client last-ingest timestamp is shown separately.',
+    'Collector error': 'Collector errors require an independent service observation. None is configured here; this is not a claim that the collector is healthy.',
+    'Client ingestion': 'The existing desktop receive client updates the station directory while this client runs. This does not establish an independent collector service.',
+    'Client last ingest': 'Time of the last successful directory ingest in this desktop receive client, including a replay with no new records. Packet capture times remain unchanged.',
+    'Client ingest error': 'Last station projection error reported by the desktop receive client. This is separate from collector errors and radio connection state.',
+    'Vantage': 'Original landscape or one of your saved wide, elevated and valley cameras.',
+    'Detail': 'Compact keeps the old budget. Detailed uses the full downloaded elevation grid, denser visible woodland, and a larger sample budget. It takes more memory and time.',
+    'Trees': 'Density of stable world-space trees in Detailed mode. Use Foliage on the Nature page to hide all trees.',
+    'Haze': 'Atmospheric distance shading: zero is clear; one is the original strength.',
+    'Save scenery': 'Save camera adjustments, seed, detail and nature settings as a new local library recipe.',
+    'Library': 'Left/right loads saved scenery recipes. Window positions and radio state are separate.',
+    'Capture view': 'Save the completed background as PNG, exact camera JSON, ANSI, and a scenery companion. Pending slider changes are not applied to old pixels.',
+
+    'Font family': 'Preview a cataloged physical Linux console font. This does not change your terminal font.',
+    'Font size': 'Only sizes packaged for this family are offered. The shown grid is for the N810 800 by 480 display.',
+    'Font preview': 'Open a bitmap sample rendered from the verified packaged PSF, including Powerline symbols.',
+    'Font target': 'These candidates target a physical Linux VT with 512-slot Unicode support, not the Mac terminal font.',
+    'Font status': 'Selection is preview-only. Applying and restoring fonts awaits the device operator trial.',
+    'Terminal font': 'Your external terminal app controls its own font. No font or kernel settings change here.',
+    'Arrival time': 'How long terrain takes to reveal after loading. Longer is slower; actual drawing can take longer than this target.',
+    'Animation time': 'Duration of window transitions. Shorter values make them finish sooner.',
+    'Animation': 'Animate desktop transitions and effects. Turning this off also skips the terrain reveal.',
+    'Frame style': 'Choose the characters used to draw window borders and corners.',
+    'Colors': 'Choose the desktop color palette for frames, controls and text.',
+    'Background': 'Choose the desktop background effect or landscape.',
+    'Backdrop enabled': 'Show the desktop background. Turn it off for a plain backdrop.',
+    'Move drawing': 'Live moves redraw the window while dragging. Outline moves show its proposed position until you finish.',
+    'Resize drawing': 'Live resizing updates window contents while dragging. Outline resizing waits until you finish.',
+    'Panel dock': 'Place the selected panel along a screen edge.',
+    'Panels (+ / -)': 'Add or remove desktop panels.',
+    'Focused click': 'Choose whether clicking an already focused task button minimizes its window.',
+    'Overview shade': 'Set how strongly overview window tiles cover the background.',
+    'Title controls': 'Choose which side of the title bar holds window controls. Auto follows the window position.',
+    'Snap windows': 'Align moving windows with nearby edges and windows.',
+    'Resize borders': 'Allow dragging window edges to resize, in addition to the corner handle.',
+    'Desktop wheel': 'Allow the mouse wheel on the desktop to switch desktops.',
+    'Show underlying text': 'Show faint text from lower windows through translucent panes. Off keeps only their surfaces and desktop texture. Opacity stays separate.',
+    'Window opacity': 'Set window background opacity. Lower values show more of the scene behind them.',
+    'Window shadows': 'Draw a shaded area behind windows.',
+    'Size': 'Set the size of window shadows in terminal cells.',
+    'Strength': 'Set the darkness of window shadows.',
+    'Direction': 'Choose the direction in which window shadows fall.',
+    'Terrain shadows': 'Show terrain shading from cast shadows in the landscape.',
+    'Mouse trails': 'Show a short visual trail behind pointer movement.',
+    'Terrain light': 'Use changing scene lighting, or hold the landscape in day or night lighting.',
+    'Moon phase': 'Choose the moon shown in the scene. Auto follows the date.',
+    'Season': 'Choose seasonal scene details. Auto follows the date.',
+    'Foliage': 'Show foliage in the landscape.',
+    'Animals': 'Show animal details in the landscape.',
+    'Flowers': 'Show flower details in the landscape.',
+    'Mesh glow': 'Set the visibility of the terrain mesh overlay.',
+    'Scene speed': 'Choose how quickly scene time advances.',
+    'Forest seed': 'The seed used to generate the current forest arrangement.',
+    'Rendering pace': 'Fast demo draws more frames and uses more power. Balanced leaves more processing time for apps and services. Picture quality stays the same.',
+    'Arms': 'Set the number of arms in the Flux effect.',
+    'Density': 'Set how densely the Flux effect fills the background.',
+    'Glow': 'Set the glow strength of the Flux effect.',
+    'Strands': 'Set the number of strands in the Flurry effect.',
+    'Sway': 'Set how much Flurry strands move sideways.',
+    'Speed': 'Set the movement speed of the Flurry effect.',
+    'Parallax': 'Set how much the landscape view shifts between desktops.',
+    'Overview zoom': 'Set how far the overview pulls back from the landscape.',
+    'Desktop pager': 'Show the small desktop navigation map.',
+    'Pager position': 'Choose the screen corner for the desktop pager.',
+    'Presentation': 'Choose the panel presentation mode.',
+    'Clock': 'Show the date and time in the panel.',
+    'Connectivity': 'Show connection status in the panel.',
+    'Demo link': 'Toggle the synthetic demo connection. This does not connect to hardware.',
+    'Background opacity': 'Set shell-window background opacity. Text keeps its original color.',
+    'WM escape': 'Choose the key that switches from app input to window-manager controls.',
+    'Send escape': 'In window-manager mode, Ctrl-V sends the configured escape key to the focused terminal.',
+    'Compositing': 'Describes how this desktop combines windows and overview shading.',
+    'Layout memory': 'Show whether this launch saves and restores desktop layout. Temporary modes do not save it.',
+}
+
+
+def description(label):
+    return DESCRIPTIONS.get(label, '')
+
+
+def help_lines(label, width, limit=2):
+    """Fit selected-setting help into a bounded area below its controls."""
+    width=max(1,int(width));limit=max(0,int(limit))
+    text=description(label)
+    if not text or not limit:return ()
+    return tuple(textwrap.wrap(text,width=width,max_lines=limit,
+                               placeholder='.'*min(3,width)))

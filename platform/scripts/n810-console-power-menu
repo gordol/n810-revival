@@ -1,0 +1,18 @@
+#!/bin/sh
+# Use a temporary console; return to the previous VT when the menu exits.
+set -eu
+# Boot services have no /usr/local entries in their inherited search path.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+# A one-second acknowledgement does not wait for GTK or telemetry.
+# Missing/stalled LED service must never hold up the menu.
+if test -x /usr/local/bin/n810-ledctl; then
+ timeout -k 1 1 /usr/local/bin/n810-ledctl notify green 1 >/dev/null 2>&1 &
+fi
+# GTK stays on the active GUI; the console renderer keeps its own temporary VT.
+if test "$(fgconsole)" = 8 && test -r /run/n810-gui/auth && command -v yad >/dev/null 2>&1; then
+ exec runuser -u nokia -- env NO_AT_BRIDGE=1 DISPLAY=:0 XAUTHORITY=/run/n810-gui/auth /usr/local/bin/n810-power-menu
+fi
+TERM=linux
+export TERM
+exec openvt -s -w -- runuser -u nokia -- /usr/local/bin/n810-power-menu

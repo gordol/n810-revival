@@ -1,0 +1,171 @@
+#!/bin/sh
+# Configure one WPA/WPA2 or open network. Passphrases are read with echo disabled,
+# sent to wpa_passphrase over stdin, and never placed in argv or retained in comments.
+set -eu
+PATH=${N810_PATH:-$PATH:/usr/sbin:/sbin}
+export PATH
+umask 077
+
+conf_dir=${N810_WPA_CONF_DIR:-/etc/wpa_supplicant}
+if test "${N810_WIFI_TEST_MODE:-0}" = 1; then
+	case "$conf_dir" in /tmp/*) :;; *) echo 'Test mode requires a temporary configuration directory.' >&2; exit 1;; esac
+else
+	test "$(id -u)" -eq 0 || { echo 'Wi-Fi configuration must run as root.' >&2; exit 1; }
+fi
+iface=${N810_WIFI_INTERFACE:-wlan0}
+country=${N810_WIFI_COUNTRY:-US}
+ssid=
+security=wpa
+connect=yes
+
+find_iface()
+{
+	if test -n "$iface"; then return; fi
+	for path in /sys/class/net/*/wireless; do
+		test -d "$path" || continue
+		iface=${path%/wireless}; iface=${iface##*/}
+		return
+	done
+}
+
+while test "$#" -gt 0; do
+	case "$1" in
+	--interface) test "$#" -ge 2 || { echo '--interface requires a value.' >&2; exit 2; }; iface=$2; shift 2;;
+	--country) test "$#" -ge 2 || { echo '--country requires a value.' >&2; exit 2; }; country=$2; shift 2;;
+	--ssid) test "$#" -ge 2 || { echo '--ssid requires a value.' >&2; exit 2; }; ssid=$2; shift 2;;
+	--open) security=open; shift;;
+	--enable) echo 'Run n810-wifi-soak, then n810-wifi-persist; configuration does not enable boot persistence.' >&2; exit 2;;
+	--no-connect) connect=no; shift;;
+	--check)
+		find_iface
+		command -v wpa_passphrase >/dev/null 2>&1 || { echo 'Install wpasupplicant first.' >&2; exit 1; }
+		test -n "$iface" || { echo 'No wireless interface is present yet.' >&2; exit 1; }
+		test "$iface" = wlan0 || { echo 'The managed Wi-Fi path supports wlan0 only.' >&2; exit 1; }
+		printf 'interface=%s\n' "$iface"
+		exit 0
+		;;
+	*) echo 'Usage: n810-wifi-config [--interface IFACE] [--country CC] [--ssid SSID] [--open] [--no-connect|--check]' >&2; exit 2;;
+	esac
+done
+
+find_iface
+test -n "$iface" || { echo 'No wireless interface is present yet.' >&2; exit 1; }
+test "$iface" = wlan0 || { echo 'The managed Wi-Fi path supports wlan0 only.' >&2; exit 1; }
+case "$iface" in *[!A-Za-z0-9_.:-]*) echo 'Invalid wireless interface name.' >&2; exit 2;; esac
+case "$country" in [A-Z][A-Z]) :;; *) echo 'Country must be a two-letter uppercase code.' >&2; exit 2;; esac
+command -v wpa_passphrase >/dev/null 2>&1 || { echo 'Install wpasupplicant first.' >&2; exit 1; }
+
+if test -z "$ssid"; then
+	printf 'Wi-Fi network name (SSID): '
+	IFS= read -r ssid
+fi
+test -n "$ssid" || { echo 'SSID cannot be empty.' >&2; exit 2; }
+case "$ssid" in *"
+"*) echo 'SSID cannot contain a newline.' >&2; exit 2;; esac
+ssid_bytes=$(LC_ALL=C printf '%s' "$ssid" | wc -c | tr -d ' ')
+test "$ssid_bytes" -le 32 || { echo 'SSID must be at most 32 bytes.' >&2; exit 2; }
+
+mkdir -p "$conf_dir"
+conf=$conf_dir/wpa_supplicant-$iface.conf
+tmp=$(mktemp "$conf_dir/.n810-wifi.XXXXXX")
+cleanup()
+{
+	stty echo 2>/dev/null || true
+	unset passphrase || true
+	rm -f "$tmp"
+}
+trap cleanup EXIT HUP INT TERM
+
+{
+	echo 'ctrl_interface=/run/wpa_supplicant'
+	printf 'country=%s\n' "$country"
+	echo 'update_config=0'
+	echo
+} > "$tmp"
+
+if test "$security" = open; then
+	escaped=$(printf '%s' "$ssid" | sed 's/\\/\\\\/g; s/"/\\"/g')
+	{
+		echo 'network={'
+		printf '\tssid="%s"\n' "$escaped"
+		echo '\tkey_mgmt=NONE'
+		echo '}'
+	} >> "$tmp"
+else
+	printf 'Wi-Fi passphrase (input hidden): '
+	stty -echo 2>/dev/null || true
+	IFS= read -r passphrase
+	stty echo 2>/dev/null || true
+	echo
+	length=$(LC_ALL=C printf '%s' "$passphrase" | wc -c | tr -d ' ')
+	test "$length" -ge 8 && test "$length" -le 63 || {
+		echo 'A WPA/WPA2 passphrase must be 8 to 63 characters.' >&2
+		exit 2
+	}
+	printf '%s\n' "$passphrase" | wpa_passphrase "$ssid" | sed \
+		-e '/^[[:space:]]*#psk=/d' -e '/^[[:space:]]*}$/d' >> "$tmp"
+	grep -Eq '^[[:space:]]*psk=[0-9a-fA-F]{64}$' "$tmp" || {
+		echo 'wpa_passphrase did not produce a valid derived key.' >&2
+		exit 1
+	}
+	{
+		echo '\tproto=RSN'
+		echo '\tpairwise=CCMP'
+		echo '\tgroup=CCMP'
+		echo '}'
+	} >> "$tmp"
+	unset passphrase
+fi
+
+chmod 600 "$tmp"
+if test -e "$conf"; then
+	cp -p "$conf" "$conf.previous"
+	chmod 600 "$conf.previous"
+fi
+mv "$tmp" "$conf"
+trap - EXIT HUP INT TERM
+echo "Saved protected configuration to $conf"
+
+if test "$connect" = yes && test "${N810_WIFI_TEST_MODE:-0}" != 1; then
+	service_command=${N810_WIFI_SERVICE_COMMAND:-/usr/local/sbin/n810-wifi-service}
+	test -x "$service_command" || { echo "Missing managed Wi-Fi helper: $service_command" >&2; exit 1; }
+	if command -v pgrep >/dev/null 2>&1; then
+		instances=$(pgrep -xc wpa_supplicant 2>/dev/null || true)
+		if "$service_command" status >/dev/null 2>&1; then
+			test "$instances" = 1 || {
+				echo 'The managed service is active but the supplicant process count is not one.' >&2
+				exit 1
+			}
+		elif test "$instances" != 0; then
+			echo 'An unmanaged wpa_supplicant is already running; stop it before starting the managed service.' >&2
+			exit 1
+		fi
+	fi
+	init_system=${N810_INIT_SYSTEM:-auto}
+	if test "$init_system" = auto; then
+		if test -d /run/systemd/system && command -v systemctl >/dev/null 2>&1; then init_system=systemd
+		elif test -x "${N810_WIFI_INIT_SCRIPT:-/etc/init.d/n810-wifi}"; then init_system=sysv
+		else init_system=none
+		fi
+	fi
+	if test "$init_system" = systemd && command -v systemctl >/dev/null 2>&1; then
+		restart_managed() { systemctl restart n810-wifi.service; }
+		managed_name=n810-wifi.service
+	elif test "$init_system" = sysv && test -x "${N810_WIFI_INIT_SCRIPT:-/etc/init.d/n810-wifi}"; then
+		init_script=${N810_WIFI_INIT_SCRIPT:-/etc/init.d/n810-wifi}
+		restart_managed() { "$init_script" restart; }
+		managed_name=$init_script
+	else
+		echo 'Neither the systemd nor SysV managed Wi-Fi service is installed.' >&2
+		exit 1
+	fi
+	if restart_managed; then
+		echo "Started $managed_name for this boot."
+	else
+		echo "The managed $iface service did not start; the saved configuration is retained for retry." >&2
+		exit 1
+	fi
+fi
+echo 'The image-managed Wi-Fi service will start this configuration on future boots.'
+echo 'n810-wifi-soak remains available as an attended diagnostic.'
+echo 'The helper never prints the passphrase.'

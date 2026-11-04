@@ -1,0 +1,138 @@
+{
+  "owner": "aprs",
+  "revision": "2026-10-24.2",
+  "pages": [
+    {
+      "id": "aprs.setup",
+      "app": "APRS",
+      "title": "Receive setup and the Feed",
+      "owner": "aprs",
+      "revision": "2026-10-24.2",
+      "scope": "Offline manual; app-owned versioned help",
+      "keywords": [
+        "KISS",
+        "packets",
+        "APRS",
+        "receive"
+      ],
+      "sources": [
+        "explorations/current-world/app_help_content.py",
+        "packet-console/COORDINATION.md"
+      ],
+      "sections": {
+        "Overview": [
+          "Radio Feed presents retained received/transmitted observations supplied by the existing owner. APRS uses station callsigns and packet evidence, not Reticulum peer keys."
+        ],
+        "Setup / example": [
+          "First confirm the intended receive owner is configured and connected using the installed launch path. Open Radio Feed and inspect a retained record. A replay fixture or a connected local feed socket alone is not fresh RF reception."
+        ],
+        "Controls": [
+          "Up/Down or j/k selects; Enter focuses detail. Tab changes panes. / searches the list; n/N moves matches. e toggles original evidence, f cycles direction, t reverses time, and p or Space pauses only this view."
+        ],
+        "Settings / defaults / storage": [
+          "A view pause does not stop reception. Filtering changes visible records, not the original evidence. Retention and own-reception settings belong to the configured provider; this page does not claim a full archive."
+        ],
+        "Lifecycle": [
+          "Keep the shared receive owner alive while switching views. Do not open a second Bluetooth owner to populate another app. UI writes do not prove over-air delivery."
+        ],
+        "Troubleshooting": [
+          "Separate Radio link state from Feed-service state. A green Feed indicator does not mean fresh packets arrived. Missing dates or original bytes remain unknown."
+        ]
+      },
+      "see_also": [
+        "aprs.heard",
+        "aprs.map",
+        "devices.bluetooth",
+        "services.lifecycle"
+      ]
+    },
+    {
+      "id": "aprs.heard",
+      "app": "APRS",
+      "title": "Heard, Last heard and retained observations",
+      "owner": "aprs",
+      "revision": "2026-10-24.2",
+      "scope": "Offline manual; app-owned versioned help",
+      "keywords": [
+        "history",
+        "heard",
+        "last heard",
+        "directory",
+        "self"
+      ],
+      "sources": [
+        "explorations/current-world/native_heard.py",
+        "explorations/current-world/app_help_content.py"
+      ],
+      "sections": {
+        "Overview": [
+          "The audited Heard form shows bounded committed Directory additions since desktop attachment. It is not an unlimited radio log, and capture times may be historical. Last heard, station directory and raw Feed are related views with distinct evidence."
+        ],
+        "Setup / example": [
+          "Open the Heard or Last heard app actually offered by the installed menu. Read its source/connection status and time label before treating rows as current activity. An unavailable collector is different from an empty history."
+        ],
+        "Controls": [
+          "In the audited Heard form, Up/Down or j/k selects events, / searches, Enter focuses details and Tab changes panes. The mouse wheel scrolls the pane under the pointer."
+        ],
+        "Settings / defaults / storage": [
+          "Heard retains up to 200 committed additions in this form. It can report possible gaps with no guaranteed catch-up. Exact-self callsign counts and provider retention require their configured data source; no autonomous collector is assumed."
+        ],
+        "Lifecycle": [
+          "The view consumes committed owner events. It does not open another radio, transmit a probe or manufacture an observation to populate an empty screen."
+        ],
+        "Troubleshooting": [
+          "A remote station position is not your own reception position. Preserve protocol, station and source provenance. Reticulum Peers and Packets are different data; do not merge identities by a matching label."
+        ]
+      },
+      "see_also": [
+        "aprs.setup",
+        "aprs.map",
+        "reticulum.identities",
+        "services.lifecycle"
+      ]
+    },
+    {
+      "id": "aprs.map",
+      "app": "APRS",
+      "title": "Station Map navigation and coverage",
+      "owner": "aprs",
+      "revision": "2026-10-24.2",
+      "scope": "Offline manual; app-owned versioned help",
+      "keywords": [
+        "pan",
+        "zoom",
+        "terrain",
+        "coverage",
+        "map"
+      ],
+      "sources": [
+        "explorations/current-world/app_help_content.py"
+      ],
+      "sections": {
+        "Overview": [
+          "Station Map combines station observations and prepared geography. Rendering a small view does not create finer terrain measurements or prove all regions are covered."
+        ],
+        "Setup / example": [
+          "Open a positioned station from Stations with Enter or v, or use the Station Map menu entry supplied by your release. Check source, coverage and detail labels. Use manual Apply only if that installed release exposes it; this first slice does not invent its controls."
+        ],
+        "Controls": [
+          "The audited shared help declares arrows for pan, +/- for zoom, a to fit filtered known positions, f to center selection, F to follow, and d to open Stations. Mouse drag and wheel are intended bindings, not a guarantee of physical responsiveness."
+        ],
+        "Settings / defaults / storage": [
+          "View width, display cells, pack sampling and vector detail are different quantities. Prepared coverage is finite; explicitly coarse data remains coarse. The packaged release determines whether unsupported requests retain the previous image."
+        ],
+        "Lifecycle": [
+          "Map workers and UI windows have different lifetimes. A local cache or source file existing is not evidence that a normal installed launch consumes it."
+        ],
+        "Troubleshooting": [
+          "If a view takes seconds, distinguish pending preparation from unavailable coverage. Do not read a test binding as acceptance of slow drag, resize or outline feedback. Compare a selectable follow-on against the preserved working drag baseline."
+        ]
+      },
+      "see_also": [
+        "aprs.heard",
+        "aprs.setup",
+        "desktop.navigation"
+      ]
+    }
+  ]
+}

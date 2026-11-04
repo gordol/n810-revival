@@ -1,0 +1,60 @@
+#!/bin/sh
+# Compact, local reference for the N810 console and pocket workspace.
+set -eu
+
+case "${1:-}" in
+'') wait=no;;
+--wait) wait=yes;;
+*) echo 'Usage: n810-help [--wait]' >&2; exit 2;;
+esac
+
+cat <<'EOF'
+N810 POCKET KEYS
+
+Internal keyboard
+  Fn+Q..P        1..0          Fn+H /       Fn+G \
+  Fn+M or Fn+;  |             Fn+Z `       Fn+Space Tab
+  Fn+Shift+J/K  [ ]           Fn+Shift+G/H { }
+  Fn+arrows     Home End PageUp PageDown
+  Back          Escape (no chord)          Ctrl+C interrupts
+
+Pocket workspace
+  Menu, then ?  this help     Menu+A         communicator menu
+  Home/Swap     last window
+  Fullscreen    zoom pane     Zoom -/+      previous/next window
+  Menu          tablet prefix   ` or Ctrl+B familiar prefix
+  Menu+Back     scroll/copy   Menu+Space    window picker
+  Menu+Fn+Space last window
+  prefix c      new window    Menu n/p      next/previous window
+  prefix 0..9   choose window prefix d      detach (session stays)
+  prefix h/v    split pane    Menu arrows   move between panes
+  prefix arrows resize pane  Alt+arrows    select pane
+  Shift+Left/Right           previous/next window
+  prefix Escape copy mode    prefix p      paste buffer
+  Fn+Z twice    literal `     Menu [        scroll/copy fallback
+
+Useful commands
+  n810-pocket                launch or return to the workspace
+  n810-pocket open apps      mail/chat/web/device menu
+  n810-pocket open mail      NeoMutt (F5 synchronizes)
+  n810-pocket open irc       Irssi
+  n810-pocket open xmpp      Profanity
+  n810-pocket open music     cmus
+  n810-pocket open web       w3m
+  n810-pocket open net       network status
+  n810-pocket open power     battery and charge status
+  n810-power                 read current power telemetry
+  n810-pocket list           list named windows
+  n810-setup                 revisit first-run settings
+  n810-wifi-soak 600         validate Wi-Fi for this boot
+  n810-wifi-persist          enable validated Wi-Fi at boot
+  sudo n810-power-audit 30   capture wakeups without changing tunables
+
+External USB/Bluetooth keyboards keep normal Alt, AltGr and F4..F8 behavior.
+The internal Fn overlay and hardware buttons above do not remap them.
+EOF
+
+if test "$wait" = yes && test -t 0; then
+	printf '\nPress Enter to close help. '
+	IFS= read -r ignored
+fi

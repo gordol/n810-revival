@@ -1,0 +1,16 @@
+# Prefer n810-mail-setup. If copied manually, use ~/.msmtprc mode 0600.
+# This file contains no secret; n810-secret reads an allowlisted pass entry.
+defaults
+auth on
+tls on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+
+account primary
+host smtp.example.net
+port 587
+tls_starttls on
+from you@example.net
+user you@example.net
+passwordeval "/usr/local/bin/n810-secret mail-smtp"
+
+account default : primary

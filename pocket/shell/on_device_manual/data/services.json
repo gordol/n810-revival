@@ -1,0 +1,53 @@
+{
+  "owner": "services",
+  "revision": "2026-10-24.2",
+  "pages": [
+    {
+      "id": "services.lifecycle",
+      "app": "Services",
+      "title": "Owners, windows and unavailable services",
+      "owner": "services",
+      "revision": "2026-10-24.2",
+      "scope": "Offline manual; app-owned versioned help",
+      "keywords": [
+        "daemon",
+        "lifecycle",
+        "service",
+        "dependency",
+        "provider"
+      ],
+      "sources": [
+        "explorations/current-world/app_registry.py",
+        "packet-console/domains/reticulum/manager.py",
+        "packet-console/domains/reticulum/session_owner.py"
+      ],
+      "sections": {
+        "Overview": [
+          "An app window is a view. A service owner holds a connection, identity or shared data. Hiding or closing one view does not inherently stop that owner."
+        ],
+        "Setup / example": [
+          "Use the application menu for an app that is registered in this release. A registration file in a checkout is not evidence that it appears in the installed menu.",
+          "When Reticulum has no injected provider, its form says the service is unavailable and refuses actions. Configure the supported station-owned provider before expecting Connect to work."
+        ],
+        "Controls": [
+          "Use explicit owner-provided Connect/Disconnect or Read/Check actions where present. Refreshing a view is not necessarily a new physical radio query."
+        ],
+        "Settings / defaults / storage": [
+          "Registry declarations can supply app settings and required/optional dependencies. Availability and defaults depend on the actual registered release; the proposed general service manager is not documented as shipped."
+        ],
+        "Lifecycle": [
+          "Reticulum session management starts idle. Saving or selecting a profile never connects the radio. Closing its window is not its Disconnect action. Broad desktop process isolation is not implied by an optional process-app experiment."
+        ],
+        "Troubleshooting": [
+          "If a view is empty, distinguish missing provider, disconnected transport, no retained data and stale evidence. Do not enable a background collector just because its settings contract is proposed."
+        ]
+      },
+      "see_also": [
+        "desktop.launch",
+        "devices.bluetooth",
+        "reticulum.setup",
+        "aprs.heard"
+      ]
+    }
+  ]
+}
