@@ -4,9 +4,9 @@
 
 Surface Room gave the [native frontend](2026-11-07-native-desktop.md) a scene with geometry, lighting, a camera, and a visible response to input. Adding a small target range made input and rendering failures easier to expose. A shot has to use the camera direction, change target state, update the image, and leave the surrounding desktop usable.
 
-![The native Surface Room target range, with three orange targets and a crosshair.](../assets/screenshots/surface-room-targets-20261107.png)
+![Surface Room running in the native Pocket window: moving through the scene, aiming, firing at targets, and resetting the range.](../assets/demos/surface-room-play-20261107.gif)
 
-*Local Mac GPU frame captured on 7 November. The weapon, crosshair, targets, and target-state markers are geometry drawn over the Room scene. This capture shows the initial three-target state.*
+*Recorded on a Mac on 7 November 2026. The complete 21.7-second sequence plays at normal speed. The recording shows only the Pocket application window. Orange targets disappear when hit; the three indicators at the upper left track their state. Reset restores the targets.*
 
 ## Make movement follow held input
 
