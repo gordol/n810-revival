@@ -14,6 +14,7 @@ class DocumentView:
         self.command=command;self.width=94;self.height=28;self.snapshot=None;self.rows=();self.notice='';self.query=''
         self.layout=AdaptivePanels((PanelSpec('items','Items',24,32),PanelSpec('detail','Content',30,62)))
         self.items=SelectList(());self.entry=None;self.entry_action=None;self.scroll=0;self._spans=();self._rects={};self._hits=[];self._body_key=None;self._body=None
+        self._detail_length=0
 
     def update(self,snapshot,rows):
         if snapshot is not self.snapshot:self._body_key=None
@@ -45,8 +46,8 @@ class DocumentView:
             before=self.items.index;handled=self.items.key(key)
             if self.items.index!=before:self.scroll=0
             return handled
-        if key in ('up','down','pageup','pagedown','home'):
-            self.scroll=0 if key=='home' else max(0,self.scroll+(-1 if key in ('up','pageup') else 1)*(5 if key in ('pageup','pagedown') else 1));return True
+        if key in ('up','down','pageup','pagedown','home','end'):
+            self.scroll=0 if key=='home' else self._detail_length if key=='end' else max(0,self.scroll+(-1 if key in ('up','pageup') else 1)*(5 if key in ('pageup','pagedown') else 1));return True
         return False
 
     def pointer(self,column,row,width,button=0,released=False):
@@ -94,6 +95,7 @@ class DocumentView:
             else:
                 selected=self.selected();cache_key=(getattr(snapshot,'revision',None),getattr(selected,'id',None),w,getattr(self,'show_collections',False))
                 if self._body_key!=cache_key:self._body=self.body(w);self._body_key=cache_key
+                self._detail_length=len(self._body.lines)
                 self.scroll=self._body.draw(c,x,y+1,w,max(1,h-1),self.scroll)
         result=getattr(snapshot,'result',None);pending=getattr(snapshot,'pending',None)
         message=self.notice or ('Working: '+pending if pending else result.message if result else 'Ready')

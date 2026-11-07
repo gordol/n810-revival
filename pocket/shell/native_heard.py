@@ -8,7 +8,7 @@ class Heard:
         self.provider=provider;self.width=92;self.height=28;self.metadata={};self.rows=();self.selected=None;self.scroll=0;self.token=None
         self.layout=AdaptivePanels((PanelSpec('events','Additions',28,48),PanelSpec('details','Observation',28,44)))
         self.list=SelectList(());self.list.column_layout=Columns((Column('Capture',8,'muted'),Column('Station',10,'heading'),Column('Observation',16,'body')))
-        self._spans=();self._rects={}
+        self._spans=();self._rects={};self._detail_length=0
     def update(self):
         data=self.provider() or {};self.metadata=data;events=data.get('events') or ();token=(data.get('revision'),time_display.ZONE)
         if token==self.token:return
@@ -43,8 +43,8 @@ class Heard:
         if key in ('\t','backtab'):self.layout.cycle(-1 if key=='backtab' else 1)
         elif key in ('\r','\n'):self.layout.select('details')
         elif self.layout.focus=='events' and self.list.key({'j':'down','k':'up'}.get(key,key)):self.choose()
-        elif self.layout.focus=='details' and key in ('up','down','pageup','pagedown','home'):
-            self.scroll=0 if key=='home' else max(0,self.scroll+(-1 if key in ('up','pageup') else 1)*(5 if key in ('pageup','pagedown') else 1))
+        elif self.layout.focus=='details' and key in ('up','down','pageup','pagedown','home','end'):
+            self.scroll=0 if key=='home' else self._detail_length if key=='end' else max(0,self.scroll+(-1 if key in ('up','pageup') else 1)*(5 if key in ('pageup','pagedown') else 1))
         else:return False
         return True
     def pointer(self,column,row,width,button=0,released=False):
@@ -67,7 +67,7 @@ class Heard:
                 return True
         return False
     def lines(self):
-        self.update();c=Canvas(self.width,self.height);c.put(0,0,'Client Directory additions');c.role(0,0,self.width,'toolbar')
+        self.update();self._detail_length=0;c=Canvas(self.width,self.height);c.put(0,0,'Client Directory additions');c.role(0,0,self.width,'toolbar')
         c.put(0,1,'Since desktop attachment · capture times may be historical');c.role(0,1,self.width,'muted')
         message=self.metadata.get('error') or (self.metadata.get('unavailable_reason') or 'Activity source unavailable' if not self.metadata.get('attached') else 'Source connected' if self.metadata.get('connected') else 'Source offline')
         if self.metadata.get('gap_possible'):message+=' · gap possible; no guaranteed catch-up'
@@ -92,6 +92,7 @@ class Heard:
                     body.section('Evidence source');source=row.get('source') or {}
                     for label,value in (('Scope','Client Directory ingest'),('Kind',source.get('kind')),('Direction',source.get('direction')),('Origin',source.get('origin')),('RF origin',source.get('rf_origin')),('Directory ID',row['id'])):body.field(label,value or 'Unknown')
                     if row.get('used_relays'):body.field('Used relays',', '.join(row['used_relays']),'path');body.text('Used-address evidence only; no physical route inferred.','muted')
+                    self._detail_length=len(body.lines)
                     self.scroll=body.draw(c,x,y+1,w,max(1,h-1),self.scroll)
         c.put(0,self.height-2,str(len(self.rows))+' retained additions · no replay or RF freshness guarantee');c.role(0,self.height-2,self.width,'muted')
         c.put(0,self.height-1,'Tab pane · ↑↓ select/scroll · / find · Enter details');c.role(0,self.height-1,self.width,'control')

@@ -69,6 +69,10 @@ class LocalOverview:
             width,height=raster_size(width,height);key=(tuple(center),span,width,height)
             if key!=self.key:self.key=key;self.coarse=None;self.refined=None
             if self.refined is not None:return self.refined
+            if width*height<=131072:
+                self.refined=self.renderer.context_frame(center,span,width,height)
+                self.coarse=self.refined
+                return self.refined
             w=min(160,max(2,width));h=max(2,round((w-1)*max(1,height-1)/max(1,width-1))+1)
             if self.coarse is None:
                 self.coarse=self.renderer.context_frame(center,span,w,h)

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Private offline repeater directory; distance sorting is not a coverage model."""
+from contextlib import closing
 import argparse
 import csv
 import curses
@@ -123,7 +124,7 @@ def directory_rows(data,services,lat,lon,radius=150,category='Voice',asof=None):
 
 def observations(path):
     try:
-        with sqlite3.connect('file:'+str(Path(path).expanduser())+'?mode=ro',uri=True,timeout=.1) as db:
+        with closing(sqlite3.connect('file:'+str(Path(path).expanduser())+'?mode=ro',uri=True,timeout=.1)) as db:
             return {call:(last,count) for call,last,count in db.execute('SELECT call,last,packets FROM stations')}
     except sqlite3.Error:return {}
 

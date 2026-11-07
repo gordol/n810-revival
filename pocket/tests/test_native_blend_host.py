@@ -30,6 +30,18 @@ class NativeBlendTests(unittest.TestCase):
                 expected=h.scene_cell(i%h.width,i//h.width,include_outline=False)
                 with self.subTest(style=style,fill=fill,opacity=opacity,point=(i%h.width,i//h.width)):
                     self.assertEqual(lib.get(target,i),(ord(h.glyphs.cell(expected.char,h.ascii)),expected.color))
+    def test_semantic_themes_match_portable_materials(self):
+        import themes
+        h=self.host();lib=h._native.lib;target=lib.surface(h.width,h.height)
+        dirty=array('I',range(h.width*h.height))
+        for name in themes.PRESETS:
+            h.set_palette(name);h.window_opacity=.88;h.shadow_enabled=False
+            plans=h._native.prepare(h,h.windows,STYLES)[0]
+            lib.blend_scene(target,h.backdrop.native_surface,tuple((p,b[0],b[1]) for w,b,p in plans),dirty,1,.88,0,1,1,1,0.)
+            actual=[lib.get(target,i) for i in dirty]
+            expected=[h.scene_cell(i%h.width,i//h.width,include_outline=False) for i in dirty]
+            self.assertEqual(actual,[(ord(c.char),c.color) for c in expected],name)
+
     def test_integrated_output_matches_existing_mixed_renderer(self):
         from cell_text import Glyphs
         a,b=self.host(),self.host()

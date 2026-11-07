@@ -21,8 +21,23 @@ class ManualBrowser(HelpBrowser):
             existing=self.catalog.get(name,())
             titles={title for title,_ in existing}
             self.catalog[name]=existing+normalized((title,lines) for title,lines in content if title not in titles)
+        self.load_full_documentation()
         self._rows=();self.sync()
         self.search_edit=False;self.query='';self.results=();self.search_origin=None;self.history=[]
+
+    def load_full_documentation(self):
+        from pathlib import Path
+        import json
+        path=Path('/usr/local/share/pocket-field-kit/manual.json')
+        try:
+            if path.stat().st_size>16*1024*1024:return
+            pages=json.loads(path.read_text())
+            valid=[]
+            for title,lines in pages[:512]:
+                if isinstance(title,str) and isinstance(lines,list) and all(isinstance(line,str) for line in lines):
+                    valid.append((title[:160],tuple(line[:2000] for line in lines[:10000])))
+            if valid:self.catalog['Full documentation']=tuple(valid)
+        except (OSError,ValueError,TypeError):pass
 
     def current_id(self):
         if not self.group or self.group=='Search results':return None

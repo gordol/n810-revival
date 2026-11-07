@@ -1,5 +1,4 @@
 """Compose local radio facts with existing receive-only feed sockets."""
-import heapq
 import json
 import importlib.util
 import sys
@@ -141,15 +140,8 @@ class DeviceSource:
 
     def _load_files(self):
         """Prepare retained files on the existing worker; read publishes the tuple."""
-        snapshot=None
-        backups=heapq.nlargest(10,(self.root/'backups').glob('*/backup.json'))
-        self.file_cache={path:value for path,value in self.file_cache.items()
-                         if path.parent.parent!=self.root/'backups' or path in backups}
-        for path in backups:
-            candidate=self.cached(path)
-            if candidate and candidate.get('complete') and ('restore_bank' not in candidate or candidate.get('restored')):
-                snapshot=candidate;break
-        catalog=dict(radio_snapshot=snapshot,radio_banks=self.cached(self.root/'banks.json'),radio_profiles=self.cached(self.root/'profiles.json'))
+        from radio_catalog import load
+        catalog=load(self.root,self.cached)
         return catalog,self.saved('messages.json') or {},self.saved('nets-state.json'),self.cached(self.telemetry)
 
     def pool(self):
@@ -163,16 +155,7 @@ class DeviceSource:
             stat=path.stat()
             return (stat.st_dev,stat.st_ino,stat.st_size,stat.st_mtime_ns,stat.st_ctime_ns)
         except OSError:return None
-    def cached(self,path):
-        path=Path(path);signature=self.revision(path)
-        prior=self.file_cache.get(path)
-        if prior is not None and prior[0]==signature:return prior[1]
-        value=read(path) if signature is not None else None
-        # A replacement during the read must be retried next time; never label
-        # bytes with a revision they did not come from.
-        if self.revision(path)==signature:self.file_cache[path]=(signature,value)
-        else:self.file_cache.pop(path,None)
-        return value
+    def cached(self,path):return read_cached(path,self.file_cache)
     def delay(self,now=None):
         if self.closed or self.collector is None or self.pending is not None:return None
         now=time.time() if now is None else now
@@ -187,3 +170,15 @@ class DeviceSource:
         stopped=self.receive.close()
         if self.worker is not None:self.worker.shutdown(wait=False,cancel_futures=True)
         return stopped
+
+
+def read_cached(path,cache):
+    path=Path(path);signature=DeviceSource.revision(path)
+    prior=cache.get(path)
+    if prior is not None and prior[0]==signature:return prior[1]
+    value=read(path) if signature is not None else None
+    # A replacement during the read must be retried next time; never label
+    # bytes with a revision they did not come from.
+    if DeviceSource.revision(path)==signature:cache[path]=(signature,value)
+    else:cache.pop(path,None)
+    return value

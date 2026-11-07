@@ -104,7 +104,7 @@ class Catalog:
         if live.get('receive_gap_possible'):freshness+=' · reconnect gap possible beyond live history'
         connection='Offline' if self.error else 'Listening' if live.get('receive_connected') else 'Connecting' if live.get('receive_subscription') else 'Offline'
         metadata=dict(lines=self.lines,packet_times={line:packet['time'] for line,packet in zip(self.lines,self.evidence)},source=source,freshness=freshness,revision=self.revision,records_revision=self.records_revision,connection=connection,error=self.error,status=connection,last_record=self.evidence[-1].get('time') if self.evidence else None)
-        self.feed=dict(metadata,history_page=self.history_page,records=tuple(self.receive_input['raw_records']),evidence=self.evidence,connected=live.get('receive_connected',False),subscribed=live.get('receive_subscription',False),error=self.error,
+        self.feed=dict(metadata,history_page=self.history_page,history_device=self.metadata_input['history_device'],records=tuple(self.receive_input['raw_records']),evidence=self.evidence,connected=live.get('receive_connected',False),subscribed=live.get('receive_subscription',False),error=self.error,
                        radio_link=copy_data(self.metadata_input['radio_link']),snapshot_observation=copy_data(self.metadata_input['snapshot_observation']))
         activity=self.metadata_input['activity']
         self.heard=activity if isinstance(activity,dict) else dict(events=(),revision=0,attached=False,connected=False,source='Activity source unavailable',scope=None,error=None,gap_possible=False)

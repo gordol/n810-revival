@@ -227,7 +227,7 @@ class RegisteredNavigationTests(unittest.TestCase):
         native_key(wrapper,'\t');self.assertEqual(view.selected_service,'reticulum')
         native_key(wrapper,'backtab');native_key(wrapper,'left');self.assertEqual(view.selected_service,'receive')
         rows,spans=native_presentation(wrapper,('',),(),40,16)
-        self.assertIn((1,0,40,'input'),spans);self.assertIn('Tabs',rows[-1])
+        self.assertIn((0,0,40,'input'),spans);self.assertIn('Tabs',rows[-1])
 
     def test_reticulum_tab_order_and_modal_input_survive_shared_navigation(self):
         from app_registry import Registry

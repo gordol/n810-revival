@@ -67,7 +67,7 @@ class DeviceOwner(ServiceOwner):
         self.implementation=identity()
         from build_identity import release_id
         self.release=release_id()
-        self.providers={};self.telemetry={}
+        self.providers={};self.telemetry={};self.radio_catalog=None;self.radio_catalog_manifest=None
         self.services=[dict(id='system',available=True,state='ready'),
                        dict(id='receive',available=False,state='starting')]+[
                            dict(id=name,available=False,state='starting') for name in OWNER_IDS]
@@ -88,6 +88,10 @@ class DeviceOwner(ServiceOwner):
     def sample(self):
         import importlib.util
         from pathlib import Path
+        from device_radio_source import read_cached
+        from radio_catalog import load,pack
+        radio_files={};previous_catalog=None;raw=None;manifest=None
+        radio_root=Path.home()/'.local/state/n810-radio'
         # Telemetry and receive history must never gate the directory listener.
         try:
             spec=importlib.util.spec_from_file_location('device_collector',Path(ROOT)/'vendor/packet-console/web-console/read-state.py')
@@ -96,7 +100,14 @@ class DeviceOwner(ServiceOwner):
                 try:
                     telemetry=collector.host_status()
                 except Exception as error:telemetry=dict(telemetry_error=str(error)[:200])
-                with self.guard:self.telemetry=telemetry
+                try:
+                    catalog=load(radio_root,lambda path:read_cached(path,radio_files))
+                    if previous_catalog is None or any(catalog[key] is not previous_catalog[key] for key in catalog):
+                        raw,manifest=pack(catalog);previous_catalog=catalog
+                except (OSError,ValueError) as error:
+                    raw=None;manifest=dict(error=str(error)[:200]);previous_catalog=None
+                with self.guard:
+                    self.telemetry=telemetry;self.radio_catalog=raw;self.radio_catalog_manifest=manifest
                 self.post(dict(state='complete',action='sample'))
                 if self.receive is None:
                     from device_feed import RawReceive
@@ -170,9 +181,16 @@ class DeviceOwner(ServiceOwner):
             received=bounded_receive(receive.state,encode)
         else:received=dict(online=False,error='Receive service starting',revision=0,raw_records=[],omitted_records=0)
         with self.guard:result=dict(version=1,owner_online=True,device=socket.gethostname(),implementation=self.implementation,release=self.release,pid=os.getpid(),revision=self.revision,capabilities=[],services=list(self.services),telemetry=dict(self.telemetry))
+        with self.guard:
+            if self.radio_catalog_manifest is not None:result['radio_catalog']=dict(self.radio_catalog_manifest)
         if not directory:result['receive']=received
         return result
     def dispatch(self,request):
+        if request.get('action')=='snapshot' and request.get('scope')=='radio-catalog':
+            from radio_catalog import page
+            with self.guard:
+                if self.radio_catalog is None:raise ValueError('Saved radio catalog unavailable')
+                return page(self.radio_catalog,self.radio_catalog_manifest,request.get('payload') or {})
         if request.get('action')=='snapshot' and request.get('scope')=='history':
             from device_retained import owner
             return owner('n810-frame-history.py').page((request.get('payload') or {}).get('before'),anchor=(request.get('payload') or {}).get('anchor'))

@@ -21,11 +21,18 @@ def installed_library():
     return None
 
 def use_native(connection):
-    if connection=='ble':
+    """Service-owned implementation policy shared by every local launcher."""
+    if connection == 'ble':
         if backend_policy.native_required():
-            raise ValueError('Direct BLE Reticulum is not supported by the Nokia native backend; use USB, Classic Bluetooth or the shared hub')
+            label = 'Direct BLE'
+            raise ValueError(label + ' Reticulum is not supported by the Nokia native backend; use USB, Classic Bluetooth or the shared hub')
         return False
     return installed_library() is not None
+
+def selected_backend(connection):
+    """Resolve an owner implementation; apps consume the owner API unchanged."""
+    return NativeBackend if use_native(connection) else LXMFBackend
+
 
 class NativeBackend(LXMFBackend):
     def __init__(self,*args,library=None,remote=None,**kwargs):
@@ -49,7 +56,7 @@ class NativeBackend(LXMFBackend):
     def _connect_runtime(self):
         import native_stack as RNS
         import native_lxmf as LXMF
-        from native_radio import configuration,RNode,TCPPackets
+        from native_radio import configuration,RNode,TCPPackets,SerialPackets,KISSPackets
         if self.remote:
             from native_rpc import Library
             from types import SimpleNamespace
@@ -58,7 +65,7 @@ class NativeBackend(LXMFBackend):
             adapter=config=None
         else:
             api=None;config=configuration(self.config/'config')
-            adapter={'RNodeInterface':RNode,'TCPClientInterface':TCPPackets}.get(config.get('type'))
+            adapter={'RNodeInterface':RNode,'SerialInterface':SerialPackets,'KISSInterface':KISSPackets,'TCPClientInterface':TCPPackets,'TCPServerInterface':TCPPackets}.get(config.get('type'))
             if adapter is None:raise ValueError('Selected interface is not supported by the native owner')
         storage=self.book.directory/'native-rns';storage.mkdir(mode=0o700,exist_ok=True)
         self.RNS,self.LXMF=RNS,LXMF
@@ -84,7 +91,7 @@ class NativeBackend(LXMFBackend):
         state=super().snapshot()
         online=bool(self.native_radio and self.native_radio.online)
         state.update(native_error=self.stack.last_error if self.stack else None,backend='external-microreticulum' if self.remote else 'native-microreticulum',messaging='native-microlxmf',
-            radio_state='online' if online else 'opening' if self.stack else 'idle',radio_status=self.error or ('online' if online else 'opening' if self.stack else 'idle'),
+            radio_state='online' if online else getattr(self.native_radio,'phase','opening') if self.stack else 'idle',radio_status=self.error or ('online' if online else getattr(self.native_radio,'phase','opening') if self.stack else 'idle'),
             messaging_state='ready' if self.delivery and online else 'starting' if self.stack else 'unavailable')
         self.data_bridge.update(state);state['data_bridge']=self.data_bridge.snapshot()
         return state

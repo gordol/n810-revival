@@ -218,12 +218,13 @@ def classify_path(start,end,*,frequency_mhz=144.39,tx_height_m=2,rx_height_m=10,
     angle=2*math.asin(math.sqrt(min(1,max(0,hav))));distance=angle*EARTH_M
     if not 1<=distance<=200000:raise ValueError('Path outside supported length')
     first,m1=sample_elevation(*a);last,m2=sample_elevation(*b)
-    if first is None or last is None:return dict(los='unknown',fresnel='unknown',samples=2)
-    if any(EARTH_M*math.radians(m['latitude_step'])>500 for m in (m1,m2)):
-        return dict(los='unknown',fresnel='unknown',samples=2)
+    if first is None or last is None:return dict(los='unknown',fresnel='unknown',samples=2,unknown_samples=sum(value is None for value in (first,last)))
+    coarse=sum(EARTH_M*math.radians(abs(m['latitude_step']))>500 for m in (m1,m2))
+    if coarse:
+        return dict(los='unknown',fresnel='unknown',samples=2,unknown_samples=coarse)
     resolution=min(abs(m2['latitude_step'])*111194.9,abs(m2['longitude_step'])*111194.9*math.cos(math.radians(b[0])))
     origin=first+tx;destination=last+rx;wavelength=LIGHT_M_S/(frequency*1e6)
-    sine=math.sin(angle);missing=False;fresnel_blocked=False
+    sine=math.sin(angle);unknown_samples=0;fresnel_blocked=False
     def step(metadata,lat):
         spacing=min(abs(metadata['latitude_step'])*111194.9,abs(metadata['longitude_step'])*111194.9*math.cos(math.radians(lat)))
         return max(2,min(50,spacing/2))
@@ -235,11 +236,11 @@ def classify_path(start,end,*,frequency_mhz=144.39,tx_height_m=2,rx_height_m=10,
         x=p*x1+q*x2;y=p*y1+q*y2;z=p*s1+q*s2
         lat=math.degrees(math.atan2(z,math.hypot(x,y)));lon=math.degrees(math.atan2(y,x))
         height,metadata=sample_elevation(lat,lon)
-        if height is None or EARTH_M*math.radians(metadata['latitude_step'])>500:
-            missing=True;d+=50;continue
+        if height is None or EARTH_M*math.radians(abs(metadata['latitude_step']))>500:
+            unknown_samples+=1;d+=50;continue
         d=distance*f;product=d*(distance-d)
         clearance=origin+(destination-origin)*f-height-product/(2*k*EARTH_M)
-        if clearance<0:return dict(los='blocked',fresnel='obstructed',samples=i+2,resolution_m=resolution)
+        if clearance<0:return dict(los='blocked',fresnel='obstructed',samples=i+2,resolution_m=resolution,unknown_samples=unknown_samples)
         if clearance<.6*math.sqrt(wavelength*product/distance):fresnel_blocked=True
         d+=step(metadata,lat)
-    return dict(los='unknown' if missing else 'clear',fresnel='obstructed' if fresnel_blocked else 'unknown' if missing else 'clear',samples=i+2,resolution_m=resolution)
+    return dict(los='unknown' if unknown_samples else 'clear',fresnel='obstructed' if fresnel_blocked else 'unknown' if unknown_samples else 'clear',samples=i+2,resolution_m=resolution,unknown_samples=unknown_samples)

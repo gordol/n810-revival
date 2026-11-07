@@ -68,8 +68,10 @@ def prepare_identity(source,target):
 def prepare_lxmf(source,target):
     text=source.read_text()
     needle='PacketReceipt receipt = packet.send();'
-    assert text.count(needle)==2,'Pinned LXMF receipt API changed'
-    text=text.replace(needle,'PacketReceipt receipt = packet.receipt_send();')
+    if text.count(needle) == 2:
+        text=text.replace(needle,'PacketReceipt receipt = packet.receipt_send();')
+    else:
+        assert text.count('PacketReceipt receipt = packet.receipt_send();') == 2, 'LXMF receipt API changed'
     timeout="""
                 receipt.set_timeout_handler([](const PacketReceipt& failed) {
                     PendingProofSlot* proof=find_pending_proof_slot(failed.hash());
@@ -165,6 +167,8 @@ def prepare_msgpack(source,target):
      assert text.count(needle)==1,(name,'Pinned MessagePack header changed')
      text=text.replace(needle,replacement)
      if not path.exists() or path.read_text()!=text:path.write_text(text)
+    fixed = Path(__file__).parent/'patches/Unpacker.h'
+    (target/'MsgPack/Unpacker.h').write_bytes(fixed.read_bytes())
 
 if __name__=='__main__':
     mode,source,target=sys.argv[1:]

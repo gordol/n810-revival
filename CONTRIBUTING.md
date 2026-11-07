@@ -5,6 +5,14 @@ the resulting behavior, and how you checked it. The maintainer reviews changes
 before integration. The [agent instructions](AGENTS.md) apply to automated work;
 the [documentation instructions](docs/AGENTS.md) describe the writing standard.
 
+## Working checkout
+
+Work from a clone or Git worktree of `gordol/n810-revival`. Pocket is the
+`pocket/` directory inside this repository. Start a topic branch here, and run
+`make` from that directory for laptop testing. Do not maintain a separate Pocket
+repository or copy source between development and publication trees. Use Git
+branches or worktrees for parallel work and merge through a pull request.
+
 ## Prepare a change
 
 Start with the component README and inspect existing changes. Keep each change

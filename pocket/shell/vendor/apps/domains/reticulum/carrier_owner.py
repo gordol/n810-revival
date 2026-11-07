@@ -7,7 +7,7 @@ from pathlib import Path
 import signal
 import tempfile
 
-from carriers import configuration
+from carriers import configuration,validate_native
 from lxmf_owner import LXMFBackend
 from owner import serve
 
@@ -30,12 +30,14 @@ def main():
         path=Path(directory)/'config'
         fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
         with os.fdopen(fd,'w') as stream:stream.write(config)
-        class CarrierOwner(LXMFBackend):
+        from native_owner import selected_backend,NativeBackend
+        backend=selected_backend('loopback')
+        if backend is NativeBackend:validate_native(specs,args.relay)
+        class CarrierOwner(backend):
             def snapshot(self):
                 state=super().snapshot()
                 state.update(service_type='reticulum-carrier',carrier_config_sha256=digest,
-                             carriers=specs,service_security='authenticated-encrypted',
-                             radio_state='online' if self.stack else 'idle')
+                             carriers=specs,service_security='authenticated-encrypted')
                 return state
         def factory(state,station):return CarrierOwner(state,station,directory,'carriers','carriers')
         serve(args.socket,args.state,args.station,factory,ready_fd=args.ready_fd)

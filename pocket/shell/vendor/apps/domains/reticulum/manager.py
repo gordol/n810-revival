@@ -110,8 +110,10 @@ class Manager:
 
     def edit_profile(self, profile=None):
         profile = profile or {}
+        from app_widgets import TextInput
         self.editing = dict(id=profile.get('id'), index=0,
                             values=[str(profile.get(name, '')) for name, label in self.profile_fields])
+        self.editing['inputs']=[TextInput(value,limit=64) for value in self.editing['values']]
 
     def key(self, key):
         if self.discovery_confirmation:
@@ -154,9 +156,8 @@ class Manager:
             elif key in ('\t', 'down', 'backtab', 'up'):
                 form['index'] = (index + (-1 if key in ('backtab', 'up') else 1)) % len(self.profile_fields)
             elif key == '\x15':
-                form['values'][index] = ''
-            elif key in ('\x7f', '\b'):
-                form['values'][index] = form['values'][index][:-1]
+                form['inputs'][index].text='';form['inputs'][index].cursor=0
+                form['values'][index]=''
             elif key in ('\r', '\n'):
                 if index < len(self.profile_fields) - 1:
                     form['index'] += 1
@@ -170,8 +171,10 @@ class Manager:
                             self.editing = None
                     except ValueError:
                         self.notice = 'Enter whole numbers in the numeric fields.'
-            elif len(key) == 1 and key.isprintable() and len(form['values'][index]) < 64:
-                form['values'][index] += key
+            else:
+                editor=form['inputs'][index]
+                editor.key(key)
+                form['values'][index]=editor.text
             return True
         if self.importing is not None:
             if key == '\x1b':
@@ -195,7 +198,7 @@ class Manager:
         if self.compose is not None:
             if key == '\x1b':
                 self.compose = None
-            elif key in ('\r', '\n'):
+            elif key == '\x13':
                 if self.compose_peer and self.compose and self.request('send', peer=self.compose_peer, text=self.compose):
                     self.compose = None
                     self.compose_peer = None
@@ -308,13 +311,32 @@ class Manager:
 
     def navigation_targets(self):
         from native_navigation import Target
-        return [Target('tabs','Tabs','tabs'),Target('content','Selected item','details')]+[Target('action:'+key,label,'action',key) for key,label in self._navigation_actions]
+        name=self.navigation_list_name()
+        content=Target('content',name.capitalize() if name else 'Information','list' if name else 'details')
+        return [Target('tabs','Tabs','tabs'),content]+[Target('action:'+key,label,'action',key) for key,label in self._navigation_actions]
+
+    def navigation_list_name(self):
+        return {0:'radios',1:'profiles',2:'peers',3:'messages',4:'packets',7:'heard',8:'peers'}.get(self.tab)
+
+    def navigation_list(self,key):
+        name=self.navigation_list_name()
+        if key!='content' or name is None:return None,None
+        from app_widgets import SelectList
+        widget=self._lists.setdefault(name,SelectList(()))
+        values=self.rows(name)
+        # Drawing normally supplies the formatted labels. Keep focus usable
+        # before the first draw and when a source revision changes its length.
+        if len(widget.rows)!=len(values):
+            widget.rows=tuple(display(row.get('label') or row.get('identity') or row.get('id') or row.get('radio_id') or index)
+                              for index,row in enumerate(values))
+        widget.index=min(self.index,max(0,len(values)-1))
+        return widget,lambda:setattr(self,'index',widget.index)
 
     def navigation_action_spans(self,key):
         return tuple((y,left,right-left,'input') for y,left,right,action,value in self.hits if action=='key' and value==key)
 
     def navigation_modal_hint(self):
-        if self.compose is not None:return ('Message','Enter sends · Esc cancel')
+        if self.compose is not None:return ('Message','Ctrl-S sends · Enter keeps draft · Esc cancel')
         if self.editing is not None:return ('Profile','Tab field · Enter next/save · Esc cancel')
         if self.naming is not None or self.importing is not None:return ('Input','Enter save · Esc cancel')
         return ('Confirm','Y confirm · Esc cancel')
@@ -409,7 +431,7 @@ class Manager:
                 commands([('revoke_peer', 'Revoke Y', 'y'), (None, 'Cancel Esc', '\x1b')])
             elif self.compose is not None:
                 text('Message to ' + str(self.compose_peer))
-                commands([('send', 'Send Enter', '\r'), (None, 'Cancel Esc', '\x1b')])
+                commands([('send', 'Send Ctrl-S', '\x13'), (None, 'Cancel Esc', '\x1b')])
                 text(self.compose or 'Type your message')
                 text(str(len(self.compose.encode())) + '/240 bytes')
             elif self.naming is not None:
@@ -430,7 +452,11 @@ class Manager:
                 text('Edit profile' if self.editing['id'] else 'New profile')
                 commands([(None, 'Next / Save Enter', '\r'), (None, 'Cancel Esc', '\x1b')])
                 for i, ((name, label), value) in enumerate(zip(self.profile_fields, self.editing['values'])):
-                    text(('> ' if i == self.editing['index'] else '  ') + label + ': ' + value)
+                    prefix=('> ' if i == self.editing['index'] else '  ')+label+': '
+                    editor=self.editing['inputs'][i]
+                    shown,spans=editor.presentation(max(0,width-len(prefix)),focused=i==self.editing['index'])
+                    text(prefix+shown)
+                    self._spans.extend((len(rows)-1,len(prefix)+x,n,role) for x,n,role in spans)
                     self.hits.append((len(rows)-1, 0, width, 'field', i))
             if self.notice: text(self.notice)
             return rows[:height]

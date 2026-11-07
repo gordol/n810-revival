@@ -7,7 +7,8 @@ from native_terrain_profile import TerrainProfile
 class SiteTests(unittest.TestCase):
     def test_real_candidates_are_bounded_ranked_and_target_unchanged(self):
         result=search('47.25,-122.50','47.60,-122.20')
-        self.assertEqual(len(result['candidates']),13)
+        self.assertEqual(len(result['candidates'])+result['skipped'],13)
+        self.assertGreater(len(result['candidates']),0)
         self.assertEqual(result['target'],(47.60,-122.20))
         for item in result['candidates']:
             self.assertLessEqual(item['offset_km'],2)

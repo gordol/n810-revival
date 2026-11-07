@@ -258,15 +258,16 @@ class Messages(ReceiveMessages):
         return ((view.list,view.choose) if view else (self.list,self.choose)) if key=='pane:threads' else (None,None)
     def modal(self):
         view=self.chats.get(self.protocol)
-        return bool(view.editing or view.confirm or view.discovery) if view else self.composing
+        return bool(view.editing or view.confirm or view.discovery or view.own_identity) if view else self.composing
     def navigation_modal_hint(self):
         view=self.chats.get(self.protocol)
+        if view and view.own_identity:return ('My identity','Esc back')
         if view and (view.confirm or view.discovery):return ('Confirm','Y confirm · Esc cancel')
         return ('Draft','Ctrl-S sends · Tab focus · Esc back') if view else ('Local draft','Tab focus · Esc back · no transmission')
     def navigation_end_input(self):
         view=self.chats.get(self.protocol)
         if view:
-            if view.confirm or view.discovery:return False
+            if view.confirm or view.discovery or view.own_identity:return False
             view.editing=False
         else:self.composing=False
         return True
@@ -285,7 +286,7 @@ class Messages(ReceiveMessages):
         if provider:provider.drain()
     def key(self,key):
         view=self.chats.get(self.protocol)
-        if key=='p' and not ((view.editing or view.confirm or view.discovery) if view else self.composing):
+        if key=='p' and not ((view.editing or view.confirm or view.discovery or view.own_identity) if view else self.composing):
             modes=('aprs','reticulum','meshcore');self.protocol=modes[(modes.index(self.protocol)+1)%3]
             if getattr(self,'_session_callback',None):self._session_callback()
             return True

@@ -71,12 +71,13 @@ class LaunchTests(unittest.TestCase):
                 self.assertEqual(len(owner.clients),1)
                 os.write(master,('e'+str(management)+'\rs').encode())
                 wait(lambda:'Attached' in text(), 'Reticulum owner did not attach through normal UI')
-                def activate(title):
+                def activate(title,expected=True):
                     with socket.socket(socket.AF_UNIX) as client:
                         client.settimeout(3);client.connect(str(folder/'desktop.sock'))
                         client.sendall(frame(dict(activate=title)))
                         wait(lambda:bool(select.select([client],[],[],0)[0]), 'activation reply timed out')
-                        reply=unpack(client.recv(65536)[HEADER:]);self.assertTrue(reply['ok'], title+': '+str(reply))
+                        reply=unpack(client.recv(65536)[HEADER:]);self.assertEqual(reply['ok'],expected,title+': '+str(reply))
+                activate('Terrain Profile',expected=False)
                 activate('Reticulum')
                 wait(lambda:'[Data]' in text() and 'fixture' in text(), 'Reticulum app failed with Connections also open')
                 activate('Connections')
@@ -87,7 +88,7 @@ class LaunchTests(unittest.TestCase):
                 wait(lambda:'[*Device]' in text() and 'Attached' in text(), 'receive attachment lost on service switch')
                 os.write(master,b'd')
                 wait(lambda: 'Local shell' in text(), 'disconnect did not return to local shell')
-                for title in ('Messages','Services','Nets','Walk','CW','Radio Feed','Heard','Audio Monitor','Stations','Station Map','Help','Scenery'):
+                for title in ('Messages','Services','Nets','APRS Walk Logs','CW','Radio Feed','Heard','Audio Monitor','Stations','Station Map','Help','Scenery'):
                     prior=len(chunks)
                     activate(title)
                     wait(lambda:len(chunks)>prior, 'lazy application did not render: '+title)

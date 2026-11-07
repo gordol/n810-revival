@@ -83,6 +83,9 @@ class Navigation:
         if self.target and self.target.startswith(('input:','job:')) and layout and layout.focus!='file':self.target='pane:'+layout.focus
         if self.target and self.target.startswith('item:') and type(self.page()).__name__=='SettingsWindow':self.target='item:'+str(self.page().index)
         if self.target in keys:return next(t for t in targets if t.key==self.target)
+        preferred=getattr(f,'navigation_focus',None)
+        if callable(preferred) and preferred() in keys:
+            self.select(preferred());return next(t for t in targets if t.key==self.target)
         if type(self.page()).__name__=='SettingsWindow':key='item:'+str(self.page().index)
         elif name=='SettingsManager':key='filter' if f.search_focus else 'categories'
         elif name=='Bluetooth':key='action:'+('1','0','r','s','d')[f.focus]
@@ -122,6 +125,8 @@ class Navigation:
         self.select(keys[(keys.index(current)+direction)%len(keys)])
     def input(self):
         f=self.form;key=self.target or ''
+        declared=getattr(f,'navigation_input',None)
+        if callable(declared):return declared(key)
         if key.startswith('input:'):return getattr(f,key[6:])
         if type(f).__name__=='DirectoryView' and key=='filter':return f.query
         if type(f).__name__=='ChatView' and key=='draft':return f.draft
@@ -182,6 +187,13 @@ class Navigation:
         return bool(getattr(f,'search_edit',False)) or getattr(f,'self_editor',None) is not None or bool(getattr(f,'filter_open',False)) or bool(self.layout() and self.layout().resizing) or getattr(f,'entry',None) is not None or getattr(f,'review',None) is not None or bool(getattr(f,'editing',False)) or (name=='Messages' and f.composing) or (name=='System' and f.page==1 and (f.links.choosing or f.links.review))
     def key(self,key):
         f=self.form;name=type(f).__name__;target=self.current()
+        from keybindings import current
+        listing,_=self.listing()
+        editing=self.modal() or target.kind=='input' or self.input() is not None or listing is not None and listing.searching
+        # Literal editor text and modal cancellation stay owned by the app.
+        resolved=current().resolve('navigation',key)
+        if not editing or resolved in ('\t','backtab') and not key.isprintable():
+            key=resolved
         if target.key.startswith('right:') and key not in ('\t','backtab'):
             if key=='\x1b':self.select('left');return True
             return native_key(f.right,key)
@@ -214,6 +226,8 @@ class Navigation:
         editor=self.input()
         if editor is not None:
             if key in ('\r','\n'):
+                accept=getattr(f,'navigation_accept_input',None)
+                if callable(accept):return bool(accept())
                 if name=='ChatView':return f.key(key)
                 self.cycle(1)
                 if name=='Stations':f.choose()
@@ -256,6 +270,11 @@ class Navigation:
         if name=='NetsView' and target.key=='content' and key in ('left','right'):return True
         if name=='Stations' and target.key=='stations' and len(key)==1 and key.isprintable() and key not in ('v','u','U'):return True
         if name=='RadioManager' and target.key=='bank' and key in ('left','right'):return f.key(key)
+        scope=getattr(f,'keybinding_scope',None)
+        if scope is not None:
+            from keybindings import UNBOUND
+            key=current().resolve(scope,key)
+            if key==UNBOUND:return True
         handled=f.key(key)
         if handled and key not in ('up','down','left','right','pageup','pagedown','home','end'):self.target=None
         return handled
@@ -300,7 +319,8 @@ class Navigation:
 
 
 def navigation(form):
-    state=getattr(form,'_navigation',None)
+    # Delegating wrappers must not borrow their child's focus state.
+    state=vars(form).get('_navigation') if hasattr(form,'__dict__') else getattr(form,'_navigation',None)
     if state is None:state=Navigation(form);form._navigation=state
     return state
 
@@ -320,7 +340,7 @@ def native_presentation(form,lines,spans,width,height):
     elif listing is not None and listing.searching:label='Search: /'+listing.query+' · '+str(len(listing.matches()))+' matches';hint='Enter accept · Esc cancel · Tab focus'
     else:
         label=target.title+(' /'+listing.query if listing is not None and listing.query else '')
-        hint={'tabs':'←/→ tab · Enter pane · Tab focus · Esc back','input':'type · Enter accept · Esc back · Tab focus','list':'↑↓ select · / search · Enter open · Tab focus','details':'↑↓ scroll · Tab focus · Esc back','action':'Enter activate · Tab focus · Esc back','map':'arrows pan · +/- zoom · Esc back','choice':'arrows adjust · Tab focus','control':'arrows adjust · Enter activate · Tab focus'}[target.kind]
+        hint={'window':'Enter/Tab controls · Esc Esc select window','tabs':'←/→ tab · Enter pane · Tab focus · Esc back','input':'type · Enter accept · Esc back · Tab focus','list':'↑↓ select · / search · Enter open · Tab focus','details':'↑↓ scroll · Tab focus · Esc back','action':'Enter activate · Tab focus · Esc back','map':'arrows pan · +/- zoom · Esc back','choice':'arrows adjust · Tab focus','control':'arrows adjust · Enter activate · Tab focus'}[target.kind]
     if type(form).__name__=='RadioManager' and form.page==0 and state.scroll:
         full=getattr(form,'_full_rows',lines);state.scroll=min(state.scroll,max(0,len(full)-height+1))
         rows=list(full[:3])+list(full[3+state.scroll:3+state.scroll+max(0,height-4)])
@@ -341,6 +361,14 @@ def native_presentation(form,lines,spans,width,height):
     if type(form).__name__=='SettingsManager' and form.category is None and target.key=='categories':hint='arrows browse · Enter open · / category filter · Tab focus'
     if type(form).__name__=='BirdView' and target.key=='map':hint='arrows orbit/tilt · +/- zoom · Tab focus · Esc back'
     if type(form).__name__=='DetachedView':hint='↑↓ browse · Enter reattach · Esc back'
+    from keybindings import current
+    bindings=current()
+    if target.kind=='window':hint='Enter/Tab controls'+(' · Esc Esc select window' if bindings.double_escape else '')
+    if bindings.document.get('bindings',{}).get('navigation') and not state.modal() and state.input() is None and not (listing is not None and listing.searching):
+        for text,action in (('Tab','focus.next'),('Enter','activate'),('Esc','back')):
+            hint=hint.replace(text,bindings.label('navigation',action))
+        hint=hint.replace('↑↓',bindings.label('navigation','select.up')+'/'+bindings.label('navigation','select.down'))
+        hint=hint.replace('←/→',bindings.label('navigation','select.left')+'/'+bindings.label('navigation','select.right'))
     rows[-1]=(label+' · '+hint)[:width];spans.append((height-1,0,width,'control'))
     if target.kind=='tabs':
         if type(form).__name__=='SplitPane':
@@ -360,7 +388,9 @@ def native_presentation(form,lines,spans,width,height):
         for x,end,key in getattr(form,'_buttons',()):
             if key==action:spans.append((2,x,end-x,'input'))
     if target.key=='filter' and type(form).__name__=='Stations':
-        rows[1]=('Filter: '+state.input().draw(max(1,width-8)))[:width];spans.append((1,0,width,'input'))
+        text,field_spans=state.input().presentation(max(0,width-8))
+        rows[1]=('Filter: '+text)[:width]
+        spans.extend((1,8+x,length,role) for x,length,role in field_spans)
     return tuple(rows),tuple(spans)
 
 

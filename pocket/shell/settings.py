@@ -86,7 +86,7 @@ class SettingsWindow:
         for i,(name,read,_) in enumerate(self.items):
             row=i+2
             spans.append((row,0,self.width,'selected' if i==self.index else 'body'))
-            spans.append((row,20,min(max(0,self.width-20),len(self.value(read))),'control'))
+            spans.append((row,20,min(max(0,self.width-20),len(self.value(read))),'selected' if i==self.index else 'control'))
         return tuple(spans)
 
 

@@ -120,7 +120,7 @@ def arguments(argv=None,full=False):
     parser.add_argument('--moon-phase',choices=('auto','full','waxing','crescent','new','waning'))
     parser.add_argument('--style', choices=STYLES, default=None)
     parser.add_argument('--window-controls',choices=('auto','left','right'),help='title controls: auto favors left at 160+ columns, right below')
-    parser.add_argument('--palette', choices=PALETTES, default=None)
+    parser.add_argument('--palette', choices=PALETTES, default=os.environ.get('POCKET_THEME'))
     parser.add_argument('--ascii', action='store_true', help='fallback for terminals without box drawing')
     parser.add_argument('--no-animation', action='store_true')
     parser.add_argument('--static-world',action='store_true',help='freeze terrain world age for controlled UI tests; not saved as a preference')
@@ -132,6 +132,7 @@ def arguments(argv=None,full=False):
     parser.add_argument('--screensaver',action='store_true')
     parser.add_argument('--kitchen-sink',action='store_true')
     parser.add_argument('--arrival-seconds',type=float,help='enable and time the first terrain reveal (0.25 to 12 seconds); --no-animation takes precedence')
+    parser.add_argument('--setup',action='store_true',help='open N810 installation-kit preparation')
     parser.add_argument('--app-preview',action='store_true',help='open proposed app layouts using local fixtures')
     parser.add_argument('--legacy-workspace',type=Path,help='JSON declarations for unchanged PTY apps')
     parser.add_argument('--legacy-aprs',type=Path,help='host an unchanged APRS viewer script in a PTY window')
@@ -205,7 +206,8 @@ def main():
         from legacy_workspace import load
         try:workspace=load(args.legacy_workspace)
         except (OSError,ValueError,KeyError,TypeError) as error:parser.error('workspace: '+str(error))
-    native_defaults=bool((args.shell or args.radio_state or args.device_radio or args.receive_feed) and not args.legacy_apps)
+    native_defaults=bool((args.shell or args.radio_state or args.device_radio or args.receive_feed or args.setup) and not args.legacy_apps)
+    if args.setup and args.legacy_apps:parser.error('--setup requires native applications; omit --legacy-apps')
     terminal_fallbacks=()
     if native_defaults and workspace:
         sizes={'Messages':(44,14),'Nets':(42,14),'Services':(42,14)}
@@ -301,7 +303,7 @@ def main():
             rect=source.rect if source else app.rect
             windows.append(Window(app.name,*rect,visible=False,opened=False))
     if native_defaults:
-        for name in ('Messages','Nets','Services','Walk','CW','ULS Lookup','Terrain Profile','Radio Feed','Heard'):
+        for name in ('Messages','Nets','Services','APRS Walk Logs','CW','N810 Setup','ULS Lookup','Radio Feed','Heard'):
             if not any(w.name==name for w in windows):windows.append(Window(name,1,1,min(86,width-1),min(28,height-1),visible=False,opened=False))
     def local_domain_installed(name):
         here=Path(__file__).resolve().parent
@@ -341,7 +343,7 @@ def main():
         mirror_name=f'Mirror {args.mirror_depth+1}' if mirror_plan.child else 'The last window'
         windows.append(Window(mirror_name,*mirror_plan.rect,lines=mirror_plan.lines))
     def terrain_feature_enabled():
-        identifier='station-map' if 'station-map' in registered_apps.entries else 'terrain-profile'
+        identifier='station-map'
         return registered_apps.preferences(identifier).get('terrain-enabled',True) if identifier in registered_apps.entries else True
     def make_native(name,module_name,class_name,view_name=None):
         def create(_host,*,app_context=None):
@@ -352,25 +354,17 @@ def main():
                 messages_form=factory('N0DEM',services={key:(app_context.services.get(key) if app_context else registered_apps.providers.get(key)) for key in ('reticulum','meshcore')})
                 update_messages()
                 return messages_form
-            if name=='Terrain Profile':
-                form=factory(maps=args.station_maps,qth_path=app_state/'qth.msgpack')
-                form.enabled_provider=terrain_feature_enabled
-                def resolve(call):
-                    ensure_station_directory()
-                    return (context.target or {}).get('position') if station_directory.select(call) else None
-                form.resolve_station=resolve;return form
             return factory(getattr(native_catalog,view_name)) if view_name else factory()
         return create
     native_specs=(('Messages','native_messages','Messages',None),('Services','native_services','Services','service_view'),
-                  ('Nets','native_nets','Nets','net_view'),('Walk','native_walk','Walk','walk_view'),
-                  ('CW','native_cw','CW',None),('ULS Lookup','native_uls','ULSLookup',None),
-                  ('Terrain Profile','native_terrain_profile','TerrainProfile',None),('Radio Feed','native_feed','RadioFeed','feed_view'),
+                  ('Nets','native_nets','Nets','net_view'),('APRS Walk Logs','native_walk','Walk','walk_view'),
+                  ('CW','native_cw','CW',None),('N810 Setup','native_setup','N810Setup',None),('ULS Lookup','native_uls','ULSLookup',None),
+                  ('Radio Feed','native_feed','RadioFeed','feed_view'),
                   ('Heard','native_heard','Heard','heard_view'))
     if native_defaults:
         for name,module_name,class_name,view_name in native_specs:
-            registered_apps.register(dict(id=name.lower().replace(' ','-'),title=name,
+            registered_apps.register(dict(id='walk' if name=='APRS Walk Logs' else name.lower().replace(' ','-'),title=name,
                 factory=make_native(name,module_name,class_name,view_name),preferred_size=(86,28),minimum_size=(40,12),
-                settings=(dict(id='terrain-enabled',label='Terrain profiles, LOS and obstructions',kind='bool',default=True),) if name=='Terrain Profile' and not station_enabled else (),
                 uses=tuple(dict(id=service,required=False) for service in (('receive','reticulum','meshcore') if name=='Messages' else ('receive',) if view_name else ()))))
     def make_audio(_host):
         from audio_monitor import AudioMonitor
@@ -687,7 +681,12 @@ def main():
     from pointer_events import deliver_pointer,prepare_gestures
     decoder = IngressDecoder(Input(passthrough=True,phone_keys=args.phone_keys,extended_keys=True))
     control=None;control_directory=None;host_environment=None
+    if args.setup:host.activate('N810 Setup')
     terminals={};shell_names={'Terminal'};manager_mode=False;terminal_pointer=None;touch=None;touch_error=None
+    from keybindings import current as current_bindings
+    from window_selection import WindowSelection
+    bindings=current_bindings()
+    window_selection=WindowSelection(host,bindings)
     keyboard=None;keyboard_router=None;keyboard_error=None
     from terminal_keys import TerminalKeys
     terminal_keys=TerminalKeys(time.monotonic,enabled=os.environ.get("TERM")!="linux" and args.keyboard_device is None and args.keyboard_fd is None)
@@ -724,7 +723,7 @@ def main():
         resized=True
     def panel_count(direction):
         nonlocal resized
-        resized=(panel.add() if direction>0 else panel.remove_empty()) or resized
+        resized=(panel.add() if direction>0 else panel.remove(prefer_bottom=True)) or resized
     def panel_presentation(direction):
         nonlocal resized
         cycle(MODES,panel.mode,panel.set_mode,direction);resized=True
@@ -775,6 +774,12 @@ def main():
     from scenery import Library as SceneryLibrary,rows as scenery_rows
     scenery_library=SceneryLibrary(args.scenery_library)
     settings=SettingsManager([
+        ('Keyboard',(' Tab ',' ⇧Tab',' ←→ '),'Navigation and window shortcuts',[
+            ('Windows',[Choice('WM prefix',lambda:host.wm_escape,host.set_wm_escape,WM_ESCAPES).row(),
+                ('Double Escape',lambda:'window selection' if bindings.double_escape else 'app cancellation',lambda d:bindings.set_double_escape(not bindings.double_escape))]),
+            ('Configuration',[('Shortcut file',lambda:str(bindings.path),lambda d:None),
+                ('Reload shortcuts',lambda:bindings.error or 'Reload keys.json',lambda d:bindings.reload()),
+                ('Scope',lambda:'Common navigation + window controls',lambda d:None)])]),
         ('Appearance',(' ▄▀▄ ',' ▀▄▀ ','  Aa '),'Colors, fonts and presentation',[('Style',[rows['Colors']]),('Windows',[window_rows[1],('Show underlying text',lambda:'on' if host.show_underlying_text else 'off',lambda d:host.set_show_underlying_text(not host.show_underlying_text))]),('Fonts',font_preview.settings_rows())]),
         ('Window Manager',('╭───╮','│   │','╰───╯'),'Frames, focus and effects',[
             ('Style',[rows['Frame style'],title_controls,window_rows[0]]),
@@ -802,7 +807,7 @@ def main():
             ('Items',[('Clock',lambda:'on' if host.show_clock else 'off',lambda d:host.set_preference('show_clock',not host.show_clock)),('Connectivity',lambda:'on' if host.show_connectivity else 'off',lambda d:host.set_preference('show_connectivity',not host.show_connectivity)),('Demo link',lambda:'up' if link.connected else 'down',lambda d:inbox.submit(lambda:Link(not link.connected,'synthetic')))])]),
         ('Terminal',('╭───╮','│>_ │','╰───╯'),'Shell background',[
             ('Appearance',[Slider('Background opacity',lambda:host.terminal_opacity,host.set_terminal_opacity,0,1,.05,lambda v:f'{v*100:.0f}%').row()]),
-            ('Keys',[Choice('WM escape',lambda:host.wm_escape,host.set_wm_escape,WM_ESCAPES).row(),('Send escape',lambda:'WM then Ctrl-V',lambda d:None)])]),
+            ('Keys',[('Shortcuts',lambda:'Settings / Keyboard',lambda d:None),('Send prefix',lambda:'WM then Ctrl-V',lambda d:None)])]),
         ('Stations',('  .  ',' /|\\ ','  |  '),'Received observations and exact self addresses',[
             ('Directory',[
                 ('Self addresses',lambda:', '.join(station_directory.self_calls) or 'None' if station_directory else 'Stations unavailable',edit_self_addresses),
@@ -931,7 +936,7 @@ def main():
             host.activate('Station Map')
         for label,action in (('Open station','open'),('Show on map','map'),('Follow on map','follow')):
             entity_actions.register('station',label,lambda entity,action=action:station_action(entity,action))
-        if 'terrain-profile' in registered_apps.entries:
+        if 'station-map' in registered_apps.entries:
             def profile_station(entity,end):
                 ensure_station_directory()
                 if not station_directory.select(entity.key):return
@@ -1020,7 +1025,7 @@ def main():
             if name=='Render Debug' and metrics is None:
                 from draw_metrics import Metrics
                 metrics=Metrics()
-            if name=='Walk' and radio and radio.source and hasattr(radio.source,'request_walks'):radio.source.request_walks(time.time())
+            if name=='APRS Walk Logs' and radio and radio.source and hasattr(radio.source,'request_walks'):radio.source.request_walks(time.time())
             if name=='CW' and name in host.app_forms:
                 if host.app_forms[name]._closed:
                     from native_cw import CW
@@ -1228,6 +1233,13 @@ def main():
                 if event[0]=='focus' and not event[1]:cancel_touch()
                 event=terminal_keys.event(event)
                 if event is None:continue
+                if event[0]!='key':window_selection.reset_sequence()
+                if window_selection.active and event[0]=='mouse':
+                    _,button,x,y,released=event
+                    selected=window_selection.pointer(button,x-host.origin[0],y-host.origin[1],released)
+                    if selected:launch('window:'+selected)
+                    manager_mode=False
+                    continue
                 if event[0]=='touch_cancel' or event[0]=='mouse' and not event[4] and event[1] in (0,1,2):terminal_keys.cancel()
                 if keyboard_router is not None and keyboard_router.event(event):continue
                 if keyboard_router is not None and (event[0]=='touch_cancel' or event[0]=='mouse' and not event[4] and event[1] in (0,1,2)):
@@ -1330,6 +1342,31 @@ def main():
                     continue
                 char = event[1]
                 if keyboard_router is not None and keyboard_router.suppress_tty(char):continue
+                if window_selection.active:
+                    selected=window_selection.key(char)
+                    if selected:launch('window:'+selected)
+                    manager_mode=False
+                    continue
+                global_key=bindings.global_key(char,WM_ESCAPES[host.wm_escape])
+                if global_key=='window-select':
+                    window_selection.enter();manager_mode=False;continue
+                if global_key=='window-commands':
+                    window_selection.reset_sequence();manager_mode=not manager_mode;continue
+                char=global_key
+                form=host.app_forms.get(host.focus)
+                if host.focus=='Settings':form=settings
+                elif host.focus=='Calendar':form=calendar_view
+                safe_escape=not (manager_mode or launcher.active or host.help_lines or host.screensaver or host.drag or host.overview or host.focus in terminals)
+                if form is not None:
+                    from native_navigation import navigation
+                    native_form=getattr(form,'navigation_form',form)
+                    if native_form is None or getattr(native_form,'layer_only',False):
+                        safe_escape=False
+                    else:
+                        nav=navigation(native_form);listing,_=nav.listing()
+                        safe_escape=safe_escape and not (nav.modal() or nav.current().kind=='input' or nav.input() is not None or listing is not None and listing.searching)
+                if window_selection.double_escape(char,time.monotonic(),allowed=safe_escape):
+                    manager_mode=False;continue
                 if phone_action(char,host,launcher,open_launcher):
                     manager_mode=char=='wm-menu' or host.overview
                     continue
@@ -1352,7 +1389,6 @@ def main():
                     continue
                 if char=='\x1b' and not panel.locked:
                     panel.set_locked(True);continue
-                if (terminals or host.app_forms) and char==WM_ESCAPES[host.wm_escape]:manager_mode=not manager_mode;continue
                 if manager_mode and char=='\x16':
                     if host.focus in terminals:terminals[host.focus].key(WM_ESCAPES[host.wm_escape])
                     manager_mode=False;continue
@@ -1508,7 +1544,7 @@ def main():
                             if args.no_animation:command.append('--no-animation')
                             if args.effect:command+=['--effect',args.effect]
                             if args.ascii:command.append('--ascii')
-                            if args.palette:command+=['--palette',args.palette]
+                            command+=['--palette',host.palette]
                             terminals[mirror_name]=Terminal(host,mirror_name,command,selector,metrics=metrics)
                             tty.setraw(sys.stdin,when=termios.TCSANOW)
             if mouse_tracking!=host.mouse_trails:
@@ -1646,7 +1682,9 @@ def main():
                              'weather':[]}
                     widgets['clock']=build_identity.panel_entries(width,widgets['clock'],widgets['connectivity'],desktop_buttons)+widgets['clock']
                     if host.focus in terminals:
-                        prefix=host.wm_escape.replace('ctrl-','Ctrl-').replace('backslash','\\')
+                        configured=bindings.document.get('bindings',{}).get('global',{})
+                        prefix=bindings.label('global','windows.commands') if 'windows.commands' in configured else host.wm_escape
+                        prefix=prefix.replace('ctrl-','Ctrl-').replace('backslash','\\')
                         hint=f' WM: X close Z max | {prefix} app | Ctrl-V send ' if manager_mode else f' App exited | {prefix} WM ' if terminals[host.focus].eof else f' App keys | {prefix} WM '
                         widgets['windows']+=[('wm:toggle',hint)]
                     if touch_error:widgets['windows']+=[('key:?',' touch off ')]
@@ -1677,7 +1715,7 @@ def main():
             camera_frame=host.camera_motion is not None
             # Buffer large map replacements across composition batches. Small
             # controls/menu changes retain the ordinary urgent presentation.
-            map_frame=host.focus in ('Station Map','Terrain Profile') and (len(host.damage)>2048 or bool(presentation.buffer))
+            map_frame=host.focus=='Station Map' and (len(host.damage)>2048 or bool(presentation.buffer))
             static_ui=not host.background_enabled and not (host.drag or host.animations or host.slide or host.camera_motion or host.terrain_loading or host.terrain_arrival is not None)
             output,changed,computed=host.flush(width*height if host._native is not None or static_ui or first_frame and args.minimal or host.terrain_loading or host.terrain_arrival is not None else 2048,max_seconds=None if static_ui or first_frame and args.minimal else .012)
             trace_composed=(time.monotonic_ns(),time.thread_time_ns()) if trace_start is not None else None

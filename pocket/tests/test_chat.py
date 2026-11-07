@@ -57,4 +57,16 @@ class ChatTests(unittest.TestCase):
             view.protocol=protocol;view.width=40;view.height=12
             self.assertEqual(len(view.lines()),12)
 
+    def test_own_identity_shows_full_fingerprint_without_network_action(self):
+        import hashlib
+        view=self.make();key=bytes(range(64))
+        self.state['public_card']=dict(identity='b'*32,label='Nokia one',public_key=key.hex())
+        view.key('i');self.assertTrue(view.own_identity)
+        digest=hashlib.sha256(key).hexdigest().upper()
+        for width,height in ((40,12),(76,20)):
+            view.width,view.height=width,height
+            text=' '.join(line.strip() for line in view.lines())
+            for offset in range(0,64,8):self.assertIn(digest[offset:offset+8],text)
+        view.key('y');self.assertTrue(view.own_identity);self.assertFalse(self.sent)
+        view.key('\x1b');self.assertFalse(view.own_identity)
 if __name__=='__main__':unittest.main()

@@ -6,6 +6,7 @@ import json
 import _socket as socket
 import time
 import math
+import themes
 from paint import FRAME_DEFERRED, chrome_ink, frame_template, frame_ink, foreground, background as paint_background, Scene, shade_ink, pane_ink, window_text_ink, window_pane_ink, control_ink, ink, inherit_background, terminal_background
 from weather import Weather, PRESETS, Surfaces, wind_field
 from effects import NAMES as EFFECTS, frame as effect_frame, matrix_plan
@@ -24,6 +25,7 @@ PALETTES = {
     'rose': ('37','91','38;2;166;135;151','93'),
     'ocean': ('37','94','38;2;125;150;175','92'),
 }
+PALETTES.update(themes.palettes())
 FLUX_MAX_FPS=30
 FLUX_CPU_SHARE=.5
 FLUX_FAST_CPU_SHARE=.65
@@ -732,6 +734,11 @@ class Host:
         name=w.name if len(w.name)<=12 else w.name[:9]+'...' if self.ascii else w.name[:11]+'…'
         return icons[status]+' '+name+' '
 
+    def previous_window(self):
+        """Switch to the most recently raised other window on this desktop."""
+        other=next((w for w in reversed(self.windows) if w.name!=self.focus and self.shown(w)),None)
+        if other:self.select(other.name)
+
     def cycle_focus(self, backward=False):
         if self.overview:
             names=[w.name for w in self.exposed_windows()]
@@ -811,7 +818,7 @@ class Host:
              'N                  Add panel at a free edge',
              'Click panel        Select panel for docking',
              'P                  Dock selected panel',
-             'D                  Remove selected empty panel',
+             'D                  Remove panel; preserve widgets',
              'Esc                Finish panel editing',
              'Overview           Click focus; drag into desktop'))
         return tuple((page[0],page[1:]) for page in pages)
@@ -1627,7 +1634,8 @@ class Host:
 
     def opaque_plane(self,w,width,height):
         """Compile body runs once per changed row; focus only restyles interested rows."""
-        signature=(width,height,self.focus==w.name,self.style,self.ascii,self.glyphs.key,self.palette,self.tinted,w.name,w.rolled,w.pinned,w.name in self.maximized,self.control_side(),tuple(w.lines),tuple((row,tuple(spans)) for row,spans in sorted(w.styles.items())))
+        material_styles=themes.window_styles(self.palette,w.styles,width,height)
+        signature=(width,height,self.focus==w.name,self.style,self.ascii,self.glyphs.key,self.palette,self.tinted,w.name,w.rolled,w.pinned,w.name in self.maximized,self.control_side(),tuple(w.lines),tuple((row,tuple(spans)) for row,spans in sorted(material_styles.items())))
         retained=w._opaque_plane_cache
         if retained is not None and retained[0]==signature:return retained[1]
         cache=w._opaque_cache
@@ -1641,7 +1649,7 @@ class Host:
         border=Cell(vertical,color);blank=Cell(' ',0)
         for row in range(max(0,height-2)):
             text=w.lines[row] if row<len(w.lines) else ''
-            styles=tuple(w.styles.get(row,()))
+            styles=tuple(material_styles.get(row,()))
             interest=focus if any(role in ('selected','input') for _,_,role in styles) else False
             key=(width,text,styles,self.palette,interest,self.ascii,self.glyphs.key)
             prior=cache.get(row)
@@ -1670,6 +1678,9 @@ class Host:
         return Cell(*cell(self.width,self.height,x,y,self.loading_step,self.ascii,self.build_snapshot,STYLES[self.style],self.build_wire,self.build_wire_progress))
 
     def scene_cell(self, x, y, include_outline=True, geometry=None):
+        selection_hint=getattr(self,'window_selection_hint',None)
+        if selection_hint and y==self.height-1:
+            return Cell(selection_hint[x] if x<len(selection_hint) else ' ',control_ink('toolbar',self.palette))
         if include_outline:
             outline=self.outline_cell(x,y)
             if outline is not None:return outline
@@ -1708,7 +1719,7 @@ class Host:
                 # Unsupported widths retain one visible placeholder per scalar.
                 char = line[xx-1] if xx-1 < len(line) else ' '
                 char=self.glyphs.cell(char,self.ascii)
-                role=next((role for start,end,role in reversed(w.styles.get(yy-1,())) if start<=xx-1<end),None)
+                role=next((role for start,end,role in reversed(w.styles.get(yy-1,())) if start<=xx-1<end),'body' if self.palette in themes.PRESETS else None)
                 if role:
                     color=control_ink(role,self.palette,w.name==self.focus)
                     if self.window_fill and self.window_opacity<1:
@@ -1854,7 +1865,7 @@ class Host:
                 if wx<=x<wx+ww and wy<=y<wy+hh:
                     return self.overview_window_cell(w,rect,x,y)
             if y==0:
-                label='Desktops above / spatial expose below — click to focus; drag to move'
+                label=getattr(self,'window_selection_hint',None) or 'Desktops above / spatial expose below — click to focus; drag to move'
                 return Cell(label[x] if x<len(label) else ' ',2)
             return background
         if self.slide:
@@ -2023,14 +2034,14 @@ class Host:
             self._overview_frame_expose={w.name:self.expose_window(w) for w in self._overview_frame_windows}
             self._overview_rendering=True
         opaque=None
-        opaque_base_enabled=not (self.pager or self.pointer_trail and self.pointer_trail.overlay or self.shadow_enabled and self._frame_windows or self.overview or self.slide or self.help_lines or self.settings_lines or self.terrain_loading or self.terrain_arrival or self.screensaver) and (not self._frame_windows or self.window_fill and self.window_opacity>=1) and not (self.drag and (self.resize_mode if self.drag[3] else self.move_mode)=='outline' and not (self._native and self._native.supports_outline(self)))
+        opaque_base_enabled=not (getattr(self,'window_selection_hint',None) or self.pager or self.pointer_trail and self.pointer_trail.overlay or self.shadow_enabled and self._frame_windows or self.overview or self.slide or self.help_lines or self.settings_lines or self.terrain_loading or self.terrain_arrival or self.screensaver) and (not self._frame_windows or self.window_fill and self.window_opacity>=1) and not (self.drag and (self.resize_mode if self.drag[3] else self.move_mode)=='outline' and not (self._native and self._native.supports_outline(self)))
         layers_supported=self._native is not None and all(self._native.supports_layer(self,w) for w in self._frame_windows)
         opaque_enabled=opaque_base_enabled and all(w.layer is None for w in self._frame_windows) and not self.launcher_lines
         self.render_backend='python'
         self.render_reason='not_loaded' if self._native is None else 'cell_layer' if not layers_supported else 'decorations_or_transparency' if not opaque_base_enabled else None
         mixed_enabled=not (self.overview or self.slide or self.terrain_arrival or self.screensaver or self.pointer_trail and self.pointer_trail.overlay)
         full_native=opaque_base_enabled and layers_supported
-        if self._native is not None and (full_native or mixed_enabled):
+        if self._native is not None and (full_native or mixed_enabled) and not getattr(self,'window_selection_hint',None):
             try:
                 output_parts=[];changed=computed=0
                 phase=self._phase_start()

@@ -89,6 +89,18 @@ class DesktopMigrationTests(unittest.TestCase):
         self.assertEqual(capture(other,other_panels)['preferences']['palette'],'amber')
         self.assertNotIn(name,other.focus_order)
 
+    def test_walk_rename_and_profile_retirement_preserve_desktop(self):
+        host=Host(100,29,[Window('Walk',2,3,44,19),Window('Terrain Profile',1,1,50,20)])
+        panels=Panels('top');host.set_palette('amber');state=capture(host,panels)
+        state['focus']='Walk';state['app_views']={'Walk':{'selected':'trip'}}
+        other=Host(100,29,[Window('APRS Walk Logs',0,0,40,15)])
+        other_panels=Panels('top');restore(state,other,other_panels)
+        self.assertEqual(other.focus,'APRS Walk Logs')
+        self.assertEqual(other.window('APRS Walk Logs').rect,(2,3,44,19))
+        self.assertEqual(other.app_view_state,{'APRS Walk Logs':{'selected':'trip'}})
+        self.assertEqual(other.palette,'amber')
+        self.assertNotIn('Terrain Profile',other.focus_order)
+
     def test_connections_shortcut_uses_registered_rnode_title(self):
         from native_connections import ConnectionsView
         from rnode_ble_view import descriptor

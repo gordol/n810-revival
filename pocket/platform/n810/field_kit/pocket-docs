@@ -1,0 +1,10 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+set -eu
+KIT=/usr/local/share/pocket-field-kit
+case "${1:-url}" in
+ start) exec "$KIT/bin/busybox" httpd -f -p "${2:-127.0.0.1:8080}" -h "$KIT/docs";;
+ url) echo 'Offline docs: Help > Full documentation, or http://127.0.0.1:8080/ on this Nokia. Laptop: forward port 8080 through SSH.';;
+ *) echo 'Usage: pocket-docs [url | start [IP:PORT]]' >&2;exit 1;;
+esac

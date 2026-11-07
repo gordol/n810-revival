@@ -1,4 +1,6 @@
 """Optional native opaque text/RGB background path. Imported only by explicit Host.enable_native()."""
+import themes
+from paint import chrome_ink
 from array import array
 from math import ceil
 from paint import FRAME_INK, FRAME_DEFERRED, frame_template, valid_ink, control_ink, foreground, background
@@ -313,12 +315,13 @@ class Compositor:
         for w in reversed(windows):
             w._opaque_cache=None;w._opaque_plane_cache=None
             x,y,width,height=host.bounds(w);active.add(w.name)
-            signature=(width,height,host.focus==w.name,host.style,host.ascii,host.glyphs.key,host.palette,host.tinted,w.name,w.rolled,w.pinned,w.name in host.maximized,host.control_side(),tuple(w.lines),tuple((row,tuple(spans)) for row,spans in sorted(w.styles.items())))
+            window_styles=themes.window_styles(host.palette,w.styles,width,height)
+            signature=(width,height,host.focus==w.name,host.style,host.ascii,host.glyphs.key,host.palette,host.tinted,w.name,w.rolled,w.pinned,w.name in host.maximized,host.control_side(),tuple(w.lines),tuple((row,tuple(spans)) for row,spans in sorted(window_styles.items())))
             prior=self.planes.get(w.name)
             if hasattr(self.lib,'window_host'):
                 if prior is None or prior[0]!=signature:
                     focused=w.name==host.focus
-                    color=frame_template(1 if focused else 2,host._ansi_colors(),host.tinted)
+                    color=chrome_ink(1 if focused else 2,host._ansi_colors(),host.tinted)
                     borders=('+','+','+','+','-','|') if host.ascii else styles[host.style]
                     retained,pointer,colors,built=self.lib.window_host(prior[2] if prior else None,
                         width,height,host.titlebar(w,width)[0],signature[13],signature[14],borders,
@@ -332,7 +335,7 @@ class Compositor:
                     plane=Surface(self.lib,width,height);prior=None
                 else:plane=prior[1]
                 if prior is None or prior[0]!=signature:
-                    focus=w.name==host.focus;color=frame_template(1 if focus else 2,host._ansi_colors(),host.tinted)
+                    focus=w.name==host.focus;color=chrome_ink(1 if focus else 2,host._ansi_colors(),host.tinted)
                     tl,tr,bl,br,horizontal,vertical=('+','+','+','+','-','|') if host.ascii else styles[host.style]
                     title=host.titlebar(w,width)[0]
                     rows=[(host.glyphs.text(title,host.ascii),color,())]
@@ -341,7 +344,7 @@ class Compositor:
                     for row in range(max(0,height-2)):
                         text=w.lines[row] if row<len(w.lines) else ''
                         text=host.glyphs.text(text[:width-2],host.ascii)
-                        spans=tuple((max(0,start)+1,min(width-2,end)+1,control_ink(role,host.palette,focus)) for start,end,role in w.styles.get(row,()) if max(0,start)<min(width-2,end))
+                        spans=tuple((max(0,start)+1,min(width-2,end)+1,control_ink(role,host.palette,focus)) for start,end,role in window_styles.get(row,()) if max(0,start)<min(width-2,end))
                         rows.append((vertical+text.ljust(width-2)+vertical,0,((0,1,color),(width-1,width,color))+spans))
                     if height>1:rows.append((bl+horizontal*(width-2)+br,color,()))
                     prior_rows=prior[2] if prior is not None else ()

@@ -1,4 +1,5 @@
 """Receive-only APRS-IS evidence. Never writes into the radio heard database."""
+from contextlib import closing
 import datetime
 import re
 import sqlite3
@@ -73,7 +74,7 @@ def outgoing_evidence(source,row,path=None):
         if stamp.tzinfo is None:return 'Internet evidence unavailable: message has no dated UTC timestamp'
         now=datetime.datetime.now(datetime.timezone.utc)
         since=max(stamp,now-datetime.timedelta(hours=24)).isoformat()
-        with sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=.05) as db:
+        with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=.05)) as db:
             events=db.execute('SELECT source,payload FROM internet_packets WHERE observed>=? AND source IN (?,?) ORDER BY id',(since,source,row['to'])).fetchall()
         seen=ack=rej=False
         for sender,payload in events:

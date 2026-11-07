@@ -124,7 +124,7 @@ class RecoveryTests(unittest.TestCase):
         owner=device_services.DeviceOwner.__new__(device_services.DeviceOwner)
         owner.receive=Receive();owner.guard=threading.RLock();owner.implementation='fixture';owner.release='test';owner.revision=0
         owner.services=[dict(id='system',available=True,state='ready'),dict(id='reticulum',available=False,state='starting')]
-        owner.telemetry=dict(system=dict(observed_at=1))
+        owner.telemetry=dict(system=dict(observed_at=1));owner.radio_catalog_manifest=None
         result=owner.dispatch(dict(version=1,action='snapshot',scope='directory'))
         self.assertNotIn('receive',result)
         self.assertEqual(result['services'],owner.services)

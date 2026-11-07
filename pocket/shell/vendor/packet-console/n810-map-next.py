@@ -213,7 +213,10 @@ class Terrain:
         shades=[bytearray([255])*view.width for _ in range(view.height*2)];selected=[]
         lat,lon=view.center;dx=view.span/max(1,view.width-1)/(111.32*max(.000001,math.cos(math.radians(lat))))
         dy=view.span/max(1,view.width-1)*view.cell_aspect/2/111.32
+        half_x=(view.width-1)/2*dx;half_y=(view.height*2-1)/2*dy
         for layer in self.layers:
+            west,south,east,north=layer['bbox']
+            if lon+half_x<west or lon-half_x>east or lat+half_y<south or lat-half_y>north:continue
             level=layer['levels'][0]
             for candidate in layer['levels'][1:]:
                 if max(candidate['spacing_m'])<=view.ground_m_per_halfcell*1.5:level=candidate
@@ -221,14 +224,14 @@ class Terrain:
             west,south,east,north=layer['bbox'];w,h=level['width'],level['height']
             xs=[math.floor((lon+(x-(view.width-1)/2)*dx-west)/(east-west)*w) for x in range(view.width)]
             ys=[math.floor((north-lat+(j-(view.height*2-1)/2)*dy)/(north-south)*h) for j in range(view.height*2)]
+            columns=[(x,xx) for x,xx in enumerate(xs) if 0<=xx<w]
             used=0
             for j,y in enumerate(ys):
                 if not 0<=y<h:continue
                 offset=y*w
-                for x,xx in enumerate(xs):
-                    if 0<=xx<w:
-                        i=offset+xx;value=level['values'][i]
-                        if value!=self.nodata:rows[j][x]=value;shades[j][x]=level['shade'][i];used+=1
+                for x,xx in columns:
+                    i=offset+xx;value=level['values'][i]
+                    if value!=self.nodata:rows[j][x]=value;shades[j][x]=level['shade'][i];used+=1
             if used:selected.append((layer['name'],round(max(level['spacing_m'])),used))
         return rows,shades,selected
 
@@ -238,7 +241,7 @@ class Engine:
     def __init__(self,maps,style='ansi',attribute=None,palette=None,cache_directory=None):
         if style not in ('ansi','rgb'):raise ValueError('Unknown map style')
         self.style=style;self.attribute=attribute or (lambda kind,terrain:0)
-        self._maps=Path(maps);self._geometry=self._atlas=self._terrain=None
+        self._maps=Path(maps);self._geometry=self._atlas=self._terrain=None;self._terrain_loaded=False
         self.legacy=load('next_metadata','n810-map.py').Atlas(str(maps))
         self.packs=self.legacy.packs;self.errors=self.legacy.errors
         self.labels=canonical_places(self.packs)
@@ -263,20 +266,22 @@ class Engine:
         if self._atlas is not None:return
         geometry=load('next_geometry','n810-walk-map.py')
         atlas=geometry.Atlas(str(self._maps))
-        path=self._maps/'terrain-next.n8t'
-        terrain=Terrain(path) if path.exists() else None
         bounds={}
         for layer in atlas.roads+([atlas.streams] if atlas.streams else []):
-            coords=layer['coords'];xs=coords[0::2];ys=coords[1::2]
+            coords=memoryview(layer['coords']);xs=coords[0::2];ys=coords[1::2]
             if xs:bounds[id(layer)]=(min(xs),min(ys),max(xs),max(ys))
-        self._geometry,self._terrain,self.layer_bounds=geometry,terrain,bounds
+        self._geometry,self.layer_bounds=geometry,bounds
         self._atlas=atlas
     @property
     def atlas(self):
         self._load_geography();return self._atlas
     @property
     def terrain(self):
-        self._load_geography();return self._terrain
+        if not self._terrain_loaded:
+            path=self._maps/'terrain-next.n8t'
+            self._terrain=Terrain(path) if path.exists() else None
+            self._terrain_loaded=True
+        return self._terrain
     @property
     def geometry(self):
         self._load_geography();return self._geometry
@@ -358,11 +363,11 @@ class Engine:
         low=(min(values)//interval)*interval if values else 0
         high=((max(values)//interval)+1)*interval if values else interval
         heights=None
-        if self.terrain and view.span>5:
+        if terrain and view.span>5 and self.terrain:
             heights,_,levels=self.terrain.sample(view)
-            values=sorted(v for row in heights for v in row if v!=self.terrain.nodata)
+            values=[v for row in heights for v in row if v!=self.terrain.nodata]
             if values:
-                low=(values[0]//interval)*interval;high=((values[-1]//interval)+1)*interval
+                low=(min(values)//interval)*interval;high=((max(values)//interval)+1)*interval
             self.stats['height_levels']=levels
         colors={}
         def color(kind,value,height=None):
@@ -397,7 +402,7 @@ class Engine:
     def _ansi_terrain(self,view,terrain):
         rows,_,stats=self.atlas.raster(view.center,view.span,view.width,view.height)
         shades=None;levels=[]
-        if self.terrain:_,shades,levels=self.terrain.sample(view)
+        if terrain and self.terrain:_,shades,levels=self.terrain.sample(view)
         frame=[]
         for y in range(view.height):
             for x in range(view.width):

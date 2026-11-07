@@ -228,6 +228,10 @@ class RadioManager:
             else:rows.append('Read current status unavailable: no owner endpoint configured.')
             if self.message:rows.append(self.message)
             rows+=['CONNECTION',('Console receive sockets' if getattr(self.state.source,'remote',False) else 'Device-local snapshots (SSH not used)') if self.state.source else s['ssh']['label'],s['feed']['label'],r['link']['label'],r['label'],self.state.link_observation()]
+            if r['state']=='paused':
+                rows.append('Periodic status polling is off.')
+                if self.state.can_read:rows.append('Read current status to request a fresh snapshot.')
+            if self.state.catalog_sync():rows += ['Saved radio sync: '+self.state.catalog_sync()]
             if self.state.error:rows += [self.state.error]
             status_error=adapter.data(self.state.payload.get('live')).get('radio_transport_error')
             if status_error:rows += [str(status_error)]
@@ -238,7 +242,8 @@ class RadioManager:
             signal_text=f'{raw}/15 relative' if type(raw) is int else 'Unknown ('+str(signal.get('state','unavailable'))+')'
             rows += ['Signal: '+signal_text]
             rows += [key.replace('_',' ').capitalize()+': '+value(v) for key,v in active.items() if key!='source']
-            rows += ['Feed rates: Unknown (no owner counters)','', 'SOURCES', 'Backup: '+value(model['snapshot'].get('captured_at')),'Catalog: '+value(data['sources']['catalog_captured']),'Feed capture: '+value(data['sources']['live_captured'])]
+            rows += ['Feed rates: Unknown (no owner counters)','', 'SOURCES', 'Backup: '+value(model['snapshot'].get('captured_at')),'Catalog: '+value(data['sources']['catalog_captured'])]
+            rows += self.state.receive_observations()
             if not self.state.path and not self.state.source:rows += ['','No connector configured; use --radio-state FILE.']
         elif self.page==1:
             rows+=self.memory_lines()
@@ -430,7 +435,7 @@ class RadioQuick:
         for index,group in enumerate(groups[self.offset:self.offset+room],self.offset):
             self.hits.append((len(rows),index))
             rows.append(('> ' if index==self.index else '  ')+str(group.get('index',index))+' '+str(group.get('name') or 'Unnamed')+' · '+str(len(group['channels']))+' memories')
-        if not groups:rows+=['No downloaded groups available.']
+        if not groups:rows+=['Saved radio sync: '+self.state.catalog_sync() if self.state.catalog_sync() and self.state.catalog_sync()!='synced' else 'No saved radio backup available.']
         rows+=['']*max(0,self.height-2-len(rows))
         self.hits.append((len(rows),None));rows+=['[m Open Radio Manager]','↑/↓ select group · no tuning']
         return tuple(line[:self.width] for line in rows[:self.height])

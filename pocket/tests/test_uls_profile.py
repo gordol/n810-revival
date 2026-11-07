@@ -15,6 +15,19 @@ from uls_directory import lookup
 
 
 class ULSTests(unittest.TestCase):
+    def test_escape_leaves_controls_without_changing_query_or_result(self):
+        from native_navigation import navigation
+        app=ULSLookup(database='/example')
+        self.addCleanup(app.close)
+        nav=navigation(app)
+        nav.key('\x1b')
+        self.assertEqual(app.navigation_focus(),'window')
+        nav.key('\x1b')
+        self.assertEqual(app.navigation_focus(),'window')
+        self.assertEqual(app.call.text,'')
+        nav.key('\t')
+        self.assertEqual(app.navigation_focus(),'call')
+
     def test_lookup_is_background_and_render_does_not_query(self):
         calls=[]
         def query(path,call):
@@ -47,6 +60,24 @@ class ULSTests(unittest.TestCase):
         app.sync=lambda:None;app.calls=('W1AW',);app.open_uls=lambda call:opened.append(call)
         from native_navigation import native_key
         self.assertTrue(native_key(app,'u'));self.assertEqual(opened,['W1AW'])
+
+    def test_filtered_station_lookup_works_outside_the_filter_editor(self):
+        from types import SimpleNamespace
+        from station_workspace import Stations,Context
+        from native_navigation import native_key,navigation
+        context=Context();context.target={'call':'W1AW'}
+        app=Stations(SimpleNamespace(context=context),lambda:self.fail('Lookup opened map'))
+        self.addCleanup(app.close)
+        app.sync=lambda:None;app.calls=('W1AW',);app.query='W1'
+        app.list.query='W1';opened=[];app.open_uls=opened.append
+        for pane in ('stations','details'):
+            navigation(app).select(pane)
+            self.assertTrue(native_key(app,'u'))
+        self.assertEqual(opened,['W1AW','W1AW'])
+        navigation(app).select('filter')
+        native_key(app,'u')
+        self.assertEqual(app.query,'W1u')
+        self.assertEqual(opened,['W1AW','W1AW'])
 
     def test_real_database_known_club_and_ssid(self):
         path=ROOT/'data/uls.sqlite'

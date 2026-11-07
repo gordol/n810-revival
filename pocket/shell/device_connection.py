@@ -93,6 +93,7 @@ class AttachedDevice:
     remote=True
     def __init__(self,receive,registry,endpoints,catalogue,label):
         self.receive=receive;self.bindings={};self.catalogue=catalogue;self._wake=None
+        self._init_saved_radio()
         self._sample_seen=None;self._sample_due=time.time()+30
         self.catalogue_provider=registry.configure_reticulum(socket_path=endpoints['system'],register=False)
         try:
@@ -124,6 +125,29 @@ class AttachedDevice:
         # Peer radio services have their own subscription cadence and timeouts.
         if getattr(self,'gateway',None) is not None:return None
         return max(0.,getattr(self,'_sample_due',time.time()+30)-(time.time() if now is None else now))
+    def _init_saved_radio(self):
+        self._radio_catalog={};self._radio_revision=None;self._radio_pending=None;self._radio_pool=None;self._radio_error=None;self._radio_retry=0
+
+    def _saved_radio(self,snapshot,now):
+        from concurrent.futures import ThreadPoolExecutor
+        from radio_catalog import fetch
+        pending=getattr(self,'_radio_pending',None)
+        if pending is not None and pending.done():
+            try:
+                revision,catalog=pending.result()
+                self._radio_revision=revision;self._radio_catalog=catalog;self._radio_error=None
+            except (OSError,ValueError,EOFError,ConnectionError) as error:
+                self._radio_error=str(error);self._radio_retry=now+5
+            self._radio_pending=None
+        manifest=snapshot.get('radio_catalog') or {}
+        if manifest.get('error'):self._radio_error=manifest['error']
+        if manifest.get('revision') and manifest['revision']!=getattr(self,'_radio_revision',None) and self._radio_pending is None and now>=getattr(self,'_radio_retry',0):
+            if getattr(self,'_radio_pool',None) is None:self._radio_pool=ThreadPoolExecutor(max_workers=1,thread_name_prefix='radio-catalog')
+            def transfer():return manifest['revision'],fetch(self.catalogue_provider.transport.exchange,manifest)
+            self._radio_pending=self._radio_pool.submit(transfer)
+            self._radio_pending.add_done_callback(lambda _:self._wake() if self._wake else None)
+        return getattr(self,'_radio_catalog',{})
+
     def read(self,now):
         if self.delay(now)==0:
             self._sample_due=now+30
@@ -136,9 +160,10 @@ class AttachedDevice:
         if snapshot.get('owner_online'):
             data.update(snapshot.get('telemetry',{}));self.catalogue=snapshot
         live['data']=data
-        return dict(payload,live=live,connector=dict(payload.get('connector',{}),device=dict(
+        catalog=self._saved_radio(snapshot,now)
+        return dict(payload,catalog=catalog,live=live,connector=dict(payload.get('connector',{}),device=dict(
             host=self.catalogue.get('device'),connected=bool(snapshot.get('owner_online')),
-            services=self.catalogue.get('services',[]))))
+            services=self.catalogue.get('services',[]),radio_catalog_sync='loading' if self._radio_pending else 'failed: '+self._radio_error if self._radio_error else 'synced' if self._radio_revision else 'waiting for saved catalog')))
     def close(self):
         self._wake=None
         self.receive.bind_wakeup(None)
@@ -146,6 +171,7 @@ class AttachedDevice:
         for provider in self.bindings.values():provider.close()
         self.bindings.clear()
         self.catalogue_provider.close();self.receive.close()
+        if getattr(self,'_radio_pool',None) is not None:self._radio_pool.shutdown(wait=False,cancel_futures=True)
 
 
 def from_peer(carrier, peer, registry, directory=None, sources=None):
@@ -164,6 +190,7 @@ def from_peer(carrier, peer, registry, directory=None, sources=None):
     provider=carrier.remote(peer,'device')
     result=AttachedDevice.__new__(AttachedDevice)
     result.bindings={};result.catalogue={};result._wake=None;result.gateway=carrier
+    result._init_saved_radio()
     result.catalogue_provider=provider
     result.receive=ServiceReceive(provider,directory,sources)
     try:
