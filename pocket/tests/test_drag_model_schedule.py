@@ -113,7 +113,13 @@ class ScheduleTests(unittest.TestCase):
  def test_first_frame_and_render_budget_unchanged(self):
   e=self.env(latest=True);e['first_frame']=True;exec(DECISION,e);self.assertTrue(e['refresh_models'])
   baseline=(ROOT.parent/'tests/fixtures/drag_baseline.py').read_text()
-  get=lambda text:tuple(ast.unparse(n) for n in ast.walk(ast.parse(text)) if isinstance(n,ast.Call) and ast.unparse(n.func)=='host.flush')
+  def get(text):
+   calls=[n for n in ast.walk(ast.parse(text)) if isinstance(n,ast.Call) and ast.unparse(n.func)=='host.flush']
+   for call in calls:
+    for keyword in call.keywords:
+     if keyword.arg=='serialize':self.assertEqual(ast.unparse(keyword.value),'platform is None')
+    call.keywords=[k for k in call.keywords if k.arg!='serialize']
+   return tuple(ast.unparse(n) for n in calls)
   self.assertEqual(get(TEXT),get(baseline))
 
 class PtyTests(unittest.TestCase):
