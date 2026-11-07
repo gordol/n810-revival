@@ -4,6 +4,7 @@ ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'graphics'))
 from cells import Font
 class PixelFont(unittest.TestCase):
  def test_explicit_ui_glyphs_preserve_original_font(self):
+  if not (ROOT/'build/graphics/frontend.json').is_file():self.skipTest('run make graphics-native first')
   config=json.loads((ROOT/'build/graphics/frontend.json').read_text());font=Font(config['font']);old={c:font.glyph(c) for c in font.mapping}
   font.add_desktop_glyphs()
   for char,bits in old.items():self.assertEqual(font.glyph(char),bits)

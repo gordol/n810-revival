@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Run the real desktop model with a native pixel platform; no desktop PTY."""
 from pathlib import Path
 import argparse,ctypes as C,importlib.util,json,sys,time
@@ -8,7 +10,8 @@ from mbx import Renderer
 from cells import style
 from window import Window
 class Platform:
- def __init__(self,font,library,display=None,*,frames=0,output=None,actions=()):
+ def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True):
+  self.require_gpu=require_gpu
   self.font=font;self.library=library;self.display=display;self.limit=frames;self.output=output;self.actions=list(actions);self.closed=False;self.frames=0;self.dirty=True;self.renderer=None;self.size=(100,30);self.report={};self.pixel_apps=[];self.compositor=None;self.resized=False;self.action_frame=-1
  def configure_registry(self,registry):
   def room_factory(host,**options):
@@ -19,10 +22,11 @@ class Platform:
  def geometry(self):return Geometry(*self.size)
  def attach(self,host,panel,registry):
   self.host=host;self.panel=panel;self.registry=registry
-  self.renderer=Renderer(host,self.font,self.library)
+  self.renderer=Renderer(host,self.font,self.library,require_gpu=self.require_gpu)
   if self.renderer.size!=self.size:self.renderer.resize(*self.size)
   if self.display and hasattr(self.display,'dynamic'):
    self.display.dynamic(True);width,height=self.display.size();self.resize(width//8,height//16)
+  self.report['renderer']=self.renderer.renderer_name
   self.report['apps']=list(registry.entries);self.report['windows']=[w.name for w in host.windows]
  def resize(self,cols,rows):
   self.size=(max(40,min(512,cols)),max(14,min(256,rows)));self.renderer.resize(*self.size)

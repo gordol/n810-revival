@@ -1,3 +1,5 @@
+/* SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>

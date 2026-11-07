@@ -1,8 +1,14 @@
+/* SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 /* Retained console-cell descriptions, rasterized by Mesa/MBX, never by CPU.
  * Bounded subdivision respects the accepted400x400/2048-triangle service.
  * This first backend favors exact output; timings must be measured on device. */
 #define GL_GLEXT_PROTOTYPES
+#ifdef POCKET_DESKTOP_GL
+#include "desktop_context.h"
+#else
 #include <GL/osmesa.h>
+#endif
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,7 +21,12 @@ void *pocket_mbx_open(int require_gpu){
  r->gl=OSMesaCreateContextExt(OSMESA_RGB_565,24,0,0,NULL);
  if(!r->gl||!OSMesaMakeCurrent(r->gl,r->image,GL_UNSIGNED_SHORT_5_6_5,400,400)){failure="OSMesa context unavailable";if(r->gl)OSMesaDestroyContext(r->gl);free(r);return NULL;}
  const char *name=(const char*)glGetString(GL_RENDERER);
- if(require_gpu&&(!name||!strstr(name,"Nokia MBX GPU transform"))){failure="Actual MBX service required; CPU fallback refused";OSMesaDestroyContext(r->gl);free(r);return NULL;}
+ #ifdef POCKET_DESKTOP_GL
+ if(require_gpu&&(!name||strstr(name,"llvmpipe")||strstr(name,"softpipe")||strstr(name,"Software")))
+#else
+ if(require_gpu&&(!name||!strstr(name,"Nokia MBX GPU transform")))
+#endif
+ {failure="Actual MBX service required; CPU fallback refused";OSMesaDestroyContext(r->gl);free(r);return NULL;}
  /* The verified second VGP attribute delivers xyz. Cells are opaque, so
   * supply alpha=1 as a constant instead of reading an undelivered fourth lane. */
  const char *program="!!ARBvp1.0\n"

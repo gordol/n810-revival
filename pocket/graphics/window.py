@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
 """SDL presentation and input only. No app, terminal, or driver lifecycle."""
 import ctypes as C
 class Window:

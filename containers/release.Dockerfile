@@ -37,8 +37,16 @@ FROM source-check AS map-check
 COPY --from=map-deps /opt/maps /opt/maps
 RUN --network=none /opt/maps/bin/python -m unittest discover -s pocket/tests -p 'test_*pipeline.py' -v
 
+# A fresh source-only build exercises the portable GUI with an explicit Mesa
+# software context, plus ARM cross-builds. It does not establish hardware speed.
+FROM map-check AS gui-check
+RUN apt-get update && apt-get install -y --no-install-recommends libsdl2-dev libgl1-mesa-dev libgl1-mesa-dri xvfb xauth && rm -rf /var/lib/apt/lists/*
+RUN make -C pocket graphics-native && python3 pocket/graphics/build_nokia.py
+RUN python3 -m unittest discover -s pocket/tests -p 'test_graphical_frontend.py' -v && python3 -m unittest discover -s pocket/tests -p 'test_*pixel*.py' -v && python3 -m unittest discover -s pocket/tests -p test_surface_native_backend.py -v
+RUN xvfb-run -a python3 pocket/graphics/check.py --allow-software
+
 # Build evidence stays inside the image. No binary release is exported.
-FROM map-check AS release-check
+FROM gui-check AS release-check
 COPY --from=graphics /build/module/package /verification/module
 COPY --from=graphics /build/mesa/package /verification/mesa
 COPY --from=htit /build/executor/BUILD.json /verification/executor.json

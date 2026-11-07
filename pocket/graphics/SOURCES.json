@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "description": "Source-only import of the existing graphical frontend dependencies; no local builds, captures or user state.",
+  "files": [
+    {
+      "path": "native/cells.c",
+      "source": "mbx-driver/display/native/cells.c",
+      "source_sha256": "7d1e8153a5c462be7b90e3546969ddc770da45de74f61f4bbb5633a2512c7b67"
+    },
+    {
+      "path": "native/cells.h",
+      "source": "mbx-driver/display/native/cells.h",
+      "source_sha256": "0876b8c119391668ab479d12511ea904308eb3eccd18bc283831538f7783b3dd"
+    },
+    {
+      "path": "native/present.c",
+      "source": "mbx-driver/display/native/present.c",
+      "source_sha256": "5c143512a7e6a09b6621a469fa059bea69db0db20b5b8c40488b78954bbd8184"
+    },
+    {
+      "path": "native/present.h",
+      "source": "mbx-driver/display/native/present.h",
+      "source_sha256": "ee4e8c891082f38871651b8afa93695856ab9e5d3f525387e66507048644b243"
+    },
+    {
+      "path": "native/test_present.c",
+      "source": "mbx-driver/display/native/test_present.c",
+      "source_sha256": "e514ed8d3c25bbf74931dc08dc8d2f46fbd2a9dde19d10fcb73e7574167ee618"
+    },
+    {
+      "path": "native/desktop_context.h",
+      "source": "experiments/gpu-terminal-20261107/mac_context.h",
+      "source_sha256": "2fc2589f35c6fa02242053c607dc81a45074e8a114143467dd11083a147f0340"
+    },
+    {
+      "path": "native/desktop_input.c",
+      "source": "experiments/gpu-terminal-20261107/mac_input.c",
+      "source_sha256": "330ed55dd1bb2829075fc07cc266a5f301fb5ee856f8ca527a0047c345e59b7a"
+    },
+    {
+      "path": "native/font_glyphs.m",
+      "source": "experiments/gpu-terminal-20261107/font_glyphs.m",
+      "source_sha256": "ded2c1b6668dd2824fac09290c473dfc3d18c7e67ecaf56d2c6464b99c1d68e7"
+    },
+    {
+      "path": "native/game.c",
+      "source": "experiments/gpu-terminal-20261107/game.c",
+      "source_sha256": "a57f0861788df34e0821252b3642f2f4a633bcca153abc6ae37e617a544054ff"
+    },
+    {
+      "path": "native/terminal.c",
+      "source": "experiments/gpu-terminal-20261107/terminal.c",
+      "source_sha256": "b776296478c3548ceff0c69c2eb8b9205c837d91654b863e16292fa7408d857c"
+    },
+    {
+      "path": "platform_window.py",
+      "source": "experiments/gpu-terminal-20261107/mac_window.py",
+      "source_sha256": "33062d2ec480b4e9d963c991db1523011e7bc81c0e762917b944241ee3fa6973"
+    },
+    {
+      "path": "font_supplement.py",
+      "source": "experiments/gpu-terminal-20261107/mac_font.py",
+      "source_sha256": "ea37da76eb7b721fe8e5f3aeddb5857246564bedf31cfdeb2a9a566a24b93ea7"
+    },
+    {
+      "path": "extend_font.py",
+      "source": "experiments/gpu-terminal-20261107/extend_font.py",
+      "source_sha256": "82f160040e3f2ff44ef6f5b5ec6500befcf107df2c27d583e8146b573ff9a54c"
+    },
+    {
+      "path": "run.py",
+      "source": "experiments/gpu-terminal-20261107/native.py",
+      "source_sha256": "87d727fe7bde419115ac1c74964dc38f54039b276f900c2815a23b7648a38d3a"
+    },
+    {
+      "path": "generate_room.py",
+      "source": "mbx-driver/experiments/surface-room-gpu-20261106/export_mesh.py",
+      "source_sha256": "b9833b2604962f6e2bab38ae5518e5501ef6ff7ed9b12909461a93d86561d8bf"
+    },
+    {
+      "path": "effects/provider.py",
+      "source": "experiments/gpu-effects-20261107/provider.py",
+      "source_sha256": "0f975667afa538a084116f30233c7d1d534d36e93e7da29d50d9e9feb5725620"
+    },
+    {
+      "path": "effects/map_gpu.py",
+      "source": "experiments/gpu-effects-20261107/map_gpu.py",
+      "source_sha256": "899bb18e1d7eee2b9b064f20020c0515311a61f27df6174aa660b5c0e44d5bfc"
+    },
+    {
+      "path": "effects/terrain_gpu.py",
+      "source": "experiments/gpu-effects-20261107/terrain_gpu.py",
+      "source_sha256": "9f687fe1c8ebf0af52a3d9965e706f445df23aeac831ad764cd65008494d3e13"
+    },
+    {
+      "path": "effects/terrain_shading.py",
+      "source": "experiments/gpu-effects-20261107/terrain_shading.py",
+      "source_sha256": "e604e6add34d94f9876adf687c6210873ae0443a13edaed1fdc2e81309951b12"
+    },
+    {
+      "path": "effects/pixel_gpu.py",
+      "source": "experiments/gpu-effects-20261107/pixel_gpu.py",
+      "source_sha256": "8d1669613c0e04ed5c48ebbc0e07b79a6e2056949c2a2067dd50bd508469e546"
+    },
+    {
+      "path": "effects/gpu_effects.c",
+      "source": "experiments/gpu-effects-20261107/gpu_effects.c",
+      "source_sha256": "404d0904fdddedccb152cadd46faa31021f521351b00526a0633afe74165f3a0"
+    },
+    {
+      "path": "effects/gpu_composition.c",
+      "source": "experiments/gpu-effects-20261107/gpu_composition.c",
+      "source_sha256": "c729869962106b44cce238e9c39c5ea99f72011c46ed92bc5275b1c6efcf5c1d"
+    },
+    {
+      "path": "native/test_desktop_input.c",
+      "source": "experiments/gpu-terminal-20261107/test_input.c",
+      "source_sha256": "b00220fcd57a6394bf6d376678785f2ba639007c4f620ba8e54b246036d5e35d"
+    },
+    {
+      "path": "native/test_desktop_borders.c",
+      "source": "experiments/gpu-terminal-20261107/test_borders.c",
+      "source_sha256": "e55ae4dc5136603d0a575448f86a543548d04b46e5079e5e8f65517987c35dc5"
+    }
+  ]
+}

@@ -52,5 +52,5 @@ program; its fixed-function path remains guarded pending physical validation.
 
 `Desktop.from_host` remains a small rendering-only attachment; the complete GUI
 uses full.Platform. `graphics/launch.py` remains an isolated fixture. `make gui`
-launches full desktop via the existing Mac adapter; `make tui` remains terminal.
+launches the full desktop through the repository SDL/OpenGL adapter; `make tui` remains terminal.
 All current full-desktop evidence is local. No Nokia access or deployment occurred.

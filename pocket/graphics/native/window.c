@@ -1,3 +1,5 @@
+/* SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 /* Standard SDL window/input for the graphical frontend's development host.
  * Device framebuffer ownership remains the Nokia presenter's responsibility. */
 #include <SDL.h>

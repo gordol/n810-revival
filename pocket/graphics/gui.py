@@ -1,11 +1,8 @@
-"""Launch the complete graphical desktop using the existing platform adapter."""
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+"""Build and run the complete graphical Pocket desktop."""
 from pathlib import Path
 import os,subprocess,sys
-root=Path(__file__).resolve().parents[2]
-if sys.platform=='darwin':
- platform=root/'experiments/gpu-terminal-20261107'
- subprocess.run([sys.executable,str(platform/'build_mac.py')],check=True)
- os.execv(sys.executable,[sys.executable,str(platform/'native.py'),*sys.argv[1:]])
-else:
- # Other platforms supply their context/presenter explicitly to the shared entry.
- os.execv(sys.executable,[sys.executable,str(Path(__file__).with_name('full.py')),*sys.argv[1:]])
+here=Path(__file__).resolve().parent
+subprocess.run([sys.executable,str(here/'build.py')],check=True)
+os.execv(sys.executable,[sys.executable,str(here/'run.py'),*sys.argv[1:]])

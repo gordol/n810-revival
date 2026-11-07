@@ -1,55 +1,91 @@
 # Pocket graphical frontend
 
-Development checkpoint preserved from ongoing frontend work. This branch is for
-continued integration; it is not included in the tested `main` release.
-The current build scripts still reference experimental renderer and font inputs
-outside this repository (`mbx-driver/display/native` and `outputs/`). A clean
-checkout cannot build this draft until those inputs are integrated or replaced
-with declared, reproducible dependencies. The source is preserved here so that
-work can continue on this branch without relying on an untracked Pocket copy.
+The graphical frontend runs the same Pocket desktop, app registry, settings,
+connections and window lifecycle as the terminal frontend. It presents native
+pixels through SDL2/OpenGL. The desktop does not run inside a PTY or parse an ANSI
+frame; terminal applications still own their normal PTYs.
 
+## Build and run
 
-- `make tui` runs the existing terminal frontend.
-- `make gui` builds and opens the complete graphical desktop through the existing
-  platform adapter. On Mac it uses the native OpenGL window adapter, not iTerm or
-  the separate ANSI/PTTY compatibility launcher.
+Use Python 3.11 or newer, its development headers, a C compiler, SDL2 development
+files and desktop OpenGL. On macOS, install the Command Line Tools and SDL2
+(`brew install sdl2`). On Debian, the build dependencies are
+`build-essential python3-dev libsdl2-dev libgl1-mesa-dev`.
 
-The shared entry is `graphics/full.py`. It invokes the actual `shell/desktop.py`
-model/event loop with injected input, geometry and presentation hooks. The normal
-app registry, Connections, menu, panels, settings, app polling, service ownership,
-session handling and cleanup remain in that same implementation. Terminal windows
-use their normal application-owned PTYs; the desktop itself does not use a PTY or
-serialize/parse an ANSI frame. Service connections remain explicit UI actions.
+From `pocket/`:
 
-Native composition batches go directly to the renderer. Panel layout emits
-structured text runs and retains the same hit targets. C handles glyph staging
-and Mesa/GPU rasterization. There is no Python per-cell rendering loop. Surface
-Room's registry entry uses direct native scene pixels, retaining its original632
-triangles, camera and lighting. Other apps reuse their existing semantic views;
-this does not claim that every app's scene calculations have moved to the GPU.
+```sh
+make graphics-native
+make gui
+```
 
-Resizing changes the actual desktop grid and pixel canvas, rather than stretching
-800x480. The Mac adapter reports content dimensions; the shared frontend runs the
-normal panel/window layout and resizes retained GPU buffers. Rendering remains in
-bounded400x400 tiles. Current native limits are512columns by256rows. Text uses an
-8x16 font. Captured font glyphs remain unchanged; explicit chevron and dashed-line
-UI glyphs fill known missing characters. Unknown glyphs still fail validation.
+The first command builds into the ignored `build/graphics/` directory. An
+unchanged source/compiler/native-compositor identity reuses those outputs.
+`make gui` checks the build automatically. `make tui` starts the terminal desktop.
+No build step downloads map data, reads a captured desktop or connects to a Nokia.
 
-Transparent panes, shadows, menus and drag outlines use cached native C pixel
-layers above direct Room images. The opt-in programmable GPU-alpha path now matches RGB565 exactly across all256
-alpha values, including shadows. It remains off by default because the tested
-local workload was faster with C composition. The MBX mixed-state source candidate
-is separately compiled/tested; its fixed-function output still needs device proof.
-No silent quality reduction or software GPU fallback.
+On Apple Silicon, the default GPU effects/map kernels also need:
 
-Local evidence is in `../mbx-driver/experiments/gui-native-pixels-20261107/`.
-`check_full.py` runs the real24-app registry, menu click, Messages, Settings,
-Terminal, direct Room and two grid resizes using isolated state. It verifies no
-stdout/desktop ANSI, clean app status and no Room cell layer. Mac GPU and ARM
-reference evidence remain separate from physical Nokia proof. This full frontend
-has not been installed or tested on the Nokia; Symbian still owns it.
+```sh
+python3 -m pip install -r requirements-graphics-macos.txt
+```
 
-Platform API and native buffer contracts are in `PIXEL-INTERFACE.md`.
-`graphics/launch.py` remains the small isolated rendering fixture, not the complete
-GUI launcher. `full.py` also accepts explicit font/renderer/display/native-library
-paths and a private state directory for other platform adapters or offline tests.
+That pinned optional compute environment requires Python 3.12 or newer. To use
+the portable OpenGL desktop with the existing CPU effect/map producers instead:
+
+```sh
+make gui EXTRA='--effect-backend cpu'
+```
+
+Both modes use GPU cell rasterization and direct GPU Room geometry. The optional
+compute provider changes effect/map production; the terminal backend is unchanged.
+A software GL renderer is rejected by default. `--allow-software` explicitly
+admits one for tests; those results do not establish hardware performance.
+
+## Inputs and behavior
+
+All native sources, the SDL input adapter, font conversion and room-mesh generator
+are in this directory. `SOURCES.json` identifies the imported source snapshots.
+The build converts the repository's reviewed console font without changing its
+mapped glyph pixels, adds explicit UI glyphs, and generates the Room mesh from
+`shell/apps/surface-renderer/room.py`. On macOS, missing UI characters receive a
+build-time CoreText supplement. No experimental sibling checkout or `outputs/`
+directory is needed. SDL2, OpenGL and optional MLX remain declared system/package
+dependencies rather than copied binaries.
+
+Resizing changes the desktop's actual grid and pixel canvas. Native raster work
+uses bounded 400×400 tiles. Window text/chrome, shadows and cached overlays retain
+the shared model's ordering. Surface Room produces direct geometry pixels and
+keeps its walking controls; G toggles its target game, R resets it, and clicking
+its viewport captures the pointer. Escape releases capture before returning to
+normal app navigation. The Mac/Linux SDL input adapter shares those actions.
+
+The optional GPU-alpha composition candidate remains opt-in with
+`POCKET_GPU_COMPOSE=1`. Default overlay composition uses C; this integration does
+not change that performance choice or claim a new Nokia mixed-state GPU result.
+
+## Verify
+
+```sh
+make graphics-check
+python3 -m unittest discover -s tests -p 'test_graphical_frontend.py'
+python3 -m unittest discover -s tests -p 'test_*pixel*.py'
+```
+
+The end-to-end check uses private temporary state and no attached services. It
+opens the menu, Messages, Settings, Terminal and direct Room, resizes twice,
+checks registry errors and output dimensions, and verifies no desktop ANSI/PTY.
+For a Linux CI machine without a GPU:
+
+```sh
+xvfb-run -a python3 graphics/check.py --allow-software
+```
+
+The repository's release container builds the frontend from source, runs these
+checks in explicit software GL mode and cross-builds the non-X ARM framebuffer
+presenter with `graphics/build_nokia.py`. The latter needs
+`arm-linux-gnueabi-gcc` or `CROSS_COMPILE`; it does not use a named local VM or
+access a device. This integration's build and host tests do not establish Nokia
+installation, framebuffer ownership or physical GPU acceptance.
+
+See `PIXEL-INTERFACE.md` for the platform and native buffer contracts.

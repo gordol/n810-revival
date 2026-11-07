@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Room camera/input model with direct native GPU pixels, never cell publication."""
 import ctypes as C
 import time,math

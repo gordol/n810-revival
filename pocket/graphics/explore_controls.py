@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Shared exploration actions for graphical frontends with key edges."""
 import math
 from held_motion import HeldMotion

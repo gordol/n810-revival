@@ -1,6 +1,6 @@
 # Pocket
 
-Pocket is the N810's terminal desktop: windows, keyboard and touch input,
+Pocket is the N810's desktop: windows, keyboard and touch input,
 local apps, and explicit connections to separately owned services. It also
 runs on a laptop for development.
 
@@ -18,6 +18,15 @@ locally; it does not contact a Nokia or activate a radio by opening. Use
 remote host. **Ctrl-]**, then **q**, quits. See [navigation](docs/navigation.md)
 and [connections](docs/connections.md).
 
+## Graphical frontend
+
+`make gui` runs the same desktop and apps through the native SDL2/OpenGL
+frontend. Install a C compiler, Python development headers, SDL2 and OpenGL first;
+see the [graphics build guide](graphics/README.md) for platform commands, optional
+Apple Silicon compute dependencies and verification. `make tui` selects the
+terminal frontend explicitly. Both builds use repository sources and generated
+local outputs, without sibling experiment directories or downloaded map data.
+
 ## Source layout
 
 | Path | Contents |
@@ -25,6 +34,7 @@ and [connections](docs/connections.md).
 | `shell/launch.py`, `shell/desktop.py` | Startup and the window host. |
 | `shell/apps/` | Registered app modules, including renderer, map library, touch lab, and optional Doom adapter. Registration is not device acceptance. |
 | `shell/owner-service/` | Processes that own shared radio and device services. |
+| `graphics/` | SDL2/OpenGL frontend, native input/presentation, effects, font and Room mesh builders. |
 | `shell/native/` | Optional C code and its build instructions. |
 | [`shell/vendor/`](shell/vendor/README.md) | Imported domain code and dependencies used by Pocket. The older packet console implementation is carried here as source, without its separate Git history. |
 | `shell/heard/` | Heard station UI and model. |
