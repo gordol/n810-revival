@@ -19,3 +19,5 @@ make
 ```
 
 Watch the [window-controls tour](tutorials/laptop-tour.md), explore the [documentation](guides.md), or follow the [journal from the beginning](journal.md).
+
+For the native Mac/Linux window, use the [graphical frontend guide](pocket/graphics.md). Its source build shares the desktop and applications with the terminal version.

@@ -28,3 +28,9 @@ make
 ```
 
 The [first-session tutorial](tutorials/first-session.md) also provides a ZIP download and explains the initial Connections window, Help, opening applications, and quitting. The [installation reference](pocket/install.md) explains optional dependencies for native rendering and service owners.
+
+### Open the native graphical desktop
+
+The [graphical frontend guide](pocket/graphics.md) lists its compiler, SDL2, OpenGL, and optional Mac compute dependencies. After preparing those dependencies, run `make gui` from the same `pocket/` directory. It builds the native frontend as needed and opens the shared Pocket desktop in an application window. `make` continues to launch the terminal frontend.
+
+The [native desktop journal](posts/2026-11-07-native-desktop.md) shows the rendering path and resize behavior, and the [Surface Room entry](posts/2026-11-07-surface-room.md) explains its movement and target-range controls.

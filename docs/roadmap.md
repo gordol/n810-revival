@@ -7,7 +7,7 @@ These investigations concern future work. Each begins with evidence from the exi
 | Reduce window-movement cost | Retained cell planes and damage tracking in the host. | Measure which planes rebuild, how many cells are composed, and output bytes during a repeatable drag. Compare static and animated backgrounds. |
 | Preserve responsive interaction under load | Calibrated input, process acquisition, native buffering, and Touch lab. | Correlate event timestamps, desktop dispatch, and visible response. Record connection state and background workload with the capture. |
 | Render cells with the N810 GPU | Cell-based application interfaces and the separate MBX/Mesa checkpoint. | Demonstrate glyph/color drawing, clipping, overlapping windows, and presentation on the actual device; compare total cost with the console path. |
-| Support richer imagery inside windows | Prepared map surfaces and cell-based controls. | Specify coordinate mapping, stacking, terminal fallback, memory limits, and how a pixel surface shares a window with cells. |
+| Extend direct pixel scenes | Integrated native frontend, direct Room pixels, and ordered window overlays. | Validate more apps, resource lifetime, and physical Nokia behavior while preserving terminal views. |
 | Reduce idle work | Shared owners, subscriptions, and change-driven rendering. | Attribute CPU use to the desktop and each owner with Local-only and connected configurations. |
 | Complete source lineage | Kernel locks, component import records, licenses, and Git history. | Record upstream path/revision, modifications, and supporting development records per component. Mark unresolved human/LLM attribution explicitly. |
 

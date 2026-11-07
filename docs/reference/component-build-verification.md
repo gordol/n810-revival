@@ -1,9 +1,11 @@
 # Component build verification
 
-*Builds checked on 4 November 2026.*
+*Updated 7 November 2026. Kernel, frozen graphics, and HTIT build results below were recorded on 4 November; the native frontend and integrated Pocket checks were recorded on 7 November.*
 
 | Component | Inputs checked | Result |
 |---|---|---|
+| Native graphical frontend | Included SDL/OpenGL adapter, font/mesh generators, and source-release build inputs. | Fresh-clone Mac build and focused frontend checks passed. Linux release-container and unpacked source-archive builds passed; GUI checks used software OpenGL. Physical Nokia acceptance remains separate. [Build guide](../pocket/graphics.md). |
+| Integrated Pocket | Shared desktop and application sources, isolated test state. | 761 tests completed with 14 skips on 7 November. The [native desktop entry](../posts/2026-11-07-native-desktop.md) describes the integration and its limits. |
 | Linux 5.15.224 | Pinned upstream archive, 55 maintained source changes, configuration and export whitelist. | Independent fresh-checkout ARM build; 199 modules and 35 clock-module symbol checks. [Full kernel record](kernel-build-verification.md). |
 | MBX module checkpoint | Imported GPU source and the completed kernel build. | Module compilation passed; all 63 imported symbol versions matched. |
 | Mesa checkpoint | Mesa 22.3.6 and 34 checksum-pinned Debian sysroot packages. | ARM `libGL.so.1` build passed. Required versions reached GLIBC 2.34, GLIBCXX 3.4 and CXXABI 1.3.9, within the selected Bookworm limits. |
