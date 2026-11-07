@@ -63,6 +63,14 @@ def record(command,env,name,title,cols,rows,steps,duration,directory,stop,poster
                 if not data:break
                 terminal_log.write(data)
                 stream.feed(data)
+                # Consume the queued redraw before rasterizing this sample.
+                # A PTY read can stop between a clear and the following rows.
+                drain_until=time.monotonic()+.05
+                while time.monotonic()<drain_until and select.select([master],[],[],.002)[0]:
+                    try:more=os.read(master,1048576)
+                    except OSError:break
+                    if not more:break
+                    terminal_log.write(more);stream.feed(more)
             if index<len(steps) and elapsed>=steps[index][0]:
                 if index:
                     snapshots.append({'time':round(elapsed,2),'label':label,'text':'\n'.join(screen.display)})

@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-04",
+  "date": "2026-11-07",
   "entries": [
     {
       "post": "docs/posts/beginnings.md",
@@ -1108,6 +1108,110 @@
       ],
       "guide": "how-to/build-gpu-30fps.md",
       "note": "This frozen checkpoint contains the driver and Mesa changes behind the two physical 30 FPS runs, together with the offline regression tests and pinned build inputs."
+    },
+    {
+      "post": "docs/posts/2026-11-05-help-and-input.md",
+      "id": "2026-11-05-help-and-input",
+      "implementation": [
+        {
+          "label": "Help browser",
+          "path": "pocket/shell/on_device_manual/browser.py"
+        },
+        {
+          "label": "Navigation dispatcher",
+          "path": "pocket/shell/native_navigation.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Help focus regression",
+          "path": "pocket/tests/test_help_focus.py"
+        },
+        {
+          "label": "Application focus checks",
+          "path": "pocket/tests/test_app_focus_consistency.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Pocket build targets",
+          "path": "pocket/Makefile"
+        }
+      ],
+      "guide": "how-to/validate.md",
+      "note": "The linked files are the reconciled current source. The post identifies the historical observations and their validation scope."
+    },
+    {
+      "post": "docs/posts/2026-11-06-session-recovery.md",
+      "id": "2026-11-06-session-recovery",
+      "implementation": [
+        {
+          "label": "Radio state ownership",
+          "path": "pocket/shell/radio_state.py"
+        },
+        {
+          "label": "Session attachments",
+          "path": "pocket/shell/system_links.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Retained radio snapshots",
+          "path": "pocket/tests/test_radio_snapshot_cache.py"
+        },
+        {
+          "label": "Attachment tests",
+          "path": "pocket/tests/test_system_attachment.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Pocket build targets",
+          "path": "pocket/Makefile"
+        }
+      ],
+      "guide": "how-to/validate.md",
+      "note": "The linked files are the reconciled current source. The post identifies the historical observations and their validation scope."
+    },
+    {
+      "post": "docs/posts/2026-11-07-map-resizing.md",
+      "id": "2026-11-07-map-resizing",
+      "implementation": [
+        {
+          "label": "Retained map sampling",
+          "path": "pocket/shell/offline_map.py"
+        },
+        {
+          "label": "Station projection",
+          "path": "pocket/shell/station_workspace.py"
+        },
+        {
+          "label": "Elevation sampling",
+          "path": "pocket/shell/desktop_elevation.py"
+        },
+        {
+          "label": "Map build commands",
+          "path": "pocket/tools/maps.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Resize and sampling regressions",
+          "path": "pocket/tests/test_map_latency_regressions.py"
+        },
+        {
+          "label": "Incremental regions",
+          "path": "pocket/tests/test_map_incremental_regions.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Pocket build targets",
+          "path": "pocket/Makefile"
+        }
+      ],
+      "guide": "how-to/validate.md",
+      "note": "The linked files are the reconciled current source. The post identifies the historical observations and their validation scope."
     }
   ]
 }

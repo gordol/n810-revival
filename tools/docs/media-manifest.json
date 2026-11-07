@@ -38,18 +38,6 @@
       "disposition": "preserved-capture",
       "regeneration": "Requires a validated recipe or original hardware; do not silently replace."
     },
-    "docs/assets/demos/pocket-desktop-20261106.gif": {
-      "sha256": "176b49a121aba3f266ca00385f9f740b911129a087ab86358fe5ffc3a6661c72",
-      "bytes": 6536008,
-      "disposition": "preserved-capture",
-      "regeneration": "Requires a validated recipe or original hardware; do not silently replace."
-    },
-    "docs/assets/demos/pocket-desktop-20261106.png": {
-      "sha256": "3f9f440beeeacc216749d914874239e38b699fd7627f9db6967f1e2cb39e7f58",
-      "bytes": 595344,
-      "disposition": "preserved-capture",
-      "regeneration": "Requires a validated recipe or original hardware; do not silently replace."
-    },
     "docs/assets/demos/pocket-map-large-20261106.png": {
       "sha256": "40f3b0fca84a879a28c0612b3bc40f6ba141c6773079305dde9c45c172ad136c",
       "bytes": 532542,
@@ -223,6 +211,20 @@
       "bytes": 23998,
       "disposition": "preserved-capture",
       "regeneration": "Requires a validated recipe or original hardware; do not silently replace."
+    },
+    "docs/assets/demos/pocket-desktop-20261107.gif": {
+      "sha256": "129653f9629db4ed8d4f9722f072d20fe67549d33bdc8dd9734e8db2951744fc",
+      "bytes": 4705760,
+      "disposition": "preserved-capture",
+      "regeneration": "Requires a validated recipe or original hardware; do not silently replace.",
+      "provenance": "Isolated Linux terminal capture on 7 November 2026 from reconciled source 97a28dc, replaying filtered 5 November station history and a public club lookup. Live services disabled. No personal QTH imported. Edited at 2x speed; brief partial redraws omitted. Reviewed resize frames and exported loop."
+    },
+    "docs/assets/demos/pocket-desktop-20261107.png": {
+      "sha256": "281f696ce4eedd3a5fde093fdc2d6e02ab17408faf93c821104638498689b721",
+      "bytes": 745406,
+      "disposition": "preserved-capture",
+      "regeneration": "Requires a validated recipe or original hardware; do not silently replace.",
+      "provenance": "Isolated Linux terminal capture on 7 November 2026 from reconciled source 97a28dc, replaying filtered 5 November station history and a public club lookup. Live services disabled. No personal QTH imported. Edited at 2x speed; brief partial redraws omitted. Reviewed resize frames and exported loop."
     }
   }
 }

@@ -109,14 +109,6 @@
       "sha256": "45db932a1d47180375f034abce764faad19214e681910ae0276a31d0b9cfa0ee",
       "kind": "media"
     },
-    "docs/assets/demos/pocket-desktop-20261106.gif": {
-      "sha256": "176b49a121aba3f266ca00385f9f740b911129a087ab86358fe5ffc3a6661c72",
-      "kind": "media"
-    },
-    "docs/assets/demos/pocket-desktop-20261106.png": {
-      "sha256": "3f9f440beeeacc216749d914874239e38b699fd7627f9db6967f1e2cb39e7f58",
-      "kind": "media"
-    },
     "docs/assets/demos/pocket-map-small-20261106.png": {
       "sha256": "d23586574f7264668c613bd09361dc5cf0f971557e1008aefa25fa59183e6f01",
       "kind": "media"
@@ -160,6 +152,16 @@
     "pocket/shell/data/loader-ambient.zlib": {
       "sha256": "66c35308e497c804e2405f7401a910b7af03c0b7a20cbdf45f6162b7c02365fa",
       "kind": "authored-data"
+    },
+    "docs/assets/demos/pocket-desktop-20261107.gif": {
+      "sha256": "129653f9629db4ed8d4f9722f072d20fe67549d33bdc8dd9734e8db2951744fc",
+      "kind": "media",
+      "provenance": "Isolated Linux terminal capture on 7 November 2026 from reconciled source 97a28dc, replaying filtered 5 November station history and a public club lookup. Live services disabled. No personal QTH imported. Edited at 2x speed; brief partial redraws omitted. Reviewed resize frames and exported loop."
+    },
+    "docs/assets/demos/pocket-desktop-20261107.png": {
+      "sha256": "281f696ce4eedd3a5fde093fdc2d6e02ab17408faf93c821104638498689b721",
+      "kind": "media",
+      "provenance": "Isolated Linux terminal capture on 7 November 2026 from reconciled source 97a28dc, replaying filtered 5 November station history and a public club lookup. Live services disabled. No personal QTH imported. Edited at 2x speed; brief partial redraws omitted. Reviewed resize frames and exported loop."
     }
   }
 }

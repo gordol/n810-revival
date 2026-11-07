@@ -7019,7 +7019,7 @@
     },
     {
       "path": "tools/check-journal.py",
-      "sha256": "aeb4ad837262815251016623da37dbb822ff60c1a0fc3d9c176b28e311d81fdb",
+      "sha256": "2dc4cf1b4048349e6659c9fa993be65a9e3513d9692ac68ae27daf0d74a620d9",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -7075,7 +7075,7 @@
     },
     {
       "path": "tools/docs/record_tours.py",
-      "sha256": "b0a5abb0e4ed38e640c6bad58044975a5a201d35c3f7f14733fa182f3c694aaa",
+      "sha256": "2f934e22a4baffc28b1026083bac8ad6df643015935afe51ca102305eaf6ca51",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -7107,7 +7107,7 @@
     },
     {
       "path": "tools/docs_hooks.py",
-      "sha256": "c80fe7bb0923f5068e67f3b3ef3b4170e7cce5577db7c465abe42bfea9b42200",
+      "sha256": "01740500cdc77be1a7d949990c383a6f8838785dda918166f6892d888c0474e1",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
