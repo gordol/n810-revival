@@ -62,7 +62,7 @@ def resize_cells(source,width,height,target_width,target_height):
     return tuple(result)
 
 
-def prepare(request,implementation,materials):
+def prepare(request,implementation,materials,*,scene_backend=None):
     r=request;stats={};started=time.monotonic()
     if r.outdoors:
         import outdoors
@@ -88,9 +88,17 @@ def prepare(request,implementation,materials):
         stats.update(experience_seconds=details['primary_seconds']+details['view_seconds'],secondary_view_seconds=details['view_seconds'],reality=1-details['dissolution'])
     else:
         model,env,coordinates=(portal_scene if r.portal else scene)(r.age,r.x,r.z,r.yaw,r.width,r.height,pitch=r.pitch)
-        t=time.perf_counter();base,_=render(model,r.width,r.height,environment=env,cast_shadows=False)
+        t=time.perf_counter()
+        if scene_backend is None:
+            base,_=render(model,r.width,r.height,environment=env,cast_shadows=False)
+            coverage=raster(model,r.width,r.height,False)
+        else:
+            # The backend returns the existing semantic coverage contract.
+            # Host, material marks, cells, input and terminal output stay shared.
+            base,coverage=scene_backend.render(model,env,r.width,r.height)
+            stats['last_scene_backend']=scene_backend.name
         stats['geometry_seconds']=time.perf_counter()-t
-        t=time.perf_counter();patch=implementation.render(frame(model,raster(model,r.width,r.height,False),base,r.width,r.height,coordinates=coordinates),materials)
+        t=time.perf_counter();patch=implementation.render(frame(model,coverage,base,r.width,r.height,coordinates=coordinates),materials)
         stats['surface_seconds']=time.perf_counter()-t
         output=dict(base);output.update(patch.cells)
     t=time.perf_counter()

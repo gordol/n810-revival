@@ -121,6 +121,7 @@ nav:
   - Select map areas and build elevation: pocket/map-data.md
   - Connect services: pocket/connections.md
   - Send messages: pocket/messaging.md
+  - Build the graphical desktop: pocket/graphics.md
   - Package for the Nokia: pocket/nokia.md
   - Connect an RNode: pocket/rnode-bluetooth.md
   - Recover a service owner: pocket/local-owner-recovery.md

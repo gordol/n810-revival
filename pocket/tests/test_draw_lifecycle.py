@@ -70,14 +70,14 @@ class PanelDrawTests(unittest.TestCase):
         from core import Host,Window
         text=(Path(__file__).resolve().parents[1]/'shell/desktop.py').read_text()
         start=text.index('            current_panel_view=')
-        end=text.index("            output+=f'",start)
+        end=text.index("            if platform is None:output+=f'",start)
         block=compile(textwrap.dedent(text[start:end]),'desktop-panel','exec')
         panels=[Panels(),Panels()]
         for panel in panels:panel.layout(100,30)
         host=Host(100,29,[Window('One',2,2,30,10)])
         widgets={'windows':[('One','One')]};icons={};styles={}
         env=dict(host=host,windows=host.windows,panel=panels[0],widgets=widgets,
-            panel_icons=icons,radio_styles=styles,panel_view=None,lifecycle_refresh=True)
+            panel_icons=icons,radio_styles=styles,panel_view=None,lifecycle_refresh=True,platform=None)
         def compare(refresh=False):
             env['lifecycle_refresh']=refresh
             exec(block,env)
