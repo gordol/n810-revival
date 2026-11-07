@@ -30,7 +30,6 @@ The visual record begins with the [sidebar desktop](posts/2026-10-05-sidebar-des
 | 3 November 2026 | [Integrating the Pocket applications into version 0.1.0](posts/2026-11-04-pocket-0-1-0.md) |
 | 4 November 2026 | [Moving geometry onto the GPU and reaching 30 FPS](posts/2026-11-04-gpu-performance.md) |
 | 5 November 2026 | [Rendering synthetic terrain and comparing cached updates](posts/2026-11-04-gpu-performance.md#5-november-rendering-a-synthetic-terrain-mesh) |
-
 | 5 November 2026 | [Following our own keyboard instructions](posts/2026-11-05-help-and-input.md) |
 | 6 November 2026 | [Keeping session state correct across reconnects](posts/2026-11-06-session-recovery.md) |
 | 7 November 2026 | [Resizing the map without stretching its annotations](posts/2026-11-07-map-resizing.md) |
