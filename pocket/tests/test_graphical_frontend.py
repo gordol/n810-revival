@@ -32,7 +32,10 @@ class GraphicalFrontend(unittest.TestCase):
    raw=output.read_bytes();self.assertEqual(len(raw),2*768000);self.assertNotEqual(raw[:768000],raw[768000:])
  def test_attach_preserves_existing_desktop_model(self):
   sys.path.insert(0,str(ROOT/'graphics'))
-  from desktop import Desktop
+  import importlib.util
+  spec=importlib.util.spec_from_file_location("test_pixel_desktop",ROOT/"graphics/desktop.py")
+  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  Desktop=module.Desktop
   from core import Host,Window
   config=json.loads((ROOT/'build/graphics/frontend.json').read_text())
   host=Host(100,30,[Window('Existing app',2,2,30,8,lines=('existing model',))],animate=False)

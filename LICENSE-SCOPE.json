@@ -6318,7 +6318,7 @@
     },
     {
       "path": "pocket/tests/test_drag_model_schedule.py",
-      "sha256": "00567ae40476ab2ac431094f321ca51dc4e7d559ed1b410ed040ae5082692a6d",
+      "sha256": "b0b52eea74a74a5d8e59e46de00207e1e034d60d9d9fb24b2be4cb7b9d5c3bd4",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Grant covers eligible original test expression. It does not relicense imported modules, fixtures, protocols, or a combined dependency distribution.",
@@ -6326,7 +6326,7 @@
     },
     {
       "path": "pocket/tests/test_draw_lifecycle.py",
-      "sha256": "2090f660a469ac144137e96e0d4c875d010b11609f2a810e17b6fed9e15189e4",
+      "sha256": "0af82773b2a4733230eac8f4cd2680ead7525ae9ea790dc0739709cd9696678a",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Grant covers eligible original test expression. It does not relicense imported modules, fixtures, protocols, or a combined dependency distribution.",
@@ -6373,7 +6373,7 @@
     },
     {
       "path": "pocket/tests/test_graphical_frontend.py",
-      "sha256": "42f455f90ce5b208f235bd1c9bd6651c5a9b0fa61e72dc4a49ff266644d3d796",
+      "sha256": "575f4461cc4d3a24435f791a86ae16098b07ae003c14b62e795bf18310656080",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
