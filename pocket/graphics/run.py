@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Full Pocket model, direct native pixel rendering and a Mac window."""
+"""Full Pocket model, direct native pixel rendering and an SDL window."""
 import argparse,importlib.util,json,signal,sys,time,ctypes as C,os
 from pathlib import Path
 HERE=Path(__file__).resolve().parent

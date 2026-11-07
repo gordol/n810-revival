@@ -25,7 +25,7 @@ The [journal checkpoint guide](test-journal-checkpoints.md) gives commands for t
 ## Graphical desktop
 
 From `pocket/`, run `make graphics-check` after installing the dependencies in
-[the graphics guide](../../pocket/graphics/README.md). This builds all frontend
+[the graphics guide](../pocket/graphics.md). This builds all frontend
 sources, checks native text/mouse/focus handling and frame borders across five
 window sizes, then runs the actual desktop with menu, app and resize actions in
 isolated state. It reports the OpenGL renderer used. The release container also
