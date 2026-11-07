@@ -1,3 +1,5 @@
+/* SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 /* Owned-fd adapter over the existing Nokia presenter. No VT/module lifecycle. */
 #include "present.h"
 #include <linux/fb.h>

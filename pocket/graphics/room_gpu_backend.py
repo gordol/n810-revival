@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Surface Room uses the graphical frontend's one current MBX context."""
 import ctypes as C
 import struct,time

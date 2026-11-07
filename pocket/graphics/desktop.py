@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Pocket's pixel frontend. Shares models/window actions, never terminal I/O."""
 from pathlib import Path
 import sys,time

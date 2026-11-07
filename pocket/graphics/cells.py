@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Experimental live Host -> retained native RGB565 image. No device ownership.
 
 Uses the existing Host damage observer; does not patch the desktop or app state.

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Native source-over pixel composition. Python handles window plans, not pixels."""
 import ctypes as C
 from array import array

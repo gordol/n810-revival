@@ -1,6 +1,12 @@
+/* SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+ * SPDX-License-Identifier: GPL-2.0-or-later */
 /* Direct full-resolution room geometry. No semantic-cell or glyph conversion. */
 #define GL_GLEXT_PROTOTYPES
+#ifdef POCKET_DESKTOP_GL
+#include "desktop_context.h"
+#else
 #include <GL/osmesa.h>
+#endif
 #include <stdint.h>
 #include <math.h>
 #include <string.h>

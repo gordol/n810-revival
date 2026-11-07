@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Pocket graphical frontend, independent of the terminal launcher."""
 import argparse,json,sys,time,signal,os
 from pathlib import Path

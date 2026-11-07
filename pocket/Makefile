@@ -23,10 +23,12 @@ setup:
 	$(PYTHON) shell/launch.py --instance "$(INSTANCE)" --setup $(EXTRA)
 
 # Independent pixel frontend. Terminal launch is unchanged.
-.PHONY: tui gui graphics-native
+.PHONY: tui gui graphics-native graphics-check
 tui: shell
 graphics-native:
 	$(PYTHON) graphics/build.py
+graphics-check: graphics-native
+	$(PYTHON) graphics/check.py $(EXTRA)
 gui:
 	$(PYTHON) graphics/gui.py $(EXTRA)
 
