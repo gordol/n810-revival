@@ -16,13 +16,8 @@ class Tests(unittest.TestCase):
     def test_existing_owner_bridge_allows_only_clear_flag(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
-            for name in ('n810-kiss-bridge.py','n810-radio-live.py','uvpro-aprs-listen.py','n810-radio-bandwidth.py','test-radio-bandwidth.py'):
-                shutil.copy2(ROOT/name,root/name)
+            for path in ROOT.glob('*.py'):shutil.copy2(path,root/path.name)
             shutil.copy2(ROOT/'radio-read-layouts.json',root/'radio-read-layouts.json')
-            subprocess.run(['patch','--batch','-p1','-i',str(ROOT/'radio-bandwidth-owner.patch')],cwd=root,check=True,stdout=subprocess.DEVNULL)
-            text=(ROOT/'radio-beacon-stop-owner.patch').read_text();bridge=text[text.index('--- a/n810-kiss-bridge.py'):]
-            patch=root/'bridge.patch';patch.write_text(bridge)
-            subprocess.run(['patch','--batch','-p1','-i',str(patch)],cwd=root,check=True,stdout=subprocess.DEVNULL)
             b=load(root/'n810-kiss-bridge.py','stop_bridge');f=load(root/'test-radio-bandwidth.py','stop_fixture')
             raw=f.packed('BSSSettings',aprs_callsign='N0CALL',should_share_location=True)
             desired=raw[:1]+bytes([raw[1]&~16])+raw[2:]

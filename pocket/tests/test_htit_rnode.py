@@ -5,6 +5,8 @@ import sys
 import unittest
 from types import SimpleNamespace
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'shell'))
+sys.path.insert(0,str(ROOT/'shell/vendor/apps/domains/reticulum'))
 sys.path.insert(0,str(ROOT/'shell/vendor/apps/domains/meshcore'))
 from rnode_adapter import Adapter,KissDecoder,kiss
 from hub_transport import Frame

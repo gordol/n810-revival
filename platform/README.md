@@ -1,19 +1,22 @@
 # N810 platform files
 
-These are OS-side sources for the tablet. This directory is not a virtual
-machine and does not contain a disk image.
+These are operating-system sources and build inputs for the tablet.
 
 | Directory | Purpose |
 |---|---|
+| `kernel/` | Maintained Linux 5.15.224 source changes, configuration, pinned inputs, and a portable Linux build script. |
+| `patches/` | Historical source patches retained for the journal, including the earlier RGB console extension. |
 | `scripts/` | Commands and helpers that run on the N810, plus local source tests. |
-| `device/` | Init scripts, systemd units, keymaps, and configuration installed into the tablet's root filesystem. Older local notes called this directory `vm/`; the files themselves are device files. |
+| `device/` | Init scripts, systemd units, keymaps, and configuration installed into the tablet's root filesystem. |
 | `config/` | Package lists and configuration templates. |
 
-This is the runtime source slice. It does not include the old rescue scripts,
-flasher-VM setup, NAND capture tools, kernel builds, or a complete installer.
-Pocket's current app packaging code is under `pocket/platform/n810/`.
+The [kernel guide](../docs/how-to/build-kernel.md) builds a kernel, generated device
+tree, matching modules and a result manifest. Pocket's application packaging
+adapter lives under `pocket/platform/n810/`.
 
-The original OS development tree remains separate and unchanged. Moving these
-files under `platform/` and renaming `vm/` to `device/` changed relative paths
-in this snapshot; treat this as source pending an integrated device build,
-not as a tested deployment bundle.
+The runtime files use `device/` for their destination in the tablet filesystem.
+The [journal checkpoint guide](../docs/how-to/test-journal-checkpoints.md) covers
+the console harness, flash readers, ARM helper build and platform tests.
+A complete root-filesystem image additionally needs a Debian root, firmware and
+installation policy. The [status page](../docs/status.md) records the build and
+device checks completed for these components.

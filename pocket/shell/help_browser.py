@@ -4,11 +4,12 @@ from app_widgets import AdaptivePanels,PanelSpec,Canvas,SelectList
 
 
 USING_HELP=(('Using Help',(
-    'Choose Desktop or an application, then choose a topic.',
-    'Up/Down or j/k moves through the list. Enter opens the selection.',
-    'Tab switches the topic list and reading pane.',
-    'Up/Down, PageUp/PageDown, Home/End scroll the reading pane.',
-    '/ searches the current list. Enter accepts search; Esc clears it.',
+    'Help opened with ? starts in the Reading pane.',
+    'In Reading, Up/Down or j/k scrolls the text. PageUp/PageDown scrolls a page; Home/End goes to the beginning/end.',
+    'Tab or Shift-Tab moves focus between Topics and Reading. In Topics, Up/Down or j/k selects an entry and previews its text.',
+    'Enter opens a selected application or topic. You can also press Tab to read the topic already shown in the preview.',
+    'In Topics, / searches the list. Enter accepts search; Esc clears it.',
+    'Ctrl-F opens manual search. Type your query, then press Tab to focus the results. Enter opens the selected result; Esc cancels search.',
     'Left or Esc returns to the list, then to all applications.',
     'Click an entry to select it; click it again to open it.',
     'The wheel scrolls the pane under the pointer.',
@@ -32,12 +33,13 @@ def normalized(pages):
 
 
 class HelpBrowser:
-    actions=(("\x1b",'Back'),)
+    # Esc and the clickable Back button handle history; Tab cycles the panes.
+    actions=()
     def navigation_back(self):return self.back()
     def navigation_list(self,key):
         return (self.items,self.sync) if key=='pane:topics' else (None,None)
     def __init__(self,forms=None,global_pages=(),close=None):
-        self.width=90;self.height=28;self.close=close
+        self.width=90;self.height=28;self.close=close;self.forms=forms or {}
         self.catalog={'Desktop':USING_HELP+normalized(global_pages)}
         if forms is None:
             from app_help_content import PAGES,pages
@@ -58,6 +60,12 @@ class HelpBrowser:
         if self.group and self.items.index!=self.topic:self.topic=self.items.index;self.scroll=0
 
     def open_context(self,name=None,topic=None):
+        form=self.forms.get(name)
+        if form is not None and hasattr(form,'help_pages'):
+            content=normalized(form.help_pages())
+            if content:
+                titles={title for title,_ in content}
+                self.catalog[name]=content+tuple(page for page in self.catalog.get(name,()) if page[0] not in titles)
         self.group=name if name in self.catalog else 'Desktop';self.topic=0;self.scroll=0;self._rows=();self.sync()
         if topic is not None:
             titles=[title for title,_ in self.catalog[self.group]]

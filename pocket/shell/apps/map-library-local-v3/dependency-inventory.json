@@ -6,9 +6,9 @@
       "sha256": "bba79870ecff7d1d686530c3fdb32973464492b22e5590e49625e77af472d636"
     },
     {
-      "bytes": 5122,
+      "bytes": 5110,
       "path": "explorations/current-world/experiments/map-drag-trial/regional-pack-v2/bake.py",
-      "sha256": "713e8112a89103dea06fbf1943b865c13c0c0f124957d61e1f8893bca09bb1e2"
+      "sha256": "b2878f99f591e51673a60944d78b07d77d1f39c0135e7ba9d2e6cfc94dc12519"
     },
     {
       "bytes": 5093,
@@ -21,9 +21,9 @@
       "sha256": "95c5ab8f45d4d1103f1d5ff9e54e1179e60b77db3be53004bd75b3929a9db5f1"
     },
     {
-      "bytes": 14744,
+      "bytes": 14738,
       "path": "explorations/current-world/offline_map.py",
-      "sha256": "6ea86afce60d95ed9894cbd6e5c0acd90dc59efadb5d5f655b6243c59bfb796d"
+      "sha256": "2847116529e83927ee427423f8c2cb21dafe19dc3de7a68c42ad7b1bfc6e467d"
     },
     {
       "bytes": 7425,
@@ -101,9 +101,9 @@
       "sha256": "dba53cff14ca65629280a18767f613364853efe1447a6e27dc6557d0a7c180b5"
     },
     {
-      "bytes": 27468,
+      "bytes": 27466,
       "path": "packet-console/n810-map-next.py",
-      "sha256": "889d526fe32bf95e8de8eb91c9078cb984b6650d8151aec610f7305588d39fc0"
+      "sha256": "68c2bbd7c6a3d44b3ad3d4ade5f5506438b6cdf32505e84c702ce1c9d9e94991"
     },
     {
       "bytes": 5522,

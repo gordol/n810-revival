@@ -71,8 +71,11 @@
           "Open Help from the desktop. Contextual Help is built from the focused app when that app supplies help_pages or registration help. Unavailable app help falls back to Desktop."
         ],
         "Controls": [
-          "In the existing Help browser, Up/Down or j/k selects entries, Enter opens, Tab changes pane and Esc backs out. / searches the current list. PageUp/PageDown and Home/End scroll reading.",
-          "Ctrl-F searches the manual titles, keywords and text. Legacy app-help pages remain available through their app/topic lists and / list search. Open a result with Enter; numbered See also references follow local topics. Backspace returns from a linked topic."
+          "Help opens in Reading. Up/Down or j/k scrolls the text there. PageUp/PageDown scrolls by a page; Home/End goes to the beginning/end.",
+          "Tab and Shift-Tab switch Topics and Reading. In Topics, Up/Down or j/k selects a topic and previews its text. Tab moves directly to that preview. Enter opens the selected application or topic. Esc returns to Topics, then the application list, then closes Help.",
+          "/ searches the focused topic list. Enter accepts the query; Esc clears it. Ctrl-F searches manual titles, keywords and text. Type a query, press Tab to focus the results, and press Enter to open the selected result. Enter also accepts a query; Esc cancels it.",
+          "In Reading, numbered See also references open the linked manual topic. Backspace returns to the previous linked topic.",
+          "Ctrl-R starts divider resizing in a wide window. Left/Right adjusts the divider, Enter keeps the split, and Esc restores it."
         ],
         "Settings / defaults / storage": [
           "Help remembers pane ratio/focus through its existing session adapter. Reading documentation does not change an application setting."
@@ -81,7 +84,7 @@
           "Opening or searching this manual does not instantiate domain apps, connect services or start radio work. Search indexes the authored manual pages; it does not index every legacy app-help page. See also references open local documentation only."
         ],
         "Troubleshooting": [
-          "A list search can miss a word that appears only in topic text. Use Ctrl-F for manual text. If a key belongs to a search field, Esc cancels that search before changing focus."
+          "Use / for topic names and Ctrl-F for authored manual text. Tab moves from a manual-search query to its results. In a narrow window, Tab reveals the other pane."
         ]
       },
       "see_also": [
@@ -113,14 +116,14 @@
           "The laptop launcher, physical Nokia console helper and development source are separate execution paths. A successful laptop preview is not a Nokia installation."
         ],
         "Setup / example": [
-          "From the consolidated pocket tree, make n810 launches the local desktop shell. Local services attach after its first display; remote services are selected in Connections. This command does not install a release on the tablet.",
+          "From the pocket directory, run make to launch the local desktop. The first session opens Connections; later launches restore saved windows. Use Connections to select a service owner.",
           "On a tablet with the fixed helpers installed, n810-versions selects from the installed app catalog outside the desktop. Close Pocket before switching. The normal tablet launcher is sudo -n /usr/local/sbin/n810-pocket-console run."
         ],
         "Controls": [
           "The tablet chooser uses Up/Down or j/k, Enter to select, R to run and Q to quit. Its installed catalog is authoritative."
         ],
         "Settings / defaults / storage": [
-          "make n810 runs the current consolidated source. The physical tablet runs its selected installed release. Its version can differ until a checked package is installed. Use --no-local-services to start with local services detached."
+          "make runs the source in the current pocket directory. The tablet runs its selected installed release. For a detached local session, use make EXTRA=\"--no-local-services\"."
         ],
         "Lifecycle": [
           "A saved configuration snapshot is separate from an app artifact. Restoring an old snapshot must be deliberate with the desktop closed; do not overwrite a running session."

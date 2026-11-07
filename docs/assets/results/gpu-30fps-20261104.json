@@ -1,0 +1,70 @@
+{
+  "date": "2026-11-04",
+  "workload": "Unmodified Debian glxgears, 400x400 RGB565, GPU transform, lighting and rasterization",
+  "method": "Sequential physical-device runs. FPS and application CPU per frame use the same approximately 30-second interval. Whole-service job and FIFO-sleep counters include startup checks.",
+  "binaries": {
+    "module_sha256": "48002b292b524c2c7195f4541693376db6d0872cf9d5277f318c5d2f385d986a",
+    "mesa_sha256": "02878840d6bacadc155ca6278ce617c0b14e265428c811327b3a06611876e66d",
+    "glxgears_executable_sha256": "579eed90f064296d6e2bb5d16ab37d9efb89f17d073f1d8cddefaedbc39c2cd3"
+  },
+  "settings": {
+    "N810_MBX_WIRE_REPLAY": "1",
+    "N810_MBX_FIFO_SPIN_POLLS": "16",
+    "N810_MBX_FIFO_BATCH": "0",
+    "N810_MBX_ASYNC": "0",
+    "N810_MBX_ASYNC_FENCES": "0"
+  },
+  "combined_repeats": {
+    "seconds": 60.711026218981715,
+    "completed_frames": 1864,
+    "completed_gpu_fps": 30.70282477645235,
+    "app_cpu_ms_per_frame": 17.65021459227468
+  },
+  "runs": [
+    {
+      "run": "fifo-poll-control",
+      "seconds": 30.38384839700302,
+      "completed_frames": 874,
+      "fps": 28.765283073430847,
+      "app_cpu_ms_per_frame": 18.237986270022883,
+      "whole_service_jobs": 1086,
+      "whole_service_fifo_sleeps": 10453
+    },
+    {
+      "run": "fifo-short-poll",
+      "seconds": 30.411497037974186,
+      "completed_frames": 936,
+      "fps": 30.777833752519214,
+      "app_cpu_ms_per_frame": 17.63888888888889,
+      "whole_service_jobs": 1175,
+      "whole_service_fifo_sleeps": 1177
+    },
+    {
+      "run": "fifo-poll-repeat",
+      "seconds": 30.29952918100753,
+      "completed_frames": 928,
+      "fps": 30.627538614748268,
+      "app_cpu_ms_per_frame": 17.661637931034484,
+      "whole_service_jobs": 1190,
+      "whole_service_fifo_sleeps": 1192
+    },
+    {
+      "run": "fifo-batch-poll",
+      "seconds": 30.508816615008982,
+      "completed_frames": 893,
+      "fps": 29.270227399140865,
+      "app_cpu_ms_per_frame": 17.737961926091824,
+      "whole_service_jobs": 1133,
+      "whole_service_fifo_sleeps": 1135
+    },
+    {
+      "run": "fifo-poll-async",
+      "seconds": 30.492856085009407,
+      "completed_frames": 855,
+      "fps": 28.03935445129807,
+      "app_cpu_ms_per_frame": 19.087719298245613,
+      "whole_service_jobs": 1085,
+      "whole_service_fifo_sleeps": 1087
+    }
+  ]
+}

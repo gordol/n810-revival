@@ -1,0 +1,8 @@
+xserver-xorg-core
+xserver-xorg-video-fbdev
+xserver-xorg-input-evdev
+xinit
+matchbox-window-manager
+xterm
+xfonts-base
+x11-xserver-utils

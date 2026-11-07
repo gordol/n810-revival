@@ -1,0 +1,75 @@
+{
+  "description": "Synthetic packet and timestamp for selection, inspector, filter and focus tests.",
+  "synthetic_time": true,
+  "capture": {
+    "time": "2026-11-04T12:00:00+00:00",
+    "frame": "0082a0a4a6404060888a9a9e624060ae92888a64406103f03e53796e74686574696320667261676d656e746174696f6e20666978747572652e2053796e74686574696320667261676d656e746174696f6e20666978747572652e2053796e74686574696320667261676d656e746174696f6e20666978747572652e2053796e74686574696320667261676d65",
+    "direction": "radio_to_host"
+  },
+  "expected_capture_id": "b2f4664ce537b77019bb3b1a44d278cd28cfa8b86f00e556914a8d5dffdae41f",
+  "expected_station": "DEMO1",
+  "steps": [
+    {
+      "intent": "toggle_window",
+      "window": "list",
+      "visible": [
+        "map",
+        "list"
+      ],
+      "focus": "list",
+      "station": null
+    },
+    {
+      "intent": "toggle_window",
+      "window": "inspector",
+      "visible": [
+        "map",
+        "list",
+        "inspector"
+      ],
+      "focus": "inspector",
+      "station": null
+    },
+    {
+      "intent": "focus_window",
+      "window": "map",
+      "visible": [
+        "map",
+        "list",
+        "inspector"
+      ],
+      "focus": "map",
+      "station": null
+    },
+    {
+      "intent": "filter_call",
+      "call": "DEMO1",
+      "visible": [
+        "map",
+        "list",
+        "inspector"
+      ],
+      "focus": "map",
+      "station": "DEMO1"
+    },
+    {
+      "intent": "toggle_window",
+      "window": "list",
+      "visible": [
+        "map",
+        "inspector"
+      ],
+      "focus": "map",
+      "station": "DEMO1"
+    },
+    {
+      "intent": "back",
+      "visible": [
+        "map",
+        "inspector"
+      ],
+      "focus": "map",
+      "station": null
+    }
+  ]
+}

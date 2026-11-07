@@ -46,17 +46,17 @@ class ExternalNodeTests(unittest.TestCase):
         for key in ('a','o','x'):form.key(key)
         self.assertEqual([payload['mode'] for _,payload in calls],['auto','disabled','external-only'])
         form.key('b');self.assertTrue(form.modal())
-        form.naming['value']='rfcomm://2C:BC:BB:9F:E0:E2/1';form.key('\r')
-        self.assertEqual(calls[-1],('configure_node',dict(endpoint='rfcomm://2C:BC:BB:9F:E0:E2/1')))
+        form.naming['value']='rfcomm://02:00:00:00:00:03/1';form.key('\r')
+        self.assertEqual(calls[-1],('configure_node',dict(endpoint='rfcomm://02:00:00:00:00:03/1')))
         self.assertFalse(form.modal())
 
     def test_mode_persistence_and_invalid_connections(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path=Path(tmp)/'preferences';value=dict(mode='external-only',endpoint='rfcomm://2C:BC:BB:9F:E0:E2/1')
+            path=Path(tmp)/'preferences';value=dict(mode='external-only',endpoint='rfcomm://02:00:00:00:00:03/1')
             node.save(path,value);self.assertEqual(node.load(path),value)
             path.chmod(0o644)
             with self.assertRaises(ValueError):node.load(path)
-        for address in ('https://example.org','rfcomm://2C:BC:BB:9F:E0:E2/0','/tmp/not-a-device'):
+        for address in ('https://example.org','rfcomm://02:00:00:00:00:03/0','/tmp/not-a-device'):
             with self.assertRaises(ValueError):node.endpoint(address)
     def test_existing_usb_radio_port_can_be_assigned_to_executor_without_local_driver(self):
         with tempfile.TemporaryDirectory() as tmp:

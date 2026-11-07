@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "entries": 2048,
+  "palette_colors": 16,
+  "bytes": 180906,
+  "sha256": "66c35308e497c804e2405f7401a910b7af03c0b7a20cbdf45f6162b7c02365fa",
+  "reference_sha256": "3f8ff703b9e2cb29681aa6a6e0cf03b0162018eeff14cf61b9c8803d439c976f",
+  "generator": "tools/prepare_loader_ambient.py",
+  "purpose": "Exact static ambient step0 only; runtime decodes at most2048 palette indices for requested size. Other steps use reference math."
+}

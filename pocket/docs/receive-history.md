@@ -20,6 +20,18 @@ network port or enable sharing. A legacy receive-only socket connection can stil
 live packets but does not provide archive access. Connect to the device service
 to browse its archive.
 
+```mermaid
+flowchart TB
+    radio["Radio bytes"] --> receiver["Receiver process"]
+    receiver --> live["Bounded live ring"]
+    receiver --> archive["SQLite packet archive"]
+    live --> feed["Feed window: recent packets"]
+    archive --> service["Device service: requested history page"]
+    service --> browse["Feed window: older packets"]
+```
+
+*The receiver writes the archive independently of the desktop. Browsing older packets requests one page at a time through the device service.*
+
 ## Resource limits
 
 Set these environment variables before starting the relevant process. Invalid

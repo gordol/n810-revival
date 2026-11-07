@@ -29,7 +29,7 @@ class SymbolDisplay(unittest.TestCase):
 
     def test_glyphs_exist_in_bundled_font(self):
         import struct
-        font = Path(__file__).resolve().parents[1] / 'explorations/current-world/heard/fonts/n810-ui-512.psf'
+        font = Path(__file__).resolve().parents[1] / 'console-icons/n810-ui-512.psf'
         data = font.read_bytes()
         magic, version, header_size, flags, count, char_size, height, width = struct.unpack_from('<8I', data)
         self.assertEqual(magic, 0x864ab572)

@@ -1,0 +1,98 @@
+{
+  "wide": {
+    "camera": {
+      "origin": [
+        -1633.7839882178216,
+        1766.0920370255656,
+        20834.578952158696
+      ],
+      "yaw": 0.03490658503988664,
+      "elevation": 0.05590123587278158,
+      "span_x": 25971.794451490114,
+      "span_y": 12955.342173449184,
+      "focal": 24000
+    },
+    "lighting": "day",
+    "shadows": false,
+    "nature": {
+      "season": "summer",
+      "foliage": true,
+      "animals": true,
+      "flowers": true,
+      "lookout": false,
+      "seed": 12345,
+      "grid": 0.08
+    },
+    "viewport": {
+      "columns": 425,
+      "scene_rows": 106,
+      "sample_aspect": 2.0047169811320753
+    },
+    "label": "Wide mountain and rolling foothills",
+    "dem_sha256": "e02673968067c3b0e72f169356391c460aa6833d50f8f466e4bec2e7e8dcac03"
+  },
+  "elevated": {
+    "camera": {
+      "origin": [
+        -6215.740199412518,
+        5666.092037025565,
+        21401.43624681327
+      ],
+      "yaw": 0.20943951023931984,
+      "elevation": 0.3700605012317609,
+      "span_x": 39585.11576206389,
+      "span_y": 19745.987156605985,
+      "focal": 24000
+    },
+    "lighting": "day",
+    "shadows": false,
+    "nature": {
+      "season": "summer",
+      "foliage": true,
+      "animals": true,
+      "flowers": true,
+      "lookout": false,
+      "seed": 12345,
+      "grid": 0.08
+    },
+    "viewport": {
+      "columns": 425,
+      "scene_rows": 106,
+      "sample_aspect": 2.0047169811320753
+    },
+    "label": "Elevated view across successive ridges",
+    "dem_sha256": "e02673968067c3b0e72f169356391c460aa6833d50f8f466e4bec2e7e8dcac03"
+  },
+  "valley": {
+    "camera": {
+      "origin": [
+        -5775.573779082307,
+        1466.0920370255653,
+        21307.87598594528
+      ],
+      "yaw": 0.20943951023931984,
+      "elevation": 0.020994650832895027,
+      "span_x": 17040.094339622676,
+      "span_y": 8500.000000000016,
+      "focal": 24000
+    },
+    "lighting": "day",
+    "shadows": false,
+    "nature": {
+      "season": "summer",
+      "foliage": true,
+      "animals": true,
+      "flowers": true,
+      "lookout": false,
+      "seed": 12345,
+      "grid": 0.08
+    },
+    "viewport": {
+      "columns": 425,
+      "scene_rows": 106,
+      "sample_aspect": 2.0047169811320753
+    },
+    "label": "Preferred close valley composition; candidate for cascading runoff",
+    "dem_sha256": "e02673968067c3b0e72f169356391c460aa6833d50f8f466e4bec2e7e8dcac03"
+  }
+}

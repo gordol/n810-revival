@@ -20,7 +20,7 @@ import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GLib
 
-RADIO = '38:D2:00:00:E3:32'
+RADIO = '02:00:00:00:00:13'
 SPP = '00001101-0000-1000-8000-00805f9b34fb'
 VENDOR = '39144315-32fa-40db-85ed-fbfeba2d86e6'
 SERVICE_RECORD = '''<record>

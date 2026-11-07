@@ -33,6 +33,9 @@ def plain_evidence(payload):
 POSITION=re.compile(r'(\d{2})(\d{2}\.\d{2})([NS])(.)(\d{3})(\d{2}\.\d{2})([EW])(.?)')
 
 
+# Mic-E decoding adapted from aprslib by Rossen Georgiev (GPLv2).
+# Attribution and license: licenses/upstream/aprslib-NOTICE.txt and
+# licenses/upstream/aprslib-LICENSE.txt at the repository root.
 def mice(payload,destination):
     dest=destination.split('-')[0]
     body=re.sub(r'\\x([0-9a-fA-F]{2})',lambda m:chr(int(m[1],16)),payload)[1:]

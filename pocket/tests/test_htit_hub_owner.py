@@ -31,7 +31,7 @@ class WorkerTests(unittest.TestCase):
         events=[];links=[]
         def factory(port):
             link=FakeLink(port,**options);links.append(link);return link
-        worker=HubSession('rfcomm://AA:BB:CC:DD:EE:FF/1',events.append,link_factory=factory)
+        worker=HubSession('rfcomm://aa:bb:cc:dd:ee:ff/1',events.append,link_factory=factory)
         self.addCleanup(worker.close)
         return worker,events,links
     def wait(self,check):

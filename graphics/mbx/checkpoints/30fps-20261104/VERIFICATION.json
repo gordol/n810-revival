@@ -1,0 +1,111 @@
+{
+  "date": "2026-11-04",
+  "source_archive_sha256": "d5b128752a3a39a6eaca91c70cde8fc73b2e9ecf5fc0687e952813b9ab0925ff",
+  "imported_files_verified": 140,
+  "tested_module_inputs_verified": 40,
+  "production_sources": "Byte-for-byte archived source; one documented test expectation update",
+  "kernel_build": {
+    "release": "5.15.224-n810-mbx-clock-wip1",
+    "symbol_version_checks": 64,
+    "tested_module_sha256": "48002b292b524c2c7195f4541693376db6d0872cf9d5277f318c5d2f385d986a",
+    "rebuilt_module_sha256": "c370566a75c3fae89aa6d75a84717b391fc50fd691ab89def977b08ce845af2c",
+    "code_data_and_relocations_match": true,
+    "differing_sections": [
+      ".debug_gnu_pubnames",
+      ".debug_gnu_pubtypes",
+      ".debug_info",
+      ".debug_line",
+      ".debug_str",
+      ".note.gnu.build-id",
+      ".rel.debug_line"
+    ]
+  },
+  "mesa_build": {
+    "mesa_version": "22.3.6",
+    "sha256": "02878840d6bacadc155ca6278ce617c0b14e265428c811327b3a06611876e66d",
+    "matches_physical_test_binary": true,
+    "required_versions": {
+      "GLIBC": [
+        "2.4",
+        "2.6",
+        "2.7",
+        "2.8",
+        "2.27",
+        "2.29",
+        "2.32",
+        "2.34"
+      ],
+      "GLIBCXX": [
+        "3.4"
+      ],
+      "CXXABI": [
+        "1.3",
+        "1.3.8",
+        "1.3.9"
+      ]
+    }
+  },
+  "offline_tests": [
+    {
+      "test": "test_color_cache",
+      "exit_code": 0
+    },
+    {
+      "test": "test_float_fetch",
+      "exit_code": 0
+    },
+    {
+      "test": "test_vgp_batch",
+      "exit_code": 0
+    },
+    {
+      "test": "test_vgp_draw",
+      "exit_code": 0
+    },
+    {
+      "test": "test_vgp_stream",
+      "exit_code": 0
+    },
+    {
+      "test": "test_vgp_topology",
+      "exit_code": 0
+    },
+    {
+      "test": "test_vgp_transform",
+      "exit_code": 0
+    },
+    {
+      "test": "test_color_dependency",
+      "exit_code": 0
+    },
+    {
+      "test": "test_gears_batch",
+      "exit_code": 0
+    },
+    {
+      "test": "test_stream_batch",
+      "exit_code": 0
+    },
+    {
+      "test": "test_strip_stream",
+      "exit_code": 0
+    },
+    {
+      "test": "test_strip_wire",
+      "exit_code": 0
+    },
+    {
+      "test": "test_wire_replay",
+      "exit_code": 0
+    },
+    {
+      "test": "test_frame_allocation",
+      "exit_code": 0
+    },
+    {
+      "test": "test_sampler_scan",
+      "exit_code": 0
+    }
+  ],
+  "device_action_in_this_import": false
+}

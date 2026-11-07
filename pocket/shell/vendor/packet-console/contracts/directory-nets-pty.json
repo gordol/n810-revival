@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "status": "candidate launch contracts; not a registered DSL schema",
+  "mode": "REPLAY",
+  "bindings": ["python", "repo", "root"],
+  "cwd": "{repo}",
+  "environment": {"TERM": "xterm-256color", "N810_DEV_MODE": "REPLAY", "TMUX": "", "TMUX_PANE": ""},
+  "unset_environment": ["TMUX", "TMUX_PANE"],
+  "terminal": {"columns": 133, "rows": 40, "resize": "TIOCSWINSZ + SIGWINCH", "input": "PTY bytes", "exit": "q"},
+  "host_badge": "REPLAY · original capture times · hardware unavailable · TX disabled",
+  "services": [{"id": "captured-feed", "argv": ["{python}", "{repo}/dev-env.py", "serve", "--root", "{root}", "--live", "{live_capture}", "--catalog", "{catalog_capture}"], "ready": "environment.json plus aprs.sock and replay.sock", "ownership": "one externally managed service; app windows do not start or stop it"}],
+  "apps": [
+    {
+      "id": "directory",
+      "title": "Stations",
+      "argv": ["{python}", "{repo}/dev-env.py", "run", "directory", "--root", "{root}"],
+      "requires": ["{root}/environment.json", "{root}/home/.local/state/n810-aprs/directory.sqlite3"],
+      "reads": ["sandbox directory SQLite database"],
+      "writes": ["sandbox buddy/name/notes and saved UI selection"],
+      "background": "none; do not pass --collect",
+      "keys": ["j/k selection", "arrows", "q close"],
+      "unavailable": ["cross-app tmux navigation", "live hardware", "transmission"]
+    },
+    {
+      "id": "nets",
+      "title": "Nets",
+      "argv": ["{python}", "{repo}/dev-env.py", "run", "nets", "--root", "{root}"],
+      "requires": ["{root}/environment.json", "{root}/aprs.sock", "{root}/home/.local/share/n810-radio/nets.json", "fresh Nets state or verified lead=0 and enabled=[]"],
+      "prepare": {"argv": ["{python}", "{repo}/n810-nets.py", "--data", "{root}/home/.local/share/n810-radio/nets.json", "--import-file", "{repo}/data/nets-puget-sound.json"], "policy": "only when schedule pack is absent; never replace user data"},
+      "reads": ["sandbox schedule pack", "aprs.sock decoded history and REPLAY status"],
+      "writes": ["sandbox Nets state and lock", "sandbox ~/nets.ics on explicit export"],
+      "background": "receive-only subscription; reminders must remain disabled for replay",
+      "keys": ["u agenda", "h radio", "j/k selection", "arrows detail scroll", "q close"],
+      "unavailable": ["cross-app tmux navigation", "live hardware", "transmission", "reminder actions in replay acceptance tests"]
+    }
+  ]
+}

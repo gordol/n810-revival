@@ -22,7 +22,6 @@ class Tests(unittest.TestCase):
         cls.temp=tempfile.TemporaryDirectory();cls.root=Path(cls.temp.name)
         for path in ROOT.glob('*.py'):shutil.copy2(path,cls.root/path.name)
         shutil.copy2(ROOT/'radio-read-layouts.json',cls.root/'radio-read-layouts.json')
-        subprocess.run(['patch','--batch','-p1','-i',str(ROOT/'radio-bandwidth-owner.patch')],cwd=cls.root,check=True,stdout=subprocess.DEVNULL)
         cls.bridge=load(cls.root/'n810-kiss-bridge.py','patched_bridge')
         cls.live=load(cls.root/'n810-radio-live.py','patched_live')
         cls.fixture=load(cls.root/'test-radio-bandwidth.py','bandwidth_fixture')
@@ -37,7 +36,7 @@ class Tests(unittest.TestCase):
         bridge.tx.clear();bridge.tx_size=0;bridge.writer=object()
         with self.assertRaises(RuntimeError):bridge.bandwidth_request(14,wide,raw)
         bridge.writer=None
-        for command,payload in ((13,b'\1'),(11,b''),(31,b'RF'),(60,b'\0')):
+        for command,payload in ((13,b'\1\2'),(11,b''),(31,b'RF'),(60,b'\0')):
             with self.assertRaises(ValueError):bridge.bandwidth_request(command,payload)
         wrong=wide[:-1]+bytes([wide[-1]^1])
         with self.assertRaises(ValueError):bridge.bandwidth_request(14,wrong,raw)
@@ -47,7 +46,7 @@ class Tests(unittest.TestCase):
             active=True
             def consume(self,word,body):events.append((word,body))
             def tick(self,now):events.append(('tick',now))
-        live=object.__new__(self.live.Telemetry);live.bandwidth=Control();live.buffer=bytearray();live.state={'enabled':False};live.publish=lambda:events.append('publish')
+        live=self.live.Telemetry(lambda _:None,self.root/'state.json',self.root/'control.json',self.root/'gps.json');live.bandwidth=Control();live.publish=lambda:events.append('publish')
         body=b'\0'+self.fixture.channel()
         frame=b'\xff\1\0'+bytes([len(body)])+b'\0\2\x80\x0d'+body
         live.feed(frame)

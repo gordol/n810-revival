@@ -42,7 +42,7 @@ class HubSelectionTests(unittest.TestCase):
             def config(port):
                 path.write_text('state="/tmp/private-state"\ninterpreter="/usr/bin/python3"\nstation="test"\ntrusted_peripheral=true\nport="'+port+'"\n')
                 path.chmod(0o600)
-            uri='htit://2C:BC:BB:9F:DF:72/1/FB:91:48:2D:AA:14/1'
+            uri='htit://02:00:00:00:00:01/1/02:00:00:00:00:02/1'
             config(uri);self.assertEqual(saved_selection(root)['port'],uri)
             for bad in (uri.replace('/1/','/31/',1),uri+'?shell=bad','htit://unknown'):
                 config(bad)
@@ -98,12 +98,12 @@ class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
             async def connect(self):return True
             async def disconnect(self):await self.cx.disconnect()
         with patch('vendor.apps.domains.meshcore.hub_provider.attach_hub',return_value=attachment) as attach, patch('meshcore.MeshCore',Client), patch('asyncio.create_subprocess_exec') as spawn:
-            client=await adapter.create_serial_client('htit://2C:BC:BB:9F:DF:72/1/FB:91:48:2D:AA:14/1',bridge_status_callback=statuses.append)
+            client=await adapter.create_serial_client('htit://02:00:00:00:00:01/1/02:00:00:00:00:02/1',bridge_status_callback=statuses.append)
             self.assertEqual(client.cx.port,attachment.port)
             self.assertEqual(statuses[-1]['generation'],2)
             self.assertFalse(attachment.closed)
             self.assertEqual(attach.call_args.args,(1,))
-            self.assertEqual(attach.call_args.kwargs['port'],'rfcomm://2C:BC:BB:9F:DF:72/1')
+            self.assertEqual(attach.call_args.kwargs['port'],'rfcomm://02:00:00:00:00:01/1')
             spawn.assert_not_called()
             await client.disconnect()
             self.assertTrue(attachment.closed)
@@ -122,12 +122,12 @@ class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
             async def disconnect(self):await self.cx.disconnect()
         with patch('vendor.apps.domains.meshcore.hub_provider.attach_hub',return_value=attachment),patch('meshcore.MeshCore',Client):
             with self.assertRaisesRegex(ConnectionError,'SDK failed'):
-                await adapter.create_serial_client('htit://2C:BC:BB:9F:DF:72/1/FB:91:48:2D:AA:14/1')
+                await adapter.create_serial_client('htit://02:00:00:00:00:01/1/02:00:00:00:00:02/1')
         self.assertTrue(attachment.closed)
 
     async def test_rejects_malformed_hub_address_before_spawn(self):
         with patch('asyncio.create_subprocess_exec') as spawn:
-            with self.assertRaises(ValueError):await adapter.create_serial_client('htit://:::::::::::::::::/1/FB:91:48:2D:AA:14/1')
+            with self.assertRaises(ValueError):await adapter.create_serial_client('htit://:::::::::::::::::/1/02:00:00:00:00:02/1')
             spawn.assert_not_called()
 
 if __name__=='__main__':unittest.main()

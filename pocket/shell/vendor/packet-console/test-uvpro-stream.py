@@ -1,4 +1,4 @@
-"""Mixed KISS/vendor parsing against real walk bytes and synthetic boundaries."""
+"""Mixed KISS/vendor parsing against synthetic packets and fragmentation boundaries."""
 import importlib.util,json,unittest
 from pathlib import Path
 ROOT=Path(__file__).parent
@@ -14,11 +14,11 @@ def fragments(packet):
  return [gaia(9,b'\2'+bytes([i|(128 if i==len(parts)-1 else 0)])+part) for i,part in enumerate(parts)]
 
 class Tests(unittest.TestCase):
- def test_recover_actual_walk_fragments(self):
+ def test_recover_split_vendor_fragments(self):
   wire=fragments(FRAME[1:]);self.assertEqual(MIXED,b'\0'+b''.join(wire[:2]))
   packets=[];events=[];obs=s.Observer(packet=packets.append,frame=lambda *event:events.append(event))
   for byte in b'\xc0'+MIXED+wire[2]:obs.feed(bytes([byte]))
-  self.assertEqual(len(packets),1);self.assertTrue(packets[0].startswith('VCAPK>APMI06'))
+  self.assertEqual(len(packets),1);self.assertTrue(packets[0].startswith('DEMO1>APRS'))
   self.assertEqual(events,[(FRAME,'vendor_reassembled',wire)])
  def test_kiss_and_vendor_duplicates_both_orders(self):
   for wire in (b''.join(fragments(FRAME[1:]))+b.encode(FRAME),b.encode(FRAME)+b''.join(fragments(FRAME[1:]))):

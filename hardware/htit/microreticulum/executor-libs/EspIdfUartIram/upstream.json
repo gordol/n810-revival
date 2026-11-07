@@ -1,0 +1,14 @@
+{
+  "uart.c": {
+    "url": "https://raw.githubusercontent.com/espressif/esp-idf/v4.4.7/components/driver/uart.c",
+    "sha256": "bd3dc562dd597d04ef2702915b2a9e1096483127e008f1e053c6eee4426b6be6"
+  },
+  "uart_hal_iram.c": {
+    "url": "https://raw.githubusercontent.com/espressif/esp-idf/v4.4.7/components/hal/uart_hal_iram.c",
+    "sha256": "3c28f398169300b296e6ce210741e4fe188639f8ba6d89316bd12c8bd8d06a06"
+  },
+  "LICENSE": {
+    "url": "https://raw.githubusercontent.com/espressif/esp-idf/v4.4.7/LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  }
+}

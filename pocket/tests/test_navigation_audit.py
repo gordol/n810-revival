@@ -111,10 +111,11 @@ class NavigationAudit(unittest.TestCase):
     def test_actual_manual_search_owns_shortcuts_and_escape(self):
         from on_device_manual import ManualBrowser
         form=ManualBrowser(forms={});form.lines()
-        navigation(form).select('action:\x06');native_key(form,'\r');self.assertTrue(form.search_edit)
+        native_key(form,'\x06');self.assertTrue(form.search_edit)
         for key in 'radio[]/':native_key(form,key)
         self.assertEqual(form.query,'radio[]/');self.assertFalse(form.items.searching)
         rows,_=native_presentation(form,form.lines(),form.spans(),form.width,form.height)
         self.assertIn('radio[]/',rows[-1])
-        native_key(form,'\t');self.assertTrue(form.search_edit)
-        native_key(form,'\x1b');self.assertFalse(form.search_edit)
+        native_key(form,'\t');self.assertFalse(form.search_edit)
+        self.assertEqual(form.layout.focus,'topics')
+        native_key(form,'\x06');native_key(form,'\x1b');self.assertFalse(form.search_edit)

@@ -1,0 +1,9 @@
+{
+  "source_revision": "c22aabb1ca6388fb646f052729dcb0afd7df25d6",
+  "upstream": {
+    "url": "https://github.com/attermann/microReticulum_Firmware",
+    "commit": "592c826df31636edaf45b2a0d84f46545041fecb",
+    "import": "Clean source snapshot plus local changes; upstream Git history not imported"
+  },
+  "files": 347
+}

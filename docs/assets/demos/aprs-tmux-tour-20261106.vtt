@@ -1,0 +1,31 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:04.000
+APRS map and packet list in a split tmux workspace.
+
+00:00:04.000 --> 00:00:14.000
+Select older packets with Down. The selected map marker follows the report.
+
+00:00:14.000 --> 00:00:21.000
+Open the selected packet inspector with x.
+
+00:00:21.000 --> 00:00:28.000
+Close the inspector; focus the map and hide the packet panel.
+
+00:00:28.000 --> 00:00:36.000
+Zoom in twice with +.
+
+00:00:36.000 --> 00:00:45.000
+Pan right and up, then return left and down.
+
+00:00:45.000 --> 00:00:53.000
+Zoom out twice and restore the packet panel.
+
+00:00:53.000 --> 00:00:58.000
+Ctrl-B, 1: switch to the Packets tmux window.
+
+00:00:58.000 --> 00:01:02.000
+Ctrl-B, 2: switch to Shell.
+
+00:01:02.000 --> 00:01:07.000
+Ctrl-B, 0: return to the map workspace.

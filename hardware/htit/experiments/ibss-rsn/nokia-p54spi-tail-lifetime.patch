@@ -1,0 +1,19 @@
+--- a/drivers/net/wireless/intersil/p54/p54spi.c
++++ b/drivers/net/wireless/intersil/p54/p54spi.c
+@@ -151,7 +151,7 @@
+ {
+ 	struct spi_transfer t[3];
+ 	struct spi_message m;
+-	__le16 addr;
++	__le16 addr, last_word;
+ 
+ 	/* We first push the address */
+ 	addr = cpu_to_le16(address << 8);
+@@ -168,7 +168,6 @@
+ 	spi_message_add_tail(&t[1], &m);
+ 
+ 	if (len % 2) {
+-		__le16 last_word;
+ 		last_word = cpu_to_le16(((u8 *)buf)[len - 1]);
+ 
+ 		t[2].tx_buf = &last_word;

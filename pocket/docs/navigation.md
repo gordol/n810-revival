@@ -1,5 +1,10 @@
 # Keyboard navigation
 
+![Calendar in window-movement mode above Help](../../docs/assets/screenshots/pocket-window-move-20261104.png)
+
+*The 4 November laptop walkthrough shows Calendar with the active border. Ctrl-], then m enters movement; arrows move it and Enter accepts the position. Watch the [complete sequence](../../docs/tutorials/laptop-tour.md).*
+
+
 ## Within a window
 
 **Tab** moves focus forward. **Shift-Tab** moves focus backward. Focus moves

@@ -1,18 +1,31 @@
-# Status
+# Current status
 
-This is a dated summary, not a live read from the tablet. Source, local tests,
-an installed package, and hands-on acceptance are different claims.
+These results were recorded by 4 November 2026. Each row separates the tested capability from the work still needed.
 
-| Checkpoint | Recorded result | Still open |
+| Area | Established result | Remaining work |
 |---|---|---|
-| 16 Oct 2026 | RGB565 Linux console installed as the default kernel and checked after a normal power cycle | GPU acceleration was not involved |
-| 20 Oct 2026 | Native water render reached the physical N810 console | Full launch took about 65 seconds; the capture is a still |
-| 20–23 Oct 2026 | Prepared map regions and change-driven saving passed specific Nokia launch checks | Pan/zoom remained slow; sustained drag was not accepted |
-| 30 Oct 2026 | Pocket's source records physical menu and desktop-transition checks | Close latency and broader input responsiveness remained open |
-| 3 Nov 2026 | Pocket 0.1.0 integrated maps, stations, radio, messages, and tray apps in source | The changelog does not by itself establish RF delivery or full device acceptance |
+| Debian platform | SD-root operation, USB maintenance, Wi-Fi, Classic Bluetooth, calibrated touch, and console/GUI lifecycle checks. | Broader power calibration, reconnect, and sustained-use coverage. |
+| Kernel | Packaged Linux 5.15.224 source changes and build inputs passed an independent fresh-checkout ARM build: generated N810 device tree, 199 modules and 35 external-module CRC checks. Historical November graphics runs identify `5.15.224-n810-mbx-clock-wip1`. | Attended boot acceptance for the newly packaged configuration and broader release coverage. |
+| Pocket | Integrated 0.1.0 source, terminal windows, shared navigation, applications, and local/remote service adapters. | Current whole-desktop responsiveness and clean installation coverage. |
+| APRS and SSH | Shared feed ownership; retained packet workspace exercised through physical and SSH terminal clients. | Broader live-radio and interaction checks across current source. |
+| Reticulum/LXMF | Normal-TUI Nokia/Mac signed message exchange on 24 October. | Range and sustained recovery testing. |
+| HTIT | External microReticulum execution, receiver-verified resources, messaging, and targeted reconnect/resource repairs. | Long-suite watchdog reliability and fresh end-to-end checks for the 2 November library refresh. |
+| MBX | Standard 400 by 400 glxgears with GPU transform, lighting and rasterization; two physical runs at 30.78 and 30.63 completed GPU FPS. | Broader driver coverage and production integration. |
+| VGP | Checked diagnostic transform/lighting output and live Mesa integration in the 4 November gears runs. | Broader shader and geometry coverage. |
 
-The Pocket source in this repository is newer than the last public field note.
-The [journal](journal.md) tells the dated story; Pocket's own
-[0.1.0 notes](https://github.com/gordol/n810-revival/blob/main/pocket/docs/releases-0.1.0.md)
-describe source scope. We need fresh physical checks before calling the current
-whole desktop responsive.
+The [chronological journal](journal.md) preserves the failures and intermediate results behind this table. The latest graphics measurements are in the [acceleration reference](reference/acceleration.md).
+
+## Building and installing the platform
+
+The repository carries the maintained kernel changes, configuration,
+export whitelist, external clock-module source and portable build script. The
+builder verifies Linux 5.15.224 from kernel.org and reconstructs the maintained
+source at `6bd43ee8d27b207c958808368251d55ec0475f9e`.
+
+On 4 November, an independent source checkout completed the
+ARM build with 199 modules and all 35 external-module symbol-version checks. Its
+combined image is 2,077,084 bytes. The [verification record](reference/kernel-build-verification.md)
+describes the fresh checkout, toolchain, configuration and output checks. The
+[kernel guide](how-to/build-kernel.md) gives the repeatable command.
+
+The [component verification page](reference/component-build-verification.md) records HTIT firmware, graphics, and map builds. A complete installable root-filesystem image still requires a Debian root, device firmware, an installation policy, and an integrated image-assembly check. The [platform reference](reference/platform-files.md) identifies the available services and configuration files.

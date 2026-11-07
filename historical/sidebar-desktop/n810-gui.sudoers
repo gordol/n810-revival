@@ -1,0 +1,2 @@
+# Fixed actions only. The launcher resets the environment before starting X.
+%n810-power ALL=(root) NOPASSWD: NOSETENV: /usr/local/sbin/n810-gui-launch start, /usr/local/sbin/n810-gui-launch console, /usr/local/sbin/n810-gui-launch stop, /usr/local/sbin/n810-gui-launch status

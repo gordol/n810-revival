@@ -76,7 +76,8 @@ class ContextPlane(ScaledPlane):
 
 class Renderer:
     def __init__(self,root=ROOT,maps=None):
-        self.root=Path(root);self.maps=Path(maps) if maps is not None else self.root/'maps';self.pool=None;self.pending=None;self.ready=OrderedDict();self.error=None;self.failed={}
+        from data_paths import map_directory
+        self.root=Path(root);self.maps=Path(maps) if maps is not None else map_directory(self.root/'maps');self.pool=None;self.pending=None;self.ready=OrderedDict();self.error=None;self.failed={}
         self.module=self.engine=None;self.meshes=OrderedDict();self.latest3d=None;self._wanted=None
         from map_regions import Regions
         self.reuse_regions=False;self.regions=Regions();self.completion_wakeup=None;self.loading_phase='idle'
@@ -131,6 +132,8 @@ class Renderer:
             self.module=module;self.engine=module.Engine(self.maps,'rgb',cache_directory=map_cache_directory())
         from desktop_elevation import configure
         configure(self.engine)
+        from elevation_display import configure as configure_portable
+        configure_portable(self.engine)
         self.engine.forest_roads=getattr(self,'forest_roads',False)
         if stage is not None:self._stage('initialize_seconds',stage)
         if key[0]=='3d':return self._render3d(key[1:])
@@ -244,7 +247,12 @@ class Renderer:
         import math
         began=time.monotonic()
         center,span,mw,mh,width,height,yaw,tilt,exaggeration,camera_mix=key
+        from data_paths import data_root
+        selected_catalogue=(data_root()/'elevation.json').is_file()
         field_key=(center,span,mw,mh,exaggeration)
+        if selected_catalogue:
+            from local_elevation import revision
+            field_key=(*field_key,revision())
         if field_key in self.meshes:
             field,mesh=self.meshes[field_key];self.meshes.move_to_end(field_key)
             nx,nz=field.nx,field.nz;values=field.values
@@ -252,13 +260,17 @@ class Renderer:
             nx=65;nz=2*max(4,min(64,round(mh/max(1,mw)*nx)))
             view=self.module.Viewport(center,span,nx,nz//2)
             rows,fine,stats=self.engine.atlas.raster(center,span,nx,nz//2)
-            heights=None
-            if span>5 and self.engine.terrain:heights,_,_=self.engine.terrain.sample(view)
+            heights=None;nodata=None
+            if selected_catalogue:
+                from elevation_display import sample as display_heights
+                heights=display_heights(view)
+            elif span>5 and self.engine.terrain:
+                heights,_,_=self.engine.terrain.sample(view);nodata=self.engine.terrain.nodata
             values=[];known=[]
             for z in range(nz):
                 for x in range(nx):
                     value=heights[z][x] if heights is not None else (fine[z][x]-1)*5 if fine[z][x]!=255 else 0 if rows[z][x]==0 else None
-                    valid=value is not None and (heights is None or value!=self.engine.terrain.nodata)
+                    valid=value is not None and (nodata is None or value!=nodata)
                     known.append(valid);values.append(value*exaggeration if valid else 0)
             if not any(known):raise ValueError('No offline elevation coverage for this patch')
             step=span*1000/(nx-1)

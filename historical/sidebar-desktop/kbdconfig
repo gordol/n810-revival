@@ -1,0 +1,12 @@
+# Fullscreen belongs to n810-rail: F11 and the hardware button share one action.
+<alt>Tab=next
+<alt><shift>Tab=prev
+<Alt>n=next
+<Alt>p=prev
+<Alt>c=close
+<Alt>d=desktop
+<Alt>m=!matchbox-remote -mbmenu
+<alt>space=taskmenu
+<alt>escape=!matchbox-remote -mbmenu
+<alt>f4=close
+<ctrl><alt>x=!xterm

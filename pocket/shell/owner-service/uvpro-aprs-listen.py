@@ -24,7 +24,7 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGHUP, stop)
     print('KISS bridge enabled; raw sockets open after radio connection', flush=True)
-    addr = '38:D2:00:00:E3:32'
+    addr = '02:00:00:00:00:13'
     sdp = subprocess.check_output(['sdptool','search','--bdaddr',addr,'SP'], timeout=25, text=True)
     match = re.search(r'Channel: (\d+)', sdp)
     if not match: raise ConnectionError('UV-PRO serial service unavailable')

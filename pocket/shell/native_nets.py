@@ -128,4 +128,14 @@ class Nets:
         c.put(0,self.height-1,'←/→ view  Tab pane  ↑/↓ select/scroll  Enter details')
         self._spans=c.styled_spans(self._spans)
         return c.lines()
+    def help_pages(self):
+        return (('Browse scheduled nets', (
+            'Week and Today show scheduled occurrences. Heard shows retained announcements.',
+            'Tab and Shift-Tab move between the view tabs, Agenda, and Selected net.',
+            'Focus the view tabs and use Left/Right to choose Week, Today, or Heard.',
+            'In Agenda, Up/Down selects an occurrence. / starts list search; Enter accepts the search.',
+            'After accepting a search, n and N select the next and previous matches. Esc clears the search.',
+            'Enter from Agenda focuses Selected net. Up/Down scrolls its details.',
+            'The existing schedule owner manages reminders. This application displays its schedule and retained announcements.',
+        )),)
     def spans(self):return tuple(self._spans)

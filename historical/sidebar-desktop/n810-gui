@@ -1,0 +1,9 @@
+#!/bin/sh
+# Fixed privileged launcher; no caller-supplied X server arguments.
+set -eu
+case "${1:-start}" in
+    start|console|stop|status) action=${1:-start};;
+    *) echo 'Usage: n810-gui [start|console|stop|status]' >&2; exit 2;;
+esac
+test "$#" -le 1 || { echo 'Usage: n810-gui [start|console|stop|status]' >&2; exit 2; }
+exec sudo -n -- /usr/local/sbin/n810-gui-launch "$action"

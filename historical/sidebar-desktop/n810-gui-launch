@@ -1,0 +1,58 @@
+#!/bin/sh
+# Root-owned, fixed actions. User clients run without root privileges.
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+test "$(id -u)" = 0 || { echo 'Run through n810-gui.' >&2; exit 1; }
+test "$#" = 1 || exit 2
+pidfile=/run/n810-gui/xinit.pid
+running() {
+    start-stop-daemon --stop --test --quiet --pidfile "$pidfile" --exec /usr/bin/xinit
+}
+case "$1" in
+start)
+    test "$(/usr/local/sbin/n810-mode status)" = normal || { echo 'Return to normal mode first.' >&2; exit 1; }
+    if running; then exec chvt 8; fi
+    if pgrep -x Xorg >/dev/null; then echo 'An X session is already running.' >&2; exit 1; fi
+    return_vt=$(fgconsole)
+    test "$return_vt" != 8 || { echo 'Console 8 is in use.' >&2; exit 1; }
+    install -d -o root -g root -m 0755 /run/n810-gui
+    printf '%s\n' "$return_vt" > /run/n810-gui/console-vt
+    echo 'Starting GUI. Use Console to switch; End GUI closes the session.'
+    env -i HOME=/root USER=root LOGNAME=root PATH="$PATH" \
+        N810_GUI_TEST_SECONDS=0 N810_GUI_DISPLAY_POLICY=1 N810_GUI_RETURN_VT="$return_vt" \
+        flock --verbose -n -o /run/n810-gui/launch.lock \
+        setsid -w openvt -e -f -c 8 -s -- /usr/local/lib/n810-gui/server.sh \
+        </dev/null >/run/n810-gui/launch.log 2>&1 &
+    worker=$!
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        if running; then exit 0; fi
+        if ! kill -0 "$worker" 2>/dev/null; then
+            echo 'GUI startup failed; see /run/n810-gui/launch.log and test.log.' >&2
+            exit 1
+        fi
+        sleep 1
+    done
+    echo 'GUI startup has not completed; see /run/n810-gui/test.log.' >&2
+    exit 1
+    ;;
+console)
+    if ! running; then echo 'No managed GUI session is running.' >&2; exit 1; fi
+    vt=$(cat /run/n810-gui/console-vt)
+    case "$vt" in ''|*[!0-9]*) exit 1;; esac
+    test "$vt" -ge 1 && test "$vt" -le 63 && test "$vt" != 8
+    exec chvt "$vt"
+    ;;
+stop)
+    if ! running; then echo 'No managed GUI session is running.'; exit 0; fi
+    : > /run/n810-gui/stop-requested
+    start-stop-daemon --stop --quiet --retry TERM/10 --pidfile "$pidfile" --exec /usr/bin/xinit
+    ;;
+status)
+    if running; then echo 'GUI is running.'
+    elif pgrep -x Xorg >/dev/null; then echo 'A separate X session is running.'; exit 3
+    else echo 'GUI is stopped.'; exit 3
+    fi
+    ;;
+*) exit 2;;
+esac

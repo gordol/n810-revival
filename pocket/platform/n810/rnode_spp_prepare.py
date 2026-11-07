@@ -7,8 +7,8 @@ import fcntl
 import grp
 import pwd
 
-ADDRESS = 'F0:24:F9:93:FE:E6'
-CONTROLLER = 'EE:FB:3C:94:40:5A'
+ADDRESS = '02:00:00:00:00:16'
+CONTROLLER = '02:00:00:00:00:15'
 DEVICE = '/dev/rfcomm0'
 
 
@@ -90,7 +90,7 @@ def _existing_mapping_ready():
 
 
 if __name__ == '__main__' and _existing_mapping_ready():
-    print('{"ok":true,"device":"/dev/rfcomm0","address":"F0:24:F9:93:FE:E6","channel":1,"mapping_created":false,"owner_changed":false,"radio_opened":false,"rf_enabled":false,"fast_path":true}')
+    print('{"ok":true,"device":"/dev/rfcomm0","address":"02:00:00:00:00:16","channel":1,"mapping_created":false,"owner_changed":false,"radio_opened":false,"rf_enabled":false,"fast_path":true}')
     raise SystemExit(0)
 
 # Creation, ownership changes and ambiguous state use the original full checks.

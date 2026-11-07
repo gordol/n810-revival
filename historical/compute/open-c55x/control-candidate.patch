@@ -1,0 +1,81 @@
+--- a/gas/config/tc-tic55x.c
++++ b/gas/config/tc-tic55x.c
+@@ -532,0 +533,3 @@
++      buf[0] = (val >> 16) & 0xff;
++      buf[1] = (val >> 8) & 0xff;
++      buf[2] = val & 0xff;
+@@ -1155,12 +1158,3 @@
+-      sym = exp->X_add_symbol;
+-      value = S_GET_VALUE ( sym );
+-      if ( value > 0 )
+-	{
+-	  if ( value > ((1LL<<num)-1) )
+-	    return 0;
+-	}
+-      else
+-	{
+-	  if ( -value > (1LL<<num) )
+-	    return 0;
+-	}
++      value = exp->X_add_number;
++      if ( value < 0 || value > ((1LL << num) - 1) )
++        return 0;
+@@ -1193,0 +1188,14 @@
++/* BCC l4 and the repeat-block offsets are unsigned; B/CALL Lx and
++   the wider conditional branch offsets are signed (TI SPRU374G). */
++static int
++pc_offset_fits (offsetT value, int bits, const char *mask)
++{
++  int unsigned_offset = bits == 4
++    || strncmp (mask, "0000111p", 8) == 0
++    || strncmp (mask, "0100101p 1", 10) == 0;
++  if (unsigned_offset)
++    return value >= 0 && value <= ((1LL << bits) - 1);
++  return value >= -(1LL << (bits - 1))
++    && value <= ((1LL << (bits - 1)) - 1);
++}
++
+@@ -1214 +1221,0 @@
+-      as_warn("fixme: l_encode");
+@@ -1217,10 +1224,2 @@
+-      if ( value > 0 )
+-	{
+-	  if ( value > ((1LL<<num)-1) )
+-	    return 0;
+-	}
+-      else
+-	{
+-	  if ( -value > (1LL<<num) )
+-	    return 0;
+-	}
++      if (!pc_offset_fits (value, num, mask))
++        return 0;
+@@ -1239,10 +1238,2 @@
+-      if ( value > 0 )
+-	{
+-	  if ( value > ((1LL<<(num-1))-1) )
+-	    return 0;
+-	}
+-      else
+-	{
+-	  if ( -value > (1LL<<(num-1)) )
+-	    return 0;
+-	}
++      if (!pc_offset_fits (value, num, mask))
++        return 0;
+@@ -2432,0 +2424 @@
++  memset (&insn, 0, sizeof (insn));
+@@ -3563,0 +3556,2 @@
++		  {
++		    resolveT previous_resolution = insnA[number_of_matches].amount_resolved;
+@@ -3564,0 +3559,2 @@
++		    insnA[number_of_matches].amount_resolved = MAX(previous_resolution, insnA[number_of_matches].amount_resolved);
++		  }
+@@ -3721 +3717 @@
+-  encode_nfo->amount_resolved =  amount_resolved;
++  /* Keep the resolution state copied from the selected candidate. */
+--- a/bfd/coff-tic55x.c
++++ b/bfd/coff-tic55x.c
+@@ -341 +341 @@
+-	   NULL,"R_REL24",FALSE,0x0,0xFFFFFF00,FALSE),
++	   NULL,"R_REL24",TRUE,0xFFFFFF00,0xFFFFFF00,FALSE),

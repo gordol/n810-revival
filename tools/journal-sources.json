@@ -1,0 +1,1113 @@
+{
+  "date": "2026-11-04",
+  "entries": [
+    {
+      "post": "docs/posts/beginnings.md",
+      "id": "beginnings",
+      "implementation": [
+        {
+          "label": "JFFS2 extractor",
+          "path": "platform/scripts/n810-jffs2-extract.py"
+        },
+        {
+          "label": "CAL record reader",
+          "path": "platform/scripts/n810-cal-inspect.py"
+        },
+        {
+          "label": "Merged-/usr rescue",
+          "path": "platform/scripts/n810-merged-usr-rescue-r14-init.c"
+        },
+        {
+          "label": "Partition assembler",
+          "path": "platform/scripts/assemble-clean-n810-emmc.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Synthetic flash records",
+          "path": "platform/maemo/test_readers.py"
+        },
+        {
+          "label": "Partition preservation",
+          "path": "platform/maemo/test_image_assembly.py"
+        },
+        {
+          "label": "Boot-tag converter regression",
+          "path": "platform/scripts/test-n810-boot-tags.c"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "ARM helper builder",
+          "path": "platform/build-tools.py"
+        },
+        {
+          "label": "Maintained kernel pins",
+          "path": "platform/kernel/source.lock.json"
+        },
+        {
+          "label": "Kernel configuration",
+          "path": "platform/kernel/n810.config"
+        }
+      ],
+      "guide": "how-to/test-journal-checkpoints.md",
+      "note": "The rescue init source and its compiler inputs are retained. Its historical 5.15.86 combined boot image still needs the exact earlier kernel tree and initramfs configuration. Original flash backups and device calibration remain private inputs."
+    },
+    {
+      "post": "docs/posts/2026-10-03-wifi.md",
+      "id": "2026-10-03-wifi",
+      "implementation": [
+        {
+          "label": "Maemo helper emulator",
+          "path": "platform/maemo/emulate-wlan-cal.py"
+        },
+        {
+          "label": "Wi-Fi service",
+          "path": "platform/scripts/n810-wifi-service"
+        },
+        {
+          "label": "Maintained SPI/Wi-Fi changes",
+          "path": "platform/kernel/n810-5.15.224.patch"
+        }
+      ],
+      "tests": [
+        {
+          "label": "CAL corruption checks",
+          "path": "platform/maemo/test_readers.py"
+        },
+        {
+          "label": "Kernel source inventory",
+          "path": "platform/kernel/source-files.json"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Emulator dependencies",
+          "path": "platform/maemo/requirements.txt"
+        },
+        {
+          "label": "Kernel builder",
+          "path": "platform/kernel/build.py"
+        },
+        {
+          "label": "Wi-Fi configuration",
+          "path": "platform/scripts/n810-wifi-config"
+        }
+      ],
+      "guide": "how-to/test-journal-checkpoints.md",
+      "note": "The maintained patch contains p54spi.c and spi-omap2-mcspi.c. The ARM helper emulator requires the hash-identified Maemo executable and the owner's CAL image. The physical association and transfer results are historical device observations."
+    },
+    {
+      "post": "docs/posts/2026-10-05-power-display-input.md",
+      "id": "2026-10-05-power-display-input",
+      "implementation": [
+        {
+          "label": "Wake and input policy",
+          "path": "platform/scripts/n810-wake.c"
+        },
+        {
+          "label": "Screen wake sequence",
+          "path": "platform/scripts/n810-screen"
+        },
+        {
+          "label": "Charging-mode transitions",
+          "path": "platform/scripts/n810-mode"
+        },
+        {
+          "label": "Touch calibration",
+          "path": "platform/scripts/n810-touch-calibrate.c"
+        },
+        {
+          "label": "Maintained power/display changes",
+          "path": "platform/kernel/n810-5.15.224.patch"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Mock input events",
+          "path": "platform/scripts/test-n810-wake-input.py"
+        },
+        {
+          "label": "Charging-mode recovery",
+          "path": "platform/scripts/test-n810-mode.py"
+        },
+        {
+          "label": "Brightness remapping",
+          "path": "platform/scripts/test-n810-brightness-remap.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "ARM helper builder",
+          "path": "platform/build-tools.py"
+        },
+        {
+          "label": "Kernel file inventory",
+          "path": "platform/kernel/source-files.json"
+        },
+        {
+          "label": "Platform test runner",
+          "path": "tools/test-platform.py"
+        }
+      ],
+      "guide": "how-to/test-journal-checkpoints.md",
+      "note": "The kernel patch retains Retu, Tahvo, board and RFBI changes. The input suites use generated events and mock commands; the display and charging measurements in the post came from the tablet."
+    },
+    {
+      "post": "docs/posts/2026-10-05-sidebar-desktop.md",
+      "id": "2026-10-05-sidebar-desktop",
+      "implementation": [
+        {
+          "label": "Application rail",
+          "path": "historical/sidebar-desktop/n810-rail.c"
+        },
+        {
+          "label": "X session",
+          "path": "historical/sidebar-desktop/session.sh"
+        },
+        {
+          "label": "Touch-to-X mapping",
+          "path": "historical/sidebar-desktop/xorg-config.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Virtual-display rail test",
+          "path": "historical/sidebar-desktop/test-rail.c"
+        },
+        {
+          "label": "Isolated X test launcher",
+          "path": "historical/sidebar-desktop/test-rail.sh"
+        },
+        {
+          "label": "Session restoration",
+          "path": "platform/scripts/test-n810-session.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Pinned ARM build",
+          "path": "historical/sidebar-desktop/build-armel.sh"
+        },
+        {
+          "label": "Desktop packages",
+          "path": "historical/sidebar-desktop/packages.txt"
+        },
+        {
+          "label": "Xorg configuration",
+          "path": "historical/sidebar-desktop/xorg.conf"
+        }
+      ],
+      "guide": "how-to/test-journal-checkpoints.md",
+      "note": "The original sidebar and XFCE prototype are retained as historical source. The current terminal desktop has a separate build and launcher."
+    },
+    {
+      "post": "docs/posts/2026-10-13-sd-bluetooth.md",
+      "id": "2026-10-13-sd-bluetooth",
+      "implementation": [
+        {
+          "label": "SD image assembly",
+          "path": "platform/scripts/assemble-n810-minisd-inplace.py"
+        },
+        {
+          "label": "Bluetooth control",
+          "path": "platform/scripts/n810-bluetooth"
+        },
+        {
+          "label": "Maintained Bluetooth driver changes",
+          "path": "platform/kernel/n810-5.15.224.patch"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Swap preservation",
+          "path": "platform/scripts/test-n810-zram.py"
+        },
+        {
+          "label": "Bluetooth fallback",
+          "path": "pocket/tests/test_bluetooth_hardware_fallback.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "zram service",
+          "path": "platform/device/n810-zram.init"
+        },
+        {
+          "label": "SD package-cache settings",
+          "path": "platform/config/n810-apt-sd.conf"
+        },
+        {
+          "label": "Kernel configuration",
+          "path": "platform/kernel/n810.config"
+        }
+      ],
+      "guide": "how-to/test-journal-checkpoints.md",
+      "note": "The maintained source includes hci_nokia.c. A complete historical SD installation additionally requires its root-filesystem and owner-specific firmware inputs. The current kernel build is documented separately."
+    },
+    {
+      "post": "docs/posts/2026-10-14-aprs.md",
+      "id": "2026-10-14-aprs",
+      "implementation": [
+        {
+          "label": "APRS decoder",
+          "path": "pocket/shell/vendor/packet-console/n810-aprs-decode.py"
+        },
+        {
+          "label": "Packet viewer",
+          "path": "pocket/shell/vendor/packet-console/n810-aprs-view.py"
+        },
+        {
+          "label": "Radio owner",
+          "path": "pocket/shell/vendor/packet-console/n810-aprs-services.py"
+        },
+        {
+          "label": "Map demonstration",
+          "path": "tools/docs/aprs_map_preview.py"
+        },
+        {
+          "label": "tmux demonstration",
+          "path": "tools/docs/tmux_preview.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Packet decoding",
+          "path": "pocket/shell/vendor/packet-console/test-aprs-decode.py"
+        },
+        {
+          "label": "Workspace selection",
+          "path": "pocket/shell/vendor/packet-console/test-packet-workspace-tui.py"
+        },
+        {
+          "label": "Radio banks",
+          "path": "pocket/shell/vendor/packet-console/test-radio-banks.py"
+        },
+        {
+          "label": "Walk history",
+          "path": "pocket/shell/vendor/packet-console/test-walk-history.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Workspace contract",
+          "path": "pocket/shell/vendor/packet-console/fixtures/tui-window-contract.json"
+        },
+        {
+          "label": "Map build targets",
+          "path": "pocket/maps.mk"
+        },
+        {
+          "label": "tmux configuration",
+          "path": "platform/config/tmux-n810.conf"
+        }
+      ],
+      "guide": "how-to/build-map-data.md",
+      "note": "The demonstrations use generated packets and reviewed public map data. The original personal walk recordings remain private; synthetic fixtures preserve the protocol and history tests."
+    },
+    {
+      "post": "docs/posts/2026-10-16-radio-ssh.md",
+      "id": "2026-10-16-radio-ssh",
+      "implementation": [
+        {
+          "label": "SSH service attachment",
+          "path": "pocket/shell/device_connection.py"
+        },
+        {
+          "label": "Phone bridge",
+          "path": "historical/phone-terminal/server.cjs"
+        },
+        {
+          "label": "tmux session validation",
+          "path": "historical/phone-terminal/workspace.cjs"
+        }
+      ],
+      "tests": [
+        {
+          "label": "SSH attachment",
+          "path": "pocket/tests/test_device_connection.py"
+        },
+        {
+          "label": "Browser reconnects",
+          "path": "historical/phone-terminal/test-client.cjs"
+        },
+        {
+          "label": "Phone keys",
+          "path": "historical/phone-terminal/test-device-input.cjs"
+        },
+        {
+          "label": "Session selection",
+          "path": "historical/phone-terminal/test-workspace.cjs"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Phone dependencies",
+          "path": "historical/phone-terminal/runtime/package-lock.json"
+        },
+        {
+          "label": "Private configuration generator",
+          "path": "historical/phone-terminal/setup.py"
+        },
+        {
+          "label": "Service attachment fixtures",
+          "path": "pocket/tests/test_owner_attachments.py"
+        }
+      ],
+      "guide": "how-to/test-journal-checkpoints.md",
+      "note": ""
+    },
+    {
+      "post": "docs/posts/2026-10-16-16-bit-console.md",
+      "id": "2026-10-16-16-bit-console",
+      "implementation": [
+        {
+          "label": "October console patch",
+          "path": "platform/patches/console-rgb.patch"
+        },
+        {
+          "label": "Retained VT source",
+          "path": "platform/console-rgb/after/drivers/tty/vt/vt.c"
+        },
+        {
+          "label": "Retained framebuffer-console source",
+          "path": "platform/console-rgb/after/drivers/video/fbdev/core/fbcon.c"
+        }
+      ],
+      "tests": [
+        {
+          "label": "C regression harness",
+          "path": "platform/console-rgb/tests/test.c"
+        },
+        {
+          "label": "Extract-and-compile runner",
+          "path": "platform/console-rgb/tests/run.py"
+        },
+        {
+          "label": "Console cleanup",
+          "path": "platform/console-rgb/acceptance/test_console_accept.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Console acceptance program",
+          "path": "platform/console-rgb/acceptance/console_accept.py"
+        },
+        {
+          "label": "Maintained kernel configuration",
+          "path": "platform/kernel/n810.config"
+        }
+      ],
+      "guide": "how-to/test-journal-checkpoints.md#check-the-rgb-console-patch",
+      "note": ""
+    },
+    {
+      "post": "docs/posts/2026-10-16-pocket-desktop.md",
+      "id": "2026-10-16-pocket-desktop",
+      "implementation": [
+        {
+          "label": "Desktop launcher",
+          "path": "pocket/shell/launch.py"
+        },
+        {
+          "label": "Native compositor",
+          "path": "pocket/shell/native/cell_engine.c"
+        },
+        {
+          "label": "Native windows",
+          "path": "pocket/shell/native/window_host.c"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Window composition",
+          "path": "pocket/tests/test_native_window_host.py"
+        },
+        {
+          "label": "Keyboard navigation",
+          "path": "pocket/tests/test_native_navigation.py"
+        },
+        {
+          "label": "Desktop control",
+          "path": "pocket/tests/test_desktop_control.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Native build helper",
+          "path": "pocket/tools/build_native.py"
+        },
+        {
+          "label": "Pocket build targets",
+          "path": "pocket/Makefile"
+        }
+      ],
+      "guide": "how-to/build-native.md",
+      "note": ""
+    },
+    {
+      "post": "docs/posts/2026-10-16-cw.md",
+      "id": "2026-10-16-cw",
+      "implementation": [
+        {
+          "label": "Tone detector",
+          "path": "pocket/shell/vendor/apps/cw-reference/reference.py"
+        },
+        {
+          "label": "Recording decoder",
+          "path": "pocket/shell/vendor/apps/cw-reference/decode.py"
+        },
+        {
+          "label": "PCM adapter",
+          "path": "pocket/shell/vendor/apps/cw-reference/pcm_input.py"
+        },
+        {
+          "label": "Stream decoder",
+          "path": "pocket/shell/vendor/apps/cw-reference/stream_cw.py"
+        },
+        {
+          "label": "Replay process",
+          "path": "pocket/shell/vendor/apps/domains/workbench/runner.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Generated Morse fixtures",
+          "path": "pocket/shell/vendor/apps/cw-reference/test_decode.py"
+        },
+        {
+          "label": "Stream boundary checks",
+          "path": "pocket/shell/vendor/apps/cw-reference/test_stream_cw.py"
+        },
+        {
+          "label": "Resampling and noise rejection",
+          "path": "pocket/shell/vendor/apps/cw-reference/test_pcm_input.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Synthetic tone generator",
+          "path": "pocket/shell/vendor/apps/cw-reference/test_reference.py"
+        },
+        {
+          "label": "Replay application model",
+          "path": "pocket/shell/vendor/apps/domains/workbench/model.py"
+        }
+      ],
+      "guide": "how-to/test-journal-checkpoints.md",
+      "note": "The restored suites generate their audio and expected text. Personal recordings and the separate annotated recording corpus are outside this reproducible synthetic test set."
+    },
+    {
+      "post": "docs/posts/2026-10-18-cpu-acceleration.md",
+      "id": "2026-10-18-cpu-acceleration",
+      "implementation": [
+        {
+          "label": "Scalar workload",
+          "path": "historical/compute/vfp/kernel.c"
+        },
+        {
+          "label": "Short-vector assembly",
+          "path": "historical/compute/vfp/shortvec.S"
+        },
+        {
+          "label": "Timing workload",
+          "path": "historical/compute/vfp/benchmark.c"
+        },
+        {
+          "label": "DSP instruction encoder",
+          "path": "historical/compute/open-c55x/subset.py"
+        },
+        {
+          "label": "FIR model",
+          "path": "historical/compute/open-c55x/fir_model.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "VFP scalar/ABI probe",
+          "path": "historical/compute/vfp/build_probe.py"
+        },
+        {
+          "label": "Vector/context negative controls",
+          "path": "historical/compute/vfp/build_shortvec.py"
+        },
+        {
+          "label": "DSP FIR comparisons",
+          "path": "historical/compute/open-c55x/test_fir8.py"
+        },
+        {
+          "label": "DSP context checks",
+          "path": "historical/compute/open-c55x/test_wrapper.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Assembler source pins",
+          "path": "historical/compute/open-c55x/artifacts.json"
+        },
+        {
+          "label": "Assembler builder",
+          "path": "historical/compute/open-c55x/build.py"
+        },
+        {
+          "label": "Independent C reference",
+          "path": "historical/compute/fir_q15.c"
+        }
+      ],
+      "guide": "how-to/test-journal-checkpoints.md",
+      "note": "The imported source comes from the retained 18 October checkpoint. ARM emulation and host numerical tests reproduce correctness checks. The speed ratios quoted in the post remain physical-device measurements."
+    },
+    {
+      "post": "docs/posts/2026-10-20-water-and-idle.md",
+      "id": "2026-10-20-water-and-idle",
+      "implementation": [
+        {
+          "label": "Session persistence",
+          "path": "pocket/shell/session.py"
+        },
+        {
+          "label": "Native scene preparation",
+          "path": "pocket/shell/native/scene_host.c"
+        },
+        {
+          "label": "Cell composition",
+          "path": "pocket/shell/native/cell_engine.c"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Saved-session migration",
+          "path": "pocket/tests/test_desktop_session_migration.py"
+        },
+        {
+          "label": "Scene output",
+          "path": "pocket/tests/test_native_scene_host.py"
+        },
+        {
+          "label": "Retained rendering",
+          "path": "pocket/tests/test_render_pass_reuse.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Native build helper",
+          "path": "pocket/tools/build_native.py"
+        },
+        {
+          "label": "Scene data preparation",
+          "path": "pocket/tools/prepare_loader_ambient.py"
+        }
+      ],
+      "guide": "how-to/build-native.md",
+      "note": "These links identify the integrated implementation and its tests. The post's idle and 726-point water measurements describe the earlier physical runs."
+    },
+    {
+      "post": "docs/posts/2026-10-24-maps-with-an-edge.md",
+      "id": "2026-10-24-maps-with-an-edge",
+      "implementation": [
+        {
+          "label": "Offline renderer",
+          "path": "pocket/shell/offline_map.py"
+        },
+        {
+          "label": "Touch process",
+          "path": "pocket/shell/touch_process.py"
+        },
+        {
+          "label": "Geography builder",
+          "path": "pocket/tools/build_map_geography.py"
+        },
+        {
+          "label": "Shoreline builder",
+          "path": "pocket/tools/build_desktop_shoreline.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Geographic fixtures",
+          "path": "pocket/tests/test_map_geography.py"
+        },
+        {
+          "label": "Drag scheduling",
+          "path": "pocket/tests/test_drag_model_schedule.py"
+        },
+        {
+          "label": "Terrain worker lifecycle",
+          "path": "pocket/tests/test_terrain_worker.py"
+        },
+        {
+          "label": "Input generations",
+          "path": "pocket/tests/test_touch_worker.py"
+        },
+        {
+          "label": "Real map builds",
+          "path": "tools/test-map-builds.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Map dependency pins",
+          "path": "requirements-maps.txt"
+        },
+        {
+          "label": "Map build targets",
+          "path": "pocket/maps.mk"
+        }
+      ],
+      "guide": "how-to/build-map-data.md",
+      "note": "Reviewed OSM and elevation inputs are included. The original 15 October local TIFF remains an archival gap; the guide rebuilds local terrain from the retained 2 November export."
+    },
+    {
+      "post": "docs/posts/2026-10-24-lxmf.md",
+      "id": "2026-10-24-lxmf",
+      "implementation": [
+        {
+          "label": "Contact key storage",
+          "path": "pocket/shell/vendor/apps/domains/reticulum/contacts.py"
+        },
+        {
+          "label": "LXMF owner",
+          "path": "pocket/shell/vendor/apps/domains/reticulum/lxmf_owner.py"
+        },
+        {
+          "label": "Saved peer restart probe",
+          "path": "pocket/shell/vendor/apps/domains/reticulum/tests/private_contact_restart.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Message behavior",
+          "path": "pocket/tests/test_chat.py"
+        },
+        {
+          "label": "Session recovery",
+          "path": "pocket/tests/test_connection_recovery.py"
+        },
+        {
+          "label": "Reticulum controls",
+          "path": "pocket/tests/test_reticulum_controls.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Native dependency revisions",
+          "path": "pocket/shell/native/reticulum/dependencies.lock"
+        },
+        {
+          "label": "Native preparation",
+          "path": "pocket/shell/native/reticulum/prepare.py"
+        }
+      ],
+      "guide": "pocket/native-reticulum.md",
+      "note": "The links follow the current integrated implementation. The October bidirectional signed exchange is a recorded hardware result; repeating it requires two configured identities and an explicitly selected transport."
+    },
+    {
+      "post": "docs/posts/2026-10-29-htit.md",
+      "id": "2026-10-29-htit",
+      "implementation": [
+        {
+          "label": "Executor framing",
+          "path": "hardware/htit/microreticulum/executor/Transport.cpp"
+        },
+        {
+          "label": "Host reassembly",
+          "path": "pocket/shell/vendor/apps/domains/reticulum/node_transport.py"
+        },
+        {
+          "label": "Bluetooth buffers",
+          "path": "hardware/htit/microreticulum/Bluetooth.h"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Host executor protocol",
+          "path": "pocket/tests/test_external_node.py"
+        },
+        {
+          "label": "Shared HTIT transport",
+          "path": "pocket/tests/test_htit_shared_link.py"
+        },
+        {
+          "label": "Encrypted Wi-Fi frames",
+          "path": "hardware/htit/experiments/ibss-rsn/test_ccmp.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Firmware builder",
+          "path": "hardware/htit/build.py"
+        },
+        {
+          "label": "PlatformIO targets",
+          "path": "hardware/htit/microreticulum/platformio.ini"
+        },
+        {
+          "label": "IBSS upstream pins",
+          "path": "hardware/htit/experiments/ibss-rsn/rsn-port/upstream_adapter.py"
+        }
+      ],
+      "guide": "how-to/build-htit.md",
+      "note": "Firmware, vendored libraries and protocol tests are included. Pairing credentials are generated per build. The transfer times in this entry remain associated with their October device trials."
+    },
+    {
+      "post": "docs/posts/2026-10-30-htit-recovery.md",
+      "id": "2026-10-30-htit-recovery",
+      "implementation": [
+        {
+          "label": "LXMF router lifetime",
+          "path": "hardware/htit/microreticulum/executor-libs/microLXMF/src/LXMF/LXMRouter.cpp"
+        },
+        {
+          "label": "Transport callbacks",
+          "path": "hardware/htit/microreticulum/executor-libs/microReticulum/src/microReticulum/Transport.cpp"
+        },
+        {
+          "label": "Resource storage",
+          "path": "hardware/htit/microreticulum/executor-libs/microReticulum/src/microReticulum/Resource.cpp"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Recovery and resource regression",
+          "path": "hardware/htit/tests/native/lxmf_recovery.cpp"
+        },
+        {
+          "label": "Host reconnect behavior",
+          "path": "pocket/tests/test_connection_recovery.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Native test build",
+          "path": "hardware/htit/tests/native/CMakeLists.txt"
+        },
+        {
+          "label": "Firmware build",
+          "path": "hardware/htit/build.py"
+        }
+      ],
+      "guide": "how-to/test-journal-checkpoints.md#build-the-microlxmf-reproductions",
+      "note": ""
+    },
+    {
+      "post": "docs/posts/2026-10-31-gpu-clocks.md",
+      "id": "2026-10-31-gpu-clocks",
+      "implementation": [
+        {
+          "label": "Clock commit",
+          "path": "graphics/mbx/kernel/clock_commit.c"
+        },
+        {
+          "label": "Clock lifecycle",
+          "path": "platform/kernel/clock-module/mbx_clock_lifecycle.c"
+        },
+        {
+          "label": "Maintained clock-provider changes",
+          "path": "platform/kernel/n810-5.15.224.patch"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Kernel/module verification",
+          "path": "platform/kernel/verification.json"
+        },
+        {
+          "label": "Kernel source hashes",
+          "path": "platform/kernel/source-files.json"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Clock module makefile",
+          "path": "platform/kernel/clock-module/Makefile"
+        },
+        {
+          "label": "Kernel builder",
+          "path": "platform/kernel/build.py"
+        }
+      ],
+      "guide": "how-to/build-kernel.md",
+      "note": "These clock sources accompany the maintained 5.15.224 kernel inputs. The temporary 5.15.86 clock experiment is documented as a historical boot result."
+    },
+    {
+      "post": "docs/posts/2026-11-02-gpu-command-stream.md",
+      "id": "2026-11-02-gpu-command-stream",
+      "implementation": [
+        {
+          "label": "Command encoding",
+          "path": "graphics/mbx/common/mbx_packets.c"
+        },
+        {
+          "label": "Context setup",
+          "path": "graphics/mbx/common/mbx_context.c"
+        },
+        {
+          "label": "Geometry stream",
+          "path": "graphics/mbx/common/mbx_vgp_stream.c"
+        },
+        {
+          "label": "DMA lifecycle",
+          "path": "graphics/mbx/kernel/mbx_dma.c"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Packet fields",
+          "path": "graphics/mbx/tests/test_packets.c"
+        },
+        {
+          "label": "Context protocol",
+          "path": "graphics/mbx/tests/test_context_protocol.c"
+        },
+        {
+          "label": "DMA checks",
+          "path": "graphics/mbx/tests/test_dma_verification.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Graphics input pins",
+          "path": "graphics/mbx/dependencies.lock.json"
+        },
+        {
+          "label": "Graphics builder",
+          "path": "graphics/mbx/build.py"
+        },
+        {
+          "label": "Test runner",
+          "path": "graphics/mbx/test.py"
+        }
+      ],
+      "guide": "how-to/build-graphics.md",
+      "note": "Links use the existing imported graphics checkpoint. The Symbian ROM used for research remains an external historical reference; the repository contains the authored encoders and tests."
+    },
+    {
+      "post": "docs/posts/2026-11-02-microlxmf.md",
+      "id": "2026-11-02-microlxmf",
+      "implementation": [
+        {
+          "label": "Router repair",
+          "path": "hardware/htit/microreticulum/executor-libs/microLXMF/src/LXMF/LXMRouter.cpp"
+        },
+        {
+          "label": "Bounded LXMF parser",
+          "path": "hardware/htit/microreticulum/executor-libs/microLXMF/src/LXMF/LXMessage.cpp"
+        },
+        {
+          "label": "MessagePack bounds",
+          "path": "hardware/htit/microreticulum/executor-libs/MsgPack/MsgPack/Unpacker.h"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Signed proof after destruction",
+          "path": "hardware/htit/tests/upstream/lxmf_signed_proof_uaf.cpp"
+        },
+        {
+          "label": "Nested-field input",
+          "path": "hardware/htit/tests/upstream/lxmf_nested_fields.cpp"
+        },
+        {
+          "label": "Fixed-array bounds",
+          "path": "hardware/htit/tests/native/msgpack_fixed_array.cpp"
+        },
+        {
+          "label": "Lifetime and cache regression",
+          "path": "hardware/htit/tests/native/lxmf_recovery.cpp"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Sanitizer build",
+          "path": "hardware/htit/tests/native/CMakeLists.txt"
+        },
+        {
+          "label": "Firmware header preparation",
+          "path": "hardware/htit/microreticulum/executor/prepare_native.py"
+        }
+      ],
+      "guide": "how-to/test-journal-checkpoints.md#build-the-microlxmf-reproductions",
+      "note": "The restored host reproductions use the imported, repaired libraries. Synthetic messages and an in-memory transport exercise the actual parser and callback paths. The recorded ESP32 resets and later provisioning check are separate hardware results."
+    },
+    {
+      "post": "docs/posts/2026-11-03-kernel.md",
+      "id": "2026-11-03-kernel",
+      "implementation": [
+        {
+          "label": "Maintained N810 patch",
+          "path": "platform/kernel/n810-5.15.224.patch"
+        },
+        {
+          "label": "Clock module",
+          "path": "platform/kernel/clock-module/n810_mbx_clock_trial.c"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Fresh-checkout result",
+          "path": "platform/kernel/verification.json"
+        },
+        {
+          "label": "Source hashes",
+          "path": "platform/kernel/source-files.json"
+        },
+        {
+          "label": "Boot-tag regression",
+          "path": "platform/scripts/test-n810-boot-tags.c"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Source lock",
+          "path": "platform/kernel/source.lock.json"
+        },
+        {
+          "label": "Kernel config",
+          "path": "platform/kernel/n810.config"
+        },
+        {
+          "label": "Builder",
+          "path": "platform/kernel/build.py"
+        }
+      ],
+      "guide": "how-to/build-kernel.md",
+      "note": ""
+    },
+    {
+      "post": "docs/posts/2026-11-03-mbx-rendering.md",
+      "id": "2026-11-03-mbx-rendering",
+      "implementation": [
+        {
+          "label": "Mesa integration",
+          "path": "graphics/mbx/mesa/prepare_mesa.py"
+        },
+        {
+          "label": "X11 shared image",
+          "path": "graphics/mbx/mesa/mbx_shared_image.h"
+        },
+        {
+          "label": "ARM vertex emitter",
+          "path": "graphics/mbx/mesa/draw_mbx_arm_jit.h"
+        },
+        {
+          "label": "Display lifecycle",
+          "path": "graphics/mbx/mesa/desktop_pause.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Shared-image comparisons",
+          "path": "graphics/mbx/tests/test_shared_image.c"
+        },
+        {
+          "label": "ARM arithmetic",
+          "path": "graphics/mbx/tests/test_arm_vertex_jit.py"
+        },
+        {
+          "label": "Display pause",
+          "path": "graphics/mbx/tests/test_desktop_pause.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Pinned Mesa build",
+          "path": "graphics/mbx/build.py"
+        },
+        {
+          "label": "Graphics dependencies",
+          "path": "graphics/mbx/dependencies.lock.json"
+        }
+      ],
+      "guide": "how-to/build-graphics.md",
+      "note": "The earlier graphics snapshot contains these implementations and tests. The later 30 FPS snapshot includes the command-reuse and FIFO changes described in the next GPU entry."
+    },
+    {
+      "post": "docs/posts/2026-11-04-pocket-0-1-0.md",
+      "id": "2026-11-04-pocket-0-1-0",
+      "implementation": [
+        {
+          "label": "Integrated launcher",
+          "path": "pocket/shell/launch.py"
+        },
+        {
+          "label": "Map view",
+          "path": "pocket/shell/offline_map.py"
+        },
+        {
+          "label": "Service selection",
+          "path": "pocket/shell/device_connection.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Release identity",
+          "path": "pocket/tests/test_release_version.py"
+        },
+        {
+          "label": "Line-of-sight refinement",
+          "path": "pocket/tests/test_los_resolution.py"
+        },
+        {
+          "label": "Service recovery",
+          "path": "pocket/tests/test_service_recovery.py"
+        },
+        {
+          "label": "UI navigation",
+          "path": "pocket/tests/test_navigation_audit.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Pocket build targets",
+          "path": "pocket/Makefile"
+        },
+        {
+          "label": "Nokia package builder",
+          "path": "pocket/tools/package_nokia.py"
+        },
+        {
+          "label": "Offline suite runner",
+          "path": "tools/check-source.py"
+        }
+      ],
+      "guide": "how-to/validate.md",
+      "note": ""
+    },
+    {
+      "post": "docs/posts/2026-11-04-gpu-performance.md",
+      "id": "2026-11-04-gpu-performance",
+      "implementation": [
+        {
+          "label": "Frozen command reuse",
+          "path": "graphics/mbx/checkpoints/30fps-20261104/experiments/vgp-service-20261104/common/mbx_vgp_wire.c"
+        },
+        {
+          "label": "Frozen FIFO path",
+          "path": "graphics/mbx/checkpoints/30fps-20261104/experiments/vgp-service-20261104/common/mbx_vgp_stream.c"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Frozen test runner",
+          "path": "graphics/mbx/checkpoints/30fps-20261104/test.py"
+        },
+        {
+          "label": "Verified result",
+          "path": "graphics/mbx/checkpoints/30fps-20261104/VERIFICATION.json"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Source hashes",
+          "path": "graphics/mbx/checkpoints/30fps-20261104/SOURCE.json"
+        },
+        {
+          "label": "Checkpoint builder",
+          "path": "graphics/mbx/build.py"
+        }
+      ],
+      "guide": "how-to/build-gpu-30fps.md",
+      "note": "This frozen checkpoint contains the driver and Mesa changes behind the two physical 30 FPS runs, together with the offline regression tests and pinned build inputs."
+    }
+  ]
+}

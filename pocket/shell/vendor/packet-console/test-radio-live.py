@@ -11,14 +11,14 @@ class Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);sent=[];owner=live.Telemetry(sent.append,root/'state',root/'control')
             owner.tick(0);self.assertEqual(sent,[])
-            live.enable(True,root/'control');owner.tick(1)
+            live.enable(True,root/'control');owner.refresh_controls();owner.tick(1)
             self.assertEqual(len(sent),6)
             def reply(word,body):return b'\xff\1\0'+bytes([len(body)])+struct.pack('>HH',2,word)+body
             raw=bytes.fromhex('90017000')
             frame=reply(0x8014,b'\0'+raw)
             owner.feed(frame[:7]);owner.feed(frame[7:]);self.assertEqual(owner.state['status']['curr_region'],0)
             event=reply(9,b'\1'+raw);owner.feed(event);self.assertEqual(owner.state['events'],1)
-            live.enable(False,root/'control');owner.tick(2);before=list(sent)
+            live.enable(False,root/'control');owner.refresh_controls();owner.tick(2);before=list(sent)
             owner.feed(event);owner.tick(99)
             self.assertEqual(sent,before);self.assertEqual(owner.state['events'],1)
             owner.close();self.assertFalse(live.read(root/'state')['connected'])
@@ -64,17 +64,17 @@ class OneShotTests(unittest.TestCase):
         self.start('two',6);self.owner.tick(6);self.reply(20,b'',status=1)
         self.assertEqual(self.owner.read_progress('two')['error'],'radio_reply_status_1')
     def test_periodic_reads_suspended_and_busy_rejected(self):
-        self.start();live.enable(True,self.root/'control');self.owner.tick(0)
+        self.start();live.enable(True,self.root/'control');self.owner.refresh_controls();self.owner.tick(0)
         commands=[int.from_bytes(v[6:8],'big') for v in self.sent]
         self.assertEqual(commands.count(20),1);self.assertNotIn(10,commands);self.assertNotIn(33,commands)
         with self.assertRaises(ValueError):self.start('two')
         self.owner.close();self.assertEqual(self.owner.read_progress('one')['error'],'radio_disconnected')
     def test_read_state_isolated_without_publish_or_clock_change(self):
         self.start();self.owner.tick(0);self.reply(20,bytes.fromhex('90017000'))
-        before=(self.root/'state').read_bytes();heartbeat=self.owner.state['heartbeat']
+        before=(self.root/'state').read_bytes();heartbeat=self.owner.state['published_at']
         result=self.owner.read_state();result['fields']['status']=0
         result['status']['curr_region']=31;result['read_request']['results'].clear()
-        self.assertEqual(self.owner.state['heartbeat'],heartbeat)
+        self.assertEqual(self.owner.state['published_at'],heartbeat)
         self.assertNotEqual(self.owner.state['fields']['status'],0)
         self.assertEqual(self.owner.state['status']['curr_region'],0)
         self.assertTrue(self.owner.state['read_request']['results'])

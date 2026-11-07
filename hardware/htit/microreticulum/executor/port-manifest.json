@@ -1,0 +1,84 @@
+{
+  "host_adapter_commit": "29bfd9c",
+  "microReticulum": "40fa628809d57140180c1c833559ab96fec992c1",
+  "microLXMF": "9876dfff8ec4a2ed1e28adef4375ec57b7e9eb4b",
+  "host_protocol_fixes": [
+    "bounded resource decompression",
+    "link proof verification",
+    "request receipts",
+    "announce cache refresh",
+    "LXMF receipts/timeouts"
+  ],
+  "capabilities_advertised": true,
+  "bzip2": {
+    "version": "1.0.8",
+    "source": "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz",
+    "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"
+  },
+  "rpc_headers": {
+    "commit": "f589050fe015dcdd51c7657efdfa00b09f360440",
+    "files": [
+      "rpc_dispatch.h",
+      "request_decode.h"
+    ],
+    "embedded_patch": "No header patch; byte-identical committed headers",
+    "request_sha256": "cacb89ece5363253503e2d9395f4e80e76d537c59a422d9c5a35c65040edf3f0",
+    "source": "Committed Pocket shared headers; byte-identical to embedded copies",
+    "dispatch_sha256": "38e6c7c2807de24e070791e71a9fbda3daee29e4b65f513a4cd4f8332a0c22d3"
+  },
+  "embedded_executor": {
+    "transport": "PS02 ABI2 over USB/Classic KISS0x88; optional kiss-fragment-v1 KISS0x89",
+    "fragment_size": 1024,
+    "lease_seconds": 5,
+    "lease_scope": "physical transport + random host session",
+    "async_stamps": "dedicated worker; cancellation during workblock expansion and search; ESP RNG separate from core",
+    "cleanup": "host endpoints/resources/LXMF-owned links only; preserves router identity and interfaces",
+    "queue_expiry": "generation tags plus conservative LoRa airtime margin; host-owned ingress gated",
+    "acceptance": "USB lifecycle and stamp cancellation passed on hardware; stock-peer service/resource/LXMF and Auto tests pending",
+    "resource_limit": 30000,
+    "tx_queues": {
+      "control": 16,
+      "responses": 8,
+      "events": 8,
+      "logs": 4,
+      "reliable": "controls/responses/events backpressure; logs best effort",
+      "bulk": "one active fragmented message; urgent control/small replies preempt at fragment boundaries"
+    },
+    "clock": "unix-ms-v1: host wall clock for LXMF and announce emission only; routing deadlines remain monotonic",
+    "text_limit": 240,
+    "lxmf_receive_limit": 15000,
+    "uart": "Scoped IDF4.4.7 ISR/HAL in IRAM; RX buffers internal; hardware error counters",
+    "legacy": "Read-only commands and exact image-hash USB maintenance only; unknown/malformed frames fail closed",
+    "firmware_hash": "Single atomic EEPROM/NVS commit and post-reset target/actual verification",
+    "maintenance": "Run resource watchdog retries and neighbor probes after _jobs_running clears; their outbound sends otherwise wait on the same cooperative task",
+    "ibss_receive": {
+      "data_frames": 32,
+      "management_frames": 4,
+      "storage": "PSRAM",
+      "processing_budget": "up to 6 data and 2 management frames per tick",
+      "beacons": "counted without queueing",
+      "diagnostics": [
+        "data_drop",
+        "mgmt_drop",
+        "data_high"
+      ]
+    },
+    "packet_hash_cache": {
+      "store": "bounded PSRAM HeapStore",
+      "records": 1024,
+      "persistent_across_host_leases": true,
+      "persistent_across_board_reboot": false,
+      "capacity_eviction": "upstream deterministic key order",
+      "reason": "hardware profiler measured add_packet_hash flash insertion blocking23.348s",
+      "paths_and_identity_persistence": "unchanged",
+      "upstream_alias_fix": "TypedKeyStore<Bytes, BytesStore>, not PathStore"
+    },
+    "bulk_buffers": "Transport Frame/parser/fragment/wire vectors and embedded MsgPack binary/Packer storage explicitly use existing PSRAM ContainerAllocator; no global malloc/driver policy changes",
+    "wifi_memory_diagnostics": [
+      "exact raw TX error code",
+      "largest internal 8-bit block",
+      "free PSRAM"
+    ],
+    "shared_objects": "RNS Object/LinkData/ResourceData/BytesData placement storage uses PSRAM; shared_ptr control blocks explicitly INTERNAL|8BIT (ESP32 PSRAM CAS restriction). No global malloc/new policy change."
+  }
+}

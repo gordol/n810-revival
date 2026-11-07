@@ -4,8 +4,11 @@ from .content import ManualIndex,load_pages,page_lines
 
 
 class ManualBrowser(HelpBrowser):
-    actions=HelpBrowser.actions+(("\x06",'Search manual'),)
-    def navigation_modal_hint(self):return ('Search: '+self.query,'Enter results · Esc cancel')
+    # Ctrl-F opens search directly; Tab remains a two-pane focus cycle.
+    actions=HelpBrowser.actions
+    def navigation_modal_hint(self):
+        if self.resizing:return ('Resize panes','Left/Right resize · Enter keep · Esc cancel')
+        return ('Search: '+self.query,'Tab results · Enter results · Esc cancel')
     def __init__(self,pages=None,close=None,forms=None,global_pages=()):
         self.index=ManualIndex(load_pages() if pages is None else pages)
         groups={}
@@ -50,8 +53,8 @@ class ManualBrowser(HelpBrowser):
                 self.search_edit=False
                 self.group,self.topic,self.scroll=self.search_origin
                 self._rows=();self.sync();return True
-            if key in ('\r','\n'):
-                self.search_edit=False;self.layout.select('topics');return True
+            if key in ('\t','backtab','\r','\n'):
+                self.search_edit=False;self.layout.select('reading' if key=='backtab' else 'topics');return True
             if key in ('\x7f','\b'):self.search_all(self.query[:-1]);return True
             if len(key)==1 and key.isprintable():self.search_all(self.query+key);return True
             return True
@@ -68,6 +71,6 @@ class ManualBrowser(HelpBrowser):
     def lines(self):
         lines=list(super().lines())
         lines[0]=('Offline manual'.ljust(max(0,self.width-8))+'[ Back ]')[:self.width]
-        footer=('Search manual: '+self.query+' | Enter results | Esc cancel') if self.search_edit else 'Ctrl-F manual text | / list | Tab pane | 1-9 See also | Backspace return'
+        footer=('Search manual: '+self.query+' | Tab results | Enter results | Esc cancel') if self.search_edit else 'Ctrl-F manual text | / list | Tab pane | 1-9 See also | Backspace return'
         lines[-1]=footer[:self.width].ljust(self.width)
         return lines

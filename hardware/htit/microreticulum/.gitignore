@@ -1,0 +1,20 @@
+.DS_Store
+*.hex
+*.pyc
+TODO
+Release/*.hex
+Release/*.zip
+Release/*.json
+Console/build
+build/*
+.pio/*
+.vscode/*
+Debug*
+rnoded.conf
+eeprom
+state/*
+docker/workspace/*
+!docker/workspace/build
+
+# Local Bluetooth pairing secret; never commit.
+HTITPrivate.h

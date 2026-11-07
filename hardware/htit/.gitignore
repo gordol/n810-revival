@@ -1,0 +1,6 @@
+.pio/
+.venv/
+HTITPrivate.h
+HTITRsnPrivate.h
+*.bin
+*.elf

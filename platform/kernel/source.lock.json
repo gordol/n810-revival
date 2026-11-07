@@ -1,0 +1,35 @@
+{
+  "version": "5.15.224",
+  "upstream_commit": "700e62ea909a70b9f72692d8b7a192ac7ebde0aa",
+  "maintained_commit": "6bd43ee8d27b207c958808368251d55ec0475f9e",
+  "url": "https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.15.224.tar.xz",
+  "sha256": "2757f8ad099cf77499ebab0896b5d31a467b74d5bb18c32b62da059d33b30711",
+  "checksum_source": "https://cdn.kernel.org/pub/linux/kernel/v5.x/sha256sums.asc",
+  "release": "5.15.224-n810-mbx-clock-wip1",
+  "image_limit": 2095104,
+  "expected_modules": 199,
+  "excluded_legacy_paths": [
+    "README.md",
+    "n810/.gitignore",
+    "n810/boot-initfs.sh",
+    "n810/boot.sh",
+    "n810/build.sh",
+    "n810/info/loaded-modules.txt",
+    "n810/init.sh",
+    "n810/make",
+    "n810/mkinitfs.sh",
+    "n810/qemu-mmc-full-debug.sh"
+  ],
+  "inputs": {
+    "binding-api-whitelist.txt": "db495b1669733f461c5ffc863ff0cd6367e9f13172a1dcd1f353824fcfa05528",
+    "clock-module/Makefile": "4567305f004bf595501f8aff81caf98765b54f1643bbd80c3989804e1a49b1fb",
+    "clock-module/mbx_clock_lifecycle.c": "7a692b48a03d1ea1d53a35a53caf0f42f172d483093529f20ebc57b8624b8fc9",
+    "clock-module/mbx_clock_lifecycle.h": "1d02fe444e614ed889ee101bb8192b4fee0b3593551637212e21a6b2f366ed32",
+    "clock-module/mbx_reset.c": "4073e731a5567a49bbf83d1d7435229faa006beef1a95eec32e04963bbd9d3b1",
+    "clock-module/mbx_reset.h": "d08ec4492d152c023b536530c455f77ee35e816b242c35372ba7199b03ff22b5",
+    "clock-module/n810_mbx_clock_trial.c": "c18de982f850099413472b454e7e096fca5f11f964d9b0a86d9ea2ab80f3796a",
+    "n810-5.15.224.patch": "daf8e4ae00500d33e55d275680711e6c8ea82b8b47a58a7a17b1dc767f5383c2",
+    "n810.config": "8c765e23449f6f61211b854bd93d6e886187fbbf9ccb0e02c1cefecf111a80e2",
+    "source-files.json": "719b0ee883cc850a5acdb53d630cb406257308bc1287fd303c0a223fd5d5dfa2"
+  }
+}

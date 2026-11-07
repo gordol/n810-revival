@@ -1,0 +1,625 @@
+{
+  "date": "2026-11-04",
+  "description": "Retained authored tools and tests imported for the chronological journal. Hashes identify the original inputs; portability and privacy edits are documented in the accompanying guides.",
+  "files": [
+    {
+      "path": "platform/scripts/n810-jffs2-extract.py",
+      "source_sha256": "d4323a23a8e34c8ce3fa6f8c1e8ba747c59738b6a9735f999b29783908af7481",
+      "reviewed_sha256": "d4323a23a8e34c8ce3fa6f8c1e8ba747c59738b6a9735f999b29783908af7481",
+      "adapted": false
+    },
+    {
+      "path": "platform/scripts/n810-cal-inspect.py",
+      "source_sha256": "bb9dee403781bf831a6a9993d2c575152cc5bf723d6055ccc724793c007faccc",
+      "reviewed_sha256": "bb9dee403781bf831a6a9993d2c575152cc5bf723d6055ccc724793c007faccc",
+      "adapted": false
+    },
+    {
+      "path": "platform/scripts/n810-merged-usr-rescue-r14-init.c",
+      "source_sha256": "421a3c98ac692ea8e19e5580dcfccee1c2b11e2d7f7cf4ff8767b32b228266fa",
+      "reviewed_sha256": "421a3c98ac692ea8e19e5580dcfccee1c2b11e2d7f7cf4ff8767b32b228266fa",
+      "adapted": false
+    },
+    {
+      "path": "platform/scripts/n810-post-rescue-verify",
+      "source_sha256": "212e612b52594cedf3166653a8ad1ab03febc75233965706bba994d56d3555b7",
+      "reviewed_sha256": "212e612b52594cedf3166653a8ad1ab03febc75233965706bba994d56d3555b7",
+      "adapted": false
+    },
+    {
+      "path": "platform/scripts/assemble-clean-n810-emmc.py",
+      "source_sha256": "014c11e323c345185753ce596dc021585b722fed3f9c8647fa664e0d6e868122",
+      "reviewed_sha256": "014c11e323c345185753ce596dc021585b722fed3f9c8647fa664e0d6e868122",
+      "adapted": false
+    },
+    {
+      "path": "platform/scripts/assemble-n810-minisd-inplace.py",
+      "source_sha256": "be05eccfa894d487471f9f1f7180dd1e890333d7f1fe662dcf725e21994f6b58",
+      "reviewed_sha256": "be05eccfa894d487471f9f1f7180dd1e890333d7f1fe662dcf725e21994f6b58",
+      "adapted": false
+    },
+    {
+      "path": "platform/scripts/test-n810-desktop.py",
+      "source_sha256": "1cc94b8766e3798bec956c731615f0c65e29432255825b80da23bc0b1a33b0be",
+      "reviewed_sha256": "cc8630ccbed34c723e30ce77baacae168573978a87b78dc5f1cc9ed7dd5031c7",
+      "adapted": true
+    },
+    {
+      "path": "platform/scripts/test-n810-session.py",
+      "source_sha256": "93103216cadf72893a88e4e08329562246253027dce2650c49b7995de20735f2",
+      "reviewed_sha256": "9c9014efcdaab205ea1f9eef7be4d52d665d4b98f4c6d483184445a4e3c8382a",
+      "adapted": true
+    },
+    {
+      "path": "platform/scripts/test-n810-boot-tags.c",
+      "source_sha256": "080e7622bdbaf29f74f223f98862633fbbf735a0d0804a3ab879187e1a70496a",
+      "reviewed_sha256": "080e7622bdbaf29f74f223f98862633fbbf735a0d0804a3ab879187e1a70496a",
+      "adapted": false
+    },
+    {
+      "path": "platform/scripts/test-n810-boot-tags.sh",
+      "source_sha256": "afb9f84fe1f4f8bca066bc18e30323b46ffdb4832fab7b0df858099610149397",
+      "reviewed_sha256": "0519bff29a066acafdd4315b0db78dfe860ba83d5a9ec6ed958b774a48faa23f",
+      "adapted": true
+    },
+    {
+      "path": "historical/sidebar-desktop/n810-gui.sudoers",
+      "source_sha256": "e82a08c2a705853380536e7f1e0ed5ad302a8bd27ed45aa40ecc19a7c1077852",
+      "reviewed_sha256": "e82a08c2a705853380536e7f1e0ed5ad302a8bd27ed45aa40ecc19a7c1077852",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/test-rail-arm.sh",
+      "source_sha256": "81fb28de6809d8343360f960ba18f4eb9f3f1c44685ba71ebe7ef872f318b29a",
+      "reviewed_sha256": "81fb28de6809d8343360f960ba18f4eb9f3f1c44685ba71ebe7ef872f318b29a",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/install-xfce.sh",
+      "source_sha256": "cc10816f73501102e9adaa7f9f9e7c39a4dff52eeb9ecd1cdf6c2f7cd834f460",
+      "reviewed_sha256": "cc10816f73501102e9adaa7f9f9e7c39a4dff52eeb9ecd1cdf6c2f7cd834f460",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/xfce-terminal.sh",
+      "source_sha256": "14f43d6474be4410af47ec8be3c46edfd306aebeb3b6fa401b7c99e65a50e6d5",
+      "reviewed_sha256": "14f43d6474be4410af47ec8be3c46edfd306aebeb3b6fa401b7c99e65a50e6d5",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/n810-rail.c",
+      "source_sha256": "4e5f9574c93e7938138197c776da3e3a748ca4fc683a271c9d15cd092d8bc897",
+      "reviewed_sha256": "4e5f9574c93e7938138197c776da3e3a748ca4fc683a271c9d15cd092d8bc897",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/kbdconfig",
+      "source_sha256": "e0f86a9d43eca3ec02c7547e9557f3b5e9fed0bc9265eceb5e398b498206b186",
+      "reviewed_sha256": "e0f86a9d43eca3ec02c7547e9557f3b5e9fed0bc9265eceb5e398b498206b186",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/xfwm-lite.sh",
+      "source_sha256": "1355121d5a118e0a81d11c9f65da3644c9f06222ca42a80466acbf7d41ca1139",
+      "reviewed_sha256": "1355121d5a118e0a81d11c9f65da3644c9f06222ca42a80466acbf7d41ca1139",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/build-armel.sh",
+      "source_sha256": "0e1cca1f235554e1a013ad3f2c37f06c7b70319163fb976a6cede3188d75381d",
+      "reviewed_sha256": "2cc472993f8c6bfcb7f572d8b33f5eefb5943fd1b6b9f8c3aced596906275d39",
+      "adapted": true
+    },
+    {
+      "path": "historical/sidebar-desktop/xorg-config.py",
+      "source_sha256": "c97356beae2f2c6d1bc4c9b446d99c75eb48ea3657c9a12e6cf77b2f375db2dd",
+      "reviewed_sha256": "c97356beae2f2c6d1bc4c9b446d99c75eb48ea3657c9a12e6cf77b2f375db2dd",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/install.sh",
+      "source_sha256": "f36428da41945b60436c011321eeaa22e813488aa73f71174dd32c72f699b6d7",
+      "reviewed_sha256": "f36428da41945b60436c011321eeaa22e813488aa73f71174dd32c72f699b6d7",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/server.sh",
+      "source_sha256": "3d6f3318c8cf62923886ce7fcc459221e9b511380da6be6a45ba9b47c6eeab78",
+      "reviewed_sha256": "3d6f3318c8cf62923886ce7fcc459221e9b511380da6be6a45ba9b47c6eeab78",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/README.md",
+      "source_sha256": "0cf95da393f2353e24d681a5205bd76d8c9f223b88dcc38223e8f7c7a0681ccf",
+      "reviewed_sha256": "b50d1a7fedf7a54908f22d33aa8d075947b2522529eee4192bde5f20c5f2e945",
+      "adapted": true
+    },
+    {
+      "path": "historical/sidebar-desktop/xorg.conf",
+      "source_sha256": "d67140bd823f4794508cf04abbe0e88452960c3e87c9170dee2c2b2f3f7f8635",
+      "reviewed_sha256": "d67140bd823f4794508cf04abbe0e88452960c3e87c9170dee2c2b2f3f7f8635",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/n810-gui-launch",
+      "source_sha256": "cda06681d39d350eddfdba098867818ad59373b3071305d17fac94d8fb5cfbf2",
+      "reviewed_sha256": "cda06681d39d350eddfdba098867818ad59373b3071305d17fac94d8fb5cfbf2",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/test-rail.c",
+      "source_sha256": "6441857e083d218a32eab61a0a80c4ec02d831b4df220acd1d2452fd03551538",
+      "reviewed_sha256": "6441857e083d218a32eab61a0a80c4ec02d831b4df220acd1d2452fd03551538",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/n810-gui",
+      "source_sha256": "6a9013d855fc8529626500c3f745aa0ae37336e91c93477ca07ee3f47ca72336",
+      "reviewed_sha256": "6a9013d855fc8529626500c3f745aa0ae37336e91c93477ca07ee3f47ca72336",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/xfce-session.sh",
+      "source_sha256": "75fe7b13b37862f20766ff1186e00693a64c196ae85e56cad435b97e3f76f9f2",
+      "reviewed_sha256": "75fe7b13b37862f20766ff1186e00693a64c196ae85e56cad435b97e3f76f9f2",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/test-xfwm.sh",
+      "source_sha256": "ba8619eaa1e84337b558f4728967d2264515cac5a7b2f0bcdf684ea7e5deb0a4",
+      "reviewed_sha256": "ba8619eaa1e84337b558f4728967d2264515cac5a7b2f0bcdf684ea7e5deb0a4",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/packages.txt",
+      "source_sha256": "a2b4ae6d4998993c7c960a7b24f8f8b054788b5426ef78fb44dc519a595eac3c",
+      "reviewed_sha256": "a2b4ae6d4998993c7c960a7b24f8f8b054788b5426ef78fb44dc519a595eac3c",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/test-display.sh",
+      "source_sha256": "55998b1fb5d584414912fc298d7abdee801fbe82b05efb93d3b2b8fbe29e9512",
+      "reviewed_sha256": "55998b1fb5d584414912fc298d7abdee801fbe82b05efb93d3b2b8fbe29e9512",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/client.sh",
+      "source_sha256": "17f96fb298ae75dd1b156050b8f57bed8fd1a57af05f7dca686536fdd1ef92d0",
+      "reviewed_sha256": "17f96fb298ae75dd1b156050b8f57bed8fd1a57af05f7dca686536fdd1ef92d0",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/Xresources",
+      "source_sha256": "98a21e12f6e736b94a681003fe16b130e07e12076bb47999b336131a5b278cb1",
+      "reviewed_sha256": "98a21e12f6e736b94a681003fe16b130e07e12076bb47999b336131a5b278cb1",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/test-session.sh",
+      "source_sha256": "036f8786936375d832626d059d1f0af80ed3bd4c93eddcd528e403f952269ef3",
+      "reviewed_sha256": "036f8786936375d832626d059d1f0af80ed3bd4c93eddcd528e403f952269ef3",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/session.sh",
+      "source_sha256": "674dfc7cc85bc00bf378bf8354182d35f04c19627683954e17ce85714c154d95",
+      "reviewed_sha256": "674dfc7cc85bc00bf378bf8354182d35f04c19627683954e17ce85714c154d95",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/test-rail.sh",
+      "source_sha256": "810f533d591a7cf616747743a6a7900a063bc99f14b90810a33b3c72f117386b",
+      "reviewed_sha256": "810f533d591a7cf616747743a6a7900a063bc99f14b90810a33b3c72f117386b",
+      "adapted": false
+    },
+    {
+      "path": "historical/sidebar-desktop/xfce/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml",
+      "source_sha256": "467844de2d52b2f39148a520e1cac4910a45655d3a087114293e90fd2e485e01",
+      "reviewed_sha256": "467844de2d52b2f39148a520e1cac4910a45655d3a087114293e90fd2e485e01",
+      "adapted": false
+    },
+    {
+      "path": "platform/console-rgb/tests/run.py",
+      "source_sha256": "230b1d7e10899d5953a53d108073c18e3d86b9ac2576f4c499a7d74bbe88bc71",
+      "reviewed_sha256": "230b1d7e10899d5953a53d108073c18e3d86b9ac2576f4c499a7d74bbe88bc71",
+      "adapted": false
+    },
+    {
+      "path": "platform/console-rgb/tests/test.c",
+      "source_sha256": "93bc43a216093127c3d9bd1d0d71d1c75ad3b9206d5ceaed037b40202d8f614f",
+      "reviewed_sha256": "93bc43a216093127c3d9bd1d0d71d1c75ad3b9206d5ceaed037b40202d8f614f",
+      "adapted": false
+    },
+    {
+      "path": "platform/console-rgb/tests/include/linux/console_struct.h",
+      "source_sha256": "7bfb046130994f3daad0d85cb6d060705c71ac25b26af7a942a9025c55c2765e",
+      "reviewed_sha256": "7bfb046130994f3daad0d85cb6d060705c71ac25b26af7a942a9025c55c2765e",
+      "adapted": false
+    },
+    {
+      "path": "platform/console-rgb/tests/include/linux/slab.h",
+      "source_sha256": "1b64ba5db1dc9c20b6d613da341275e3fab95aeb20693f49f82513c6d5b68d2c",
+      "reviewed_sha256": "1b64ba5db1dc9c20b6d613da341275e3fab95aeb20693f49f82513c6d5b68d2c",
+      "adapted": false
+    },
+    {
+      "path": "platform/console-rgb/tests/include/linux/string.h",
+      "source_sha256": "7c7dfb862fbd4063378bb2086e49db0857322c3de8cb9d570f175da1d253a682",
+      "reviewed_sha256": "7c7dfb862fbd4063378bb2086e49db0857322c3de8cb9d570f175da1d253a682",
+      "adapted": false
+    },
+    {
+      "path": "platform/console-rgb/acceptance/console_accept.py",
+      "source_sha256": "b767574386903eb5c5957dfb1d14408cf40af15d68f56ccfae4d1c85b4649829",
+      "reviewed_sha256": "b767574386903eb5c5957dfb1d14408cf40af15d68f56ccfae4d1c85b4649829",
+      "adapted": false
+    },
+    {
+      "path": "platform/console-rgb/acceptance/test_console_accept.py",
+      "source_sha256": "bfc9e2e4792877a1d5ea747e3521e8d16ccd39a9721e2fa3017f2a0a25dd4519",
+      "reviewed_sha256": "bfc9e2e4792877a1d5ea747e3521e8d16ccd39a9721e2fa3017f2a0a25dd4519",
+      "adapted": false
+    },
+    {
+      "path": "platform/console-rgb/after/include/linux/vt_rgb.h",
+      "source_sha256": "de6671d17c1cb67bfbede464098d369d5a50f5da0023b465368c55bcc56745e9",
+      "reviewed_sha256": "de6671d17c1cb67bfbede464098d369d5a50f5da0023b465368c55bcc56745e9",
+      "adapted": false
+    },
+    {
+      "path": "platform/console-rgb/after/include/linux/console_struct.h",
+      "source_sha256": "9fcd0bd6cc0a12e18aa75c5af8642c524f2bc947d95ebe7a9ea8e6ca84f8e16d",
+      "reviewed_sha256": "9fcd0bd6cc0a12e18aa75c5af8642c524f2bc947d95ebe7a9ea8e6ca84f8e16d",
+      "adapted": false
+    },
+    {
+      "path": "platform/console-rgb/after/drivers/tty/vt/vt.c",
+      "source_sha256": "cf7ff9381557d32deaf285d69c250b3296934dbc8c59137a94a153361d873fb2",
+      "reviewed_sha256": "cf7ff9381557d32deaf285d69c250b3296934dbc8c59137a94a153361d873fb2",
+      "adapted": false
+    },
+    {
+      "path": "platform/console-rgb/after/drivers/video/fbdev/core/fbcon.c",
+      "source_sha256": "1d7eaba3f88435b35ffc56f1e60bef92981f07faf3ccd39c9b4deeb499cc81cd",
+      "reviewed_sha256": "1d7eaba3f88435b35ffc56f1e60bef92981f07faf3ccd39c9b4deeb499cc81cd",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/workspace.cjs",
+      "source_sha256": "6ce31bd0e7416171824caedc5028e34d607bb2f7f66323f6bcde4208849ed2e0",
+      "reviewed_sha256": "6ce31bd0e7416171824caedc5028e34d607bb2f7f66323f6bcde4208849ed2e0",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/test-client.cjs",
+      "source_sha256": "c329ba114e18eff706f1964720ffd7fb3866a1108dbf2707727f6d38fc880b69",
+      "reviewed_sha256": "c329ba114e18eff706f1964720ffd7fb3866a1108dbf2707727f6d38fc880b69",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/test-device-input.cjs",
+      "source_sha256": "1539f396a76a1387e0d0bf559b751161cd026cfcc1a72b62ad44a1aa542c4cb0",
+      "reviewed_sha256": "1539f396a76a1387e0d0bf559b751161cd026cfcc1a72b62ad44a1aa542c4cb0",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/verify.cjs",
+      "source_sha256": "0ca5fd232c685d61cd1acf81bf956b7daa8e84219c53898373cd9052a0d44ea9",
+      "reviewed_sha256": "0ca5fd232c685d61cd1acf81bf956b7daa8e84219c53898373cd9052a0d44ea9",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/setup.py",
+      "source_sha256": "5b55723ca944ea30caf1ca590162041c779ff2d1c1c8cfb6780e733c49f37c94",
+      "reviewed_sha256": "f00b417e11e0cb8d82d10bd543ff04b4bf82c5935e2f5a281ba2e070e9c46202",
+      "adapted": true
+    },
+    {
+      "path": "historical/phone-terminal/preview.cjs",
+      "source_sha256": "760d8e851c7078a42b5b40d1092af6b24226cd86209fc1e226ad021f83366aed",
+      "reviewed_sha256": "760d8e851c7078a42b5b40d1092af6b24226cd86209fc1e226ad021f83366aed",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/server.cjs",
+      "source_sha256": "68fd7a449216cbcfa93ce842117ae8644bbad81fadf4d27516d4b3c3cc2be8d3",
+      "reviewed_sha256": "68fd7a449216cbcfa93ce842117ae8644bbad81fadf4d27516d4b3c3cc2be8d3",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/test-workspace.cjs",
+      "source_sha256": "ca4ef9387d1fda405bcdb425bb1d5a1c1059d421f58c10364191d98f847abcbe",
+      "reviewed_sha256": "ca4ef9387d1fda405bcdb425bb1d5a1c1059d421f58c10364191d98f847abcbe",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/preview-device.cjs",
+      "source_sha256": "aec67879583188abce650f4ef7a60e03d6c1ce1ce21fd4e8e64ebb82b50f038c",
+      "reviewed_sha256": "aec67879583188abce650f4ef7a60e03d6c1ce1ce21fd4e8e64ebb82b50f038c",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/public/device.js",
+      "source_sha256": "915966c494767525d8ab5e28e4c6aef345cda2fc4dffb838ec1a37bd6b810d2e",
+      "reviewed_sha256": "915966c494767525d8ab5e28e4c6aef345cda2fc4dffb838ec1a37bd6b810d2e",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/public/index.html",
+      "source_sha256": "d0b974b4b0b97fb3caff51a96ba5b8d9d2827f21e77757bb325cadb9466779aa",
+      "reviewed_sha256": "d0b974b4b0b97fb3caff51a96ba5b8d9d2827f21e77757bb325cadb9466779aa",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/public/device-input.js",
+      "source_sha256": "952d5c5285ff96140c55f7205e818c8105e357f2cfe88c2fe2976b3bf254dc82",
+      "reviewed_sha256": "952d5c5285ff96140c55f7205e818c8105e357f2cfe88c2fe2976b3bf254dc82",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/public/device.html",
+      "source_sha256": "dbb7ecc583ca45d3bf25b5820d05278db28412d95c3ce108fb0877438e53e51a",
+      "reviewed_sha256": "dbb7ecc583ca45d3bf25b5820d05278db28412d95c3ce108fb0877438e53e51a",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/public/app.js",
+      "source_sha256": "620f0e60eea97c4aa29e0728b95862ba8542487edc700c489dc19e2155001ffc",
+      "reviewed_sha256": "620f0e60eea97c4aa29e0728b95862ba8542487edc700c489dc19e2155001ffc",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/public/device.css",
+      "source_sha256": "b4a57334b2d649b014ba5fa56e5d0e70958c8acfc607c905052fe28b58d3e414",
+      "reviewed_sha256": "b4a57334b2d649b014ba5fa56e5d0e70958c8acfc607c905052fe28b58d3e414",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/public/phone.css",
+      "source_sha256": "6d43f04091da9d22a18e2550cde84bb5e839c95400ed1b1a2c84c2df31b61604",
+      "reviewed_sha256": "6d43f04091da9d22a18e2550cde84bb5e839c95400ed1b1a2c84c2df31b61604",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/runtime/package.json",
+      "source_sha256": "144b156a0613d8e1d00e3229036222e4a6b88fd7fce19e64ad84f88ddd64844a",
+      "reviewed_sha256": "144b156a0613d8e1d00e3229036222e4a6b88fd7fce19e64ad84f88ddd64844a",
+      "adapted": false
+    },
+    {
+      "path": "historical/phone-terminal/runtime/package-lock.json",
+      "source_sha256": "d9d595d8ee88643f648e16df052223c15600a4515e251943fcb6edf5d4e420d3",
+      "reviewed_sha256": "d9d595d8ee88643f648e16df052223c15600a4515e251943fcb6edf5d4e420d3",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/build_signal_probe.py",
+      "source_sha256": "1c0fb8f8d735dbacb4afb26fa56db88afa0a97fd759b8e75dd3601c22ee2fdaf",
+      "reviewed_sha256": "1c0fb8f8d735dbacb4afb26fa56db88afa0a97fd759b8e75dd3601c22ee2fdaf",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/signal_probe.c",
+      "source_sha256": "34b37185dc892afaa8add78fb38ad3262ac7860cdc2141459867fc0d28eb1c58",
+      "reviewed_sha256": "34b37185dc892afaa8add78fb38ad3262ac7860cdc2141459867fc0d28eb1c58",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/kernel.c",
+      "source_sha256": "253409166035a585a55e82b43a61f37d4c519d119c5a47825c7767e619b8c8c9",
+      "reviewed_sha256": "253409166035a585a55e82b43a61f37d4c519d119c5a47825c7767e619b8c8c9",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/benchmark.c",
+      "source_sha256": "6c507c991743e8f600ced9b7420bed1ff9ebe81865d94d2c19e555efdc0318f2",
+      "reviewed_sha256": "6c507c991743e8f600ced9b7420bed1ff9ebe81865d94d2c19e555efdc0318f2",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/shortvec_context.S",
+      "source_sha256": "875f31391e00a12257493ed1dafcc02afbbade0e14e3ee1c321932839c89908e",
+      "reviewed_sha256": "875f31391e00a12257493ed1dafcc02afbbade0e14e3ee1c321932839c89908e",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/build_probe.py",
+      "source_sha256": "ffc73d890032bfcb6aa78c183a9e877fe28959c832c35792ec723b536356df8a",
+      "reviewed_sha256": "ffc73d890032bfcb6aa78c183a9e877fe28959c832c35792ec723b536356df8a",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/build_shortvec.py",
+      "source_sha256": "b51ed936543f3fcdb4e7e05def1f8c72baa89daae971580c398755d340c3f8ca",
+      "reviewed_sha256": "b51ed936543f3fcdb4e7e05def1f8c72baa89daae971580c398755d340c3f8ca",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/shortvec_probe.c",
+      "source_sha256": "29b6c2114a72c509cb3b888a5a36dd6fc92bbc5b513a998894ccf331971c425e",
+      "reviewed_sha256": "29b6c2114a72c509cb3b888a5a36dd6fc92bbc5b513a998894ccf331971c425e",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/batch.c",
+      "source_sha256": "f5fee61106a95ee36378201b2561c1e2ff7ba86a96030e8e512fd3d17865a9bf",
+      "reviewed_sha256": "f5fee61106a95ee36378201b2561c1e2ff7ba86a96030e8e512fd3d17865a9bf",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/shortvec_signal.S",
+      "source_sha256": "6dd3a0e63cf2bb5cc8efeb235cebdba54abb6f71501a61a5bbfd2036c9c35dec",
+      "reviewed_sha256": "6dd3a0e63cf2bb5cc8efeb235cebdba54abb6f71501a61a5bbfd2036c9c35dec",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/add.c",
+      "source_sha256": "3988aedc3dab4795357b9b7d817743988260a24b1b0fc84ee6691b80dee72161",
+      "reviewed_sha256": "3988aedc3dab4795357b9b7d817743988260a24b1b0fc84ee6691b80dee72161",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/shortvec.S",
+      "source_sha256": "168e030f6a214661cdf33f815913857d9c0a7d718ff6e612ade864de1804ddde",
+      "reviewed_sha256": "168e030f6a214661cdf33f815913857d9c0a7d718ff6e612ade864de1804ddde",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/vfp/probe.c",
+      "source_sha256": "40a7da0edb864d47d5ea910babca719086eb5c8ae41190cfc84bd1b785a4bfe8",
+      "reviewed_sha256": "40a7da0edb864d47d5ea910babca719086eb5c8ae41190cfc84bd1b785a4bfe8",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/build.py",
+      "source_sha256": "07aa096483cb4eb7c4746ae32de11741c237fb34569939e8dda39b6c3f93550b",
+      "reviewed_sha256": "07aa096483cb4eb7c4746ae32de11741c237fb34569939e8dda39b6c3f93550b",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/test_subset.py",
+      "source_sha256": "2cd5a7beca811bcf9cac820793ef48ef0dc677b2a26ac77a146f18dbf2630bbd",
+      "reviewed_sha256": "2cd5a7beca811bcf9cac820793ef48ef0dc677b2a26ac77a146f18dbf2630bbd",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/test_fir8.py",
+      "source_sha256": "1a307422f56df495bdbdb32ea8a692a58f49d52c379d2c6e7fc5468ff5218de9",
+      "reviewed_sha256": "1a307422f56df495bdbdb32ea8a692a58f49d52c379d2c6e7fc5468ff5218de9",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/fir8_std.s",
+      "source_sha256": "89cb6168c739c25c8f121cb3366733ff0100a557b285244518e950fba83c2afc",
+      "reviewed_sha256": "89cb6168c739c25c8f121cb3366733ff0100a557b285244518e950fba83c2afc",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/fir_model.py",
+      "source_sha256": "f360464980523fbc6023c26e94ed980b13395396cde368f80eb44eded6843d36",
+      "reviewed_sha256": "f360464980523fbc6023c26e94ed980b13395396cde368f80eb44eded6843d36",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/test_wrapper.py",
+      "source_sha256": "3ed2b725c9264669d5651a056bcc677aa86803dc66708ffbe42e642873d7492a",
+      "reviewed_sha256": "3ed2b725c9264669d5651a056bcc677aa86803dc66708ffbe42e642873d7492a",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/add1_8.s",
+      "source_sha256": "13a6a628289238cd830e80cd3d4137c6cf5d3d9ed19280a18934d83e4895c7f7",
+      "reviewed_sha256": "13a6a628289238cd830e80cd3d4137c6cf5d3d9ed19280a18934d83e4895c7f7",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/wrapper_model.py",
+      "source_sha256": "aa67c0c9868b0ed71e3479becf250276db3e5c75ee9cb324f3cc7d36c6cfa9ad",
+      "reviewed_sha256": "aa67c0c9868b0ed71e3479becf250276db3e5c75ee9cb324f3cc7d36c6cfa9ad",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/test_control_candidate.py",
+      "source_sha256": "c3ec892e60c977d0fce57b834f4f3960601e4802173b5b8306a923c494fe5fa3",
+      "reviewed_sha256": "c3ec892e60c977d0fce57b834f4f3960601e4802173b5b8306a923c494fe5fa3",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/copy8.s",
+      "source_sha256": "9bae16cb7f2d3722d1388fa25994b44863ca65914503275524fe92202cf0732d",
+      "reviewed_sha256": "9bae16cb7f2d3722d1388fa25994b44863ca65914503275524fe92202cf0732d",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/control-candidate.patch",
+      "source_sha256": "39bacff9867a158f2291cd6cd8b7d2a4e6673a9a8d65da58fd820f949e09c367",
+      "reviewed_sha256": "39bacff9867a158f2291cd6cd8b7d2a4e6673a9a8d65da58fd820f949e09c367",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/subset.py",
+      "source_sha256": "2d39f815a5aa4c4ac04952a1720458dc3a6211a3a540628ff36684299ec29e15",
+      "reviewed_sha256": "2d39f815a5aa4c4ac04952a1720458dc3a6211a3a540628ff36684299ec29e15",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/inspect_object.py",
+      "source_sha256": "2ef430a77d79dbd20ee1b7d0047884fead2099c8951c05f31eed10d90575f2e9",
+      "reviewed_sha256": "2ef430a77d79dbd20ee1b7d0047884fead2099c8951c05f31eed10d90575f2e9",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/prepare_control_candidate.py",
+      "source_sha256": "90fd7945ec02a90ecb72a6643ee8043202938afa5c38978b6d897e533295e8f0",
+      "reviewed_sha256": "90fd7945ec02a90ecb72a6643ee8043202938afa5c38978b6d897e533295e8f0",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/fir8_one.s",
+      "source_sha256": "fa90ae920588ead59d7750cf0ba855d29800468b81779ccbbe9043b5d7c2224f",
+      "reviewed_sha256": "fa90ae920588ead59d7750cf0ba855d29800468b81779ccbbe9043b5d7c2224f",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/test_upstream.py",
+      "source_sha256": "83a0b2fb5c0aa2c00043aa4dcb1c64355cf77071763c06939287f3a3c7ef57c8",
+      "reviewed_sha256": "83a0b2fb5c0aa2c00043aa4dcb1c64355cf77071763c06939287f3a3c7ef57c8",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/audit_transport.py",
+      "source_sha256": "657934467faa1d05edf12f459b67de26754af23f83096cc63668b21f6eb62ef9",
+      "reviewed_sha256": "657934467faa1d05edf12f459b67de26754af23f83096cc63668b21f6eb62ef9",
+      "adapted": false
+    },
+    {
+      "path": "historical/compute/open-c55x/recover.py",
+      "source_sha256": "b948543515352400413268c8908cd72e5947c07b5c07d4a1c782857751bc67cc",
+      "reviewed_sha256": "b948543515352400413268c8908cd72e5947c07b5c07d4a1c782857751bc67cc",
+      "adapted": false
+    },
+    {
+      "path": "hardware/htit/tests/native/msgpack_fixed_array.cpp",
+      "source_sha256": "befec486c5e6966d7c17ca4cee003dae288223b84f5123da0f0d6f3cfb81aa9a",
+      "reviewed_sha256": "befec486c5e6966d7c17ca4cee003dae288223b84f5123da0f0d6f3cfb81aa9a",
+      "adapted": false
+    },
+    {
+      "path": "hardware/htit/tests/native/lxmf_recovery.cpp",
+      "source_sha256": "32c78feae13d86bd5a2cc1de23ceb8b9d5183ed67ee227a5adebceb946c3335d",
+      "reviewed_sha256": "32c78feae13d86bd5a2cc1de23ceb8b9d5183ed67ee227a5adebceb946c3335d",
+      "adapted": false
+    },
+    {
+      "path": "hardware/htit/tests/native/CMakeLists.txt",
+      "source_sha256": "288874d48359c3112f6a81cd7ebe50fc73d313da203dd3ad210c355c94d040bc",
+      "reviewed_sha256": "738eb3d054a1670ebb5446ef53135e14cb8132cd25a6329e0ba11e67561f1f06",
+      "adapted": true
+    },
+    {
+      "path": "hardware/htit/tests/upstream/lxmf_nested_fields.cpp",
+      "source_sha256": "8e9df654c39758f3633f322e5dfb64b706f35d5b8680014ffa819a5784c7a245",
+      "reviewed_sha256": "8e9df654c39758f3633f322e5dfb64b706f35d5b8680014ffa819a5784c7a245",
+      "adapted": false
+    },
+    {
+      "path": "hardware/htit/tests/upstream/lxmf_signed_proof_uaf.cpp",
+      "source_sha256": "b61f28d01b26b180ab605e163419f28e58582dfd985501ec02a9b5f582563641",
+      "reviewed_sha256": "b61f28d01b26b180ab605e163419f28e58582dfd985501ec02a9b5f582563641",
+      "adapted": false
+    },
+    {
+      "path": "platform/maemo/emulate-wlan-cal.py",
+      "source_sha256": "47cf5e6589efcf45f5b3d3b0b9e916dcc910ec0c93a3aa23b6724ebb22ca052c",
+      "reviewed_sha256": "da12dab8f5ebe3634fecd53ebb6b9286be22e94e44d548b53e429a1c966f4f2a",
+      "adapted": true
+    }
+  ],
+  "adaptations": [
+    "Repository-relative paths replace development-tree paths.",
+    "The Wi-Fi emulator takes explicit private inputs and checks its version-specific executable hash.",
+    "The phone credential generator requires an explicit SSH target and control socket.",
+    "The native HTIT build targets the included libraries and adds parser and signed-proof regressions.",
+    "The sidebar README describes the retained historical scope."
+  ]
+}

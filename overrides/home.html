@@ -1,0 +1,29 @@
+{% extends "main.html" %}
+{% block content %}
+<div class="home-page">
+  <div class="home-intro">
+    <div>
+      <h1>N810 revival</h1>
+      <p>Debian on a Nokia N810. A desktop in your terminal.</p>
+    </div>
+    <p class="home-description">Pocket puts maps, radio tools, and movable application windows in a terminal. Run it on the tablet or work from a laptop over SSH.</p>
+  </div>
+  <figure class="home-demo">
+    <picture>
+      <source media="(prefers-reduced-motion: reduce)" srcset="{{ 'assets/demos/pocket-desktop-20261106.png' | url }}">
+      <img id="home-desktop" src="{{ 'assets/demos/pocket-desktop-20261106.gif' | url }}" data-still="{{ 'assets/demos/pocket-desktop-20261106.png' | url }}" alt="Pocket showing received stations on a terrain map, an offline radio-club lookup, terminal resizing, and the Flux background." width="1400" height="872" fetchpriority="high">
+    </picture>
+    <figcaption>
+      <span>Pocket on a laptop, 6 November 2026. Received station history, an offline radio-club lookup, and window controls. Edited sequence; playback at 2× speed. Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>; elevation: USGS 3DEP.</span>
+      <button id="home-motion" type="button" hidden>Pause animation</button>
+    </figcaption>
+  </figure>
+  <div class="home-links">
+    <a class="home-primary" href="{{ 'start/' | url }}">Get started <span aria-hidden="true">→</span></a>
+    <a href="{{ 'journal/' | url }}">Read the journal from the beginning</a>
+    <a href="{{ config.repo_url }}">Browse the code <span aria-hidden="true">↗</span></a>
+  </div>
+  <p class="home-reading">Follow the <a href="{{ 'tutorials/overview-and-backgrounds/' | url }}">window and desktop controls</a>, or see how the <a href="{{ 'explanation/rendering/' | url }}">map gains detail and redraws when the terminal changes size</a>.</p>
+  <div class="home-guide">{{ page.content }}</div>
+</div>
+{% endblock %}

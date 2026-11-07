@@ -104,6 +104,7 @@ class Bridge:
 
     def bandwidth_request(self, command, payload, original=None):
         if command in (11,14,34,35):
+            if original is None:raise ValueError('Radio write requires the original readback')
             if self.writer is not None or self.tx:raise RuntimeError('KISS writer/queue must be idle before radio control')
             spec=importlib.util.spec_from_file_location('radio_bandwidth',Path(__file__).with_name('n810-radio-bandwidth.py'))
             module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)

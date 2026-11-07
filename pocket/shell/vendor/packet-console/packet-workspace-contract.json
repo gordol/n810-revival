@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "capture_identity": {"algorithm": "sha256_utf8", "fields": ["time", "frame"], "join": "", "missing": null},
+  "packet_fields": ["id", "time", "direction", "source", "destination", "path", "used_relays", "payload", "raw", "frame", "facts", "message"],
+  "filter_default": {"station": null, "query": "", "type": null, "direction": null, "history": "all"},
+  "filter_scope": "app",
+  "window_overrides": {"implemented": false, "future_requirement": "explicitly labeled; never silently divergent"},
+  "windows": ["map", "list", "inspector"],
+  "intents": ["select_packet", "filter_call", "set_filter", "toggle_window", "focus_window", "show_map", "back"],
+  "selection_scope": "workspace",
+  "freshness": {"captured": "original full capture time; unknown stays unknown", "fetched": "transport read time, not a new observation", "stale": "separate from connection state"},
+  "legacy_identity": {"capture_id": null, "record_key": "decoded:sha256_utf8(line)", "scope": "local until raw capture resolves"},
+  "roles": {"base": "neutral ink and white", "selection": "blue and white", "received": "cyan", "submitted": "amber, delivery unconfirmed", "fault": "red", "warning": "amber"},
+  "capabilities": {"receive": true, "inspect": true, "transmit": false, "tune": false, "program": false}
+}

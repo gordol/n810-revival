@@ -27,10 +27,10 @@
           "First confirm the intended receive owner is configured and connected using the installed launch path. Open Radio Feed and inspect a retained record. A replay fixture or a connected local feed socket alone is not fresh RF reception."
         ],
         "Controls": [
-          "Up/Down or j/k selects; Enter focuses detail. Tab changes panes. / searches the list; n/N moves matches. e toggles original evidence, f cycles direction, t reverses time, and p or Space pauses only this view."
+          "Up/Down or j/k selects; Enter focuses detail. Tab changes panes. / searches the list; n/N moves matches. e toggles original evidence, i expands the inspector, f cycles direction, and t reverses time. Esc restores the split after expanding the inspector."
         ],
         "Settings / defaults / storage": [
-          "A view pause does not stop reception. Filtering changes visible records, not the original evidence. Retention and own-reception settings belong to the configured provider; this page does not claim a full archive."
+          "Filtering selects which received records appear in the view. The provider continues receiving while you browse. Retention and own-reception settings belong to the configured provider; this page does not claim a full archive."
         ],
         "Lifecycle": [
           "Keep the shared receive owner alive while switching views. Do not open a second Bluetooth owner to populate another app. UI writes do not prove over-air delivery."

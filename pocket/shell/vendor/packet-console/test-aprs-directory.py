@@ -60,14 +60,14 @@ class Tests(unittest.TestCase):
    db=d.database(Path(folder)/'directory.db');path=Path(folder)/'history.json'
    line='21:28:40 TEST>APRS,W7DK* ctl=03 pid=f0 !4713.13N/12150.61W_PHG7830/W2,WAn,Baldi'
    path.write_text(json.dumps({'packets':[line,line,line.replace('TEST>','N0CALL>')]}))
-   self.assertEqual(d.import_history(db,path,'N0CALL'),1)
+   self.assertEqual(d.import_history(db,path,'N0CALL'),2)
    self.assertEqual(d.import_history(db,path,'N0CALL'),0)
    self.assertEqual(db.execute('SELECT packets FROM stations').fetchone(),(0,))
    self.assertEqual(db.execute('SELECT count(*) FROM via').fetchone(),(0,))
    ev={k:(t,v) for k,t,v in d.station_evidence(db,'TEST')}
    self.assertIn('role',ev);self.assertEqual(d.age(ev['position'][0]),'older text')
    d.ingest(db,[record()],d.load_monitor(),'N0CALL')
-   self.assertEqual(db.execute('SELECT last,packets FROM stations').fetchone(),('2026-10-15T07:00:00+00:00',1))
+   self.assertEqual(db.execute('SELECT last,packets FROM stations WHERE call="TEST"').fetchone(),('2026-10-15T07:00:00+00:00',1))
    self.assertEqual(db.execute('SELECT count(*) FROM via').fetchone(),(1,))
    db.close()
  def test_readable_details(self):
@@ -97,8 +97,12 @@ class Tests(unittest.TestCase):
    self.assertEqual(d.ingest(db,[record(),record()],monitor,'N0CALL'),1)
    self.assertEqual(db.execute('SELECT packets FROM via').fetchone(),(1,))
    d.ingest(db,[record('OTHER',False),record('N0CALL')],monitor,'N0CALL')
-   self.assertEqual(db.execute('SELECT count(*) FROM stations').fetchone(),(2,))
-   self.assertEqual(db.execute('SELECT count(*) FROM via').fetchone(),(1,))
+   # Received traffic retains the sender identity, including our own call.
+   self.assertEqual(db.execute('SELECT packets FROM stations WHERE call="N0CALL"').fetchone(),(1,))
+   sent=record('N0CALL');sent['direction']='host_to_radio'
+   self.assertEqual(d.ingest(db,[sent],monitor,'N0CALL'),0)
+   self.assertEqual(db.execute('SELECT count(*) FROM stations').fetchone(),(3,))
+   self.assertEqual(db.execute('SELECT count(*) FROM via').fetchone(),(2,))
    db.close();db=d.database(path)
    self.assertEqual(d.ingest(db,[record()],monitor,'N0CALL'),0)
    self.assertEqual(db.execute('SELECT packets FROM stations WHERE call="TEST"').fetchone(),(1,))
