@@ -241,7 +241,7 @@ class Panels:
     def set_locked(self,locked):
         self.locked=bool(locked);self.cancel();self._session_changed()
 
-    def render(self,widgets,states=None,icons=None):
+    def render(self,widgets,states=None,icons=None,sink=None):
         states=dict(states or {});icons=icons or {}
         for action,_ in widgets.get('apps',()):
             if action.startswith('launch:window:'):states[action]=states.get(action[14:],'minimized')
@@ -278,7 +278,8 @@ class Panels:
                         end=x+1
                         while end<width and styles[y][end]==styles[y][x]:end+=1
                         focused=styles[y][x]=='focused'
-                        output+=f'\x1b[{py+y+1};{px+x+1}H\x1b[0;{97 if focused else 37};48;5;{238 if focused else color}m{line[x:end]}'
+                        if sink:sink(px+x,py+y,line[x:end],str(97 if focused else 37),238 if focused else color)
+                        else:output+=f'\x1b[{py+y+1};{px+x+1}H\x1b[0;{97 if focused else 37};48;5;{238 if focused else color}m{line[x:end]}'
                         x=end
                 continue
             if not p.widgets:put(0,0,' · ',None)
@@ -355,6 +356,7 @@ class Panels:
                     end=x+1
                     while end<width and styles[y][end]==styles[y][x]:end+=1
                     foreground,background=palette[styles[y][x]]
-                    output+=f'\x1b[{py+y+1};{px+x+1}H\x1b[0;{foreground};48;5;{background}m{line[x:end]}'
+                    if sink:sink(px+x,py+y,line[x:end],foreground,background)
+                    else:output+=f'\x1b[{py+y+1};{px+x+1}H\x1b[0;{foreground};48;5;{background}m{line[x:end]}'
                     x=end
         return output

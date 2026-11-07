@@ -86,8 +86,10 @@ class Scene(Mapping):
     """Shared static plane plus a small replacing overlay."""
     def __init__(self,base,overlay):self.base,self.overlay=base,overlay
     def __getitem__(self,key):
-        if key in self.overlay:return self.overlay[key]
-        return self.base[key]
+        # Mapping.__contains__ fetches the value itself. Native overlays would
+        # otherwise cross the extension boundary and construct each cell twice.
+        try:return self.overlay[key]
+        except KeyError:return self.base[key]
     def __iter__(self):
         yield from self.base
         yield from (key for key in self.overlay if key not in self.base)

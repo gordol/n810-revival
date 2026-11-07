@@ -161,9 +161,9 @@ def arguments(argv=None,full=False):
     return parser,parser.parse_args(argv)
 
 
-def main():
+def main(platform=None,argv=None):
     startup={'imports_complete_seconds':time.monotonic()-_BOOT_STARTED}
-    parser,args=arguments()
+    parser,args=arguments(argv)
     from pointer_trace import PointerTrace
     pointer_trace=PointerTrace(args.pointer_trace)
     if args.keyboard_fd is not None and not 3<=args.keyboard_fd<=65535:parser.error('keyboard descriptor must be in 3..65535')
@@ -223,7 +223,7 @@ def main():
     plans = () if args.minimal or workspace or native_defaults and not (args.app_preview or args.kitchen_sink) else compile_model(Path(__file__).with_name('operator.json').read_text())
     world = World(plans)
     world.apply([Record(1, 'N0CALL', 'APRS observed', 'Listening'), Record(2, 'W7EXAMPLE', 'Offline record', 'Contact unconfirmed')])
-    geometry = measure(sys.stdout.fileno())
+    geometry = platform.geometry() if platform else measure(sys.stdout.fileno())
     panel=Panels(args.panel or 'top',mode=args.panel_mode or ('auto' if workspace else 'bar'))
     panel.launcher_count=2+len(workspace)
     ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if trial else (geometry.columns,geometry.rows)))
@@ -248,6 +248,7 @@ def main():
     if demo_apps is not None:windows.extend(demo_apps.windows(width,height))
     from app_registry import discover as discover_apps,saved_reticulum_selection
     registered_apps=discover_apps()
+    if platform:platform.configure_registry(registered_apps)
     app_state=args.app_state or Path.home()/'.local/state/current-world'
     connections = None
     if args.shell:
@@ -651,20 +652,21 @@ def main():
         if host.terrain_renderer is not None:host.terrain_renderer.close()
         for renderer in getattr(host,'app_renderers',()):renderer.close()
         return
-    if not sys.stdin.isatty():
+    if platform is None and not sys.stdin.isatty():
         inbox.close()
         close_apps()
         if host.terrain_renderer is not None:host.terrain_renderer.close()
         for renderer in getattr(host,'app_renderers',()):renderer.close()
         raise SystemExit('Interactive mode requires a terminal; use --smoke for a local check.')
-    old = termios.tcgetattr(sys.stdin)
+    if platform:platform.attach(host,panel,registered_apps)
+    old = termios.tcgetattr(sys.stdin) if platform is None else None
     selector = selectors.DefaultSelector()
     if bluetooth_control is not None:selector.register(bluetooth_control.readable,selectors.EVENT_READ,bluetooth_control)
     from app_readiness import AppReadiness,AppReady
     app_readiness=AppReadiness(selector)
     from child_exit_wakeup import ChildExitWake
     child_exit_wakeup=ChildExitWake(inbox)
-    selector.register(sys.stdin,selectors.EVENT_READ)
+    if platform is None:selector.register(sys.stdin,selectors.EVENT_READ)
     selector.register(inbox.readable,selectors.EVENT_READ)
     from renderer_wakeup import bind_completion_wakeup,FutureWakeups
     future_wakeups=FutureWakeups(inbox)
@@ -690,6 +692,7 @@ def main():
     keyboard=None;keyboard_router=None;keyboard_error=None
     from terminal_keys import TerminalKeys
     terminal_keys=TerminalKeys(time.monotonic,enabled=os.environ.get("TERM")!="linux" and args.keyboard_device is None and args.keyboard_fd is None)
+    if platform:terminal_keys.confirmed=True
     def app_pointer(form,event,column,row,width,route):
         before=pointer_trace.state(form) if pointer_trace.path else None
         handled=native_pointer(form,column,row,width,event[1],event[4],event=event) if args.navigation_trial else deliver_pointer(form,event,column,row,width)
@@ -1048,12 +1051,13 @@ def main():
             host.activate(name);manager_mode=False
             if name in terminals:
                 # Activation must not flush keystrokes queued during the handoff.
-                tty.setraw(sys.stdin,when=termios.TCSANOW);manager_mode=False
+                if platform is None:tty.setraw(sys.stdin,when=termios.TCSANOW);manager_mode=False
         elif action=='screensaver':
             host.set_effect('flurry')
         elif action=='demo-workspace' and demo_apps is not None:demo_apps.open_workspace(host)
         elif action=='overview':host.toggle_overview()
         elif action=='help':show_help()
+    if platform:platform.launch=launch
     presentation=Presentation()
     screensaver_last=None
     demo_tick=-1
@@ -1107,10 +1111,10 @@ def main():
                 touch=TouchSource(args.touch_device,args.touch_calibration,display(*pixels,args.touch_rotation),geometry.columns,geometry.rows,**({'native_library':args.native} if args.touch_acquisition=='process' else {}))
                 selector.register(touch,selectors.EVENT_READ)
             except (OSError,ValueError) as error:parser.error('touch unavailable: '+str(error))
-        if args.legacy_aprs:tty.setraw(sys.stdin,when=termios.TCSANOW)
-        else:tty.setcbreak(sys.stdin)
-        sys.stdout.write(console_wake()+'\x1b[?1049h\x1b[?25l\x1b[2J\x1b[?1002h\x1b[?1006h')
-        sys.stdout.write(terminal_keys.start());sys.stdout.flush()
+        if args.legacy_aprs and platform is None:tty.setraw(sys.stdin,when=termios.TCSANOW)
+        elif platform is None:tty.setcbreak(sys.stdin)
+        if platform is None:sys.stdout.write(console_wake()+'\x1b[?1049h\x1b[?25l\x1b[2J\x1b[?1002h\x1b[?1006h')
+        if platform is None:sys.stdout.write(terminal_keys.start());sys.stdout.flush()
         if args.legacy_aprs:
             from terminal_host import Terminal
             command=[sys.executable,str(args.legacy_aprs.resolve()),'--socket',args.aprs_socket,'--maps',str(args.aprs_maps.resolve()),'--map-engine','next','--tui-theme','color']
@@ -1144,14 +1148,14 @@ def main():
                     from terminal_host import Terminal
                     terminals[app.name]=Terminal(host,app.name,app.argv,selector,env=environment,metrics=metrics)
             if workspace and not store.loaded and not args.native_stations:host.activate(workspace[0].name)
-            tty.setraw(sys.stdin,when=termios.TCSANOW)
+            if platform is None:tty.setraw(sys.stdin,when=termios.TCSANOW)
         # Restore shell slots, never shell history or previously executed commands.
         shell_names.update(host.session_shells)
         for name in host.session_shells:
             if host.window(name).opened:
                 from terminal_host import Terminal,shell_argv
                 terminals[name]=Terminal(host,name,shell_argv(),selector,env=host_environment,metrics=metrics,show_cursor=True,blend_background=True)
-        if any(name in terminals for name in shell_names):tty.setraw(sys.stdin,when=termios.TCSANOW)
+        if any(name in terminals for name in shell_names) and platform is None:tty.setraw(sys.stdin,when=termios.TCSANOW)
         if args.terminal and not host.window('Terminal').opened:launch('terminal:new')
         if args.scenery_app:host.activate('Scenery')
         if native_catalog:
@@ -1168,8 +1172,10 @@ def main():
             if stopping:break
             flux_cpu_start=time.thread_time() if host.background_enabled and host.effect=='flux' else None
             iteration_start=metrics.begin() if metrics else None
-            input_events = decoder.feed(b'', expire=not events)
+            input_events = platform.events() if platform else decoder.feed(b'', expire=not events)
             quit_now = False
+            if platform and platform.closed:break
+            if platform and platform.resized:resized=True;platform.resized=False
             for key, _ in events:
                 if bluetooth_control is not None and key.data is bluetooth_control:
                     bluetooth_control.ready();model_inputs=True;continue
@@ -1218,7 +1224,7 @@ def main():
             if input_events:
                 wake=console_wake()
                 if wake:
-                    sys.stdout.write(wake);sys.stdout.flush()
+                    if platform is None:sys.stdout.write(wake);sys.stdout.flush()
             # Debug can enable metrics during dispatch. Finish only the sample
             # started here, on the same metrics owner, even if it changes later.
             input_timing=None
@@ -1229,7 +1235,7 @@ def main():
                 sync_keyboard()
                 prepare_gestures(host,panel,launcher,event,manager_mode=manager_mode)
                 if event[0]=='keyboard_flags':
-                    sys.stdout.write(terminal_keys.flags(event[1]));sys.stdout.flush();continue
+                    if platform is None:sys.stdout.write(terminal_keys.flags(event[1]));sys.stdout.flush();continue
                 if event[0]=='focus' and not event[1]:cancel_touch()
                 event=terminal_keys.event(event)
                 if event is None:continue
@@ -1546,17 +1552,17 @@ def main():
                             if args.ascii:command.append('--ascii')
                             command+=['--palette',host.palette]
                             terminals[mirror_name]=Terminal(host,mirror_name,command,selector,metrics=metrics)
-                            tty.setraw(sys.stdin,when=termios.TCSANOW)
+                            if platform is None:tty.setraw(sys.stdin,when=termios.TCSANOW)
             if mouse_tracking!=host.mouse_trails:
                 mouse_tracking=host.mouse_trails
-                sys.stdout.write('\x1b[?1002l\x1b[?1003h' if mouse_tracking else '\x1b[?1003l\x1b[?1002h')
+                if platform is None:sys.stdout.write('\x1b[?1002l\x1b[?1003h' if mouse_tracking else '\x1b[?1003l\x1b[?1002h')
             if host.screensaver!=screensaver_last:
                 screensaver_last=host.screensaver
                 for p in panel.panels:p.cache=None
                 host.front=[None]*(host.width*host.height);host.invalidate((0,0,host.width,host.height))
             if resized:
                 resized = False
-                geometry = measure(sys.stdout.fileno())
+                geometry = platform.geometry() if platform else measure(sys.stdout.fileno())
                 if trial:trial.viewport(geometry.columns,geometry.rows)
                 if touch is not None:
                     cancel_touch()
@@ -1570,7 +1576,7 @@ def main():
                     for p in panel.panels:p.cache=None
                     # Buffered ANSI uses the old geometry. Drop it and close
                     # any synchronized output before clearing the new viewport.
-                    sys.stdout.write(presentation.close()+'\x1b[2J')
+                    if platform is None:sys.stdout.write(presentation.close()+'\x1b[2J')
             if refresh_models:
                 if metrics:
                     from draw_metrics import enable_renderer_timing
@@ -1705,7 +1711,7 @@ def main():
                     if hasattr(form,'presented') and (type(form) is not LazyApplication
                         or form.owner is not None and hasattr(form.owner,'presented')))
             pointer_trace.sample(host)
-            host.observe_composition=metrics is not None
+            host.observe_composition=platform is not None or metrics is not None
             if metrics and args.metrics and not first_frame:
                 try:metrics.save_live(args.metrics.with_suffix('.live.msgpack'),host,dict(build_identity.IDENTITY),presentation=presentation)
                 except (OSError,ValueError,TypeError) as error:metrics.metadata['live_report_error']=str(error)
@@ -1717,7 +1723,8 @@ def main():
             # controls/menu changes retain the ordinary urgent presentation.
             map_frame=host.focus=='Station Map' and (len(host.damage)>2048 or bool(presentation.buffer))
             static_ui=not host.background_enabled and not (host.drag or host.animations or host.slide or host.camera_motion or host.terrain_loading or host.terrain_arrival is not None)
-            output,changed,computed=host.flush(width*height if host._native is not None or static_ui or first_frame and args.minimal or host.terrain_loading or host.terrain_arrival is not None else 2048,max_seconds=None if static_ui or first_frame and args.minimal else .012)
+            output,changed,computed=host.flush(width*height if host._native is not None or static_ui or first_frame and args.minimal or host.terrain_loading or host.terrain_arrival is not None else 2048,max_seconds=None if static_ui or first_frame and args.minimal else .012,serialize=platform is None)
+            if platform:platform.consume(changed,computed)
             trace_composed=(time.monotonic_ns(),time.thread_time_ns()) if trace_start is not None else None
             if metrics and host.terrain_renderer and host.terrain_renderer.completed and 'terrain_ready_seconds' not in startup:
                 startup['terrain_ready_seconds']=time.monotonic()-_BOOT_STARTED
@@ -1741,14 +1748,15 @@ def main():
             panel_refresh=lifecycle_refresh or current_panel_view!=panel_view or any(p.cache is None for p in panel.panels)
             panel_output=''
             if panel_refresh:
-                panel_output=panel.render(widgets,{**{w.name:host.window_status(w) for w in windows},**radio_styles},panel_icons)
+                panel_output=panel.render(widgets,{**{w.name:host.window_status(w) for w in windows},**radio_styles},panel_icons,sink=platform.panel_text if platform else None)
                 host.minimize_targets=panel.minimize_targets((w.name for w in windows),host.origin)
                 panel_view=current_panel_view
-            output+=f'\x1b[{geometry.rows};1H\x1b[2K' if host.screensaver else panel_output
+            if platform is None:output+=f'\x1b[{geometry.rows};1H\x1b[2K' if host.screensaver else panel_output
             if metrics:phase_start=metrics.begin()
-            output=presentation.write(output,not host.damage,time.monotonic(),max_hold=.35 if map_frame else .08,atomic=map_frame or os.environ.get('TERM')=='linux' or camera_frame or host.effect=='terrain' and host.background_enabled,urgent=host.ui_painted and not map_frame)
-            if output:
-                sys.stdout.write(output)
+            platform_presented=platform.present(not host.damage) if platform else False
+            output='' if platform else presentation.write(output,not host.damage,time.monotonic(),max_hold=.35 if map_frame else .08,atomic=map_frame or os.environ.get('TERM')=='linux' or camera_frame or host.effect=='terrain' and host.background_enabled,urgent=host.ui_painted and not map_frame)
+            if output or platform_presented:
+                if platform is None:sys.stdout.write(output)
                 sys.stdout.flush()
                 if not host.damage:restore_ready=True
                 if local_services_pending and not host.damage:
@@ -1869,7 +1877,7 @@ def main():
                 delay=host.background_delay()
                 if delay is not None:timeout=delay if timeout is None else min(timeout,delay)
             restoring=bool(restore_ready and restore_pending and not host.damage and not host.drag and not launcher.active and not decoder.pending)
-            events = selector.select(0 if restoring else timeout)
+            events = selector.select(0 if restoring else platform.wait_timeout(timeout) if platform else timeout)
             if restoring and not events:
                 name=restore_pending.pop(0)
                 form=registered_apps.forms[name]
@@ -1897,9 +1905,11 @@ def main():
             # Service shutdown can wait for an active radio child. Return the
             # user's terminal before that wait; the final restoration remains
             # unconditional in case any earlier cleanup failed.
-            try:termios.tcsetattr(sys.stdin,termios.TCSADRAIN,old)
+            try:
+                if platform is None:termios.tcsetattr(sys.stdin,termios.TCSADRAIN,old)
             except (OSError,termios.error):pass
-            try:sys.stdout.write(terminal_keys.close()+presentation.close()+'\x1b[?1003l\x1b[?1002l\x1b[?1006l\x1b[0m\x1b[?25h\x1b[?1049l');sys.stdout.flush()
+            try:
+                if platform is None:sys.stdout.write(terminal_keys.close()+presentation.close()+'\x1b[?1003l\x1b[?1002l\x1b[?1006l\x1b[0m\x1b[?25h\x1b[?1049l');sys.stdout.flush()
             except (OSError,BrokenPipeError):pass
             close_apps()
             if control is not None:control.close()
@@ -1910,10 +1920,13 @@ def main():
                 for sig,handler in stop_handlers.items():signal.signal(sig,handler)
                 child_exit_wakeup.close()
             finally:
-                try:termios.tcsetattr(sys.stdin,termios.TCSADRAIN,old)
+                try:
+                    if platform is None:termios.tcsetattr(sys.stdin,termios.TCSADRAIN,old)
                 except (OSError,termios.error):pass
-                try:sys.stdout.write(terminal_keys.close()+presentation.close()+'\x1b[?1003l\x1b[?1002l\x1b[?1006l\x1b[0m\x1b[?25h\x1b[?1049l'); sys.stdout.flush()
+                try:
+                    if platform is None:sys.stdout.write(terminal_keys.close()+presentation.close()+'\x1b[?1003l\x1b[?1002l\x1b[?1006l\x1b[0m\x1b[?25h\x1b[?1049l'); sys.stdout.flush()
                 except (OSError,BrokenPipeError):pass
+        if platform:platform.close()
         selector.close(); inbox.close()
         if host.terrain_renderer is not None:host.terrain_renderer.close()
         for renderer in getattr(host,'app_renderers',()):renderer.close()

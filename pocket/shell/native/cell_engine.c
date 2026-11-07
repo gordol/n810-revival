@@ -204,6 +204,23 @@ int cw_flush_mapped(void *ptr,const Layer *layers,size_t nl,const uint32_t *dirt
     }
     return 0;
 }
+/* Compose retained cells without allocating or encoding terminal output.
+ * All fallible batch validation precedes the single update pass. */
+int cw_compose_mapped(void *ptr,const Layer *layers,size_t nl,const uint32_t *dirty,size_t nd,
+                     size_t *changed,const uint32_t *map,size_t nm) {
+    Surface *s=ptr;size_t n=(size_t)s->w*s->h;
+    for(size_t k=0;k<nd;k++)if(dirty[k]>=n || (k && dirty[k]<=dirty[k-1]))return -1;
+    for(size_t k=0;k<nl;k++)if(!layers[k].plane)return -1;
+    s->used=0;*changed=0;
+    for(size_t k=0;k<nd;k++){
+        uint32_t i=dirty[k],glyph=32;uint64_t ink=13;
+        cw_source(layers,nl,i%s->w,i/s->w,&glyph,&ink);
+        glyph=cw_mapped_glyph(glyph,map,nm);
+        if(!s->valid[i] || s->glyph[i]!=glyph || s->ink[i]!=ink)(*changed)++;
+        s->glyph[i]=glyph;s->ink[i]=ink;s->valid[i]=1;
+    }
+    return 0;
+}
 int cw_flush(void *ptr,const Layer *layers,size_t nl,const uint32_t *dirty,size_t nd,
              const Style *styles,size_t ns,int32_t ox,int32_t oy,size_t *changed) {
     return cw_flush_mapped(ptr,layers,nl,dirty,nd,styles,ns,ox,oy,changed,NULL,0);

@@ -18,8 +18,8 @@ this file; Git and the relevant technical documents retain that evidence.
    crypto initialization separately. Remove repeated model work, hidden-view polling
    and subscription amplification without delaying input or independent services.
    Investigate console/kernel output costs if they remain significant.
-5. **Finish runtime integration.** Complete native layer/overlay composition and
-   input/event-host work; integrate Map Library with proper cancellation/lifetimes.
+5. **Finish runtime integration.** Verify Nokia native layer/overlay composition and
+   input/event-host behavior on screen; integrate Map Library with proper cancellation/lifetimes.
    Audit remaining optional startup imports and runtime dependencies.
 6. **Finish maintenance gaps.** Show the source revision instead of UNKNOWN.
    Add release-capacity preflight, idle-owner quiescing and repeatable clean-machine
@@ -62,5 +62,5 @@ this file; Git and the relevant technical documents retain that evidence.
 - Live UV-Pro tuning/RF checks until a relevant change needs the powered radio.
 - Debian packaging; HF/modems, VARA/ARDOP/PACTOR and cellular experiments.
 - SSTV, satellite/ADS-B/radiosonde views, speech-to-text, keyer and Winlink integration.
-- Optional GPU/MBX and wildlife experiments; hardware AES investigation requires
+- Physical Nokia mixed-state GPU acceptance and wildlife experiments; hardware AES investigation requires
   separate known-vector, hardware-path and packet-size evidence.

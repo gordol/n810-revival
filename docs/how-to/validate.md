@@ -21,3 +21,14 @@ The [HTIT guide](build-htit.md) supplies firmware and host-protocol checks. The 
 For platform changes, select the relevant tests under `platform/scripts/`. Boot-mode, zram cleanup, and dialog cancellation have focused checks that can run on the host. A device test additionally needs the target kernel, installed services, and an attended observation of the behavior being changed.
 
 The [journal checkpoint guide](test-journal-checkpoints.md) gives commands for the platform helpers, console-color regression harness, historical desktop, and other earlier implementations.
+
+## Graphical desktop
+
+From `pocket/`, run `make graphics-check` after installing the dependencies in
+[the graphics guide](../pocket/graphics.md). This builds all frontend
+sources, checks native text/mouse/focus handling and frame borders across five
+window sizes, then runs the actual desktop with menu, app and resize actions in
+isolated state. It reports the OpenGL renderer used. The release container also
+builds this path and runs it under explicit Mesa software GL; that checks
+portability, not Nokia GPU performance. Its ARM framebuffer cross-build likewise
+does not establish device installation or physical display acceptance.
