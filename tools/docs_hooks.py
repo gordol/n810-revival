@@ -21,6 +21,7 @@ MANUALS = {
         "service-publication", "service-transports", "touch-acquisition",
         "versioning", "map-rendering", "map-data", "bootstrap",
     )},
+    "pocket/graphics/README.md": "pocket/graphics.md",
     "pocket/shell/native/reticulum/README.md": "pocket/native-reticulum.md",
     "pocket/shell/vendor/README.md": "reference/bundled-source.md",
     "platform/README.md": "reference/platform-files.md",

@@ -1921,7 +1921,7 @@
     },
     {
       "path": "pocket/graphics/run.py",
-      "sha256": "b68f28849a80a268ec7a752abe92753ee01efdb91700ca4fa969b1beb400b09e",
+      "sha256": "8bb74aeeed9110bdd55d15b07b33640e665b09b4577c12d1512db53c92ac927c",
       "license": "MIT",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -7504,7 +7504,7 @@
     },
     {
       "path": "tools/docs_hooks.py",
-      "sha256": "01740500cdc77be1a7d949990c383a6f8838785dda918166f6892d888c0474e1",
+      "sha256": "c9f1bc29e49d5fcc535aac23f8c75c4336c3644147cec960378a12c0e05fce18",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
