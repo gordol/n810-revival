@@ -176,9 +176,10 @@ class Compositor:
     def supports_blend(self,host,windows):
         scene=getattr(host.backdrop,'native_surface',None) is not None and (host.backdrop.width,host.backdrop.height)==(host.width,host.height)
         return (hasattr(self.lib,'blend_scene') and (scene or not host.backdrop)
-                and not any(w.layer for w in windows) and not (host.pager or host.launcher_lines or host.help_lines or host.settings_lines or host.drag and not self.supports_outline(host) or host.terrain_loading))
+                and all(not w.layer or (getattr(self.lib,'blend_cell_layers',False) and host.window_fill and not host.ascii and self.supports_layer(host,w)) for w in windows)
+                and not (host.pager or host.launcher_lines or host.help_lines or host.settings_lines or host.drag and not self.supports_outline(host) or host.terrain_loading))
 
-    def blend_flush(self,host,indices,prepared):
+    def blend_flush(self,host,indices,prepared,serialize=True):
         self.flush_calls+=1
         plans,inks,menu,backdrop=prepared
         if self.blend_plane is None or self.blend_plane[:2]!=(host.width,host.height):
@@ -193,8 +194,13 @@ class Compositor:
         dirty=indices if isinstance(indices,memoryview) else array('I',indices)
         dx,dy={'SE':(1,1),'S':(0,1),'SW':(-1,1),'W':(-1,0),'NW':(-1,-1),'N':(0,-1),'NE':(1,-1),'E':(1,0)}[host.shadow_direction]
         phase=host._phase_start()
-        self.lib.blend_scene(plane.pointer,backdrop.pointer,tuple((p,b[0],b[1]) for w,b,p in plans),dirty,
+        args=(plane.pointer,backdrop.pointer,tuple((p,b[0],b[1]) for w,b,p in plans),dirty,
             int(host.window_fill),host.window_opacity,int(host.show_underlying_text),dx,dy,host.shadow_size,host.shadow_opacity if host.shadow_enabled else 0.)
+        if any(w.layer for w,b,p in plans):
+            layer_inks=set(inks)
+            layers=tuple(self.cell_plane(host,w,b,indices,layer_inks) for w,b,p in plans)
+            self.lib.blend_scene(*args,layers)
+        else:self.lib.blend_scene(*args)
         host._phase_end('native_blend',phase)
         key=('blend',host.palette,host.tinted)
         if self.style_cache is None or self.style_cache[0]!=key:
@@ -204,10 +210,10 @@ class Compositor:
         glyphs=array('I',(v for c in sorted(getattr(host.backdrop,'native_glyphs','')) for v in (ord(c),ord(host.glyphs.cell(c,host.ascii)))))
         ordered=memoryview(self.lib.sorted_indices(dirty)).cast('I')
         layers=((self.outline_layer,) if self.outline_layer is not None else ())+((plane.pointer,0,0),)
-        output,changed=self.lib.flush(self.front.pointer,layers,ordered,self.style_cache[1],*host.origin,glyphs)
-        return output,changed,len(indices)
+        output,changed=(self.lib.flush if serialize else getattr(self.lib,'compose',self.lib.flush))(self.front.pointer,layers,ordered,self.style_cache[1],*host.origin,glyphs)
+        return output if serialize else '',changed,len(indices)
 
-    def mixed_flush(self,host,indices,regions):
+    def mixed_flush(self,host,indices,regions,serialize=True):
         """Portable blending on occupied cells; C owns retained output/ANSI.
 
         This is explicitly reported as native_mixed, not C alpha composition.
@@ -277,11 +283,11 @@ class Compositor:
             entries.append((color,f'\x1b[0;{foreground(color,colors)};48;{bg}m'))
         host._phase_end('mixed_palette',phase)
         phase=host._phase_start()
-        output,changed=self.lib.flush(self.front.pointer,((plane.pointer,0,0),),array('I',sorted(indices)),tuple(entries),*host.origin)
+        output,changed=(self.lib.flush if serialize else getattr(self.lib,'compose',self.lib.flush))(self.front.pointer,((plane.pointer,0,0),),array('I',sorted(indices)),tuple(entries),*host.origin)
         host._phase_end('mixed_native_flush',phase)
-        return output,changed,len(indices)
+        return output if serialize else '',changed,len(indices)
 
-    def menu_flush(self,host,indices):
+    def menu_flush(self,host,indices,serialize=True):
         """Present opaque menu damage over the retained front, without scenery."""
         self.menu_calls+=1
         if host.front is not self.front:
@@ -296,9 +302,9 @@ class Compositor:
         plane=self.text_overlay('launcher',width,height,rows)
         colors=host._ansi_colors()
         entries=tuple((color,f'\x1b[0;{foreground(color,colors)};48;5;233m') for color in (0,1))
-        output,changed=self.lib.flush(self.front.pointer,((plane.pointer,x,y),),
+        output,changed=(self.lib.flush if serialize else getattr(self.lib,'compose',self.lib.flush))(self.front.pointer,((plane.pointer,x,y),),
                                       array('I',indices),entries,*host.origin)
-        return output,changed,len(indices)
+        return output if serialize else '',changed,len(indices)
 
     def prepare(self,host,windows,styles):
         """Prepare one coherent window plan before bounded damage batches."""
@@ -397,7 +403,7 @@ class Compositor:
             self.front=original
         return snapshot
 
-    def flush(self,host,windows,indices,styles,prepared=None,max_seconds=None):
+    def flush(self,host,windows,indices,styles,prepared=None,max_seconds=None,serialize=True):
         self.flush_calls+=1
         plans,inks,menu,backdrop=self.prepare(host,windows,styles) if prepared is None else prepared
         layers=[];glyph_map={}
@@ -431,8 +437,10 @@ class Compositor:
         dirty=memoryview((self.lib.sorted_batches if max_seconds is not None else self.lib.sorted_indices)(indices)).cast('I') if isinstance(indices,memoryview) else array('I',sorted(indices))
         if dirty.itemsize!=4:raise ValueError('native requires 32-bit damage indices')
         glyphs=array('I',(value for pair in sorted(glyph_map.items()) for value in pair))
-        if max_seconds is not None:return self.lib.flush_budget(self.front.pointer,layers,dirty,self.style_cache[1],*host.origin,glyphs,max_seconds)
-        output,changed=self.lib.flush(self.front.pointer,layers,dirty,self.style_cache[1],*host.origin,glyphs)
-        return output,changed,len(indices)
+        if max_seconds is not None:
+            output,changed,computed=(self.lib.flush_budget if serialize else getattr(self.lib,'compose_budget',self.lib.flush_budget))(self.front.pointer,layers,dirty,self.style_cache[1],*host.origin,glyphs,max_seconds)
+            return output if serialize else '',changed,computed
+        output,changed=(self.lib.flush if serialize else getattr(self.lib,'compose',self.lib.flush))(self.front.pointer,layers,dirty,self.style_cache[1],*host.origin,glyphs)
+        return output if serialize else '',changed,len(indices)
     @property
     def bytes(self):return (self.front.bytes if self.front else 0)+sum(value[1].bytes for value in self.planes.values())+sum(value[2].bytes for value in self.overlays.values())+(self.background_plane[2].bytes if self.background_plane else 0)+sum(value[1].bytes for value in self.cell_planes.values())+(self.mixed_plane[2].bytes if self.mixed_plane else 0)+(self.blend_plane[2].bytes if self.blend_plane else 0)+(self.blank_plane[2].bytes if self.blank_plane else 0)+(self.outline_plane[1].bytes if self.outline_plane else 0)

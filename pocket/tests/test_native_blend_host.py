@@ -7,6 +7,30 @@ from core import Host,Window,STYLES
 from native_runtime import select
 from native_scene import flux
 class NativeBlendTests(unittest.TestCase):
+    def test_app_cells_match_portable_with_overlapping_windows(self):
+        from core import Cell
+        from paint import ink
+        h=self.host()
+        if not getattr(h._native.lib,'blend_cell_layers',False):self.skipTest('app layers unavailable')
+        lib=h._native.lib
+        chars=(' ', '▀', '▄', '█', '.', '#')
+        for name in ('A','B'):
+            cells=tuple(Cell(chars[i%len(chars)],ink(31+i%120,88,190,background=(8,24+i%40,17))) for i in range(17*8))
+            h.layer_patch(name,(1,1,17,8,cells),None)
+        for opacity in (0.,.4,.88,1.):
+            for show in (False,True):
+                for shadow in (0.,.4):
+                    h.window_opacity=opacity;h.show_underlying_text=show;h.shadow_enabled=shadow>0;h.shadow_opacity=shadow
+                    expected=[h.scene_cell(x,y) for y in range(h.height) for x in range(h.width)]
+                    h.invalidate((0,0,h.width,h.height))
+                    while h.damage:h.flush(37)
+                    self.assertEqual(list(h.front),expected,(opacity,show,shadow))
+                    self.assertIn(h.render_backend,('native','native_blend'))
+        h.ascii=True
+        self.assertFalse(h._native.supports_blend(h,h.windows))
+        h.ascii=False;h.terminal_layers.add('A');h.terminal_opacity=.5
+        self.assertFalse(h._native.supports_blend(h,h.windows))
+
     @classmethod
     def setUpClass(cls):
         cls.path=os.environ.get('POCKET_TEST_NATIVE') or select(build=False)['library']
@@ -70,7 +94,7 @@ class NativeBlendTests(unittest.TestCase):
         self.assertTrue(h._native.supports_blend(h,h.windows))
         h.help_lines=['Help'];self.assertFalse(h._native.supports_blend(h,h.windows));h.help_lines=[]
         h.window('B').layer=(0,0,1,1,[('X',0)])
-        self.assertFalse(h._native.supports_blend(h,h.windows));h.window('B').layer=None
+        self.assertEqual(h._native.supports_blend(h,h.windows),bool(getattr(h._native.lib,'blend_cell_layers',False)));h.window('B').layer=None
         h.width+=1
         self.assertFalse(h._native.supports_blend(h,h.windows))
     def test_plain_desktop_uses_native_blend_without_animation(self):

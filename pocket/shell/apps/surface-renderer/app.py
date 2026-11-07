@@ -26,7 +26,8 @@ class SurfaceRoom:
     """Normal lifetime owner publishing cells through Host.layer_patch."""
     @property
     def layer_only(self):return not self.input_diagnostic
-    def __init__(self,host,*,clock=time.monotonic,implementation=None,portal=False,walkthrough=False,dense=False,rift=False,asynchronous=True,outdoors=False,name=NAME,world_detail=True,approved_forest=False):
+    def __init__(self,host,*,clock=time.monotonic,implementation=None,portal=False,walkthrough=False,dense=False,rift=False,asynchronous=True,outdoors=False,name=NAME,world_detail=True,approved_forest=False,frame_backend=None):
+        self.frame_backend=frame_backend
         self.materials=portal_materials() if portal or rift else ROOM
         self.input_diagnostic=False;self.key_event_reports=0;self.input_status='No press/release reports received.'
         self._diagnostic_lines=None
@@ -137,6 +138,11 @@ class SurfaceRoom:
             from experience import scripted_experience
             x,z,yaw,idle,_=scripted_experience(age%20)
         return Request(body_width,body_height,width,height,age,x,z,yaw,idle,self.rift,self.portal,self.input_sequence,now,self.outdoors,self.pitch,self.world_detail,self.approved_forest)
+    def _prepare(self,request):
+        backend=self.frame_backend
+        if backend is not None and backend.supports(request,self.implementation,self.materials):
+            return backend.prepare(request,self.implementation,self.materials)
+        return prepare(request,self.implementation,self.materials)
     def _publish(self,result):
         request,cells,stats=result
         width,height=request.body_width,request.body_height
@@ -186,10 +192,10 @@ class SurfaceRoom:
         if not force and now<self.next_poll:return None
         request=self._request(now);self.next_poll=now+1/35
         if not self.asynchronous or force:
-            try:return self._publish(prepare(request,self.implementation,self.materials))
+            try:return self._publish(self._prepare(request))
             except Exception as error:self._failure(error);return None
         if self.worker is None:self.worker=Inbox(capacity=1)
-        self.worker.submit(lambda:self.trace.run(prepare,request,self.implementation,self.materials))
+        self.worker.submit(lambda:self.trace.run(self._prepare,request))
         return None
     def presented(self,now=None):
         now=self.clock() if now is None else now
@@ -251,6 +257,7 @@ class SurfaceRoom:
         self.cancel_keys()
         self.closed=True;self.trace.cancel()
         if self.worker:self.worker.close();self.worker=None
+        if self.frame_backend:self.frame_backend.close();self.frame_backend=None
         self.ready=None;self.previous=();self.pending_inputs=[]
 
 

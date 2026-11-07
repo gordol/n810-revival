@@ -1715,6 +1715,16 @@ class Host:
                 result=Cell(vertical,chrome_ink(color,self._ansi_colors(),self.tinted))
                 surface=surface_cell(under.char,window_pane_ink(under.color,self.window_opacity)) if self.window_fill and self.window_opacity<1 else BLANK if self.window_fill else under
             else:
+                # An opaque app cell replaces both the text and pane material.
+                # Keep the surface beneath later windows exactly as the ordinary
+                # layer path does, without first composing discarded text/tint.
+                if self.window_fill and w.layer and not (self.terminal_opacity<1 and w.name in self.terminal_layers):
+                    lx,ly,lw,lh,cells=w.layer
+                    if lx<=xx-1<lx+lw and ly<=yy-1<ly+lh:
+                        result=Cell(*cells[(yy-1-ly)*lw+xx-1-lx])
+                        surface=result if result.char in ('▄','▀','█') else surface_cell(' ',result.color)
+                        if self.ascii and ord(result.char)>127:result=Cell(':',result.color)
+                        continue
                 line = w.lines[yy-1] if yy-1 < len(w.lines) else ''
                 # Unsupported widths retain one visible placeholder per scalar.
                 char = line[xx-1] if xx-1 < len(line) else ' '
@@ -1902,13 +1912,13 @@ class Host:
         row['calls']+=1;row['wall_seconds']+=wall;row['cpu_seconds']+=cpu
         row['last_wall_seconds']=wall;row['max_wall_seconds']=max(row['max_wall_seconds'],wall)
 
-    def flush(self, budget=2048, max_seconds=None):
-        if not self.background_enabled or self.effect!='flux' or self._flux_external_budget:return self._flush(budget,max_seconds)
+    def flush(self, budget=2048, max_seconds=None, *, serialize=True):
+        if not self.background_enabled or self.effect!='flux' or self._flux_external_budget:return self._flush(budget,max_seconds,serialize)
         started=time.thread_time()
-        try:return self._flush(budget,max_seconds)
+        try:return self._flush(budget,max_seconds,serialize)
         finally:self._flux_painted(time.thread_time()-started)
 
-    def _flush(self, budget=2048, max_seconds=None):
+    def _flush(self, budget=2048, max_seconds=None, serialize=True):
         self.composed_indices=() # Reuse existing batch indices; no copied cell buffer.
         self.ui_painted=False
         bounds=self.launcher_bounds() if self.launcher_lines else None
@@ -1921,7 +1931,7 @@ class Host:
         if self.launcher_lines and not menu_indices and not self.launcher_damage(1,inside=False):return '',0,0
         if menu_indices and len(menu_indices)==len(overlay_indices) and self._native is not None:
             try:
-                output,changed,computed=self._native.menu_flush(self,menu_indices)
+                output,changed,computed=self._native.menu_flush(self,menu_indices,serialize=serialize)
                 self.ui_damage.difference_update(menu_indices);self.damage.difference_update(menu_indices)
                 self._launcher_dirty.difference_update(menu_indices)
                 self.composed+=computed;self.ui_painted=True
@@ -2064,14 +2074,14 @@ class Host:
                     if self.effect=='flux' and self.background_enabled and not ui_pending and not self.ui_damage:
                         native_seconds=max(native_seconds,min(.003,max_seconds))
                     part,changed,computed=self._native.flush(self,self._frame_windows,indices,STYLES,prepared=prepared,
-                        max_seconds=None if outline else native_seconds)
+                        max_seconds=None if outline else native_seconds,serialize=serialize)
                     output_parts.append(part)
                 else:
                     for start in range(0,len(indices),batch_size):
                         batch=indices[start:start+batch_size]
-                        if full_native:part,c,n=self._native.flush(self,self._frame_windows,batch,STYLES,prepared=prepared)
-                        elif native_blend:part,c,n=self._native.blend_flush(self,batch,prepared)
-                        else:part,c,n=self._native.mixed_flush(self,batch,regions)
+                        if full_native:part,c,n=self._native.flush(self,self._frame_windows,batch,STYLES,prepared=prepared,serialize=serialize)
+                        elif native_blend:part,c,n=self._native.blend_flush(self,batch,prepared,serialize=serialize)
+                        else:part,c,n=self._native.mixed_flush(self,batch,regions,serialize=serialize)
                         output_parts.append(part);changed+=c;computed+=n
                         if deadline is not None and time.monotonic()>=deadline:break
                 self._phase_end('native_draw',phase)
@@ -2133,6 +2143,7 @@ class Host:
         self.ui_painted=any(i in self.ui_damage for i in processed)
         self.ui_damage.difference_update(processed)
         self._launcher_dirty.difference_update(processed)
+        if not serialize:return '',len(changes),len(processed)
         changes.sort(key=lambda item:item[0])
         runs = []
         for i, c in changes:
