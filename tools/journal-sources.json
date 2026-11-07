@@ -1236,22 +1236,108 @@
     {
       "post": "docs/posts/2026-11-07-native-desktop.md",
       "id": "2026-11-07-native-desktop",
-      "implementation": [],
-      "tests": [],
-      "inputs": [],
-      "guide": null,
-      "source_heading": "Source availability",
-      "note": "The narrative links the preserved graphical frontend development commit. Later Mac platform inputs and acceptance runners are being integrated separately; the captured results describe the tested local build."
+      "implementation": [
+        {
+          "label": "Shared platform adapter",
+          "path": "pocket/graphics/full.py"
+        },
+        {
+          "label": "Native launcher",
+          "path": "pocket/graphics/run.py"
+        },
+        {
+          "label": "Pixel composition",
+          "path": "pocket/graphics/pixel_compositor.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Desktop acceptance runner",
+          "path": "pocket/graphics/check.py"
+        },
+        {
+          "label": "Frontend tests",
+          "path": "pocket/tests/test_graphical_frontend.py"
+        },
+        {
+          "label": "Build-input tests",
+          "path": "pocket/tests/test_graphics_build_inputs.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Native build",
+          "path": "pocket/graphics/build.py"
+        },
+        {
+          "label": "Source identities",
+          "path": "pocket/graphics/SOURCES.json"
+        },
+        {
+          "label": "Make targets",
+          "path": "pocket/Makefile"
+        },
+        {
+          "label": "Optional Mac compute dependencies",
+          "path": "pocket/requirements-graphics-macos.txt"
+        }
+      ],
+      "guide": "pocket/graphics.md",
+      "source_heading": "Code, tests and build inputs",
+      "note": "Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results."
     },
     {
       "post": "docs/posts/2026-11-07-surface-room.md",
       "id": "2026-11-07-surface-room",
-      "implementation": [],
-      "tests": [],
-      "inputs": [],
-      "guide": null,
-      "source_heading": "Source availability",
-      "note": "The shared exploration policy is linked to its preserved development revision above. The target-range C layer, Mac input adapter, and hit/reset acceptance sequence are being integrated into the public source build."
+      "implementation": [
+        {
+          "label": "Target game",
+          "path": "pocket/graphics/native/game.c"
+        },
+        {
+          "label": "Native input",
+          "path": "pocket/graphics/native/desktop_input.c"
+        },
+        {
+          "label": "Room pixels",
+          "path": "pocket/graphics/native/room_pixels.c"
+        },
+        {
+          "label": "Exploration controls",
+          "path": "pocket/graphics/explore_controls.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Native input tests",
+          "path": "pocket/graphics/native/test_desktop_input.c"
+        },
+        {
+          "label": "Desktop and Room integration",
+          "path": "pocket/graphics/check.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Native build",
+          "path": "pocket/graphics/build.py"
+        },
+        {
+          "label": "Source identities",
+          "path": "pocket/graphics/SOURCES.json"
+        },
+        {
+          "label": "Make targets",
+          "path": "pocket/Makefile"
+        },
+        {
+          "label": "Optional Mac compute dependencies",
+          "path": "pocket/requirements-graphics-macos.txt"
+        }
+      ],
+      "guide": "pocket/graphics.md",
+      "source_heading": "Code, tests and build inputs",
+      "note": "Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The earlier standalone hit/reset acceptance sequence has yet to join the integrated test runner."
     },
     {
       "post": "docs/posts/2026-11-07-gpu-effects.md",
@@ -1268,13 +1354,59 @@
         {
           "label": "DEM preparation and shading",
           "path": "pocket/shell/desktop_elevation.py"
+        },
+        {
+          "label": "GPU provider",
+          "path": "pocket/graphics/effects/provider.py"
+        },
+        {
+          "label": "Effect shaders",
+          "path": "pocket/graphics/effects/gpu_effects.c"
+        },
+        {
+          "label": "Map compute",
+          "path": "pocket/graphics/effects/map_gpu.py"
+        },
+        {
+          "label": "Terrain shading",
+          "path": "pocket/graphics/effects/terrain_shading.py"
+        },
+        {
+          "label": "Pixel compute",
+          "path": "pocket/graphics/effects/pixel_gpu.py"
         }
       ],
-      "tests": [],
-      "inputs": [],
-      "guide": null,
-      "source_heading": "Published CPU reference implementations",
-      "note": "The Mac OpenGL/Metal provider and its exact-output comparison programs are being integrated into the public source build. The results here describe the recorded local provider. The existing published terminal producers remain available in the repository."
+      "tests": [
+        {
+          "label": "Integrated desktop check",
+          "path": "pocket/graphics/check.py"
+        },
+        {
+          "label": "Frontend tests",
+          "path": "pocket/tests/test_graphical_frontend.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Native build",
+          "path": "pocket/graphics/build.py"
+        },
+        {
+          "label": "Source identities",
+          "path": "pocket/graphics/SOURCES.json"
+        },
+        {
+          "label": "Make targets",
+          "path": "pocket/Makefile"
+        },
+        {
+          "label": "Optional Mac compute dependencies",
+          "path": "pocket/requirements-graphics-macos.txt"
+        }
+      ],
+      "guide": "pocket/graphics.md",
+      "source_heading": "Code, tests and build inputs",
+      "note": "Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check."
     }
   ]
 }

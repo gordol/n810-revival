@@ -1,6 +1,6 @@
 # Running the Pocket desktop in a native Mac window
 
-*7 November 2026. Local Mac results; the graphical frontend is being integrated into the repository.*
+*7 November 2026. Local Mac results, followed by source-build integration.*
 
 Pocket began with cells sent to a terminal. The [console RGB work](2026-10-16-16-bit-console.md) preserved their colors on the N810, and the desktop grew around retained cell layers, input dispatch, windows, and application ownership. A native graphical frontend lets us keep those application interfaces while choosing how their contents reach pixels.
 
@@ -27,7 +27,7 @@ flowchart TB
 
 The normal Terminal application still owns a PTY for its child process. That is a separate relationship from the desktop-to-renderer interface. A terminal inside the graphical desktop remains a terminal application.
 
-The [preserved frontend source](https://github.com/gordol/n810-revival/tree/debbdf2d153371c2fc0d0fc25d14c8f6396f2f56/pocket/graphics) records this boundary. Its [full desktop adapter](https://github.com/gordol/n810-revival/blob/debbdf2d153371c2fc0d0fc25d14c8f6396f2f56/pocket/graphics/full.py) and [pixel interface](https://github.com/gordol/n810-revival/blob/debbdf2d153371c2fc0d0fc25d14c8f6396f2f56/pocket/graphics/PIXEL-INTERFACE.md) are pinned to that development checkpoint. Build-input integration is a subsequent step.
+The [integrated frontend source](https://github.com/gordol/n810-revival/tree/476423b1a9e12ac5029927084c6cafd46af78d0c/pocket/graphics) records this boundary. Its [full desktop adapter](https://github.com/gordol/n810-revival/blob/476423b1a9e12ac5029927084c6cafd46af78d0c/pocket/graphics/full.py) and [pixel interface](../pocket/graphics.md) describe the integrated boundary. The [graphical frontend guide](../pocket/graphics.md) gives the dependencies, Makefile commands, and test path.
 
 ## Let a scene use its actual window resolution
 
@@ -53,13 +53,24 @@ The full-desktop acceptance run covered the 24 registered apps, menu actions, Me
 
 The [rendering explanation](../explanation/rendering.md) now places this frontend beside the console path. The [next entry](2026-11-07-surface-room.md) follows the interactive Room experiment, and [GPU effects](2026-11-07-gpu-effects.md) records the later acceleration of existing desktop producers.
 
+## Build it from the repository
+
+The source integration includes the SDL input adapter, native renderer, font preparation, Room mesh generator, optional Mac compute provider, and build-input identities. A fresh clone built the Mac frontend and passed 22 focused tests. The integrated desktop check exercised the 24-app registry, direct Room, menu actions, and two grid resizes. Linux container checks built and exercised the frontend through explicitly selected software OpenGL, and cross-built the ARM framebuffer presenter.
+
+From `pocket/`, `make gui` checks the native build and opens the graphical desktop; `make graphics-check` runs its isolated acceptance sequence. The [build guide](../pocket/graphics.md) lists compiler, SDL, OpenGL, and optional Mac compute dependencies. Physical Nokia installation and mixed-state MBX rendering remain separate validation work.
+
 <!-- journal-sources:start -->
-## Source availability
+## Code, tests and build inputs
 
+| Material | Repository files |
+|---|---|
+| Implementation | [Shared platform adapter](../assets/source/journal/pocket/graphics/full.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/full.py))<br>[Native launcher](../assets/source/journal/pocket/graphics/run.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/run.py))<br>[Pixel composition](../assets/source/journal/pocket/graphics/pixel_compositor.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/pixel_compositor.py)) |
+| Checks and fixtures | [Desktop acceptance runner](../assets/source/journal/pocket/graphics/check.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/check.py))<br>[Frontend tests](../assets/source/journal/pocket/tests/test_graphical_frontend.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_graphical_frontend.py))<br>[Build-input tests](../assets/source/journal/pocket/tests/test_graphics_build_inputs.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_graphics_build_inputs.py)) |
+| Build inputs | [Native build](../assets/source/journal/pocket/graphics/build.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/build.py))<br>[Source identities](../assets/source/journal/pocket/graphics/SOURCES.json.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/SOURCES.json))<br>[Make targets](../assets/source/journal/pocket/Makefile.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/Makefile))<br>[Optional Mac compute dependencies](../assets/source/journal/pocket/requirements-graphics-macos.txt.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/requirements-graphics-macos.txt)) |
 
-[Chronological source index](../reference/journal-sources.md#2026-11-07-native-desktop)
+[Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-native-desktop)
 
-The narrative links the preserved graphical frontend development commit. Later Mac platform inputs and acceptance runners are being integrated separately; the captured results describe the tested local build.
+Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results.
 <!-- journal-sources:end -->
 
 [Journal](../journal.md)

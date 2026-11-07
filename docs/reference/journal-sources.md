@@ -436,10 +436,15 @@ These driver candidates extend the published MBX/Mesa foundation. Their physical
 
 [Read the journal entry](../posts/2026-11-07-native-desktop.md)
 
+| Material | Repository files |
+|---|---|
+| Implementation | [Shared platform adapter](../assets/source/journal/pocket/graphics/full.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/full.py))<br>[Native launcher](../assets/source/journal/pocket/graphics/run.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/run.py))<br>[Pixel composition](../assets/source/journal/pocket/graphics/pixel_compositor.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/pixel_compositor.py)) |
+| Checks and fixtures | [Desktop acceptance runner](../assets/source/journal/pocket/graphics/check.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/check.py))<br>[Frontend tests](../assets/source/journal/pocket/tests/test_graphical_frontend.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_graphical_frontend.py))<br>[Build-input tests](../assets/source/journal/pocket/tests/test_graphics_build_inputs.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_graphics_build_inputs.py)) |
+| Build inputs | [Native build](../assets/source/journal/pocket/graphics/build.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/build.py))<br>[Source identities](../assets/source/journal/pocket/graphics/SOURCES.json.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/SOURCES.json))<br>[Make targets](../assets/source/journal/pocket/Makefile.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/Makefile))<br>[Optional Mac compute dependencies](../assets/source/journal/pocket/requirements-graphics-macos.txt.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/requirements-graphics-macos.txt)) |
 
-[Chronological source index](../reference/journal-sources.md#2026-11-07-native-desktop)
+[Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-native-desktop)
 
-The narrative links the preserved graphical frontend development commit. Later Mac platform inputs and acceptance runners are being integrated separately; the captured results describe the tested local build.
+Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results.
 
 <a id="2026-11-07-surface-room"></a>
 
@@ -447,10 +452,15 @@ The narrative links the preserved graphical frontend development commit. Later M
 
 [Read the journal entry](../posts/2026-11-07-surface-room.md)
 
+| Material | Repository files |
+|---|---|
+| Implementation | [Target game](../assets/source/journal/pocket/graphics/native/game.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/native/game.c))<br>[Native input](../assets/source/journal/pocket/graphics/native/desktop_input.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/native/desktop_input.c))<br>[Room pixels](../assets/source/journal/pocket/graphics/native/room_pixels.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/native/room_pixels.c))<br>[Exploration controls](../assets/source/journal/pocket/graphics/explore_controls.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/explore_controls.py)) |
+| Checks and fixtures | [Native input tests](../assets/source/journal/pocket/graphics/native/test_desktop_input.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/native/test_desktop_input.c))<br>[Desktop and Room integration](../assets/source/journal/pocket/graphics/check.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/check.py)) |
+| Build inputs | [Native build](../assets/source/journal/pocket/graphics/build.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/build.py))<br>[Source identities](../assets/source/journal/pocket/graphics/SOURCES.json.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/SOURCES.json))<br>[Make targets](../assets/source/journal/pocket/Makefile.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/Makefile))<br>[Optional Mac compute dependencies](../assets/source/journal/pocket/requirements-graphics-macos.txt.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/requirements-graphics-macos.txt)) |
 
-[Chronological source index](../reference/journal-sources.md#2026-11-07-surface-room)
+[Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-surface-room)
 
-The shared exploration policy is linked to its preserved development revision above. The target-range C layer, Mac input adapter, and hit/reset acceptance sequence are being integrated into the public source build.
+Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The earlier standalone hit/reset acceptance sequence has yet to join the integrated test runner.
 
 <a id="2026-11-07-gpu-effects"></a>
 
@@ -460,8 +470,10 @@ The shared exploration policy is linked to its preserved development revision ab
 
 | Material | Repository files |
 |---|---|
-| Implementation | [Flux producer](../assets/source/journal/pocket/shell/flux.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/flux.py))<br>[Flurry producer](../assets/source/journal/pocket/shell/flurry.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/flurry.py))<br>[DEM preparation and shading](../assets/source/journal/pocket/shell/desktop_elevation.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/desktop_elevation.py)) |
+| Implementation | [Flux producer](../assets/source/journal/pocket/shell/flux.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/flux.py))<br>[Flurry producer](../assets/source/journal/pocket/shell/flurry.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/flurry.py))<br>[DEM preparation and shading](../assets/source/journal/pocket/shell/desktop_elevation.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/desktop_elevation.py))<br>[GPU provider](../assets/source/journal/pocket/graphics/effects/provider.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/effects/provider.py))<br>[Effect shaders](../assets/source/journal/pocket/graphics/effects/gpu_effects.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/effects/gpu_effects.c))<br>[Map compute](../assets/source/journal/pocket/graphics/effects/map_gpu.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/effects/map_gpu.py))<br>[Terrain shading](../assets/source/journal/pocket/graphics/effects/terrain_shading.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/effects/terrain_shading.py))<br>[Pixel compute](../assets/source/journal/pocket/graphics/effects/pixel_gpu.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/effects/pixel_gpu.py)) |
+| Checks and fixtures | [Integrated desktop check](../assets/source/journal/pocket/graphics/check.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/check.py))<br>[Frontend tests](../assets/source/journal/pocket/tests/test_graphical_frontend.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_graphical_frontend.py)) |
+| Build inputs | [Native build](../assets/source/journal/pocket/graphics/build.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/build.py))<br>[Source identities](../assets/source/journal/pocket/graphics/SOURCES.json.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/SOURCES.json))<br>[Make targets](../assets/source/journal/pocket/Makefile.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/Makefile))<br>[Optional Mac compute dependencies](../assets/source/journal/pocket/requirements-graphics-macos.txt.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/requirements-graphics-macos.txt)) |
 
-[Chronological source index](../reference/journal-sources.md#2026-11-07-gpu-effects)
+[Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-gpu-effects)
 
-The Mac OpenGL/Metal provider and its exact-output comparison programs are being integrated into the public source build. The results here describe the recorded local provider. The existing published terminal producers remain available in the repository.
+Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check.
