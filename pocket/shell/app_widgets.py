@@ -387,6 +387,20 @@ class TextInput:
                 self.text=self.text[:self.cursor]+key+self.text[self.cursor:];self.cursor+=1
         else:return False
         return True
+    def presentation(self,width,focused=True):
+        """Text and semantic spans; the caret occupies a cell, never inserts text."""
+        width=max(0,width)
+        start=max(0,self.cursor-max(1,width-1)) if focused else 0
+        text=self.text[start:start+width].ljust(width)
+        spans=((0,width,"input" if focused else "body"),)
+        if focused and width:spans+=((min(width-1,max(0,self.cursor-start)),1,"caret"),)
+        return text,spans
+
+    def paint(self,canvas,x,y,width,focused=True):
+        text,spans=self.presentation(width,focused)
+        canvas.put(x,y,text)
+        for start,length,role in spans:canvas.role(x+start,y,length,role)
+
     def draw(self,width):
         start=max(0,self.cursor-max(1,width-1))
         return (self.text[:self.cursor]+'|'+self.text[self.cursor:])[start:start+width]

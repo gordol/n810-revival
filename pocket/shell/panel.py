@@ -106,12 +106,32 @@ class Panels:
         self._session_changed()
         return True
 
-    def remove_empty(self):
-        if self.selected.widgets or len(self.panels)==1:return False
-        self.panels.remove(self.selected);self.selected=self.panels[0]
+    def remove(self,prefer_bottom=False):
+        """Remove an explicit panel choice, moving its widgets instead of losing them.
+
+        The layout edit lock protects dragging, not an explicit Settings action.
+        Count reduction from the primary top panel prefers a bottom companion.
+        """
+        if len(self.panels)==1:return False
+        removed=self.selected
+        if prefer_bottom and removed is self.panels[0] and removed.dock=='top':
+            companions=[p for p in self.panels if p is not removed]
+            removed=next((p for p in companions if p.dock=='bottom'),companions[-1])
+        remaining=[p for p in self.panels if p is not removed]
+        recipient=next((p for p in remaining if p.widgets!=['apps']),remaining[0])
+        recipient.widgets.extend(widget for widget in removed.widgets if widget not in recipient.widgets)
+        self.panels=remaining;self.selected=recipient
+        # Auto/dock/sidebar modes require a dedicated launcher. A count action
+        # that merged it into the surviving bar must not recreate it on layout.
+        if self.mode!='bar' and not any(p.widgets==['apps'] for p in remaining):
+            self.mode='bar';self.overlay_bottom=0
         self.cancel()
         self._session_changed()
         return True
+
+    def remove_empty(self):
+        """Compatibility for older callers; removal now preserves populated panels."""
+        return self.remove()
 
     def rotate(self):
         p=self.selected

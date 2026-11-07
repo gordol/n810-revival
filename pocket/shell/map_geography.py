@@ -19,10 +19,10 @@ def tile(path,digest):
  raw=Path(path).read_bytes()
  if hashlib.sha256(raw).hexdigest()!=digest:raise ValueError('Geography tile integrity failure')
  return json.loads(gzip.decompress(raw))
-def data_for_view(view):
+def data_for_view(view,display_span=None):
  data=load(signature())
  if 'tiles' not in data:return data
- if view.span>80:return dict(roads=data.get('overview_roads',[]),streams=[],labels=data['labels'])
+ if (view.span if display_span is None else display_span)>80:return dict(roads=data.get('overview_roads',[]),streams=[],labels=data['labels'])
  west,south,east,north=view.bbox;step=data['step'];a,b,c,d=data['coverage'];roads={};streams={}
  if east<a or west>c or north<b or south>d:return dict(roads=[],streams=[],labels=data['labels'])
  for iy in range(math.floor(max(south,b)/step),math.floor(min(north,d)/step)+1):
@@ -38,8 +38,10 @@ def covers(view):
  if not bounds or 'tiles' not in data:return False
  a,b,c,d=bounds;w,s,e,n=view.bbox
  return a<=w<=e<=c and b<=s<=n<=d
-def decorate(engine,view,frame,roads=True):
- data=data_for_view(view);frame=list(frame);labels=[];w,h=view.width,view.height
+def decorate(engine,view,frame,roads=True,display_span=None):
+ # A narrow edge patch inherits the whole display's road/label detail level.
+ span=view.span if display_span is None else display_span
+ data=data_for_view(view,span);frame=list(frame);labels=[];w,h=view.width,view.height
  west,south,east,north=view.bbox
  def visible(lon,lat):return west<=lon<=east and south<=lat<=north
  for stream in data.get('streams',[]):
@@ -55,7 +57,7 @@ def decorate(engine,view,frame,roads=True):
    for i in range(steps+1):
     px,py=round(x+(xx-x)*i/steps),round(y+(yy-y)*i/steps);j=py*w+px
     frame[j]=(glyph,(55,177,196),frame[j][2]);shown.append((px,py))
-  if shown and stream.get('name') and view.span<8:
+  if shown and stream.get('name') and span<8:
    x,y=shown[len(shown)//2];labels.append((2,stream['name'],x,y,(100,210,235)))
  if roads:
   for road in data['roads']:
@@ -63,7 +65,7 @@ def decorate(engine,view,frame,roads=True):
    local_limit={'residential':20,'unclassified':20,'living_street':12,'service':8}.get(road.get('kind'))
    if local_limit is not None:
     if view.ground_m_per_halfcell>local_limit:continue
-   elif view.span>road.get('max_span',100):continue
+   elif span>road.get('max_span',100):continue
    a,b,c,d=road.get('bbox',(-180,-90,180,90))
    if c<west or a>east or d<south or b>north:continue
    pts=road['points'];shown=[]
@@ -80,7 +82,7 @@ def decorate(engine,view,frame,roads=True):
      if e>-dy:err-=dy;x+=sx
      if e<dx:err+=dx;y+=sy
    label_limit={'highway':150,'motorway':100,'trunk':70,'primary':15,'secondary':10,'tertiary':5,'forest':8,'residential':1.2,'living_street':.8,'service':.6,'unclassified':2}.get(road.get('kind'),3)
-   if shown and road.get('name') and view.span<=label_limit:
+   if shown and road.get('name') and span<=label_limit:
     name=road['name']
     for word,short in (('Southwest','SW'),('Northwest','NW'),('Southeast','SE'),('Northeast','NE'),('Boulevard','Blvd'),('Avenue','Ave'),('Drive','Dr'),('Street','St'),('Road','Rd')):name=name.replace(word,short)
     x,y=shown[len(shown)//2];labels.append((2 if road.get('kind')=='highway' else 3,name,x,y,(235,220,175)))
@@ -88,7 +90,7 @@ def decorate(engine,view,frame,roads=True):
  for p in list(engine.labels)+hydro_labels()+data['labels']:
   if not visible(p['lon'],p['lat']):continue
   kind=p.get('kind','town');limit=p.get('max_span',200 if kind=='city' else 70 if kind in ('town','village') else 25)
-  if view.span>limit:continue
+  if span>limit:continue
   x,y=map(round,view.project(p['lon'],p['lat']))
   water=kind in ('water','lake','bay');labels.append((1 if water else 0,p.get('name',p.get('label','')),x,y,(100,210,235) if water else (245,241,216)))
  occupied=set();names=set();budget=max(3,min(16,w*h//300))

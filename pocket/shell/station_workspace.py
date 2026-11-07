@@ -9,7 +9,7 @@ import sqlite3
 import textwrap
 from console_icons import aprs_display, profile_from_environment
 from app_widgets import AdaptivePanels,PanelSpec,Canvas,SelectList,Columns,Column,TextInput
-from offline_map import Plane,ScaledPlane,raster_size
+from offline_map import Image,Plane,ContextPlane,ReprojectedPlane,raster_size
 from map_terrain import Renderer
 from paint import ink
 
@@ -149,7 +149,7 @@ class Stations:
             else:self.self_editor.key(key)
             return True
         self.sync()
-        if key in ('u','U') and not self.list.searching and not self.query and not self.list.query:return self.lookup_selected()
+        if key in ('u','U') and not self.list.searching:return self.lookup_selected()
         if (self.layout.resizing or key=='\x12' and not self.list.searching) and self.layout.split_key(key,self.width):return True
         if not self.focus and self.list.search_key(key):
             self.choose();return True
@@ -557,7 +557,17 @@ class StationMap:
         if image is None:
             c.put(0,3,self.renderer.error or loading);self._layer=None
         else:
-            self._layer=self.station_layer(image)
+            # Resample terrain before adding stations. Scaling the composed layer
+            # repeats text glyphs and separates each cell's two terrain halves.
+            display_key=(id(image),w,h)
+            if display_key!=self._display_key:
+                self._display_key=display_key;self._display_image=image
+                if (image.width,image.height)!=(w,h):
+                    projection=getattr(image,'projection',None)
+                    view=self.renderer.module.Viewport(projection.center,projection.span,w,h) if projection is not None else None
+                    cells=ReprojectedPlane(image,view) if view is not None else ContextPlane(image.cells,image.width,image.height,w,h)
+                    self._display_image=Image(w,h,cells,image.legend,image.places,image.seconds,view,image.source)
+            self._layer=self.station_layer(self._display_image)
         catalog=self.context.map_catalog
         if catalog is not None:
             rows=self.filtered_stations();known=sum(row['position'] is not None for row in rows);unknown=len(rows)-known
@@ -569,14 +579,11 @@ class StationMap:
             else:detail=(status+' · '+summary) if updating else detail_status+' · '+summary
             c.put(0,1,(self.scale_label()+' · '+detail)[:self.width].ljust(self.width))
         elif self.context.map_error:c.put(0,1,('Catalog unavailable · '+self.context.map_error)[:self.width].ljust(self.width))
-        display_key=(id(self._layer),w,h)
-        if display_key!=self._display_key:
-            self._display_key=display_key;self._display_layer=self._layer
-            if self._layer and (image.width,image.height)!=(w,h):
-                self._display_layer=(0,2,w,h,ScaledPlane(self._layer[4],image.width,image.height,w,h))
+        self._display_layer=self._layer
         return c.lines()
     def station_layer(self,image):
         """Project station symbols/tracks into any displayed detail or preview view."""
+        self._hit_size=(image.width,image.height)
         target=self.context.target or {};call=target.get('call') or 'No station selected'
         catalog=self.context.map_catalog
         selected=next((row for row in catalog['rows'] if row['call']==call),None) if catalog else None
@@ -669,8 +676,9 @@ class StationMap:
     def entities_at(self,column,row):
         from entity_actions import EntityRef
         if self.filter_open or self._image is None or not (0<=column<self.width and 2<=row<self.height-1):return ()
-        x=(column+.5)*self._image.width/max(1,self.width)-.5
-        y=(row-2+.5)*self._image.height/max(1,self.height-3)-.5
+        hit_width,hit_height=getattr(self,'_hit_size',(self._image.width,self._image.height))
+        x=(column+.5)*hit_width/max(1,self.width)-.5
+        y=(row-2+.5)*hit_height/max(1,self.height-3)-.5
         calls=[]
         for start,line,width,call in reversed(self._station_hits):
             if start-.5<=x<start+width-.5 and abs(line-y)<=.5 and call not in calls:calls.append(call)

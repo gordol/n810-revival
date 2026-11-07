@@ -52,6 +52,7 @@ class SamplingTests(unittest.TestCase):
   from device_connection import AttachedDevice
   closed=[]
   source=AttachedDevice.__new__(AttachedDevice)
+  source._init_saved_radio()
   source._sample_due=30;source.catalogue={};source._wake=None
   source.catalogue_provider=SimpleNamespace(snapshot=lambda:dict(owner_online=True,telemetry=dict(system=dict(observed_at=1))),transport=SimpleNamespace(close=lambda:closed.append(True)),drain=lambda:None)
   source.receive=SimpleNamespace(read=lambda now:dict(live=dict(data={}),connector={}))

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell/vendor/apps/domains/reticulum'))
-from native_owner import installed_library,use_native
+from native_owner import installed_library,use_native,selected_backend,NativeBackend
 import backend_policy
 import lxmf_owner
 
@@ -40,7 +40,9 @@ class NativeSelectionTest(unittest.TestCase):
 
     def test_nokia_rejects_ble_but_accepts_native_serial_services(self):
         with patch.object(backend_policy,'native_required',return_value=True):
-            with self.assertRaisesRegex(ValueError,'Direct BLE'):use_native('ble')
+            for connection,label in (('ble','Direct BLE'),):
+                with self.assertRaisesRegex(ValueError,label):use_native(connection)
+                with self.assertRaisesRegex(ValueError,label):selected_backend(connection)
             with tempfile.NamedTemporaryFile() as file,patch.dict(os.environ,POCKET_RNS_LIBRARY=file.name):
                 for connection in ('usb','bluetooth','hub'):self.assertTrue(use_native(connection))
 
@@ -54,4 +56,17 @@ class NativeSelectionTest(unittest.TestCase):
         with patch.object(backend_policy,'native_required',return_value=False),patch.dict(sys.modules,{'RNS':rns,'LXMF':lxmf}):
             self.assertEqual(lxmf_owner.load_stack(),(rns,lxmf))
         self.assertEqual(sys.meta_path,before)
+    def test_all_launchers_share_connection_policy(self):
+        with patch.object(backend_policy,'native_required',return_value=False):
+            with tempfile.NamedTemporaryFile() as file,patch.dict(os.environ,POCKET_RNS_LIBRARY=file.name):
+                for connection in ('usb','bluetooth','hub','loopback','kiss'):
+                    self.assertTrue(use_native(connection))
+                    self.assertIs(selected_backend(connection),NativeBackend)
+                for connection in ('ble',):
+                    self.assertFalse(use_native(connection))
+                    self.assertIs(selected_backend(connection),lxmf_owner.LXMFBackend)
+            with patch.dict(os.environ,POCKET_RNS_LIBRARY='stock'):
+                for connection in ('usb','bluetooth','hub','loopback','ble','kiss'):
+                    self.assertIs(selected_backend(connection),lxmf_owner.LXMFBackend)
+
 if __name__=='__main__':unittest.main()

@@ -11,6 +11,7 @@ class Walk:
         self.sessions=SelectList(());self.probes=SelectList(());self.walks=();self.probe_rows=()
         self.metadata={};self.error=None;self.scroll=0;self._token=None;self._payload=None;self._empty={}
         self._session_id=None;self._probe_id=None;self._hits=[];self._tabs=[];self._spans=[];self.positions=0
+        self._detail_length=0
     @staticmethod
     def session_id(walk):return walk.get('file'),tuple(walk.get('files') or ())
     @staticmethod
@@ -50,8 +51,8 @@ class Walk:
             (self.choose_session if focus=='sessions' else self.choose_probe)();return True
         if key in ('\t','backtab'):self.layout.cycle(-1 if key=='backtab' else 1)
         elif key in ('\r','\n'):self.layout.cycle()
-        elif focus=='details' and key in ('up','down','pageup','pagedown','home'):
-            self.scroll=0 if key=='home' else max(0,self.scroll+(-1 if key in ('up','pageup') else 1)*(5 if key in ('pageup','pagedown') else 1))
+        elif focus=='details' and key in ('up','down','pageup','pagedown','home','end'):
+            self.scroll=0 if key=='home' else self._detail_length if key=='end' else max(0,self.scroll+(-1 if key in ('up','pageup') else 1)*(5 if key in ('pageup','pagedown') else 1))
         elif focus=='sessions' and self.sessions.key(key):self.choose_session()
         elif focus=='probes' and self.probes.key(key):self.choose_probe()
         elif key=='f5':self._token=None;self.update()
@@ -124,6 +125,7 @@ class Walk:
             else:
                 body=[]
                 for line in self.details():body.extend(textwrap.wrap(line,max(1,w)) or [''])
+                self._detail_length=len(body)
                 self.scroll=min(self.scroll,max(0,len(body)-max(1,h-1)))
                 for n,line in enumerate(body[self.scroll:self.scroll+max(1,h-1)],y+1):c.put(x,n,line,w)
         c.put(0,self.height-1,'Tab pane  ↑/↓ select/scroll  Enter next pane')

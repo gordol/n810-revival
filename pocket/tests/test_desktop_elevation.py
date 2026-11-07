@@ -59,3 +59,29 @@ class DesktopElevationTests(unittest.TestCase):
    self.assertIn('Local DEM',image.legend)
    self.assertNotEqual(image.source,'regional-pack')
   finally:form.close();form.renderer.close()
+
+class DisplayResolutionTests(unittest.TestCase):
+ def sample_fixture(self,span,missing=False):
+  from array import array
+  from types import SimpleNamespace
+  import numpy as np
+  with tempfile.TemporaryDirectory() as root:
+   coarse=Path(root)/'coarse';fine=Path(root)/'fine'
+   for p in (coarse,fine):p.write_text('{}')
+   def meta(path,*args):
+    return dict(nx=512,nz=512,longitude_first=0.,latitude_first=0.,longitude_step=.01 if path==coarse else .001,latitude_step=.01 if path==coarse else .001,nodata=-32768,_index_stamp=0,tiles={f'{x},{y}':dict(width=256,height=256) for y in range(2) for x in range(2)})
+   calls=[]
+   def tile(path,*args):
+    calls.append(path.name);return array('h',[-32768 if missing else 100] *65536) if path==coarse else array('h',[900]*65536),256
+   with patch.object(dem,'sources',return_value=[coarse,fine]),patch.object(dem,'metadata',side_effect=meta),patch('local_elevation.tile',side_effect=tile):
+    result,_=dem.sample(SimpleNamespace(width=3,height=1,span=span,center=(.2,.2),cell_aspect=2))
+   return result,calls
+ def test_zoomed_out_view_skips_unnecessary_fine_tiles(self):
+  values,calls=self.sample_fixture(20.)
+  self.assertTrue((values==100).all());self.assertNotIn('fine',calls)
+ def test_zoomed_in_view_uses_fine_tiles(self):
+  values,calls=self.sample_fixture(.1)
+  self.assertTrue((values==900).all());self.assertIn('fine',calls)
+ def test_missing_coarse_coverage_uses_fine_data_even_when_zoomed_out(self):
+  values,calls=self.sample_fixture(20.,missing=True)
+  self.assertTrue((values==900).all());self.assertIn('fine',calls)

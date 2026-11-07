@@ -28,8 +28,14 @@ class DeviceTests(unittest.TestCase):
 from pathlib import Path
 sys.path.insert(0,sys.argv[1])
 from owner import Owner,serve
+sys.path.insert(0,str(Path(sys.argv[1]).parents[3]))
+from radio_catalog import pack,page
+raw,manifest=pack(dict(radio_snapshot=dict(complete=True,banks=[dict(index=0,name='Saved device',channels=[])])))
 class Device(Owner):
- def snapshot(self):return dict(version=1,owner_online=True,device='test-device',services=[dict(id='system',available=True),dict(id='reticulum',available=True)],telemetry=dict(system=dict(source='test-device',observed_at=1,memory_bytes=dict(total=128))))
+ def dispatch(self,request):
+  if request.get('scope')=='radio-catalog':return page(raw,manifest,request['payload'])
+  return super().dispatch(request)
+ def snapshot(self):return dict(version=1,owner_online=True,device='test-device',radio_catalog=manifest,services=[dict(id='system',available=True),dict(id='reticulum',available=True)],telemetry=dict(system=dict(source='test-device',observed_at=1,memory_bytes=dict(total=128))))
 serve(Path(sys.argv[2])/'system.sock',Path(sys.argv[2])/'state','test',owner_factory=Device)
 '''
             process=subprocess.Popen([sys.executable,'-c',script,str(SHELL/'vendor/apps/domains/reticulum'),str(root)])
@@ -45,6 +51,8 @@ serve(Path(sys.argv[2])/'system.sock',Path(sys.argv[2])/'state','test',owner_fac
             self.wait(lambda:connection.source is source and connection.read(0)['connector'].get('device',{}).get('connected'))
             payload=connection.read(0)
             self.assertEqual(payload['live']['data']['system']['source'],'test-device')
+            self.wait(lambda:connection.read(time.time()).get('catalog',{}).get('radio_snapshot'))
+            self.assertEqual(connection.read(time.time())['catalog']['radio_snapshot']['banks'][0]['name'],'Saved device')
             self.assertTrue(payload['connector']['attachment']['connected'])
             self.assertFalse(payload['live']['data']['receive_connected'])
             self.wait(lambda:selection.snapshot().get('owner_online'))

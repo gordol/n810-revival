@@ -1,0 +1,15 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+set -eu
+KIT=/usr/local/share/pocket-field-kit
+export LD_LIBRARY_PATH="$KIT/lib"
+case "${1:-help}" in
+ help|--help) printf '%s\n' 'pocket-recovery info | identify | boot-sd' 'info: installed kit information. identify: query a connected target in USB boot mode.' 'boot-sd: RAM-load the supplied kernel and boot an already provisioned SD card.' 'No NAND or bootloader flashing is performed by this wrapper.' 'See the offline Recovery and Install guide before changing USB roles or connecting tablets.';;
+ info) cat "$KIT/manifest.json";;
+ identify) exec "$KIT/bin/0xFFFF" -I;;
+ boot-sd) test "${2:-}" = '--target-rx44' || { echo 'Explicit target required: pocket-recovery boot-sd --target-rx44'; exit 1; }
+   echo 'RAM loading N810 kernel; target SD root must be /dev/mmcblk0p2.'
+   exec "$KIT/bin/0xFFFF" -m "kernel:$KIT/kernel/zImage-omap2420-n810" -l -b;;
+ *) echo 'Unknown command; use --help' >&2;exit 1;;
+esac

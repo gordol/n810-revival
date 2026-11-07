@@ -2,14 +2,14 @@
 import argparse,gzip,hashlib,json,tarfile,io
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-SELECTED=('map-geography.json.gz','geography','hydrography','elevation-fine','elevation.json','maps','uls.sqlite','shoreline-puget.json.gz','repeaters/repeaters.json')
+SELECTED=('map-geography.json.gz','geography','hydrography','elevation-fine','elevation.json','maps','shoreline-puget.json.gz','repeaters/repeaters.json')
 def digest(path):
     with path.open('rb') as source:return hashlib.file_digest(source,'sha256').hexdigest()
-def package(output):
+def package(output,include_fcc=False):
     files={}
     catalogue=ROOT/'data/elevation.json'
     selected=tuple(name for name in SELECTED if name!='elevation-fine' or not catalogue.is_file())
-    for name in selected:
+    for name in selected+(('uls.sqlite',) if include_fcc else ()):
         source=ROOT/'data'/name
         if not source.exists():continue
         if source.is_dir():
@@ -37,8 +37,10 @@ def package(output):
         for name in ('elevation-western-wa','elevation-lakewood'):
             source=ROOT/'shell/data'/name
             files.update((str(p.relative_to(ROOT/'shell/data')),p) for p in source.rglob('*') if p.is_file())
-    if not all(name in files for name in ('geography/index.json','hydrography/index.json','uls.sqlite','repeaters/repeaters.json')):
-        raise ValueError('Complete prepared map, FCC and repeater snapshots required')
+    if not all(name in files for name in ('geography/index.json','hydrography/index.json','repeaters/repeaters.json')):
+        raise ValueError('Complete prepared map and repeater snapshots required')
+    if include_fcc and 'uls.sqlite' not in files:
+        raise ValueError('Requested FCC snapshot is not prepared')
     if any(p.is_symlink() for p in files.values()):raise ValueError('Reference snapshots must be regular files')
     manifest=dict(schema_version=1,product_version=(ROOT/'VERSION').read_text().strip(),files={n:dict(sha256=digest(p),size=p.stat().st_size) for n,p in sorted(files.items())})
     output.parent.mkdir(parents=True,exist_ok=True)
@@ -53,4 +55,5 @@ def package(output):
     print(json.dumps(receipt),flush=True)
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output',type=Path,required=True)
-    package(parser.parse_args().output)
+    parser.add_argument('--include-fcc',action='store_true',help='Explicitly include a local FCC snapshot for offline device transfer')
+    args=parser.parse_args();package(args.output,include_fcc=args.include_fcc)

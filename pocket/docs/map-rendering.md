@@ -12,7 +12,15 @@ only exposed edge strips. Each strip includes two extra cells for slope and line
 calculations; those extra samples are discarded when copying the strip. A new
 scale, changed layer identity, or view without overlap requires fresh rendering.
 Context views use their requested dimensions; detail views may retain padding
-for subsequent pans. The old image remains available during background work.
+for subsequent pans, with one eighth of the visible dimensions on each edge
+(about 1.56 times the visible area). The old image remains available during
+background work. Across scale changes it samples the terrain's two half-cell
+colours separately; it never stretches road or station glyphs into repeated
+stripes. Station annotations and hit targets are projected at the displayed size.
+
+The desktop DEM sampler gathers only unresolved land pixels after selecting a
+display overview. Covered pixels and known water do not trigger fine tile reads.
+The packed colour lookup preserves the renderer's existing RGB565 quantization.
 
 Geometry helpers are ordinary functions. The cache is stateful because it owns
 retained images and their bounded lifetime. The existing single rendering worker
@@ -37,3 +45,16 @@ locally; analysis retains fine samples. Generated maps share `data/maps/`.
 readable for compatibility, but new builds do not generate them or mirror data
 into Map Library resources. Area selection is currently through the CLI and
 saved configuration; the integrated area/layer download pane remains unfinished.
+
+## Terrain applications
+
+Station Map owns terrain profiles, antenna obstruction and LOS radius tools;
+there is no separate Terrain Profile launcher. The profile implementation remains
+shared by those tools.
+
+Rainier walk is the ground-level 3D exploration demo. Press O there to open
+Scenery's Viewpoints section, with the original, wide, elevated and valley camera
+compositions. These are independent overview cameras; returning to Rainier walk
+preserves its walking position. Scenery also retains its camera adjustments and
+saved scene library. APRS Walk Logs is the separate read-only field-test log
+viewer, previously titled Walk.

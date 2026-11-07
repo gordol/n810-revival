@@ -8,7 +8,7 @@ from functools import partial
 import time
 import math
 import os
-from paint import ink
+from paint import ink,rgb
 
 _BUNDLED=Path(__file__).resolve().parent/'vendor/packet-console'
 ROOT=_BUNDLED
@@ -43,6 +43,16 @@ class Image:
     source:str='rendered'
 
 
+_Q5=tuple(round(round(value*31/255)*255/31) for value in range(256))
+_Q6=tuple(round(round(value*63/255)*255/63) for value in range(256))
+def map_rgb(color):
+    """The same RGB565 quantization as paint.rgb, without repeated arithmetic."""
+    r,g,b=color
+    if type(r) is int and type(g) is int and type(b) is int and 0<=r<=255 and 0<=g<=255 and 0<=b<=255:
+        return (_Q5[r]<<16)|(_Q6[g]<<8)|_Q5[b]
+    return rgb(r,g,b)
+
+
 class Plane:
     """Sparse app annotations over the shared immutable terrain cells."""
     __slots__=('base','overlay')
@@ -55,14 +65,22 @@ class ScaledPlane:
     __slots__=('base','sw','sh','width','height')
     def __init__(self,base,sw,sh,width,height):self.base,self.sw,self.sh,self.width,self.height=base,sw,sh,width,height
     def __getitem__(self,index):
+        if index<0:index+=len(self)
+        if not 0<=index<len(self):raise IndexError(index)
         x,y=index%self.width,index//self.width
         return self.base[min(self.sh-1,y*self.sh//self.height)*self.sw+min(self.sw-1,x*self.sw//self.width)]
     def __len__(self):return self.width*self.height
 
 class ContextPlane(ScaledPlane):
     """Scale half-cell colours, never tile text glyphs into stripes or grids."""
+    __slots__=('_cache',)
+    def __init__(self,*args):
+        super().__init__(*args);self._cache={}
     def __getitem__(self,index):
+        if index<0:index+=len(self)
+        if not 0<=index<len(self):raise IndexError(index)
         if (self.sw,self.sh)==(self.width,self.height):return self.base[index]
+        if index in self._cache:return self._cache[index]
         x,y=index%self.width,index//self.width
         sx=min(self.sw-1,int((x+.5)*self.sw/self.width));colors=[]
         for half in (0,1):
@@ -71,7 +89,48 @@ class ContextPlane(ScaledPlane):
             front=char=='█' or char=='▀' and sample%2==0 or char=='▄' and sample%2==1
             colors.append(tuple((style>>shift)&255 for shift in ((40,32,24) if front else (16,8,0))))
         a,b=colors
-        return (' ' if a==b else '▀',ink(*a,background=b))
+        value=(' ' if a==b else '▀',ink(*a,background=b))
+        self._cache[index]=value
+        return value
+
+
+class ReprojectedPlane:
+    """Translate retained cells, or resample terrain halves when scale changes."""
+    __slots__=('original','base','sw','sh','width','height','xs','ys','half_ys','empty','resampled','_cache')
+    def __init__(self,image,view):
+        if isinstance(image.cells,ReprojectedPlane):image=image.cells.original
+        self.original=image;self.base=image.cells;self.sw=image.width;self.sh=image.height
+        self.width,self.height=view.width,view.height
+        degrees=view.span/max(1,view.width-1)/111.32
+        scale=max(.000001,math.cos(math.radians(view.center[0])))
+        self.xs=tuple(round(image.projection.project(view.center[1]+(x-(view.width-1)/2)*degrees/scale,view.center[0])[0]) for x in range(view.width))
+        self.ys=tuple(round(image.projection.project(view.center[1],view.center[0]-(y-(view.height-1)/2)*degrees*view.cell_aspect)[1]) for y in range(view.height))
+        old=image.projection
+        old_step=old.span/max(1,old.width-1)
+        self.resampled=abs(old_step-view.span/max(1,view.width-1))/max(1e-12,old_step)*max(view.width,view.height)>.25 or old.cell_aspect!=view.cell_aspect
+        self.half_ys=tuple(math.floor((image.projection.project(view.center[1],view.center[0]-(y/2-.25-(view.height-1)/2)*degrees*view.cell_aspect)[1]+.5)*2) for y in range(2*view.height)) if self.resampled else ()
+        self.empty=(' ',ink(16,24,24,background=(16,24,24)));self._cache={}
+    def __len__(self):return self.width*self.height
+    def __getitem__(self,index):
+        if index<0:index+=len(self)
+        if not 0<=index<len(self):raise IndexError(index)
+        x=self.xs[index%self.width];row=index//self.width
+        if not self.resampled:
+            y=self.ys[row]
+            return self.base[y*self.sw+x] if 0<=x<self.sw and 0<=y<self.sh else self.empty
+        if index in self._cache:return self._cache[index]
+        colors=[]
+        for half in self.half_ys[2*row:2*row+2]:
+            if not (0<=x<self.sw and 0<=half<2*self.sh):color=self.empty[1]&0xffffff
+            else:
+                char,style=self.base[(half//2)*self.sw+x]
+                front=char=='█' or char=='▀' and half%2==0 or char=='▄' and half%2==1
+                color=((style>>24) if front else style)&0xffffff
+            colors.append(color)
+        a,b=colors
+        value=(' ' if a==b else '▀',(1<<48)|(a<<24)|b)
+        self._cache[index]=value
+        return value
 
 
 class Renderer:
@@ -92,7 +151,8 @@ class Renderer:
     def region_status(self,image=None):
         return dict(source=getattr(image,'source',None),regions=len(self.regions.ready),
                     hits=self.regions.hits,builds=self.regions.builds,
-                    retained_cells=sum(view.width*view.height for view,_,_ in self.regions.ready.values()))
+                    retained_cells=sum(view.width*view.height for view,_,_ in self.regions.ready.values()),
+                    reused_cells=self.regions.reused_cells,prepared_cells=self.regions.prepared_cells)
     def loading_message(self):
         if self.pending and self.pending[0]!=self._wanted:return 'Waiting for earlier map view…'
         if self.pending and self.pending[1].done():return 'Displaying completed map…'
@@ -140,13 +200,13 @@ class Renderer:
         _,center,span,width,height,terrain,roads=key
         viewport=self.module.Viewport(center,span,width,height)
         projection=None;source=None
-        if self.reuse_regions and self.region_compatible(span) and width>1:
+        if key[0] in ('map','context') and self.reuse_regions and self.region_compatible(span) and width>1:
             signature=(self.region_identity(),bool(terrain),bool(roads))
             projection=self.regions.cached(viewport,signature)
             prepared=getattr(self.engine,'prepared',None)
             disk=prepared.disk_path(('next-rgb-v1',(viewport.key,bool(terrain),bool(roads)))) if prepared else None
             if projection is None and not (disk and Path(disk).is_file()):
-                projection=self.regions.frame(viewport,lambda view:self._packed_view(view,terrain,roads),signature)
+                projection=self.regions.frame(viewport,lambda view:self._packed_view(view,terrain,roads,display_span=viewport.span),signature,padding=key[0]=='map')
             if projection is not None:
                 self.loading_phase='region'
                 cells=tuple(projection.cells);legend=projection.legend+' · regional base'
@@ -160,7 +220,7 @@ class Renderer:
         if stage is not None:self._stage('places_seconds',stage)
         self.loading_phase='ready'
         return Image(width,height,cells,legend,places,time.monotonic()-began,projection or viewport,source)
-    def _packed_view(self,viewport,terrain,roads):
+    def _packed_view(self,viewport,terrain,roads,display_span=None):
         prepared=getattr(self.engine,'prepared',None)
         cache_key=(viewport.key,bool(terrain),bool(roads)) if hasattr(viewport,'key') else None
         disk=prepared.disk_path(('next-rgb-v1',cache_key)) if prepared and cache_key else None
@@ -172,12 +232,12 @@ class Renderer:
         # rasters on desktop; station/path overlays are composed afterward.
         frame,legend=self.engine.prepare(viewport,terrain,roads and not (desktop_map() and covers(viewport)))
         from map_geography import decorate
-        if desktop_map():frame=decorate(self.engine,viewport,frame,roads)
+        if desktop_map():frame=decorate(self.engine,viewport,frame,roads,display_span=display_span)
         if stage is not None:self._stage('prepare_seconds',stage)
         colors={}
         def color(fg,bg):
             pair=fg,bg
-            if pair not in colors:colors[pair]=ink(*fg,background=bg)
+            if pair not in colors:colors[pair]=(1<<48)|(map_rgb(fg)<<24)|map_rgb(bg)
             return colors[pair]
         stage=time.monotonic() if self.timing_enabled else None
         cells=tuple((char,color(fg,bg)) for char,fg,bg in frame)

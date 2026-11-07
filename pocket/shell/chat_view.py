@@ -10,7 +10,7 @@ class ChatView:
         self.width,self.height=84,25
         self.layout=AdaptivePanels((PanelSpec('threads','Contacts / channels',20,28),PanelSpec('chat','Conversation',30,60)))
         self.list=SelectList(());self.rows=[];self.selected=None;self.state={};self.drafts={};self.context=None
-        self.editing=False;self.notice='';self.confirm=None;self.discovery=False;self.hits=[];self.rects={};self._spans=[];self.scroll=0;self.pending_drafts={}
+        self.own_identity=False;self.editing=False;self.notice='';self.confirm=None;self.discovery=False;self.hits=[];self.rects={};self._spans=[];self.scroll=0;self.pending_drafts={}
     def refresh(self):
         state=self.provider.snapshot() if self.provider else {}
         context=(state.get('local_identity') or (state.get('public_card') or {}).get('identity'),getattr(self.provider,'label',None))
@@ -45,9 +45,14 @@ class ChatView:
         try:self.last_request=self.provider.request(action,payload);return True
         except (ValueError,OSError) as error:self.notice=str(error);return False
     def send(self):
+        if not self.selected:
+            self.notice='Select a contact or channel first.'
+            return True
         row=self.row();text=self.editor().text
         if len(self.pending_drafts)>=8:self.notice='Waiting for pending sends; inspect their status first.';return True
-        if not self.selected or not text:return False
+        if not text:
+            self.notice='Type a message before sending.'
+            return True
         if self.selected[0]=='peer':
             if not row.get('pinned'):self.notice='Compare and verify this peer first.';return True
             sent=self.request('send',peer=self.selected[1],text=text)
@@ -60,9 +65,13 @@ class ChatView:
         if self.rows:self.selected=self.rows[self.list.index]['key'];self.scroll=0
     def actions(self):
         pages=([('[','Prev contacts'),(']','Next contacts')] if self.protocol=='meshcore' and self.state.get('peers_total',0)>self.state.get('peers_page_size',32) else [])
-        return pages+[('o','Connect'),('c','Compose'),('s','Send'),('v','Verify')]+([('d','Disconnect')] if self.protocol=='meshcore' else [('a','Hide presence' if self.state.get('message_discovery') else 'Discovery')])
+        return pages+[('o','Connect'),('c','Compose'),('s','Send'),('v','Verify')]+([('d','Disconnect')] if self.protocol=='meshcore' else [('a','Hide presence' if self.state.get('message_discovery') else 'Discovery'),('i','My identity')])
     def key(self,key):
         self.refresh()
+        if self.own_identity:
+            if key in ('\x1b','i'):self.own_identity=False
+            return True
+        if key=='i' and self.protocol=='reticulum' and not (self.editing or self.confirm or self.discovery):self.own_identity=True;return True
         if self.discovery:
             if key=='\x1b':self.discovery=False
             elif key.lower()=='y':
@@ -102,6 +111,7 @@ class ChatView:
             else:
                 radio=next(iter(self.state.get('radios',())),{})
                 if radio:self.request('connect',station=radio['station_id'],radio=radio['radio_id'])
+                else:self.notice='No radio available. Open Reticulum.'
             return True
         if key=='d' and self.protocol=='meshcore':self.request('disconnect');return True
         if key in ('\t','backtab'):self.layout.cycle(-1 if key=='backtab' else 1);return True
@@ -135,6 +145,19 @@ class ChatView:
         self._spans=canvas.styled_spans([]);return canvas.lines()
     def lines(self):
         self.refresh();canvas=Canvas(self.width,self.height);self.hits=[]
+        if self.own_identity:
+            card=self.state.get('public_card') or {}
+            key=card.get('public_key','')
+            try:
+                digest=hashlib.sha256(bytes.fromhex(key)).hexdigest().upper() if key else ''
+            except ValueError:digest=''
+            fingerprint=' '.join(digest[i:i+8] for i in range(0,len(digest),8))
+            content=['Your Reticulum identity',str(card.get('label') or ''),str(card.get('identity') or 'Connect an owner first.'),'','Full fingerprint:',fingerprint,'','Compare this with the fingerprint on the other tablet.']
+            row=0
+            for line in content:
+                for part in textwrap.wrap(line,max(1,self.width-2)) or ['']:
+                    if row<self.height-2:canvas.put(0,row,part);row+=1
+            label='[Esc Back]';canvas.put(0,self.height-1,label);canvas.role(0,self.height-1,len(label),'control');self.hits=[(0,self.height-1,len(label),'\x1b')];self._spans=canvas.styled_spans([]);return canvas.lines()
         if self.discovery:
             return self.prompt(('Publish messaging presence?', 'Reachable Reticulum nodes can discover this identity. Messages remain encrypted. Previously published routes cannot be recalled.'))
         if self.confirm:

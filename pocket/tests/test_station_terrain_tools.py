@@ -14,12 +14,14 @@ class SharedMapTests(unittest.TestCase):
         base=StationMap(Context(),SOURCES,lambda:None)
         app=StationMapTools(base)
         self.addCleanup(base.renderer.close);self.addCleanup(app.close)
-        until=time.monotonic()+20
+        # Functional interaction coverage includes cold reference-data loading.
+        # Shared Docker mounts can take >5 s; UI latency is measured separately.
+        until=time.monotonic()+60
         while time.monotonic()<until:
             app.lines()
             if base._image:return app
             time.sleep(.01)
-        self.fail(base.renderer.error or 'Map did not load')
+        self.fail(base.renderer.error or 'Map did not load: '+base.renderer.loading_message())
     def test_shared_sidebar_live_layers_and_key_priority(self):
         app=self.map();app.width=120;app.height=45
         app.key('t');camera=app.base.center,app.base.span

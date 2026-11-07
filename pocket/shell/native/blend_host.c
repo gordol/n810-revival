@@ -100,6 +100,10 @@ static PyObject *blend_scene(PyObject *self,PyObject *args){
             if(color&CW_FRAME_DEFERRED){
                 if(glyph!=32)value=(BlendCell){glyph,cw_frame_resolve(color,behind.glyph,behind.ink)};
                 under=fill?(opacity<1?(BlendCell){prior.glyph,blend_pane(prior.ink,opacity)}:(BlendCell){32,0}):prior;
+            }else if(color&CW_FRAME_INK){
+                /* Opaque chrome includes spaces and does not inherit pane opacity. */
+                value=(BlendCell){glyph,color};
+                under=fill?(opacity<1?(BlendCell){prior.glyph,blend_pane(prior.ink,opacity)}:(BlendCell){32,0}):prior;
             }else{
                 if(color){
                     if(fill&&opacity<1){

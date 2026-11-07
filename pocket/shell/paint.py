@@ -1,6 +1,7 @@
 """Compact RGB inks and retained static/dynamic scene layers."""
 from functools import lru_cache
 from collections.abc import Mapping
+import themes
 
 
 def rgb(r,g,b):
@@ -48,7 +49,8 @@ def frame_template(role,palette,tinted=True):
 def chrome_ink(role,palette,tinted=True):
     """Opaque window chrome, independent of imagery beneath the window."""
     template=frame_template(role,palette,tinted)
-    back=(38,30,48) if role==1 else (24,28,32)
+    name=themes.from_palette(palette)
+    back=themes.roles(name)['panel' if role==1 else 'body'][1] if name else (38,30,48) if role==1 else (24,28,32)
     return (template&~(FRAME_DEFERRED|0xffffff))|rgb(*back)
 
 
@@ -171,13 +173,20 @@ def window_pane_ink(color,opacity):
 @lru_cache(maxsize=128)
 def control_ink(role,palette,focused=True):
     if role=='obstruction':return ink(255,255,255,background=(170,35,25))
-    accent={'ice':(110,210,220),'amber':(230,185,95),'paper':(190,195,190),'violet':(175,145,220),'rose':(225,140,160),'ocean':(110,165,220)}[palette]
+    material=palette.material if isinstance(palette,themes.ThemeContext) else themes.roles(palette)
+    if material and role=='caret':
+        fg,bg=material['body'];return ink(*bg,background=fg)
+    if material and role in material:
+        fg,bg=material['body' if role=='selected' and not focused else role]
+        return ink(*fg,background=bg)
+    accent={'ice':(110,210,220),'amber':(230,185,95),'paper':(190,195,190),'violet':(175,145,220),'rose':(225,140,160),'ocean':(110,165,220)}.get(palette,(110,210,220))
     map_roles={'map':((90,125,110),(10,19,17)),'water':((80,145,180),(10,19,17)),'terrain':((90,140,100),(10,19,17)),'road':((175,155,100),(10,19,17)),'station':((245,210,110),(10,19,17))}
     if role in map_roles:
         fg,bg=map_roles[role];return ink(*fg,background=bg)
     surfaces={'panel':(25,31,34),'rail':(17,22,25),'inset':(32,40,44),'toolbar':(38,45,49)}
     if role in surfaces:return ink(195,204,205,background=surfaces[role])
     bg=(23,26,28);fg=(190,195,195)
+    if role=='caret':return ink(23,26,28,background=accent)
     if role in ('selected','input'):
         bg=tuple(18+v*(.22 if focused else .10) for v in accent);fg=(240,243,240)
     elif role=='match':bg=(66,56,30);fg=(255,244,185)

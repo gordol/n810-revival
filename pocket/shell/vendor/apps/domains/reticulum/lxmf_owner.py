@@ -415,10 +415,8 @@ def main():
         raise SystemExit(0)
     signal.signal(signal.SIGTERM, stop)
     def factory(state, station):
-        backend=LXMFBackend
-        if args.connection in ('usb','bluetooth','hub','loopback'):
-            from native_owner import installed_library,NativeBackend
-            if installed_library() is not None:backend=NativeBackend
+        from native_owner import selected_backend
+        backend = selected_backend(args.connection)
         owner = backend(state, station, args.rns_config, args.transport_id, args.connection)
         owner.service_owner_socket = args.service_owner_socket
         return owner

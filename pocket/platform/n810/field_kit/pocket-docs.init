@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+### BEGIN INIT INFO
+# Provides: pocket-docs
+# Required-Start: $network
+# Required-Stop: $network
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: Offline public Pocket documentation
+### END INIT INFO
+set -eu
+KIT=/usr/local/share/pocket-field-kit
+PID=/run/pocket-docs.pid
+case "${1:-status}" in
+ start) start-stop-daemon --start --quiet --background --make-pidfile --pidfile "$PID" --exec "$KIT/bin/busybox" -- httpd -f -u nobody:nogroup -p 127.0.0.1:8080 -h "$KIT/docs";;
+ stop) start-stop-daemon --stop --quiet --oknodo --pidfile "$PID" --exec "$KIT/bin/busybox"; rm -f "$PID";;
+ restart) "$0" stop; "$0" start;;
+ status) if test -s "$PID" && kill -0 "$(cat "$PID")" 2>/dev/null; then echo 'Offline docs running locally on 127.0.0.1:8080'; else echo 'Offline docs stopped'; exit 3;fi;;
+ *) echo 'Usage: pocket-docs {start|stop|restart|status}' >&2;exit 1;;
+esac

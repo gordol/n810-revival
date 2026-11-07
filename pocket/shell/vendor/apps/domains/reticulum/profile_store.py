@@ -1,10 +1,16 @@
 """Private named radio profiles; persistence never activates a radio."""
-from discovery_codec import unpack,legacy_value,atomic_write as atomic_state
+if __package__:
+    from .discovery_codec import unpack,legacy_value,atomic_write as atomic_state
+else:
+    from discovery_codec import unpack,legacy_value,atomic_write as atomic_state
 import os
 from pathlib import Path
 import stat
 
-from endpoints import Endpoint, token, saved_endpoint
+if __package__:
+    from .endpoints import Endpoint, token, saved_endpoint
+else:
+    from endpoints import Endpoint, token, saved_endpoint
 
 
 FIELDS = ('frequency', 'bandwidth', 'txpower', 'spreadingfactor', 'codingrate')

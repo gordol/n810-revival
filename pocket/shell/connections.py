@@ -254,6 +254,14 @@ class Connections:
     def owner_context(self):
         return self.control.owner_context if self.control else None
 
+    @property
+    def radio_read_endpoint(self):
+        source=getattr(self.source,'receive',self.source)
+        bridge=getattr(source,'bridge',None)
+        if bridge:return Path(bridge)/'radio-control.sock'
+        if getattr(self.source,'local_device',False):return Path('/dev/shm/n810-radio-read/control.sock')
+        return None
+
     def history_page(self,before=None,anchor=None):
         source=self.source
         method=getattr(source,'history_page',None)

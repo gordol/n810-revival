@@ -46,6 +46,13 @@ class RadioRead:
         try:
             info=self.path.parent.lstat();node=self.path.lstat()
             if not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o700 or not stat.S_ISSOCK(node.st_mode) or node.st_uid!=os.getuid():return 'Radio read socket must be in a private same-user directory'
+        except FileNotFoundError as error:
+            if self.path.name=='radio-control.sock':
+                try:
+                    info=self.path.parent.lstat()
+                    if stat.S_ISDIR(info.st_mode) and info.st_uid==os.getuid() and stat.S_IMODE(info.st_mode)==0o700 and (self.path.parent/'owner.json').is_file():return None
+                except OSError:pass
+            return str(error)
         except OSError as error:return str(error)
         return None
     @property
@@ -75,6 +82,9 @@ class RadioRead:
         if self.active:self.cancelled.set();return True
         return self._launch('cancel')
     def _rpc(self,operation,job_deadline=None):
+        if self.path.name=='radio-control.sock' and not self.path.exists():
+            from receive_bridge import forward_radio_control
+            self.path=forward_radio_control(self.path.parent)
         self.endpoint_error=self.endpoint_problem()
         if self.endpoint_error:raise ValueError(self.endpoint_error)
         value=self.request if operation=='read_current' else dict(version=1,operation=operation,request_id=self.request['request_id'])

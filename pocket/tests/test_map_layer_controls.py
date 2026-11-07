@@ -36,3 +36,16 @@ class Tests(unittest.TestCase):
         saved=form.session_state()
         other=StationMapTools(Base());other.restore_session(saved)
         self.assertTrue(other.base.station_labels);self.assertTrue(other.base.repeater_labels)
+
+    def test_click_saved_qth_without_repeater_does_not_crash(self):
+        from entity_actions import EntityRef
+        base=Base();base.side_overview=False;base.center=(0.,0.);base.span=10.
+        base.target_box=SimpleNamespace(revision=0)
+        base.pointer_event=lambda *args:True
+        form=StationMapTools(base)
+        point=dict(saved_qth=True,position=(0.,0.),label='QTH')
+        form.entities_at=lambda *args:(EntityRef('map-point','qth',point),)
+        form.pointer_event(('mouse',0,20,10,False),100)
+        form.pointer_event(('mouse',0,20,10,True),100)
+        self.assertEqual(form.detail_point,point);self.assertIsNone(form.detail_repeater)
+        self.assertEqual(form.sidebar_tab,'details')

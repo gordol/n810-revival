@@ -223,7 +223,7 @@ class LazyApplication:
     @property
     def form(self):return getattr(self.owner,'view',self.owner)
     @property
-    def navigation_form(self):return None if self.error else self.form
+    def navigation_form(self):return None if self.error else getattr(self.form,'navigation_form',self.form)
     def _ensure(self):
         if self.owner is None and not self.error and not self.closed:
             try:

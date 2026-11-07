@@ -42,4 +42,11 @@ class CarriersTests(unittest.TestCase):
             self.assertIs(result,factory.return_value)
             self.assertEqual(factory.call_args.kwargs['carriers'],selection['carriers'])
 
+    def test_native_carrier_capabilities_do_not_silently_ignore_routing(self):
+        for kind in ('tcp-client','tcp-server','serial','usb','bluetooth','kiss'):
+            carriers.validate_native([dict(type=kind)])
+        for specs,relay in (([dict(type='kiss')],True),([dict(type='lan')],False),
+                            ([dict(type='ax25')],False),([dict(type='serial')]*2,False)):
+            with self.assertRaises(ValueError):carriers.validate_native(specs,relay)
+
 if __name__=='__main__':unittest.main()

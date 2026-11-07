@@ -26,8 +26,9 @@ class SceneryApp:
         self._active=False;self._layer=None;self._display=None;self._clock=time.monotonic
         self.controls_visible=True;self.width=96;self.height=30
         shared=scene_controls(self.scene)
+        camera_controls=rows(self.scene,library)
         self.manager=SettingsManager([('Scenery',(' /\\ ','/~~\\','    '),'Landscape, camera and library',[
-            ('Scene',rows(self.scene,library)),('Nature',[c.row() for c in shared['sky']]),('Shadows',[shared['shadows'][-1].row()])])],close=close)
+            ('Viewpoints',camera_controls[:2]),('Camera and library',camera_controls[2:]),('Nature',[c.row() for c in shared['sky']]),('Shadows',[shared['shadows'][-1].row()])])],close=close)
         self.manager.category='Scenery'
     def set_active(self,active):
         if self._active and not active:
@@ -122,6 +123,7 @@ class SceneryApp:
     def help_pages(self):
         return (('Scenery viewport',('The scene renders inside this window; the desktop background stays unchanged.',
             'Click the bottom Show / Hide controls button or press Ctrl-O.',
+            'Viewpoints offers original, wide, elevated and valley overview cameras.',
             'Tab selects a control; Left / Right adjusts it. [ / ] changes section.',
             'Save scenery stores a recipe; Capture view saves the completed image and camera.',
             'Escape closes the window. Reopening keeps this scene for the session.')),)

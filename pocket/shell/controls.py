@@ -10,7 +10,8 @@ class Choice:
     def read(self):return '< '+str(self.get())+' >'
     def adjust(self,direction):
         value=self.get();index=self.values.index(value) if value in self.values else 0
-        self.set(self.values[(index+direction)%len(self.values)])
+        changed=self.values[(index+direction)%len(self.values)]
+        if changed!=value:self.set(changed)
     def row(self):return self.label,self.read,self.adjust
 
 class Slider:
@@ -20,7 +21,10 @@ class Slider:
     def read(self):
         value=self.get();fill=round(8*(value-self.minimum)/(self.maximum-self.minimum))
         return '['+'='*fill+'-'*(8-fill)+'] '+self.format(value)
-    def adjust(self,direction):self.set(round(max(self.minimum,min(self.maximum,self.get()+self.step*direction)),6))
+    def adjust(self,direction):
+        current=self.get()
+        changed=round(max(self.minimum,min(self.maximum,current+self.step*direction)),6)
+        if changed!=current:self.set(changed)
     def row(self):return self.label,self.read,self.adjust
 
 class TextPanel:
@@ -40,6 +44,7 @@ class StatusPanel:
 def scene_controls(host):
     def bind(name):
         def set(value):
+            if getattr(host,name)==value:return
             host.set_preference(name,value);host.background_step=-1
             host.front=[None]*(host.width*host.height);host.invalidate((0,0,host.width,host.height))
         return lambda:getattr(host,name),set

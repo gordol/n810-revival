@@ -51,3 +51,11 @@ def configuration(carriers, relay=False):
             '\nshare_instance = No\ndiscover_interfaces = No\nautoconnect_discovered_interfaces = 0\n'
             'enable_remote_management = No\nenable_interface_management = No\nrespond_to_probes = No\n'
             '[logging]\nloglevel = 3\n[interfaces]\n'+''.join(sections))
+
+
+def validate_native(carriers, relay=False):
+    """Reject unsupported topology before an owner opens a transport."""
+    if relay:
+        raise ValueError('Native carrier transport routing is not supported')
+    if len(carriers)!=1 or carriers[0]['type'] not in ('tcp-client','tcp-server','serial','usb','bluetooth','kiss'):
+        raise ValueError('Native direct peers require one TCP, serial or raw KISS carrier; use the radio owner for RNode')

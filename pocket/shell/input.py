@@ -3,6 +3,8 @@ import re
 
 MOUSE = re.compile(rb'\x1b\[<(\d{1,3});(\d{1,5});(\d{1,5})([Mm])')
 PHONE_KEYS={b'\x1b[18~':'wm-menu',b'\x1b[19~':'wm-windows',b'\x1b[20~':'wm-close',b'\x1b[21~':'wm-maximize',b'\x1b[24~':'wm-next'}
+HARDWARE_KEYS={25:'f13',26:'f14',28:'f15',29:'f16',31:'f17'}
+ALT_KEYS={b'\x1b\t':'alt-tab',b'\x1b\r':'alt-enter',b'\x1bm':'alt-m',b'\x1bo':'alt-o'}
 SS3_KEYS={b'\x1bOA':'up',b'\x1bOB':'down',b'\x1bOC':'right',b'\x1bOD':'left',b'\x1bOP':'help',b'\x1bOH':'home',b'\x1bOF':'end'}
 
 WM_ESCAPES={'ctrl-]':'\x1d','ctrl-backslash':'\x1c','ctrl-^':'\x1e','ctrl-_':'\x1f'}
@@ -19,6 +21,10 @@ class Input:
         self.pending += data
         events = []
         while self.pending:
+            if self.pending[:2] in ALT_KEYS:
+                events.append(('key',ALT_KEYS[self.pending[:2]]))
+                self.pending=self.pending[2:]
+                continue
             if self.pending.startswith(b'\x1b[<'):
                 match = MOUSE.match(self.pending)
                 if match:
@@ -61,7 +67,7 @@ class Input:
                                 key=FUNCTIONAL.get(code)
                                 if key is None and 0<=code<=0x10ffff and not 0xd800<=code<=0xdfff and not 57344<=code<=63743:key=chr(code)
                             elif final==b'~':
-                                key={15:'f5',17:'f6'}.get(code)
+                                key={15:'f5',17:'f6',**HARDWARE_KEYS}.get(code)
                                 if key is None and self.phone_keys:key={18:'wm-menu',19:'wm-windows',20:'wm-close',21:'wm-maximize',24:'wm-next'}.get(code)
                             else:key={b'A':'up',b'B':'down',b'C':'right',b'D':'left',b'H':'home',b'F':'end',b'P':'help'}.get(final)
                             if key is not None and 0<=mods<=255:
@@ -84,6 +90,7 @@ class Input:
                         keys = {b'\x1b[21;2~':'context-menu',b'\x1b[15~':'f5',b'\x1b[17~':'f6',b'\x1b[17;2~':'shift-f6',b'\x1b[A':'up',b'\x1b[B':'down',b'\x1b[C':'right',b'\x1b[D':'left',b'\x1b[11~':'help',b'\x1b[Z':'backtab', b'\x1b[1;5D':'desktop-left', b'\x1b[1;5C':'desktop-right'}
                         keys.update({b'\x1b[H':'home',b'\x1b[F':'end',b'\x1b[1~':'home',b'\x1b[4~':'end',
                                      b'\x1b[7~':'home',b'\x1b[8~':'end',b'\x1b[5~':'pageup',b'\x1b[6~':'pagedown'})
+                        keys.update({('\x1b['+str(code)+'~').encode():name for code,name in HARDWARE_KEYS.items()})
                         name = PHONE_KEYS.get(match[0]) if self.phone_keys else None
                         if name is None:name = keys.get(match[0])
                         if name: events.append(('key',name))
@@ -118,7 +125,7 @@ def phone_action(key,host,launcher,open_menu):
         if host.overview:host.toggle_overview()
         open_menu()
     elif key=='wm-windows':host.toggle_overview()
-    elif key=='wm-next':host.cycle_focus()
+    elif key=='wm-next':host.previous_window()
     else:
         name=host.overview_selection if host.overview else host.focus
         if name and host.window(name).opened:

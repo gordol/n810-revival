@@ -6,6 +6,8 @@ from evdev_keys import MOTION_KEYS
 MOTION=set(MOTION_KEYS.values())
 FUNCTIONAL={27:'\x1b',13:'\r',9:'\t',127:'\x7f',57350:'left',57351:'right',57352:'up',57353:'down',57356:'home',57357:'end',57354:'pageup',57355:'pagedown',57364:'help',57368:'f5',57369:'f6'}
 
+FUNCTIONAL.update({57364+n-1:'f'+str(n) for n in range(13,18)})
+
 def legacy(key,mods=0):
     # Lock bits do not modify shortcuts. Kitty modifier values are mask + 1.
     mods &= 63
@@ -19,6 +21,8 @@ def legacy(key,mods=0):
             if 64<=code<=95:key=chr(code-64)
             elif key==' ':key='\0'
         elif mods&1:key=key.upper()
+    if mods==2 and key in ('\t','\r','m','o'):
+        return {'\t':'alt-tab','\r':'alt-enter','m':'alt-m','o':'alt-o'}[key]
     if mods&2:key='\x1b'+key
     return key
 

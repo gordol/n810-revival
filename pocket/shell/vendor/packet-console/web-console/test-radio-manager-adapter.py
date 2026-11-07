@@ -21,7 +21,7 @@ class Tests(unittest.TestCase):
         result=a.adapt(sample(),NOW)
         self.assertEqual(result['statusbar']['radio']['state'],'paused')
         self.assertEqual(result['statusbar']['radio']['link']['state'],'reported_up')
-        self.assertEqual(result['statusbar']['radio']['label'],'Radio connected; detailed telemetry paused')
+        self.assertEqual(result['statusbar']['radio']['label'],'Radio connected; periodic status polling off')
         self.assertEqual(a.adapt(sample(),NOW+16)['statusbar']['radio']['label'],'Radio observation stale')
         self.assertIsNone(result['model']['live']['active']['selected_memory_index'])
         self.assertEqual(result['statusbar']['ssh']['state'],'recent')

@@ -86,3 +86,58 @@ class SnapshotCacheTests(unittest.TestCase):
         state.update();self.assertTrue(state.publication_pending())
 
 if __name__=='__main__':unittest.main()
+
+class DynamicReadEndpointTests(unittest.TestCase):
+    def test_connection_change_adopts_control_endpoint_without_reading_radio(self):
+        source=SimpleNamespace(read=lambda now:{},radio_read_endpoint=None)
+        state=radio_state.State(source=source)
+        try:
+            state.update();self.assertFalse(state.can_read)
+            source.radio_read_endpoint=Path('/tmp/test-bridge/radio-control.sock')
+            state._source_changed();state.update()
+            client=state.read_client
+            self.assertTrue(state.can_read);self.assertEqual(client.path,source.radio_read_endpoint)
+            self.assertIsNone(client.worker);self.assertIsNone(client.request)
+            source.radio_read_endpoint=None;state._source_changed();state.update()
+            self.assertFalse(state.can_read);self.assertTrue(client.closed)
+        finally:state.close()
+    def test_explicit_endpoint_is_not_replaced_by_connection(self):
+        from radio_read_client import RadioRead
+        explicit=RadioRead('/tmp/explicit-radio/control.sock')
+        source=SimpleNamespace(read=lambda now:{},radio_read_endpoint=Path('/tmp/other/control.sock'))
+        state=radio_state.State(source=source,read_client=explicit)
+        try:state.update();self.assertIs(state.read_client,explicit)
+        finally:state.close()
+    def test_live_owner_change_time_is_not_presented_as_stale_telemetry(self):
+        state=radio_state.State()
+        state.result={'statusbar':{'radio':{'link':dict(source='feed_live_owner',current_known=True,observed_at=100.,age_seconds=80000,freshness='current')}}}
+        text=state.link_observation()
+        self.assertIn('last changed',text);self.assertIn('live owner subscribed',text)
+        self.assertNotIn('age 80000',text)
+
+    def test_snapshot_receipt_does_not_redate_received_packets(self):
+        import time_display
+        state=radio_state.State()
+        state.payload={'live':{'data':{'captured':1793904000.,'raw_records':[
+            {'time':'2026-11-05T17:51:32+00:00','direction':'radio_to_host'},
+            {'time':'2026-11-05T18:59:00+00:00','direction':'host_to_radio_written'}]}}}
+        with patch.object(time_display,'_zone',__import__('datetime').timezone.utc):
+            lines=state.receive_observations()
+        self.assertIn('2026-11-05 17:51:32',lines[0])
+        self.assertTrue(lines[1].startswith('Receive snapshot loaded:'))
+        self.assertNotEqual(lines[0].split(': ',1)[1],lines[1].split(': ',1)[1])
+
+class ReconnectedRadioTests(unittest.TestCase):
+    def test_reused_forwarded_path_discards_old_device_readback(self):
+        source=SimpleNamespace(source=object(),read=lambda now:{},radio_read_endpoint=Path('/tmp/reused-radio/control.sock'))
+        state=radio_state.State(source=source)
+        try:
+            state.update();previous=state.read_client
+            state.read_telemetry={'version':2,'published_at':100,'station':'old-device'}
+            source.source=object()
+            state._source_changed();state.update()
+            self.assertTrue(previous.closed)
+            self.assertIsNot(state.read_client,previous)
+            self.assertIsNone(state.read_telemetry)
+            self.assertIsNone(state.read_client.worker)
+        finally:state.close()

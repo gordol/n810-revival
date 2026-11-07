@@ -52,10 +52,24 @@ class StreamingTests(unittest.TestCase):
             b=viewshed('5.5555,5.5555',radius_km=10)
             self.assertEqual(classify.call_count,len(b['cells']))
         cached_path.cache_clear()
-    def test_fast_classifier_agrees_with_detailed_real_profiles(self):
+    def test_missing_intermediate_terrain_never_establishes_clearance(self):
+        metadata=dict(latitude_step=.0001,longitude_step=.0001)
+        calls=[0]
+        def sample(*position):
+            calls[0]+=1
+            return (None if calls[0]==3 else 0),metadata
+        with patch('terrain_elevation.sample_elevation',side_effect=sample):
+            result=classify_path('5.5555,5.5555','5.5605,5.5555',tx_height_m=100,rx_height_m=100)
+        self.assertEqual(result['los'],'unknown')
+        self.assertGreater(result['unknown_samples'],0)
+
+    def test_fast_classifier_agrees_when_its_samples_have_coverage(self):
         start='5.5555,5.5555'
         for end in ('5.5605,5.5555','5.5555,5.5655','5.5655,5.5755','5.6155,5.5855','5.6655,5.6855'):
             fast=classify_path(start,end,frequency_mhz=144.39,tx_height_m=15,rx_height_m=10)
             full=calculate(start,end,frequency_mhz=144.39,tx_height_m=15,rx_height_m=10,count=4097)
+            if fast['los']=='unknown':
+                self.assertGreater(fast['unknown_samples'],0,end)
+                continue
             self.assertEqual(fast['los'],full['sampled_los'],end)
             self.assertEqual(fast['fresnel'],full['sampled_fresnel'],end)

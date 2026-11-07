@@ -203,7 +203,7 @@ class Terminal:
     MAX_INPUT=16384
     def __init__(self,host,name,argv,selector,env=None,cwd=None,metrics=None,show_cursor=False,blend_background=False):
         self.host,self.name,self.selector=host,name,selector
-        self.argv=tuple(argv);self.environment=None if env is None else dict(env);self.cwd=cwd;self.metrics=metrics
+        self.argv=tuple(argv);self.environment={"POCKET_THEME":getattr(host,"palette","ice"),**(env or {})};self.cwd=cwd;self.metrics=metrics
         self.show_cursor=show_cursor;self.cursor_cell=None
         self.blend_background=blend_background
         self.fd=None;self.child=None;self.pending=bytearray();self.closed=False;self.eof=False
@@ -216,7 +216,7 @@ class Terminal:
         try:
             fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',height,width,0,0))
             child_env=dict(os.environ);child_env.update(TERM='xterm-256color',COLORTERM='truecolor',LANG='C.UTF-8')
-            if env:child_env.update(env)
+            child_env.update(self.environment)
             # Exec bootstrap runs after Popen's safe session setup, no preexec_fn
             # in the threaded parent. One persistent process: the actual app.
             bootstrap='import fcntl,os,sys,termios;fcntl.ioctl(0,termios.TIOCSCTTY,0);os.execvpe(sys.argv[1],sys.argv[1:],os.environ)'

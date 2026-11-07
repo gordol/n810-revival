@@ -1,5 +1,8 @@
 """Discovery storage uses the same MessagePack codec as the service framework."""
-from wire import codec as _codec, NATIVE_CODEC
+if __package__:
+    from .wire import codec as _codec, NATIVE_CODEC
+else:
+    from wire import codec as _codec, NATIVE_CODEC
 
 
 def pack(value):

@@ -9,7 +9,7 @@ import time
 from panel import Panel,DOCKS
 from effects import NAMES
 
-RETIRED=frozenset(('Weather','Moon Lab','Notes','Activity','Diagnostics',
+RETIRED=frozenset(('Terrain Profile','Weather','Moon Lab','Notes','Activity','Diagnostics',
     'Messages (terminal)','Services (terminal)','Nets (terminal)',
     'APRS (terminal)','Directory (terminal)','Walk (terminal)'))
 
@@ -40,7 +40,7 @@ def capture(host,panels):
             'maximized':{name:list(rect) for name,rect in host.maximized.items() if name in names},'shells':sorted(shells-{'Terminal'}),'selected_panel':panels.panels.index(panels.selected)}
 
 
-WINDOW_ALIASES={'RNode Bluetooth':'RNode connections'}
+WINDOW_ALIASES={'RNode Bluetooth':'RNode connections','Walk':'APRS Walk Logs'}
 
 
 def renamed_windows(data,known):

@@ -1,7 +1,10 @@
 """Public Reticulum contact cards and explicit full-key fingerprint comparison."""
 import hashlib
 import hmac
-from discovery_codec import pack,unpack,legacy_value
+if __package__:
+    from .discovery_codec import pack,unpack,legacy_value
+else:
+    from discovery_codec import pack,unpack,legacy_value
 import re
 import os
 from pathlib import Path

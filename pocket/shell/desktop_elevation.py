@@ -46,7 +46,7 @@ def geography_lines(engine,view,streams=False):
     return ({},0) if covers(view) else engine._original_map_lines(view,streams)
 
 
-def sample(view):
+def sample(view,land_mask=None):
     import numpy as np
     import zlib
     h,w=view.height*2,view.width
@@ -68,9 +68,12 @@ def sample(view):
         source_metres=abs(m['latitude_step'])*111320
         region=np.ix_(rows,cols)
         needed=(~np.isfinite(result[region])) | (spacing[region]>max(pixel_metres,source_metres)*(1+1e-9))
+        if land_mask is not None:needed &= land_mask[region]
         if not needed.any():continue
-        xs=np.clip(xx[cols],0,m['nx']-1);ys=np.clip(yy[rows],0,m['nz']-1);ix=np.minimum(xs.astype(int),m['nx']-2);iy=np.minimum(ys.astype(int),m['nz']-2)
-        values=np.full((len(rows),len(cols)),np.nan)
+        rr,cc=np.nonzero(needed)
+        xs=np.clip(xx[cols[cc]],0,m['nx']-1);ys=np.clip(yy[rows[rr]],0,m['nz']-1)
+        ix=np.minimum(xs.astype(int),m['nx']-2);iy=np.minimum(ys.astype(int),m['nz']-2)
+        values=np.full(xs.shape,np.nan)
         cache={}
         def gather(x,y):
             x,y=np.broadcast_arrays(x,y);out=np.full(x.shape,np.nan)
@@ -87,14 +90,14 @@ def sample(view):
                 mask=(tile_x==tx)&(tile_y==ty);out[mask]=cache[key][y[mask]%256,x[mask]%256]
             out[out==m['nodata']]=np.nan
             return out
-        fx=xs-ix;fy=(ys-iy)[:,None]
+        fx=xs-ix;fy=ys-iy
         for ox,oy,weight in ((0,0,(1-fx)*(1-fy)),(1,0,fx*(1-fy)),(0,1,(1-fx)*fy),(1,1,fx*fy)):
-            v=gather(ix[None,:]+ox,iy[:,None]+oy)
+            v=gather(ix+ox,iy+oy)
             if ox==oy==0:values=v*weight
             else:values+=v*weight
-        rr,cc=np.meshgrid(rows,cols,indexing='ij');valid=np.isfinite(values)&needed
-        result[rr[valid],cc[valid]]=values[valid]
-        spacing[rr[valid],cc[valid]]=abs(m['latitude_step'])*111320
+        valid=np.isfinite(values)
+        result[rows[rr[valid]],cols[cc[valid]]]=values[valid]
+        spacing[rows[rr[valid]],cols[cc[valid]]]=abs(m['latitude_step'])*111320
     return result,spacing
 
 
@@ -102,7 +105,9 @@ def render(engine,view,terrain):
     frame,legend=engine._original_rgb_terrain(view,terrain)
     if view.width<2:return frame,legend
     import numpy as np
-    heights,spacing=sample(view);known=np.isfinite(heights)
+    from desktop_shoreline import mask
+    water=mask(view)
+    heights,spacing=sample(view,land_mask=water!=0 if water is not None else None);known=np.isfinite(heights)
     # Smooth colour interpolation from actual heights, with slope relief at display resolution.
     filled=np.where(known,heights,0)
     metres=max(.1,view.ground_m_per_halfcell)
@@ -114,8 +119,6 @@ def render(engine,view,terrain):
     rgb=np.clip(rgb*shade[...,None],0,255).astype(np.uint8)
     # Keep existing mapped water and all roads/streams, which Engine adds after this call.
     rows,_,_=engine.atlas.raster(view.center,view.span,view.width,view.height)
-    from desktop_shoreline import mask
-    water=mask(view)
     for y in range(view.height):
         for x in range(view.width):
             char,a,b=frame[y*view.width+x];pair=[a,b]

@@ -8,14 +8,21 @@ import re
 import sqlite3
 import time
 from functools import lru_cache
+from contextlib import closing
+
+
+def user_database():
+    return Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local/share'))/'pocket'/'uls.sqlite'
 
 
 def default_database():
     configured=os.environ.get('POCKET_ULS_DB')
     if configured:return Path(configured).expanduser()
+    user=user_database()
+    if user.is_file():return user
     local=data_root()/'uls.sqlite'
     if local.is_file():return local
-    return Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local/share'))/'pocket'/'uls.sqlite'
+    return user
 
 
 def lookup(path,station):
@@ -32,16 +39,16 @@ def _lookup(path,station,revision,day):
     if not match or match[2] is not None and int(match[2])>15:
         raise ValueError('Enter a US callsign, optionally with SSID 0 to 15')
     path=Path(path).expanduser().resolve()
-    if not path.is_file():raise ValueError('FCC database is not installed. Choose a prepared ULS SQLite file.')
+    if not path.is_file():raise ValueError('FCC database is not installed. Open Database settings → Download/update FCC data, or choose a prepared ULS SQLite file.')
     deadline=time.monotonic()+2
-    with sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=1) as db:
+    with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=1)) as db:
         db.row_factory=sqlite3.Row
         db.execute('PRAGMA query_only=ON')
         db.execute('PRAGMA trusted_schema=OFF')
         db.set_progress_handler(lambda:int(time.monotonic()>deadline),1000)
         metadata={row['key']:json.loads(row['value']) for row in db.execute('SELECT key,value FROM fcc_meta')}
-        row=db.execute('''SELECT s.*, d.usid, d.service, d.granted, d.expires,
-            d.action_date, d.postal_code FROM stations s JOIN license_details d USING(callsign)
+        # Preserve fields added by newer imports while accepting old snapshots.
+        row=db.execute('''SELECT s.*, d.* FROM stations s JOIN license_details d USING(callsign)
             WHERE callsign=?''',(match[1],)).fetchone()
     date=metadata.get('source_data_date','')
     age=(datetime.now(timezone.utc).date()-datetime.fromisoformat(date).date()).days if date else None

@@ -20,7 +20,7 @@ class Nets:
     tabs=('Week','Today','Heard')
     def __init__(self,provider,clock=None,model=None):
         self.provider=provider;self.model=model or load_model();self.clock=clock or (lambda:dt.datetime.now(dt.timezone.utc))
-        self.width=76;self.height=25;self.tab=0;self.rows=();self.list=SelectList(());self.scroll=0;self._identity=None
+        self.width=76;self.height=25;self.tab=0;self.rows=();self.list=SelectList(());self.scroll=0;self._identity=None;self._detail_length=0
         self.layout=AdaptivePanels((PanelSpec('agenda','Agenda',28,34),PanelSpec('details','Selected net',30,42)))
         self._empty_payload={};self._update_token=None;self._source_token=None;self._source_payload=None;self.metadata={};self.error=None;self._spans=[];self._hits=[];self._tab_hits=[];self.lead=0;self.available=False
     @staticmethod
@@ -60,8 +60,8 @@ class Nets:
         elif key in ('left','right'):
             self.tab=(self.tab+(-1 if key=='left' else 1))%len(self.tabs);self._identity=None;self.scroll=0;self.update()
         elif key in ('\r','\n'):self.layout.select('details')
-        elif self.layout.focus=='details' and key in ('up','down','pageup','pagedown','home'):
-            self.scroll=0 if key=='home' else max(0,self.scroll+(-1 if key in ('up','pageup') else 1)*(5 if key in ('pageup','pagedown') else 1))
+        elif self.layout.focus=='details' and key in ('up','down','pageup','pagedown','home','end'):
+            self.scroll=0 if key=='home' else self._detail_length if key=='end' else max(0,self.scroll+(-1 if key in ('up','pageup') else 1)*(5 if key in ('pageup','pagedown') else 1))
         elif self.layout.focus=='agenda' and self.list.key(key):self.select()
         elif key=='f5':pass
         else:return False
@@ -102,7 +102,7 @@ class Nets:
         if row.get('raw'):result += ['','Original announcement',row['raw']]
         return result
     def lines(self):
-        self.update();c=Canvas(self.width,self.height);self._spans=[(0,0,self.width,'toolbar')];self._hits=[];self._tab_hits=[]
+        self.update();self._detail_length=0;c=Canvas(self.width,self.height);self._spans=[(0,0,self.width,'toolbar')];self._hits=[];self._tab_hits=[]
         x=0
         for i,title in enumerate(self.tabs):
             label='['+title+']' if i==self.tab else ' '+title+' '
@@ -122,6 +122,7 @@ class Nets:
             elif self.rows:
                 body=[]
                 for line in self.details(self.rows[self.list.index]):body.extend(textwrap.wrap(line,max(1,w)) or [''])
+                self._detail_length=len(body)
                 self.scroll=min(self.scroll,max(0,len(body)-max(1,h-1)))
                 for n,line in enumerate(body[self.scroll:self.scroll+max(1,h-1)],y+1):c.put(x,n,line,w)
             else:c.put(x,y+1,'Select a scheduled net or announcement',w)

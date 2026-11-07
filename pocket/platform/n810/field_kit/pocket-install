@@ -1,0 +1,63 @@
+#!/usr/bin/python3
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+"""Copy this Nokia's installed system to an already mounted target root filesystem."""
+import argparse,os,re,subprocess,sys
+from pathlib import Path
+
+def plan(target,hostname):
+    target=Path(target).resolve()
+    if str(target) in ('/','/usr','/home','/var','/boot') or not os.path.ismount(target):raise ValueError('Target must be a separate, already mounted filesystem')
+    if os.stat(target).st_dev==os.stat('/').st_dev:raise ValueError('Target must not be the running root filesystem')
+    if any(p.name!='lost+found' for p in target.iterdir()):raise ValueError('Target must be an empty filesystem; existing installations are not overwritten')
+    if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9-]{0,62}',hostname):raise ValueError('Invalid target hostname')
+    return target
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--target-root',required=True);p.add_argument('--hostname',required=True)
+    p.add_argument('--authorized-key',required=True);p.add_argument('--apply',action='store_true')
+    a=p.parse_args();target=plan(a.target_root,a.hostname)
+    key=Path(a.authorized_key).read_text().strip()
+    if '\n' in key or not key.startswith(('ssh-ed25519 ','ssh-rsa ','ecdsa-sha2-')):raise ValueError('Provide one SSH public key, never a private key')
+    # Exclude credentials, private identities, runtime state, target-specific calibration,
+    # mounts and stale builds. Keep the installed OS, apps, docs and public datasets.
+    excluded=['/dev/***','/proc/***','/sys/***','/run/***','/tmp/***','/mnt/***','/media/***','/home/***','/root/***','/lost+found/***',
+      '/var/log/***','/var/cache/***','/var/backups/***','/var/lib/bluetooth/***','/var/lib/NetworkManager/***','/var/lib/dhcp/***',
+      '/etc/ssh/ssh_host_*','/etc/machine-id','/var/lib/dbus/machine-id','/etc/wpa_supplicant/***','/etc/NetworkManager/system-connections/***',
+      '/etc/network/interfaces','/etc/network/interfaces.d/***','/etc/dropbear/***','/etc/pointercal','/etc/ts.conf.d/***','/etc/fstab','/etc/hostname','/etc/hosts','/etc/udev/rules.d/70-persistent-net.rules',
+      '/usr/local/share/pocket-field-kit/private/***','/swapfile','/swap.img']
+    for relative in ('root/.ssh','home/nokia','var/lib/bluetooth'):
+        folder=target/relative
+        if folder.exists() and any(folder.iterdir()):raise ValueError('Destination contains private state: '+str(folder)+'; use a clean target root')
+    if (target/'etc/machine-id').exists() or any((target/'etc/ssh').glob('ssh_host_*')):raise ValueError('Use a clean destination without an existing machine identity')
+    command=['rsync','-aHAXx','--numeric-ids','--info=progress2']+['--exclude='+s for s in excluded]+['/',str(target)+'/']
+    print('Source: running Nokia installed files; destination:',target)
+    print('No partitioning, formatting, NAND or bootloader writes. Existing destination files may be replaced.')
+    print('Home folders and radio/network identities are excluded; a fresh target identity will be generated.')
+    if not a.apply:print('Plan only. Add --apply to copy.');return
+    if os.geteuid()!=0:raise ValueError('Run as root to install system files')
+    subprocess.run(command,check=True)
+    for name in ('dev','proc','sys','run','tmp','mnt','media','root','home/nokia','var/log','var/cache','var/lib/bluetooth','var/lib/dhcp'):
+        (target/name).mkdir(parents=True,exist_ok=True)
+    os.chmod(target/'tmp',0o1777);os.chmod(target/'root',0o700)
+    (target/'etc/hostname').write_text(a.hostname+'\n')
+    (target/'etc/hosts').write_text('127.0.0.1 localhost\n127.0.1.1 '+a.hostname+'\n')
+    (target/'etc/network/interfaces').write_text('auto lo\niface lo inet loopback\n\nallow-hotplug usb0\niface usb0 inet static\n address 192.168.10.1\n netmask 255.255.255.0\n')
+    (target/'etc/fstab').write_text('/dev/mmcblk0p2 / ext4 defaults,noatime 0 1\n')
+    for folder in (target/'root/.ssh',target/'home/nokia/.ssh'):
+        folder.mkdir(parents=True,exist_ok=True,mode=0o700);os.chmod(folder,0o700)
+        (folder/'authorized_keys').write_text(key+'\n');os.chmod(folder/'authorized_keys',0o600)
+    kit=Path('/usr/local/share/pocket-field-kit')
+    release=(kit/'kernel/KERNELRELEASE').read_text().strip()
+    subprocess.run(['rsync','-a','--delete',str(kit/'kernel/modules'/release)+'/',str(target/'lib/modules'/release)+'/'],check=True)
+    subprocess.run(['depmod','-b',str(target),release],check=True)
+    uid=next(int(line.split(':')[2]) for line in (target/'etc/passwd').read_text().splitlines() if line.startswith('nokia:'))
+    for folder in (target/'home/nokia',target/'home/nokia/.ssh',target/'home/nokia/.ssh/authorized_keys'):os.chown(folder,uid,uid)
+    for path in (target/'etc/machine-id',target/'var/lib/dbus/machine-id'):path.unlink(missing_ok=True)
+    subprocess.run(['chroot',str(target),'/usr/bin/ssh-keygen','-A'],check=True)
+    for account in ('root','nokia'):subprocess.run(['chroot',str(target),'/usr/bin/passwd','-l',account],check=True)
+    os.sync();print('Installed. Boot using the matching kernel in this kit; calibrate the target touchscreen separately.')
+if __name__=='__main__':
+    try:main()
+    except (ValueError,OSError,subprocess.CalledProcessError) as e:sys.exit(str(e))

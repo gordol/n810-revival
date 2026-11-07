@@ -9,6 +9,31 @@ h=owner('n810-frame-history.py')
 def record(i):
  return dict(time='2026-10-29T12:%02d:%02d+00:00'%(i//60,i%60),direction='radio_to_host',frame=(b'\0packet'+str(i).encode()).hex())
 class ArchiveTests(unittest.TestCase):
+ def test_scroll_requests_beyond_live_buffer_and_catalogue_changes_device(self):
+  from native_catalog import Catalog
+  from types import SimpleNamespace
+  with tempfile.TemporaryDirectory() as root:
+   path=Path(root)/'archive.sqlite3';archive=h.Archive(path)
+   for i in range(320):archive.add(record(i))
+   archive.close()
+   calls=[]
+   def page(before=None,anchor=None):
+    calls.append((before,anchor));return h.page(before,path=path,anchor=anchor)
+   connection=SimpleNamespace(source=object(),history_page=page)
+   state=SimpleNamespace(source=connection,payload={'live':{'raw_records':[record(i) for i in range(120,320)]}},error=None)
+   catalog=Catalog(state);catalog.update()
+   form=RadioFeed(catalog.feed_view);self.addCleanup(form.close);form.update()
+   self.assertEqual(len(form.rows),200)
+   form.list.index=len(form.rows)-1;form.choose();form.action('list.next')
+   form._history_pending.result(3);form.update()
+   self.assertGreater(len(form.rows),200);self.assertEqual(calls[0][1],record(120))
+   for _ in range(10):
+    if not form._history_more:break
+    form.action('feed.older');form._history_pending.result(3);form.update()
+   self.assertEqual(len(form.rows),320);self.assertFalse(form._history_more)
+   connection.source=object();catalog.update();form.update()
+   self.assertEqual(len(form.rows),200);self.assertIsNone(form._history_cursor)
+
  def test_pages_survive_restart_preserve_bytes_and_dont_overlap(self):
   with tempfile.TemporaryDirectory() as root:
    path=Path(root)/'packets.sqlite3'

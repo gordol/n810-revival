@@ -79,15 +79,16 @@ def adapt(payload,now=None,*,catalog_model=None,owner_context=None):
     hb=radio.get('heartbeat_age_seconds');link=dict(model.obj(radio.get('link')))
     link_state=link.get('state','unknown')
     link['label']={'reported_up':'Bluetooth link reported up','reported_down':'Bluetooth link last reported disconnected','unknown':'Bluetooth current link unknown'}.get(link_state,'Bluetooth current link unknown')
-    labels={'live':'Radio recent','paused':'Detailed radio telemetry paused','stale':'Radio status stale','owner_unavailable':'Radio observation stale','disconnected':'Radio disconnected','waiting':'Radio waiting','unknown':'Radio status unknown','unavailable':'Radio unavailable'}
-    radio_label='Radio connected; detailed telemetry paused' if state=='paused' and link_state=='reported_up' else labels.get(state,'Radio status unknown')
+    labels={'live':'Radio recent','paused':'Periodic status polling off','stale':'Radio status stale','owner_unavailable':'Radio observation stale','disconnected':'Radio disconnected','waiting':'Radio waiting','unknown':'Radio status unknown','unavailable':'Radio unavailable'}
+    radio_label='Radio connected; periodic status polling off' if state=='paused' and link_state=='reported_up' else labels.get(state,'Radio status unknown')
     if state=='disconnected' and not link.get('current_known'):radio_label='Radio last reported disconnected; observation '+link.get('freshness','unknown')
     result=dict(version=1,model=normalized,statusbar=dict(ssh=ssh_view,feed=feed_view,
                 radio=dict(state=state,label=radio_label,link=link,
                            sections=radio['sections'],active=radio['active'],indicators=radio['indicators'])),
                 capabilities=dict(browse=True,compare=True,hardware_commands=False,telemetry_control=False,
                                   preset_write=False,backup_read=True),
-                sources=dict(catalog_captured=catalog.get('captured'),live_captured=live.get('captured')))
+                sources=dict(catalog_captured=catalog.get('captured'),live_captured=live.get('captured'),
+                             radio_catalog_sync=model.obj(connector.get('device')).get('radio_catalog_sync')))
     deadlines=[]
     for view in (ssh_view,feed_view):
         if view is feed_view and transport_known:continue

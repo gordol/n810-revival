@@ -6,6 +6,7 @@ class StationMapTools:
     def __init__(self,base,qth_path=None):
         self._disabled_qth=None;self.terrain_enabled=True;self.layers_visible=False;self._panel_layer=None;self.dialog=None;self.dialog_spans=();self.internet=None;self.internet_own='';self.internet_calls='';self.internet_editor=None;self.qth_path=qth_path;self._saved_pin_layer=None
         self.sidebar_tab='layers';self.detail_repeater=None;self.detail_point=None;self._detail_press=None;self._detail_call=None;self.sidebar_scroll=0;self._sidebar_max_scroll=0
+        self._sidebar_focus=False
         self.base=base;self.tool=None;self.terrain_active=False;self._wakeup=None;self._session_callback=None;self._saved_terrain={};self._terrain_button_row=0
     def __getattr__(self,name):return getattr(self.base,name)
     def bind_wakeup(self,callback):
@@ -109,6 +110,7 @@ class StationMapTools:
         self.sidebar_scroll=0
         self.detail_point=None;self.detail_repeater=item;self._detail_call=(self.base.context.target or {}).get('call')
         self.sidebar_tab='details';self.layers_visible=True;self.base.side_overview=True
+        self._focus_sidebar(True)
         if self._session_callback:self._session_callback()
         return True
     def detail_rows(self):
@@ -140,6 +142,9 @@ class StationMapTools:
         symbol=item.get('symbol')
         if symbol:
             rows += [self.base.display_symbol(symbol['table'],symbol['code'])['name']]
+        tracks=getattr(self.base,'tracks',None)
+        if tracks and len(tracks.points(call))>1:
+            rows += [': earlier received positions', 'Trail belongs to '+call]
         rows += ['Selected station stays labeled','Right-click for actions']
         return [(text,None,None) for text in rows if text]
     def internet_toggle(self):
@@ -156,9 +161,33 @@ class StationMapTools:
     def open_layers(self):
         self.layers_visible=not getattr(self.base,'side_overview',False)
         self.base.side_overview=self.layers_visible
+        self._focus_sidebar(self.layers_visible)
         if self._session_callback:self._session_callback()
         return True
-    def modal(self):return self.dialog is not None or self.terrain_active
+    def navigation_targets(self):
+        from native_navigation import Target
+        map_target=Target('map','Station map','map')
+        if not getattr(self.base,'side_overview',False) or self.base.full_overview:
+            return [map_target]
+        sidebar=Target('sidebar','Map sidebar','details')
+        return [map_target,sidebar]
+    def navigation_focus(self):
+        return 'sidebar' if self._sidebar_focus and getattr(self.base,'side_overview',False) and not self.base.full_overview else 'map'
+    def _focus_sidebar(self,focused):
+        self._sidebar_focus=bool(focused)
+        state=self.__dict__.get('_navigation')
+        if state is not None:state.target='sidebar' if focused else 'map'
+    def changed(self):
+        state=self.__dict__.get('_navigation')
+        if state is not None:self._sidebar_focus=state.target=='sidebar'
+    def navigation_back(self):
+        if self._sidebar_focus:
+            self._focus_sidebar(False);return True
+        if self.base.pointer_captured:self.base.cancel_pointer();return True
+        self.base.open_directory();return True
+    def modal(self):
+        return (self.dialog is not None or self.terrain_active or self.internet_editor is not None
+                or self.base.full_overview or getattr(getattr(self.base,'target_box',None),'view',None) is not None)
     def navigation_modal_hint(self):return self.tool.navigation_modal_hint() if self.tool else ('Station Map','T terrain')
     @property
     def width(self):return self.base.width
@@ -202,8 +231,15 @@ class StationMapTools:
             return True
         map_screen=not self.terrain_active or self.ensure_tool().screen=='map'
         if key.lower()=='s' and map_screen:
-            self.base.key('s');self.layers_visible=bool(self.base.side_overview);return True
-        if map_screen and (self.layers_visible or getattr(self.base,'side_overview',False)):
+            self.base.key('s');self.layers_visible=bool(self.base.side_overview)
+            self._focus_sidebar(self.layers_visible);return True
+        if map_screen and key in ('\t','backtab'):
+            if getattr(self.base,'side_overview',False) and not self.base.full_overview:
+                self._focus_sidebar(not self._sidebar_focus)
+            return True
+        if map_screen and key in ('up','down','left','right') and (self.base.full_overview or self.base.target_box.view is not None):
+            return self.base.key(key)
+        if map_screen and self._sidebar_focus and (self.layers_visible or getattr(self.base,'side_overview',False)):
             lower=key.lower()
             if key in ('escape','\x1b'):
                 self.layers_visible=False;self.base.side_overview=False;return True
@@ -233,7 +269,7 @@ class StationMapTools:
             if lower=='t' and callable(getattr(self,'open_app_settings',None)):return self.open_app_settings()
             if lower in ('u','z'):return self.base.key(lower)
             if lower=='f':return self.base.key('g')
-        if map_screen and (self.layers_visible or getattr(self.base,'side_overview',False)) and key in '123456':
+        if map_screen and self._sidebar_focus and (self.layers_visible or getattr(self.base,'side_overview',False)) and key in '123456':
             from repeater_catalog import BANDS
             enabled=set(getattr(self.base,'repeater_bands',BANDS));band=BANDS[int(key)-1]
             enabled.symmetric_difference_update((band,));self.base.repeater_bands=tuple(b for b in BANDS if b in enabled)
@@ -259,6 +295,7 @@ class StationMapTools:
                 if y==self.height-1:self.dialog=None
             return True
         if getattr(self.base,'side_overview',False) and not getattr(self.base,'full_overview',False) and x>=width-min(32,width//3) and 2<=y<self.height-1:
+            if not released:self._focus_sidebar(True)
             if self.base.locator_hit(x,y):return self.base.pointer_event(event,width)
             if button&64 and not released:return self.key('down' if button&1 else 'up')
             if button==0 and not released:
@@ -267,6 +304,7 @@ class StationMapTools:
                 if action=='tabs':return self.key('l' if x<width-min(32,width//3)+12 else 'd')
                 if action:return self.key(action)
             return True
+        if not released and button==0:self._focus_sidebar(False)
         if y==self._terrain_button_row and x>=max(0,width-13) and button==0 and not released:return self.enter_terrain()
         if button==0 and not released:
             self._detail_press=(x,y,tuple(self.base.center),self.base.span,self.base.target_box.revision)
@@ -282,7 +320,7 @@ class StationMapTools:
                 if station or repeater or point:
                     self.sidebar_scroll=0
                     self.detail_point=point.payload if point else None
-                    self.detail_repeater=repeater.payload if not station else None
+                    self.detail_repeater=repeater.payload if repeater is not None and station is None else None
                     self.sidebar_tab='details';self.layers_visible=True;self.base.side_overview=True
                     if self._session_callback:self._session_callback()
         return result
@@ -398,7 +436,8 @@ class StationMapTools:
             if row==start:
                 self._sidebar_hits[row]='tabs'
             elif action:self._sidebar_hits[row]=action
-            color=ink(*(rgb or (220,220,220)),background=(14,23,28))
+            background=(36,62,72) if row==start and self._sidebar_focus else (14,23,28)
+            color=ink(*(rgb or (220,220,220)),background=background)
             for xx,char in enumerate(text[:pane-2].ljust(pane-2),left+1):
                 if xx<w:overlay[yy*w+xx]=(char,color)
         self._panel_layer=(x0,y0,w,h,Plane(plane,overlay))

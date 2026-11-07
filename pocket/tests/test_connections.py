@@ -73,6 +73,17 @@ class Tests(unittest.TestCase):
         for option in ('--ssh-receive', '--receive-feed', '--replay', '--device-radio'):
             self.assertNotIn(option, argv)
 
+    def test_radio_read_endpoint_follows_attached_device_without_io(self):
+        service=self.connection()
+        try:
+            service.source=SimpleNamespace(receive=SimpleNamespace(bridge=self.root/'bridge'))
+            self.assertEqual(service.radio_read_endpoint,self.root/'bridge/radio-control.sock')
+            service.source=SimpleNamespace(local_device=True,receive=SimpleNamespace(bridge=None))
+            self.assertEqual(service.radio_read_endpoint,Path('/dev/shm/n810-radio-read/control.sock'))
+            service.source=SimpleNamespace(receive=SimpleNamespace(bridge=None))
+            self.assertIsNone(service.radio_read_endpoint)
+        finally:service.source=None
+
     def test_cold_local_setup_keeps_observation_and_cancel_available(self):
         import builtins
         from unittest.mock import patch
@@ -210,6 +221,34 @@ class Tests(unittest.TestCase):
             self.assertEqual(len([hit for hit in view._hits if hit[3]=='e']),1)
         self.assertEqual(view.help_pages()[0][0],'Connection error')
         self.assertIn('banner exchange',' '.join(view.help_pages()[0][1]))
+
+    def test_address_edit_uses_cursor_and_escape_cancels_without_connecting(self):
+        service=self.connection()
+        view=ConnectionsView(None,app_context=SimpleNamespace(services={'connections':service}))
+        view.address='host';saved=[];view.bind_session(lambda:saved.append(view.address))
+        view.key('e');view.key('home');view.key('x');view.key('right');view.key('delete')
+        self.assertEqual(view.address,'xhst')
+        view.key('escape');self.assertEqual(view.address,'host');self.assertEqual(saved,[])
+        view.key('e');view.key('end');view.key('x');view.key('enter')
+        self.assertEqual(view.address,'hostx');self.assertEqual(saved,['hostx'])
+        self.assertIsNone(service.source)
+
+    def test_reticulum_shortcut_is_literal_while_editing_address(self):
+        service=self.connection()
+        view=ConnectionsView(None,app_context=SimpleNamespace(services={'connections':service}))
+        view.selected_service='reticulum';view.address=''
+        view.key('e');view.key('p')
+        self.assertEqual(view.address,'p');self.assertIsNone(view.peer_setup)
+        view.key('escape');self.assertEqual(view.address,'')
+
+    def test_tab_accepts_address_through_shared_navigation_without_connecting(self):
+        from native_navigation import native_key
+        service=self.connection()
+        view=ConnectionsView(None,app_context=SimpleNamespace(services={'connections':service}))
+        view.address='host';saved=[];view.bind_session(lambda:saved.append(view.address))
+        native_key(view,'e');native_key(view,'x');native_key(view,'\t')
+        self.assertFalse(view.editing);self.assertEqual(saved,['hostx'])
+        self.assertIsNone(service.source)
 
     def test_visible_buttons_dispatch_same_actions_as_keys(self):
         service = self.connection()

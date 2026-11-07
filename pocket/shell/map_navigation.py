@@ -55,6 +55,7 @@ def map_class(Base):
             self._zoom_context_image=None
             self._zoom_context_view=None
             self._zoom_applied=None
+            self._pan_display_source=None
             self.maidenhead_grid='auto'
             self._overview=Overview();self._shown_image=None;self._detail_lines=None
             self._local_overview=LocalOverview(self.renderer);self._overview_camera=None
@@ -92,6 +93,14 @@ def map_class(Base):
                 if retained is not None and span>=retained.projection.span*.2 and contains(retained,center,span,self.width,max(1,self.height-3)):
                     self._detail_request=None;self._loading_overview=None
                     return True
+                if retained is not None and retained.projection.span*.2<=span<=retained.projection.span*.6:
+                    from offline_map import Image,ReprojectedPlane
+                    view=self.renderer.module.Viewport(tuple(center),retained.projection.span,retained.width,retained.height)
+                    self._zoom_context_image=Image(retained.width,retained.height,ReprojectedPlane(retained,view),
+                        retained.legend,(),0.,view,'pan-preview')
+                    self._zoom_context_view=(tuple(center),view.span)
+                    self._detail_request=None;self._loading_overview=None
+                    return True
                 self._zoom_context_image=zoom_context(self._shown_image or self._image,self._overview,self.renderer.module,center,span,self.width,max(1,self.height-3))
                 image=self._zoom_context_image;projection=getattr(image,'projection',None)
                 self._zoom_context_view=(tuple(center),span*2.5) if projection is None or span<projection.span*.2 else (tuple(projection.center),projection.span)
@@ -118,30 +127,10 @@ def map_class(Base):
             return True
         def open_overview(self):
             center,span=self.target_box.view or (self.center,self.span)
-            self._overview_camera=(tuple(center),span*4) if span<40 else None
+            self._overview_camera=(tuple(center),min(2000.,span*4))
+            self._zoom_context_image=None;self._zoom_context_view=None
+            self._detail_request=None;self._loading_overview=None
             self.full_overview=True
-        def expand_overview(self):
-            if not self.full_overview or self._overview_camera is None:return
-            center,span=self.target_box.view or (self.center,self.span)
-            old_center,context_span=self._overview_camera
-            if span>context_span*.6:
-                self._overview_camera=(tuple(center),context_span*4) if context_span*4<160 else None
-        def contract_overview(self):
-            if not self.full_overview:return
-            center,span=self.target_box.view or (self.center,self.span)
-            if self._overview_camera is not None:context_span=self._overview_camera[1]
-            else:
-                shown=self._shown_image
-                if shown is None or shown.source!='cached-overview' or shown.projection is None:return
-                context_span=shown.projection.span
-            # Separate inward/outward thresholds keep one-step reversals stable.
-            if span<context_span*.125:
-                self._overview_camera=(tuple(center),context_span/4)
-        def show_target_overview(self):
-            pending=self.target_box.view
-            if pending is not None and not self.full_overview and not self.side_overview and self._image is not None:
-                if not contains(self._image,*pending,self.width,max(1,self.height-3)):self.open_overview()
-            self.expand_overview()
         def accept_overview(self):
             return self.apply_target()
         def key(self,key):
@@ -150,7 +139,7 @@ def map_class(Base):
             if key=='z':
                 self.renderer.forest_roads=not getattr(self.renderer,'forest_roads',False)
                 self.renderer.ready.clear();self.renderer.regions.ready.clear()
-                self._image=None;self._image_view=None;self._shown_image=None
+                self._image=None;self._image_view=None;self._shown_image=None;self._display_image=None
                 self._zoom_context_image=None;self._local_overview=LocalOverview(self.renderer)
                 return True
             self.double_tap.reset()
@@ -183,10 +172,7 @@ def map_class(Base):
                 self.tracks.pause()
                 if key in ('+','=','-'):
                     self.target_box.zoom(self.center,self.span,key!='-')
-                    if key=='-':self.expand_overview()
-                    else:self.contract_overview()
                 else:self.target_box.pan(self.center,self.span,key)
-                if key in ('+','=','-'):self.preview_zoom()
                 return True
             if key in ('\r','\n') and self.target_box.view is not None:return self.apply_target()
             if self.preview:
@@ -201,7 +187,6 @@ def map_class(Base):
                     self.preview_zoom()
                     return True
             self.target_box.cancel();result=super().key(key)
-            if key=='-':self.expand_overview()
             return result
         def zoom_target_at_pointer(self,column,row,width,out=False):
             center,old_span=self.target_box.view or (tuple(self.center),self.span)
@@ -225,9 +210,6 @@ def map_class(Base):
             if self.full_overview:
                 self.end_target_drag();self.double_tap.reset()
                 self.zoom_target_at_pointer(column,row,width,out)
-                if out:self.expand_overview()
-                else:self.contract_overview()
-                self.preview_zoom()
                 return True
             if not self.preview:
                 self.end_target_drag()
@@ -241,7 +223,6 @@ def map_class(Base):
                     self._image=None;self._image_view=(self.center,self.span)
                 try:
                     result=super().zoom_at_pointer(column,row,width,out)
-                    if out:self.expand_overview()
                     return result
                 finally:self._image,self._image_view=original
             self.end_target_drag();self.double_tap.reset()
@@ -254,6 +235,7 @@ def map_class(Base):
         @property
         def pointer_captured(self):return self._locator_drag is not None or self._target_drag is not None or super().pointer_captured
         def cancel_pointer(self):
+            self._pan_display_source=None
             self._detail_request=None;self._loading_overview=None
             self._zoom_context_image=None
             self.double_tap.reset()
@@ -289,11 +271,12 @@ def map_class(Base):
                     self.cancel_pointer();return True
                 if abs(column-drag.x)>1 or abs(row-drag.y)>1:drag.dragged=True
                 if drag.dragged:
-                    if self.preview:self.target_box.choose(drag.destination(column,row),drag.span)
-                    else:self.center,self.span=drag.destination(column,row),drag.span
+                    self.center,self.span=drag.destination(column,row),drag.span
+                    self.target_box.cancel();self._detail_request=None
+                    self._zoom_context_image=None;self._zoom_context_view=None
                 if released:
                     self._target_drag=None;self.target_box.held=False
-                    if drag.dragged and self.preview and not self.full_overview:self.preview_zoom()
+                    if not drag.dragged:self._pan_display_source=None
                     if not drag.dragged and self.target_box.view is None and self._detail_request is None:
                         # A stationary click retains the normal station selection path.
                         super().pointer(drag.x,drag.y,width,0,False);super().pointer(column,row,width,0,True)
@@ -301,6 +284,7 @@ def map_class(Base):
             if button==0 and not released and 0<=column<width and 2<=row<self.height-1:
                 center,span=self.target_box.view or (self.center,self.span)
                 image=self._shown_image or self._image;view_center,view_span=self._image_view or (self.center,self.span)
+                self._pan_display_source=self._pan_display_source or image
                 self._target_drag=Drag(column,row,tuple(center),span,max(1,width),max(1,self.height-3),
                     getattr(image,'width',max(1,width)),getattr(image,'height',max(1,self.height-3)),
                     getattr(image,'projection',None),tuple(view_center),view_span)
@@ -367,6 +351,30 @@ def map_class(Base):
                 self.tracks.pause();self.center=tuple(self._locator_center)
                 self._locator_drag=None;self._locator_center=None
             return True
+        def locator_image(self,width,height):
+            image=self._locator_overview.image(self.renderer.module,width,height)
+            if image is not None:return image
+            # Source-only installs do not ship the historical Puget preview.
+            # Reuse current terrain immediately and refine through the same
+            # bounded map worker, using the installed area instead of a fixed QTH.
+            source=self._shown_image or self._image
+            if source is None or self.renderer.module is None:return None
+            from map_overview import LocalOverview,CropProjection,contains
+            from offline_map import Image,ReprojectedPlane
+            camera=getattr(self,'_locator_camera',None)
+            previous=getattr(self,'_live_locator_image',None)
+            if camera is None or previous is not None and not contains(previous,self.center,self.span,self.width,max(1,self.height-3)):
+                camera=(tuple(self.center),min(2000.,max(160.,self.span*4)))
+                self._locator_camera=camera
+            if not hasattr(self,'_live_locator'):self._live_locator=LocalOverview(self.renderer)
+            image=self._live_locator.image(self.renderer.module,width,height,*camera)
+            key=(id(image or source),camera,width,height)
+            if key!=getattr(self,'_live_locator_key',None):
+                view=self.renderer.module.Viewport(*camera,width,height)
+                cells=ReprojectedPlane(image or source,view)
+                self._live_locator_image=Image(width,height,cells,'Installed-area locator',(),0.,CropProjection(view,0,0,width,height),'locator')
+                self._live_locator_key=key
+            return self._live_locator_image
         def locator(self,lines):
             self._locator_layer=None;self._locator_rect=None
             if not self.side_overview or self.full_overview or self.filter_open:return tuple(lines)
@@ -374,14 +382,14 @@ def map_class(Base):
             if width<72 or height<10:
                 lines[1]=('Locator needs a wider map · S hide')[:width].ljust(width);return tuple(lines)
             pane=min(32,width//3);left=width-pane;inner=pane-2
-            image=self._locator_overview.image(self.renderer.module,192,96)
+            image=self.locator_image(192,96)
             if image is None:return tuple(lines)
             iw=inner;ih=max(1,round(iw*image.height/image.width))
             # Use the sidebar's full width. Very short windows crop the
             # overview with its matching projection instead of squeezing it.
             limit=max(4,self.height-12)
             if ih>limit:
-                image=self._locator_overview.image(self.renderer.module,inner,limit)
+                image=self.locator_image(inner,limit)
                 ih=max(1,round(iw*image.height/image.width))
             top=3;ix=left+1+(inner-iw)//2;iy=top+1
             self._locator_rect=(ix,iy,iw,ih,image)
@@ -434,7 +442,7 @@ def map_class(Base):
             else:
                 lines=list(super().lines());self._detail_lines=tuple(row[:self.width].ljust(self.width) for row in lines)
             previous_shown=self._shown_image
-            self._target_layer=None;self._shown_image=self._image
+            self._target_layer=None;self._shown_image=getattr(self,'_display_image',None) or self._image
             if self.filter_open:return tuple(lines)
             pending=self.target_box.view;label='Preview' if self.preview else 'Direct'
             left=f'[ {label} v ]'
@@ -453,6 +461,18 @@ def map_class(Base):
             w,h=max(1,self.width),max(1,self.height-3)
             loading=self._image_view!=(tuple(self.center),self.span) or self._image is None or (self._image.width,self._image.height)!=raster_size(w,h)
             image=self._image;base_layer=self._display_layer
+            if self._pan_display_source is not None and not self.full_overview and pending is None:
+                if not loading:self._pan_display_source=None
+                elif self._pan_display_source.projection is not None:
+                    from offline_map import Image,ReprojectedPlane
+                    key=(id(self._pan_display_source),tuple(self.center),self.span,w,h)
+                    if getattr(self,'_pan_image_key',None)!=key:
+                        view=self.renderer.module.Viewport(tuple(self.center),self.span,w,h)
+                        plane=ReprojectedPlane(self._pan_display_source,view)
+                        self._pan_image=Image(w,h,plane,'Moving retained map',(),0.,view,'pan-preview');self._pan_image_key=key
+                    self._shown_image=self._pan_image
+                    self._target_layer=self.station_layer(self._pan_image)
+                    return self.locator(lines)
             if pending is not None and self._detail_request is None and self._zoom_context_view is not None:
                 refined=self._local_overview.image(self.renderer.module,w,h,*self._zoom_context_view)
                 if refined is not None:self._zoom_context_image=refined

@@ -6,6 +6,13 @@ component README and [CONTRIBUTING.md](CONTRIBUTING.md) before making changes.
 Instructions in this file apply throughout the repository. More specific
 instructions may add requirements for a subtree.
 
+## Canonical source
+
+This GitHub repository is the working source, including `pocket/`. Use topic
+branches and Git worktrees for parallel changes. Do not export a second editable
+Pocket copy or import private development history. Preserve ongoing work and
+review source diffs when reconciling an older snapshot.
+
 ## Scope and coordination
 
 - Inspect the working tree and staged changes first. Preserve unrelated work.

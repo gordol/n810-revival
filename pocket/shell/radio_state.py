@@ -23,6 +23,7 @@ class State:
     def __init__(self,path=None,clock=time.time,source=None,read_client=None):
         self.path=Path(path) if path else None;self.clock=clock;self.source=source
         self.read_client=read_client;self.read_telemetry=None;self.read_seen=None;self.read_message=''
+        self._automatic_read_client=False;self._read_source=None
         self.payload={};self.result=adapter.adapt({},clock());self.error=None
         self.signature=None;self.deadline=None;self.version=0
         self._change_lock=threading.Lock();self._generation=1;self._consumed_generation=0
@@ -96,6 +97,20 @@ class State:
         with self._change_lock:generation=self._generation
         source_delay=getattr(self.source,'delay',lambda now:None)(now)
         check_catalog=force or generation!=self._consumed_generation or source_delay is not None and source_delay<=0
+        if check_catalog and (self.read_client is None or self._automatic_read_client):
+            endpoint=getattr(self.source,'radio_read_endpoint',None)
+            endpoint=Path(endpoint) if endpoint is not None else None
+            attachment=getattr(self.source,'source',self.source)
+            if endpoint!=getattr(self.read_client,'path',None) or attachment is not self._read_source:
+                self._read_source=attachment
+                if self.read_client:self.read_client.close()
+                from radio_read_client import RadioRead
+                self.read_client=RadioRead(endpoint) if endpoint is not None else None
+                self._automatic_read_client=self.read_client is not None
+                self.read_telemetry=None;self.read_seen=None
+                if self.read_client:self.read_client.bind_wakeup(self._source_changed if self._wakeup is not None else None)
+                self._read_notifies=self.read_client is not None and self._wakeup is not None
+                changed=True
         self.publication_read=check_catalog
         job=self.read_job
         if self.read_client and job is not self.read_seen:
@@ -189,7 +204,7 @@ class State:
         s=self.result['statusbar'];r=s['radio'];state=r['state']
         radio={'paused':'paused','live':'recent','owner_unavailable':'stale','unavailable':'unknown'}.get(state,state)
         if state=='disconnected' and not r['link'].get('current_known'):radio='last disconnected; observation '+r['link'].get('freshness','unknown')
-        if state=='paused' and r['link']['state']=='reported_up':radio='connected; details paused'
+        if state=='paused' and r['link']['state']=='reported_up':radio='connected; polling off'
         if width<120:return 'Radio '+radio+' '
         ssh={'recent':'ok','failed':'failed','stale':'stale','unknown':'unknown'}[s['ssh']['state']]
         feed={'recent':'ok','unavailable':'down','stale':'stale','unknown':'unknown'}[s['feed']['state']]
@@ -226,4 +241,24 @@ class State:
         try:observed=time_display.now_at(stamp).strftime('%Y-%m-%d %H:%M:%S %Z') if adapter.model.number(stamp) else 'unknown'
         except (OverflowError,OSError,ValueError):observed='unknown'
         elapsed=str(int(age))+'s' if adapter.model.number(age) and age>=0 else 'unknown'
+        if link.get('source')=='feed_live_owner' and link.get('current_known'):
+            return 'Link state last changed: '+observed+' · live owner subscribed'
         return 'Link observed: '+observed+' · age '+elapsed+' · '+str(link.get('freshness','unknown'))
+
+    def catalog_sync(self):
+        device=(self.payload.get('connector') or {}).get('device') or {}
+        return device.get('radio_catalog_sync')
+
+    def receive_observations(self):
+        """Snapshot receipt is distinct from the original RF capture time."""
+        import time_display
+        live=adapter.data(self.payload.get('live'))
+        rows=live.get('raw_records') or live.get('packets') or ()
+        stamps=[time_display.epoch(row.get('time')) for row in rows
+                if isinstance(row,dict) and row.get('direction')=='radio_to_host']
+        stamps=[stamp for stamp in stamps if stamp is not None]
+        def shown(stamp):
+            try:return time_display.now_at(stamp).strftime('%Y-%m-%d %H:%M:%S %Z') if adapter.model.number(stamp) else 'Unknown'
+            except (OverflowError,OSError,ValueError):return 'Unknown'
+        return ['Latest received packet: '+shown(max(stamps) if stamps else None),
+                'Receive snapshot loaded: '+shown(live.get('captured'))]

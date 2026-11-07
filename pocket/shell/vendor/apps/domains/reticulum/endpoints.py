@@ -1,7 +1,10 @@
 """Station-specific RNode selection and explicit single-radio configurations."""
 from collections import namedtuple
 import re
-from discovery_codec import unpack,legacy_value,atomic_write
+if __package__:
+    from .discovery_codec import unpack,legacy_value,atomic_write
+else:
+    from discovery_codec import unpack,legacy_value,atomic_write
 import os
 from pathlib import Path
 import stat

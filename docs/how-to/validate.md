@@ -14,7 +14,7 @@ For the full Pocket and bundled radio suites, run:
 python3 tools/check-source.py --work /tmp/n810-source-check --jobs 2
 ```
 
-The runner gives each test process a private temporary home and records its result and log. Use Python 3.11 or newer with NumPy and Pillow; `requirements-maps.txt` supplies a tested conversion environment. The regional data and synthetic fixtures are included in the checkout. On Linux, the proxy test also needs `python3-dbus` and `python3-gi`. On other hosts the runner identifies that Linux-only suite explicitly.
+The runner gives each test process a private temporary home and records its result and log. Use Python 3.11 or newer with NumPy and Pillow; `requirements-maps.txt` supplies a tested conversion environment. Synthetic fixtures are included in the checkout. Regional map data is downloaded and built separately; it is not distributed in Git. See the map build guide and `pocket/docs/testing.md` for the reference-data integration suite. On Linux, the proxy test also needs `python3-dbus` and `python3-gi`. On other hosts the runner identifies that Linux-only suite explicitly.
 
 The [HTIT guide](build-htit.md) supplies firmware and host-protocol checks. The [map guide](build-map-data.md) supplies real-data rebuilds and format-conversion tests.
 

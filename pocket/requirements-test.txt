@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Development-only raster test dependencies; not required by the console shell.
+# Debian bookworm equivalents: python3-numpy and python3-pil.
+numpy>=1.24
+Pillow>=9.4
