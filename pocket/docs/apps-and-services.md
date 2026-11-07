@@ -23,6 +23,19 @@ In an app's Settings, activate a receive, Reticulum, or MeshCore service entry t
 open its Connections controls. An available provider is a local client binding;
 check Connections for the owner's live availability.
 
+```mermaid
+flowchart TB
+    connections["Connections selects service owners"] --> device["Device: System and received packets"]
+    connections --> reticulum["Reticulum owner"]
+    connections --> mesh["MeshCore owner"]
+    device --> views["System, Feed, Stations, Map"]
+    device --> messages["Messages"]
+    reticulum --> messages
+    mesh --> messages
+```
+
+*Applications use the selected owners. Each owner reports its own availability and connection state.*
+
 ## App sources
 
 | App | Source and operation |
@@ -60,7 +73,7 @@ observations, not proof that a live radio link is working.
 
 A local MeshCore selection can use an explicit hub URI in `port`:
 `htit://CLASSIC_MAC/SPP_CHANNEL/BLE_MAC/ADDRESS_TYPE`, for example
-`htit://2C:BC:BB:9F:DF:72/1/FB:91:48:2D:AA:14/1` for the tested hub and Gordo.
+`htit://02:00:00:00:00:01/1/02:00:00:00:00:02/1` using fictional example addresses. Replace them with the paired hub and companion addresses.
 This requires a Linux host with Bluetooth RFCOMM, the optional pinned MeshCore
 runtime, and both Bluetooth bonds already established. No PIN belongs in the URI.
 

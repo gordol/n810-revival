@@ -15,7 +15,7 @@ def endpoint(value):
     match=re.fullmatch(r'rfcomm://((?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2})/([0-9]{1,2})',value)
     if match and 1<=int(match[2])<=30:return 'rfcomm://'+match[1].upper()+'/'+str(int(match[2]))
     if re.fullmatch(r'/dev/(?:cu\.[A-Za-z0-9_.-]+|tty[A-Za-z0-9_.-]+|pts/[0-9]+)',value):return value
-    raise ValueError('Use /dev/serial-device or rfcomm://AA:BB:CC:DD:EE:FF/1')
+    raise ValueError('Use /dev/serial-device or rfcomm://aa:bb:cc:dd:ee:ff/1')
 
 def pack(value):return codec.packb(value,use_bin_type=True) if NATIVE_CODEC else codec.packb(value)
 def unpack(raw):return codec.unpackb(raw,raw=False,strict_map_key=False) if NATIVE_CODEC else codec.unpackb(raw)

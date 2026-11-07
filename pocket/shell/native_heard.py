@@ -96,4 +96,13 @@ class Heard:
         c.put(0,self.height-2,str(len(self.rows))+' retained additions · no replay or RF freshness guarantee');c.role(0,self.height-2,self.width,'muted')
         c.put(0,self.height-1,'Tab pane · ↑↓ select/scroll · / find · Enter details');c.role(0,self.height-1,self.width,'control')
         self._spans=c.styled_spans(selected_spans);return c.lines()
+    def help_pages(self):
+        return (('Browse directory additions', (
+            'This view lists committed directory observations received since desktop attachment.',
+            'Tab and Shift-Tab move between Additions and Observation.',
+            'In Additions, Up/Down selects a record. / starts list search; Enter accepts the search.',
+            'After accepting a search, n and N select the next and previous matches. Esc clears the search.',
+            'Enter from the list focuses Observation. Up/Down scrolls the focused observation.',
+            'Capture times describe the stored observations. The source status reports the current attachment.',
+        )),)
     def spans(self):return self._spans

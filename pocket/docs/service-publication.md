@@ -1,4 +1,20 @@
-# Owner publication work
+# Publishing shared service state
+
+A service owner distributes its state to desktop clients and reports its
+availability to the device catalogue. Full desktop views need the state;
+the catalogue needs to know whether the service endpoint remains available.
+
+```mermaid
+flowchart TB
+    owner["Service owner"] --> encode["Build and encode a changed snapshot once"]
+    encode --> first["Full-state subscriber A"]
+    encode --> second["Full-state subscriber B"]
+    owner --> available["Initial availability record"]
+    available --> catalogue["Device catalogue"]
+    owner -->|connection closes| catalogue
+```
+
+*Full-state clients receive the encoded update. The catalogue keeps an availability subscription open and observes its closure.*
 
 The shared owner server builds and encodes one snapshot frame per broadcast, then queues those immutable bytes for each full-state subscriber. MeshCore supplies its already bounded frame, so the size check and publication share one encode. Other owners keep their ordinary snapshot method. This avoids an unbounded cache and preserves the existing 32 KiB frame, eight-client and two-frame output-queue limits. Slow clients still disconnect at the queue limit.
 

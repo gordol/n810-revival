@@ -45,9 +45,9 @@ class WorkspaceTests(unittest.TestCase):
         state.debug_key = state.debug_record = None
         state.debug_scroll = 0
         state.socket_path = '/nonexistent'
-        for line in ('09:00:01 N0ANT>APRS ctl=03 pid=f0 !4710.00N/12231.00W[test',
+        for line in ('09:00:01 N0DEM>APRS ctl=03 pid=f0 !4710.00N/12231.00W[test',
                      '09:00:02 BALDI>APRS ctl=03 pid=f0 !4713.13N/12150.61W_test',
-                     '09:00:03 N0ANT>APRS ctl=03 pid=f0 >operator status'):
+                     '09:00:03 N0DEM>APRS ctl=03 pid=f0 >operator status'):
             state.add(line, historical=True)
         return state
 
@@ -62,18 +62,18 @@ class WorkspaceTests(unittest.TestCase):
         state.add('09:00:04 OTHER>APRS ctl=03 pid=f0 >new traffic')
         self.assertEqual(view.selected_row(state)['raw'], selected)
         view.trial_panel_key(state, ord('c'))
-        self.assertEqual(state.call_filter, 'N0ANT')
+        self.assertEqual(state.call_filter, 'N0DEM')
         self.assertEqual(len(view.packet_rows(state)), 2)
         view.move_selection(state, 1)
         self.assertNotEqual(view.selected_row(state)['raw'], selected)
-        self.assertEqual(view.selected_row(state)['call'], 'N0ANT')
+        self.assertEqual(view.selected_row(state)['call'], 'N0DEM')
         view.trial_panel_key(state, ord('z'))
         self.assertEqual(panels.focus, 'map')
         self.assertEqual(panels.visible, {'packets', 'inspector'})
         view.trial_panel_key(state, ord('a'))
         self.assertEqual(len(view.packet_rows(state)), 4)
         view.trial_panel_key(state, 127)
-        self.assertEqual(state.call_filter, 'N0ANT')
+        self.assertEqual(state.call_filter, 'N0DEM')
         self.assertEqual(tuple(state.center), camera)
 
     def test_capture_identity_matches_native_id_and_missing_bytes_stay_unknown(self):
@@ -129,7 +129,7 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(set(snapshot['windows']), set(contract['windows']))
         self.assertEqual(snapshot['filter_scope'], contract['filter_scope'])
         self.assertEqual(set(snapshot['filter']), set(contract['filter_default']))
-        self.assertEqual(snapshot['filter']['station'], 'N0ANT')
+        self.assertEqual(snapshot['filter']['station'], 'N0DEM')
         self.assertIsNone(snapshot['selected_capture_id'])
         self.assertIsNone(snapshot['freshness']['captured'])
         self.assertIsNone(snapshot['freshness']['fetched'])
@@ -148,7 +148,7 @@ class WorkspaceTests(unittest.TestCase):
         state = view.State()
         state.map_engine_name = 'next'
         for i in range(200):
-            state.add('10:%02d:%02d N0ANT>APRS ctl=03 pid=f0 >record %d' %
+            state.add('10:%02d:%02d N0DEM>APRS ctl=03 pid=f0 >record %d' %
                       (i // 60, i % 60, i))
         state.selected = 199
         view.trial_panel_key(state, ord('x'))
@@ -205,7 +205,7 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_expired_selection_survives_clean_save_without_record_substitution(self):
         saved = dict(center=[47.38, -122.52], span=212, panels=['packets', 'inspector'],
-                     panel_focus='inspector', call_filter='N0ANT', selection_expired=True,
+                     panel_focus='inspector', call_filter='N0DEM', selection_expired=True,
                      selected_raw=None)
         win = Window()
         win.getch = lambda: ord('q')
@@ -236,14 +236,14 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIsNone(persisted['selected_raw'])
         self.assertEqual(persisted['panels'], ['inspector', 'packets'])
         self.assertEqual(persisted['panel_focus'], 'inspector')
-        self.assertEqual(persisted['call_filter'], 'N0ANT')
+        self.assertEqual(persisted['call_filter'], 'N0DEM')
         self.assertEqual(persisted['center'], saved['center'])
 
     def test_legacy_retention_does_not_gain_trial_expiry_behavior(self):
         state = view.State()
         state.map_engine_name = 'legacy'
         for i in range(200):
-            state.add('10:%02d:%02d N0ANT>APRS ctl=03 pid=f0 >record %d' %
+            state.add('10:%02d:%02d N0DEM>APRS ctl=03 pid=f0 >record %d' %
                       (i // 60, i % 60, i))
         state.selected = 199
         state.add('10:04:00 BALDI>APRS ctl=03 pid=f0 >new traffic')
@@ -252,7 +252,7 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_external_station_handoff_rebinds_filter_record_and_map_then_returns(self):
         state = self.state()
-        view.filter_station(state, 'N0ANT')
+        view.filter_station(state, 'N0DEM')
         previous = view.selected_row(state)['raw']
         camera = list(state.center)
         station_cache = dict(state.stations)
@@ -270,14 +270,14 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(state.stations, station_cache)
         view.trial_panel_key(state, 127)
         self.assertIsNone(state.map_target)
-        self.assertEqual(state.call_filter, 'N0ANT')
+        self.assertEqual(state.call_filter, 'N0DEM')
         self.assertEqual(view.selected_row(state)['raw'], previous)
         self.assertEqual(state.center, camera)
 
     def test_external_without_retained_capture_is_explicit_and_does_not_invent_record(self):
         state = self.state()
         camera = list(state.center)
-        view.filter_station(state, 'N0ANT')
+        view.filter_station(state, 'N0DEM')
         view.activate_external_target(state, dict(call='UNHEARD', source='directory'))
         snapshot = view.workspace_view(state)
         self.assertEqual(snapshot['selected_station'], 'UNHEARD')
@@ -302,20 +302,20 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIsNone(view.workspace_view(state)['external_target'])
         self.assertEqual(state.center, camera)
         view.activate_external_target(state, dict(call='BALDI', position=[48.5, -123], source='directory'))
-        view.filter_station(state, 'N0ANT')
+        view.filter_station(state, 'N0DEM')
         self.assertIsNone(state.map_target)
-        self.assertEqual(view.selected_row(state)['call'], 'N0ANT')
+        self.assertEqual(view.selected_row(state)['call'], 'N0DEM')
         self.assertEqual(state.center, camera)
 
     def test_cancel_external_target_restores_prior_expiry_not_a_substitute_record(self):
         state = self.state()
-        state.call_filter = 'N0ANT'
+        state.call_filter = 'N0DEM'
         state.selection_expired = True
         view.activate_external_target(state, dict(call='BALDI', source='directory'))
         self.assertFalse(state.selection_expired)
         self.assertEqual(view.selected_row(state)['call'], 'BALDI')
         view.cancel_external_target(state)
-        self.assertEqual(state.call_filter, 'N0ANT')
+        self.assertEqual(state.call_filter, 'N0DEM')
         self.assertTrue(state.selection_expired)
         self.assertIsNone(view.selected_row(state))
 
@@ -383,19 +383,19 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_saved_external_target_restores_explicit_station_context_without_moving_camera(self):
         state = self.state()
-        view.filter_station(state, 'N0ANT')
+        view.filter_station(state, 'N0DEM')
         previous = view.selected_row(state)['raw']
         camera = list(state.center)
         view.activate_external_target(state, dict(call='BALDI', source='directory'))
         saved_target = json.loads(json.dumps(state.map_target))
-        view.filter_station(state, 'N0ANT')
+        view.filter_station(state, 'N0DEM')
         view.activate_external_target(state, saved_target, remember=False)
         self.assertEqual(state.call_filter, 'BALDI')
         self.assertEqual(view.selected_row(state)['call'], 'BALDI')
         self.assertEqual(state.center, camera)
         view.cancel_external_target(state)
         self.assertEqual(view.selected_row(state)['raw'], previous)
-        self.assertEqual(state.call_filter, 'N0ANT')
+        self.assertEqual(state.call_filter, 'N0DEM')
         self.assertEqual(state.center, camera)
 
 

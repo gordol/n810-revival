@@ -1,0 +1,20 @@
+{
+  "name": "EspIdfUartIram",
+  "version": "4.4.7",
+  "frameworks": [
+    "arduino"
+  ],
+  "platforms": [
+    "espressif32"
+  ],
+  "build": {
+    "srcDir": ".",
+    "srcFilter": [
+      "+<uart.c>",
+      "+<uart_hal_iram.c>"
+    ],
+    "flags": [
+      "-DCONFIG_UART_ISR_IN_IRAM=1"
+    ]
+  }
+}

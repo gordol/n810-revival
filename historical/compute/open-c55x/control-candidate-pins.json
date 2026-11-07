@@ -1,0 +1,13 @@
+{
+  "original_archive_sha256": "96f4cb5cdb63d047852166fb70137f1269f0766b699b024d3a2365a26b7527eb",
+  "source_changes": {
+    "gas/config/tc-tic55x.c": {
+      "before_sha256": "82aaf8f23f59ab474ce69cbdbf004846ce573e256142d020f48a132b2d6d096b",
+      "after_sha256": "a8e0100b6b1dfc3ebbdba56f458b619205269195112c2d8eb98f6acba96eebbd"
+    },
+    "bfd/coff-tic55x.c": {
+      "before_sha256": "2f91a79bc2338b08ce53e286591e1e24931fc7cdc6f480181dfb8a67b95b64ab",
+      "after_sha256": "f1f7d4423e02d10b08d0b040b53c9a44655e5a199e332dc9d883ee8f43d77777"
+    }
+  }
+}

@@ -1,0 +1,39 @@
+#!/bin/sh
+# Verify the exact merged-/usr rescue over USB SSH without changing the system.
+set -eu
+
+running_release=5.15.86-n810-usrrescue13+
+target=${1:-nokia@192.168.10.1}
+usb_ip=${DEVICE_HOST:-192.168.10.1}
+remote=/tmp/n810-post-rescue-verify.$$.sh
+trap 'rm -f "$remote"' EXIT HUP INT TERM
+
+cat >"$remote" <<'REMOTE'
+#!/bin/sh
+set -eu
+usb_ip=$1
+running_release=$2
+fail() { echo "POST-RESCUE VERIFY FAILED: $*" >&2; exit 1; }
+
+test "$(readlink /lib 2>/dev/null || true)" = usr/lib || fail '/lib is not usr/lib'
+test -x /usr/lib/ld-linux.so.3 || fail 'loader is missing'
+test -x /lib/ld-linux.so.3 || fail 'loader is unreachable through /lib'
+/lib/ld-linux.so.3 /usr/bin/true || fail 'direct dynamic execution failed'
+/usr/bin/env true || fail 'ordinary dynamic execution failed'
+model=$(tr -d '\000' </proc/device-tree/model 2>/dev/null || true)
+case "$model" in *Nokia*N810*) :;; *) fail "wrong device: $model";; esac
+test "$(uname -r)" = "$running_release" || fail "wrong kernel: $(uname -r)"
+grep -q 'root=PARTUUID=8f3023be-02\([[:space:]]\|$\)' /proc/cmdline || fail 'wrong root partition'
+test -n "${SSH_CONNECTION:-}" || fail 'not running under SSH'
+set -- $SSH_CONNECTION
+test "${3:-}" = "$usb_ip" || fail "wrong SSH endpoint: ${3:-unknown}"
+test "${4:-}" = 22 || fail "wrong SSH port: ${4:-unknown}"
+/sbin/ip -o -4 addr show | grep -Eq "[[:space:]]$usb_ip/24([[:space:]]|$)" || fail 'USB address missing'
+sudo -v
+sudo -n /usr/bin/true || fail 'sudo execution failed'
+echo 'N810 post-rescue verification passed: /lib, dynamic execution, USB SSH, and sudo work.'
+echo 'No module tree or boot state was changed.'
+REMOTE
+chmod 700 "$remote"
+scp -- "$remote" "$target:/tmp/n810-post-rescue-verify.sh"
+ssh -tt "$target" "sh /tmp/n810-post-rescue-verify.sh '$usb_ip' '$running_release'; rc=\$?; rm -f /tmp/n810-post-rescue-verify.sh; exit \$rc"

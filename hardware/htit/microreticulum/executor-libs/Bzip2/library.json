@@ -1,0 +1,11 @@
+{
+  "name": "PocketBzip2",
+  "version": "1.0.8",
+  "build": {
+    "srcDir": ".",
+    "includeDir": ".",
+    "flags": [
+      "-DBZ_NO_STDIO"
+    ]
+  }
+}

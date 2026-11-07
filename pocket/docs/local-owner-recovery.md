@@ -2,6 +2,21 @@
 
 An explicitly configured local Reticulum session, Reticulum carrier or MeshCore companion starts one shared idle management owner. Opening another matching client borrows it. Closing one client leaves that owner running. Unconfigured temporary contact owners retain their existing client-owned cleanup.
 
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Connecting: Explicit Connect
+    Connecting --> Ready: Transport established
+    Connecting --> Backoff: Attempt fails
+    Ready --> Backoff: Connection lost
+    Backoff --> Connecting: Retry deadline
+    Connecting --> Idle: Explicit Disconnect
+    Backoff --> Idle: Explicit Disconnect
+    Ready --> Idle: Explicit Disconnect
+```
+
+*This is the owner's radio connection intent. Closing a display window leaves that intent with the owner; Disconnect clears it.*
+
 Startup uses a private nonblocking advisory lock, a process-held lifetime lock and a listener-ready pipe. Readiness and cancellation use descriptor events. A busy startup lock returns to the existing cancellable recovery backoff; it never blocks the UI or starts another interpreter just to wait for a lock. Retry delay grows from 250 ms to a maximum of 15 seconds. A subscription that lasted at least 30 seconds resets that crash backoff.
 
 The client records the device, inode and change timestamp of an endpoint only after receiving and validating its owner snapshot. A refused socket can be removed only when its private receipt matches that exact device, inode, change timestamp and owner identity and the lifetime lock is free. Live mismatched owners, unknown endpoints, unsafe files and replacement inodes are retained and reported as errors.

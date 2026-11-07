@@ -89,6 +89,6 @@ python3 -m unittest -v domains.workbench.test_workbench
 Seven tests cover a real selected-WAV→CW candidate→persisted/reopened history flow;
 unsupported/missing/changed/truncated/oversize inputs; detached snapshots;
 single-worker cancellation and timeout; evidence reading and bad parameter/result
-IDs, bounded retained history and private report modes. Known example returns `CQ N0ANT SOS 73`. All work is local receive-only file
+IDs, bounded retained history and private report modes. Known example returns `CQ N0DEM SOS 73`. All work is local receive-only file
 replay. The native Workbench presenter/launcher is owned by the framework chat;
 this domain alone is not a shipped GUI, live HF connection or N810 deployment.

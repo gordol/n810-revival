@@ -1,0 +1,46 @@
+name: Container builds
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: container-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: containers/release.Dockerfile
+          target: archives
+          outputs: type=local,dest=dist
+          push: false
+          cache-from: type=gha,scope=n810-release
+          cache-to: type=gha,mode=max,scope=n810-release
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: n810-source
+          path: |
+            dist/source.tar.gz
+            dist/source.tar.gz.sha256
+          if-no-files-found: error
+      - name: Upload documentation archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: n810-documentation
+          path: |
+            dist/documentation.tar.gz
+            dist/documentation.tar.gz.sha256
+          if-no-files-found: error

@@ -63,11 +63,11 @@ class Tests(unittest.TestCase):
         self.server.radio_live=self.owner.read_state
         initial=self.request(self.submit());self.assertFalse(initial['radio_live']['enabled'])
         self.owner.tick(0);self.owner.feed(self.reply(20,bytes(4)))
-        heartbeat=self.owner.state['heartbeat']
+        heartbeat=self.owner.state['published_at']
         result=self.request(dict(version=1,operation='status',request_id='one'))
         self.assertEqual(result['radio_live'],self.owner.state)
         self.assertEqual(result['radio_live']['fields']['status'],result['result']['results']['20']['observed_at'])
-        self.assertEqual(result['radio_live']['heartbeat'],heartbeat);self.assertEqual(self.owner.state['heartbeat'],heartbeat)
+        self.assertEqual(result['radio_live']['published_at'],heartbeat);self.assertEqual(self.owner.state['published_at'],heartbeat)
         self.assertFalse(result['radio_live']['enabled'])
         result['radio_live']['fields'].clear();self.assertIn('status',self.owner.state['fields'])
         self.server.radio_live=lambda:{'large':'x'*endpoint.RESPONSE_LIMIT}

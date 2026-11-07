@@ -81,7 +81,7 @@ def replay(sources,root,python):
         ('Messages','n810-aprs-messages.py',['--socket',str(root/'aprs.sock'),'--kiss',str(root/'tx-disabled.sock'),'--store',str(state/'messages.json')],[110,0,84,22]),
         ('Nets','n810-nets.py',['--socket',str(root/'aprs.sock'),'--lead','0','--data',str(sources/'data/nets-puget-sound.json')],[110,23,84,18]),
         ('Directory','n810-aprs-directory.py',['--db',str(state/'directory.sqlite3'),'--socket',str(root/'replay.sock')],[0,40,94,18]),
-        ('Services','n810-aprs-services.py',['--socket',str(root/'aprs.sock'),'--call','N0ANT'],[96,42,98,18])]
+        ('Services','n810-aprs-services.py',['--socket',str(root/'aprs.sock'),'--call','N0DEM'],[96,42,98,18])]
     icons={'APRS':'@','Messages':'[=]','Nets':'#','Directory':'::','Services':'<>'}
     minimums={'APRS':[64,16],'Messages':[94,22],'Nets':[65,18],'Directory':[60,14],'Services':[48,18]}
     apps=[]

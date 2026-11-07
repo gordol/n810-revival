@@ -416,7 +416,7 @@ def run(win,walk):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--callsign',default='N0ANT');parser.add_argument('--budget',type=int,default=20)
+    parser.add_argument('--callsign',default='N0DEM');parser.add_argument('--budget',type=int,default=20)
     parser.add_argument('--logs',default='~/.local/state/n810-aprs/walks')
     args=parser.parse_args()
     if not 1<=args.budget<=60:parser.error('budget must be 1..60')

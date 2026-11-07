@@ -1,0 +1,5 @@
+numpy==2.3.5
+Pillow==12.0.0
+shapely==2.1.2
+
+osmium==4.2.0

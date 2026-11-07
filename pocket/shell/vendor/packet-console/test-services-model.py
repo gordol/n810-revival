@@ -21,28 +21,28 @@ class ServicesTests(unittest.TestCase):
         self.assertIs(ui.fields,ui.model.fields)
 
     def test_service_hints_are_advertisements_and_duplicates_bounded(self):
-        state=m.State('N0ANT-7');line=packet('>BBS 146.820MHz')
+        state=m.State('N0DEM-7');line=packet('>BBS 146.820MHz')
         state.add(line);state.add(line)
         self.assertEqual(state.total,1);self.assertEqual(state.rows(0)[0]['frequencies'],['146.820'])
         self.assertIn('BBS mention',state.rows(0)[0]['hints']);self.assertEqual(state.rows(0)[0]['raw'],line)
         for i in range(2100):state.add(packet('>station '+str(i),call='T'+str(i)))
         self.assertLessEqual(len(state.seen),2000);self.assertLessEqual(len(state.stations),256)
     def test_message_ack_and_own_call(self):
-        state=m.State('N0ANT-7')
-        state.add(packet(':N0ANT-2  :hello{12'))
+        state=m.State('N0DEM-7')
+        state.add(packet(':N0DEM-2  :hello{12'))
         row=state.rows(2)[0];self.assertTrue(row['ours']);self.assertEqual(row['id'],'12')
-        state.add(packet(':N0ANT    :ack12'))
+        state.add(packet(':N0DEM    :ack12'))
         self.assertEqual(state.rows(2)[0]['kind'],'ACK')
         self.assertIn('Acknowledgement', '\n'.join(m.details(state.rows(2)[0])))
-        for i in range(210):state.add(packet(':N0ANT    :hello'+str(i)))
+        for i in range(210):state.add(packet(':N0DEM    :hello'+str(i)))
         self.assertEqual(len(state.messages),200)
     def test_object_lifecycle_and_status(self):
-        state=m.State('N0ANT');state.add(packet(';OBJECT   *111111zBBS'))
+        state=m.State('N0DEM');state.add(packet(';OBJECT   *111111zBBS'))
         self.assertIn('TEST/OBJECT',state.stations)
         state.add(packet(';OBJECT   _111111zBBS'));self.assertNotIn('TEST/OBJECT',state.stations)
         state.add('REPLAY | hardware unavailable');self.assertIn('REPLAY',state.status)
     def test_display_copy_does_not_modify_original(self):
-        state=m.State('N0ANT');line=packet('>BBS\\x0d')
+        state=m.State('N0DEM');line=packet('>BBS\\x0d')
         state.add(line);row=state.rows(0)[0];m.details(row);m.fields(row);m.summary(row)
         self.assertEqual(row['raw'],line);self.assertEqual(row['payload'],'>BBS\\x0d')
 

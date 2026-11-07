@@ -21,7 +21,7 @@ class Tests(unittest.TestCase):
   return p
  def test_main_error_exits_while_parent_pipe_is_still_open(self):
   p=self.child("""
-sys.argv=['hub','--port','fake','bridge','--ble','AA:BB:CC:DD:EE:FF','--parent-watch']
+sys.argv=['hub','--port','fake','bridge','--ble','aa:bb:cc:dd:ee:ff','--parent-watch']
 try:hub.main()
 except OSError:sys.exit(7)
 """)

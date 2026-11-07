@@ -10,7 +10,7 @@ ROOT=Path(__file__).parent
 spec=importlib.util.spec_from_file_location('snapshot_view',ROOT/'n810-aprs-view.py');v=importlib.util.module_from_spec(spec);spec.loader.exec_module(v)
 spec=importlib.util.spec_from_file_location('snapshot_model',ROOT/'n810-messages-model.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 spec=importlib.util.spec_from_file_location('snapshot_monitor',ROOT/'n810-packet-monitor.py');monitor=importlib.util.module_from_spec(spec);spec.loader.exec_module(monitor)
-FRAME=m.kiss_frame('N0ANT',[],'W7DK','hello','A12')[1:-1].replace(b'\xdb\xdc',b'\xc0').replace(b'\xdb\xdd',b'\xdb')
+FRAME=m.kiss_frame('N0DEM',[],'W7DK','hello','A12')[1:-1].replace(b'\xdb\xdc',b'\xc0').replace(b'\xdb\xdd',b'\xdb')
 RECORD=dict(time='2026-10-17T12:00:00+00:00',frame=FRAME.hex(),direction='radio_to_host')
 PACKET=dict(raw='12:00:00 '+monitor.describe(FRAME))
 class Tests(unittest.TestCase):

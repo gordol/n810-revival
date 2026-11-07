@@ -179,7 +179,7 @@ def main():
             import importlib.util
             spec=importlib.util.spec_from_file_location('web_walk_history',Path.home()/'n810-walk-history.py')
             history=importlib.util.module_from_spec(spec);spec.loader.exec_module(history)
-            for outing in history.load(root/'n810-aprs/walks','N0ANT'):
+            for outing in history.load(root/'n810-aprs/walks','N0DEM'):
                 rows=[dict(type='session',tag=outing['name'],time=outing['start'])]
                 rows.extend(dict(type='position',position=p) for p in outing['track'])
                 rows.extend(dict(type='submission',probe=p) for p in outing['probes'])

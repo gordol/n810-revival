@@ -126,7 +126,7 @@ def run(win,args,walk):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--maps',default=str(BASE/'maps'));p.add_argument('--style',choices=['ansi','rgb'],default='ansi')
-    p.add_argument('--walks',default='~/.local/state/n810-aprs/walks');p.add_argument('--callsign',default='N0ANT')
+    p.add_argument('--walks',default='~/.local/state/n810-aprs/walks');p.add_argument('--callsign',default='N0DEM')
     p.add_argument('--variant',type=int,choices=[0,1,2],default=1);p.add_argument('--benchmark',action='store_true')
     args=p.parse_args();walks=history.load(Path(args.walks).expanduser(),args.callsign)
     walk=walks[0] if walks else dict(track=[],probes=[])

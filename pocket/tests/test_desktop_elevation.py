@@ -5,7 +5,10 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
 import desktop_elevation as dem
 from offline_map import Renderer
 
+from map_fixtures import install, regional_data_available
+
 class DesktopElevationTests(unittest.TestCase):
+ @unittest.skipUnless(regional_data_available() and dem.sources(), "Regional elevation integration test: build maps and elevation first")
  def test_normal_map_preserves_bays_with_relief_on_or_off(self):
   r=Renderer();key=('map',(47.25,-122.56),.1,41,15,True,True);r._wanted=key
   try:
@@ -20,6 +23,7 @@ class DesktopElevationTests(unittest.TestCase):
   finally:r.close()
  def test_nokia_keeps_prepared_renderer(self):
   with patch('platform.machine',return_value='armv7l'):self.assertFalse(dem.enabled())
+ @unittest.skipUnless(regional_data_available() and dem.sources(), "Regional elevation integration test: build maps and elevation first")
  def test_regional_heights_are_sampled_outside_lakewood(self):
   r=Renderer()
   try:
@@ -32,14 +36,15 @@ class DesktopElevationTests(unittest.TestCase):
  def test_second_renderer_reads_disk_cache(self):
   with tempfile.TemporaryDirectory() as folder,patch.dict(os.environ,{'N810_MAP_BASES':str(Path(folder)/'cache')}):
    key=('map',(47.04,-122.95),5.,65,22,True,True)
-   r=Renderer();r._wanted=key
+   r=Renderer();install(self,r);r._wanted=key
    try:first=r._render(key)
    finally:r.close()
-   r=Renderer();r._wanted=key
+   r=Renderer();install(self,r);r._wanted=key
    try:
     second=r._render(key)
     self.assertEqual(first.cells,second.cells);self.assertEqual(first.legend,second.legend);self.assertEqual(r.engine.stats['cache'],'prepared')
    finally:r.close()
+ @unittest.skipUnless(regional_data_available() and dem.sources(), "Regional elevation integration test: build maps and elevation first")
  def test_actual_station_map_uses_desktop_dem_not_prepared_terrain(self):
   from station_workspace import StationMap,Context
   form=StationMap(Context(),Path(__file__).resolve().parents[1]/'shell/vendor/packet-console',lambda:None)

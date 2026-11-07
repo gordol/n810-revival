@@ -1,0 +1,20 @@
+--- a/drivers/net/wireless/intersil/p54/main.c
++++ b/drivers/net/wireless/intersil/p54/main.c
+@@ -503,7 +503,8 @@
+ 	u8 algo = 0;
+ 	u8 *addr = NULL;
+ 
+-	if (modparam_nohwcrypt)
++	/* Per-peer IBSS GTKs use the mac80211 software crypto path. */
++	if (modparam_nohwcrypt || vif->type == NL80211_IFTYPE_ADHOC)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (key->flags & IEEE80211_KEY_FLAG_RX_MGMT) {
+@@ -746,6 +747,7 @@
+ 	ieee80211_hw_set(dev, SUPPORTS_PS);
+ 	ieee80211_hw_set(dev, RX_INCLUDES_FCS);
+ 	ieee80211_hw_set(dev, SIGNAL_DBM);
++	dev->wiphy->flags |= WIPHY_FLAG_IBSS_RSN;
+ 
+ 	dev->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
+ 				      BIT(NL80211_IFTYPE_ADHOC) |

@@ -9,7 +9,7 @@ m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 
 class ModelTests(unittest.TestCase):
     def state(self):
-        return m.State('N0ANT',clock=lambda:'12:34:56',identifier_factory=lambda:'A12')
+        return m.State('N0DEM',clock=lambda:'12:34:56',identifier_factory=lambda:'A12')
 
     def test_draft_is_validated_before_state_change_and_has_existing_shape(self):
         state=self.state()
@@ -21,7 +21,7 @@ class ModelTests(unittest.TestCase):
         state=self.state();row=state.draft('W7DK','hello')
         first=state.begin_submission(row,['WIDE1-1'])
         self.assertEqual(row['status'],'Submitting');self.assertEqual(row['attempts'],1)
-        self.assertEqual(row['wire_hex'],first.hex());self.assertEqual(row['source'],'N0ANT')
+        self.assertEqual(row['wire_hex'],first.hex());self.assertEqual(row['source'],'N0DEM')
         state.submitted(row);self.assertEqual(row['status'],'Submitted')
         state.unconfirmed(row,'connection lost');self.assertEqual(row['status'],'Unconfirmed')
         self.assertEqual(state.begin_submission(row,['WIDE1-1']),first)
@@ -29,32 +29,32 @@ class ModelTests(unittest.TestCase):
 
     def test_only_exact_peer_and_addressee_acknowledges_non_draft(self):
         state=self.state();row=state.draft('W7DK','hello')
-        ack='12:00:00 W7DK>APRS ctl=03 pid=f0 :N0ANT    :ackA12'
+        ack='12:00:00 W7DK>APRS ctl=03 pid=f0 :N0DEM    :ackA12'
         state.add(ack);self.assertEqual(row['status'],'Draft')
         state.begin_submission(row,[]);state.submitted(row)
-        for line in ('12:00:01 OTHER>APRS ctl=03 pid=f0 :N0ANT    :ackA12',
-                     '12:00:02 W7DK>APRS ctl=03 pid=f0 :N0ANT-1  :ackA12',
-                     '12:00:03 W7DK>APRS ctl=03 pid=f0 :N0ANT    :ackB12'):
+        for line in ('12:00:01 OTHER>APRS ctl=03 pid=f0 :N0DEM    :ackA12',
+                     '12:00:02 W7DK>APRS ctl=03 pid=f0 :N0DEM-1  :ackA12',
+                     '12:00:03 W7DK>APRS ctl=03 pid=f0 :N0DEM    :ackB12'):
             state.add(line);self.assertEqual(row['status'],'Submitted')
         state.add(ack.replace('12:00:00','12:00:04'))
         self.assertEqual(row['status'],'Acknowledged')
 
     def test_rejection_and_reply_ack_preserve_original_rx(self):
         state=self.state();row=state.draft('W7DK','hello');state.begin_submission(row,[])
-        raw='12:00:00 GATE>APRS ctl=03 pid=f0 }W7DK>APRS,TCPIP*::N0ANT    :reply{B2}A12\\x0d'
+        raw='12:00:00 GATE>APRS ctl=03 pid=f0 }W7DK>APRS,TCPIP*::N0DEM    :reply{B2}A12\\x0d'
         state.add(raw);self.assertEqual(row['status'],'Acknowledged')
         received=state.received[0]
         self.assertEqual(received['raw'],raw);self.assertEqual(received['source'],'W7DK')
         self.assertEqual(received['reply_ack'],'A12');self.assertEqual(received['time'],'12:00:00')
-        state.add('12:00:01 W7DK>APRS ctl=03 pid=f0 :N0ANT    :rejA12')
+        state.add('12:00:01 W7DK>APRS ctl=03 pid=f0 :N0DEM    :rejA12')
         self.assertEqual(row['status'],'Rejected')
 
     def test_thread_filters_exact_ssid_and_returns_detached_groups(self):
         state=self.state();draft=state.draft('W7DK','hello');state.begin_submission(draft,['WIDE1-1'])
         state.draft('W7DK-1','other')
-        for line in ('12:00:00 W7DK>APRS ctl=03 pid=f0 :N0ANT    :hello{B2',
+        for line in ('12:00:00 W7DK>APRS ctl=03 pid=f0 :N0DEM    :hello{B2',
                      '12:00:01 W7DK>APRS ctl=03 pid=f0 :OTHER    :not ours{B3',
-                     '12:00:02 W7DK-1>APRS ctl=03 pid=f0 :N0ANT    :different SSID{B4'):
+                     '12:00:02 W7DK-1>APRS ctl=03 pid=f0 :N0DEM    :different SSID{B4'):
             state.add(line)
         thread=state.thread('w7dk')
         self.assertEqual(thread['peer'],'W7DK')
@@ -82,7 +82,7 @@ class ModelTests(unittest.TestCase):
         state.add('Feed disconnected');self.assertEqual(state.status,'Feed disconnected')
         self.assertEqual(len(state.received),0)
         for n in range(201):
-            line=f'12:00:00 W7DK>APRS ctl=03 pid=f0 :N0ANT    :test {n}{{A12'
+            line=f'12:00:00 W7DK>APRS ctl=03 pid=f0 :N0DEM    :test {n}{{A12'
             state.add(line);state.add(line)
             state.draft('W7DK',str(n))
         self.assertEqual(len(state.received),200);self.assertEqual(len(state.outbox),100)
@@ -103,7 +103,7 @@ class ModelTests(unittest.TestCase):
         self.assertIn('KISS bytes submitted',after)
         self.assertIn(' '.join(wire.hex()[i:i+2] for i in range(0,len(wire.hex()),2)),after)
         self.assertIn('These are local submission bytes, not a capture of the RF transmission.',after)
-        raw='12:00:00 W7DK>APRS ctl=03 pid=f0 :N0ANT    :hello{B2'
+        raw='12:00:00 W7DK>APRS ctl=03 pid=f0 :N0DEM    :hello{B2'
         received=m.parse_message(raw)
         self.assertEqual(m.detail_lines(received),['RECEIVE DETAILS','',raw])
 

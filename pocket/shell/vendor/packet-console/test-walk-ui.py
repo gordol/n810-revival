@@ -35,7 +35,7 @@ class Atlas:
 
 class Tests(unittest.TestCase):
  def app(self,root):
-  a=w.Walk(argparse.Namespace(callsign='N0ANT',budget=20,logs=root));a.atlas=Atlas();a.center=(47.2,-122.5);a.span=40;a.fit_requested=False
+  a=w.Walk(argparse.Namespace(callsign='N0DEM',budget=20,logs=root));a.atlas=Atlas();a.center=(47.2,-122.5);a.span=40;a.fit_requested=False
   return a
  def test_burst_clamps_order_and_does_not_change_terrain(self):
   with tempfile.TemporaryDirectory() as root:

@@ -27,7 +27,7 @@ def bounded(value,default,maximum):
     return value
 
 
-def list_stations(db,filters=None,*,self_calls=None,own_call='N0ANT'):
+def list_stations(db,filters=None,*,self_calls=None,own_call='N0DEM'):
     """db is a path. Filters: limit, offset, buddy_only, via."""
     identities=directory().self_call_snapshot(self_calls,own_call)
     filters=dict(filters or {})
@@ -51,7 +51,7 @@ def list_stations(db,filters=None,*,self_calls=None,own_call='N0ANT'):
     return dict(rows=rows,limit=limit,offset=offset,has_more=len(records)>limit,counts=counts,self_calls=identities)
 
 
-def station_details(db,call,*,relay_limit=50,width=72,self_calls=None,own_call='N0ANT'):
+def station_details(db,call,*,relay_limit=50,width=72,self_calls=None,own_call='N0DEM'):
     """Return None for an unknown station; evidence and relays are aggregate."""
     identities=directory().self_call_snapshot(self_calls,own_call)
     if not isinstance(call,str) or not call.strip():raise ValueError('Expected station callsign')
@@ -141,7 +141,7 @@ def _batch_revision(result):
     return dict(result,revision=revision)
 
 
-def map_stations(db,*,limit=500,offset=0,self_calls=None,own_call='N0ANT'):
+def map_stations(db,*,limit=500,offset=0,self_calls=None,own_call='N0DEM'):
     """One bounded, consistent read snapshot; unknown position/symbol stays null."""
     identities=directory().self_call_snapshot(self_calls,own_call)
     limit=bounded(limit,500,500);offset=bounded(offset,0,1000000)
@@ -150,7 +150,7 @@ def map_stations(db,*,limit=500,offset=0,self_calls=None,own_call='N0ANT'):
 
 class StationMapCache:
     """Requery on SQLite or explicit identity changes; revision reflects content."""
-    def __init__(self,db,*,limit=500,offset=0,self_calls=None,own_call='N0ANT'):
+    def __init__(self,db,*,limit=500,offset=0,self_calls=None,own_call='N0DEM'):
         self.self_calls=directory().self_call_snapshot(self_calls,own_call)
         self.path=Path(db).expanduser().resolve();self.limit=bounded(limit,500,500);self.offset=bounded(offset,0,1000000)
         self.connection=None;self.file_id=None;self.version=None;self.value=None

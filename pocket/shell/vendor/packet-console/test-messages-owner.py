@@ -12,19 +12,19 @@ spec=importlib.util.spec_from_file_location('owner_monitor_test',ROOT/'n810-pack
 class Tests(unittest.TestCase):
  def setUp(self):
   self.now=[1000.];self.saved=[];self.sent=[]
-  self.state=o.model.State('N0ANT',clock=lambda:'00:16:40')
+  self.state=o.model.State('N0DEM',clock=lambda:'00:16:40')
   def persist(rows):self.saved.append(o.model.outbox_document(rows))
   def submit(row):self.sent.append(self.state.begin_submission(row,row['path']));self.state.submitted(row)
   self.owner=o.Owner(self.state,'home','radio1',persist,submit,True,lambda:True,lambda:self.now[0])
  def command(self,action,request_id,**values):return self.owner.handle(dict(action=action,request_id=request_id,**values))
  def draft(self):
-  result=self.command('draft.save','draft1',source='N0ANT',to='W7DK',text='hello',path=[],protocol='aprs')
+  result=self.command('draft.save','draft1',source='N0DEM',to='W7DK',text='hello',path=[],protocol='aprs')
   self.assertTrue(result['ok'],result);return result['row']
  def review(self,row):
   result=self.command('review','review1',draft_id=row['draft_id'],expected_revision=row['revision'])
   self.assertTrue(result['ok'],result);return result
  def send(self,review):
-  return dict(action='send',request_id='send1',review_token=review['review_token'],confirm=True,issued_at=self.now[0],station_id='home',radio_id='radio1',source='N0ANT')
+  return dict(action='send',request_id='send1',review_token=review['review_token'],confirm=True,issued_at=self.now[0],station_id='home',radio_id='radio1',source='N0DEM')
  def test_compose_review_have_no_transport_effect_then_one_send(self):
   row=self.draft();review=self.review(row)
   self.assertEqual(self.sent,[]);self.assertEqual(review['row']['id'],row['id'])
@@ -37,7 +37,7 @@ class Tests(unittest.TestCase):
  def test_same_request_repeats_and_restart_do_not_requeue(self):
   request=self.send(self.review(self.draft()));first=self.owner.handle(request)
   self.assertEqual(self.owner.handle(request),first);self.assertEqual(len(self.sent),1)
-  restored=o.model.State('N0ANT',outbox=self.saved[-1]['outbox'])
+  restored=o.model.State('N0DEM',outbox=self.saved[-1]['outbox'])
   restarted=o.Owner(restored,'home','radio1',lambda _:None,lambda _:self.fail('Never resend after restart'),True,lambda:True,lambda:1001)
   response=restarted.handle(request)
   self.assertTrue(response['ok']);self.assertTrue(response['duplicate'])
@@ -57,11 +57,11 @@ class Tests(unittest.TestCase):
   self.assertFalse(self.owner.handle(dict(request,issued_at=1061))['ok']);self.assertEqual(self.sent,[])
  def test_stale_revision_invalidates_review(self):
   row=self.draft();review=self.review(row)
-  changed=self.command('draft.save','edit1',draft_id=row['draft_id'],expected_revision=1,source='N0ANT',to='W7DK',text='new text',path=[])
+  changed=self.command('draft.save','edit1',draft_id=row['draft_id'],expected_revision=1,source='N0DEM',to='W7DK',text='new text',path=[])
   self.assertTrue(changed['ok']);self.assertEqual(changed['row']['revision'],2)
   self.assertFalse(self.owner.handle(self.send(review))['ok']);self.assertEqual(self.sent,[])
  def test_identity_mismatch_and_bss_rejected(self):
-  self.assertFalse(self.command('draft.save','bss1',protocol='bss',source='N0ANT',to='W7DK',text='test',path=[])['ok'])
+  self.assertFalse(self.command('draft.save','bss1',protocol='bss',source='N0DEM',to='W7DK',text='test',path=[])['ok'])
   request=self.send(self.review(self.draft()))
   self.assertFalse(self.owner.handle(dict(request,radio_id='other'))['ok'])
   self.assertEqual(self.sent,[])
@@ -88,15 +88,15 @@ class Tests(unittest.TestCase):
   tx=self.record(self.unescape(self.sent[0]),'host_to_radio_written',1001)
   self.owner.observe([tx],monitor.describe)
   self.assertEqual(row['status'],'Submitted');self.assertEqual(row['serial_written_at'],tx['time'])
-  ack=o.model.kiss_frame('W7DK',[],'N0ANT','',row['id'],'ACK')
+  ack=o.model.kiss_frame('W7DK',[],'N0DEM','',row['id'],'ACK')
   rx=self.record(self.unescape(ack),'radio_to_host',1002)
   self.owner.observe([rx],monitor.describe)
   self.assertEqual(row['status'],'Acknowledged');self.assertEqual(row['ack_capture'],rx)
  def test_old_wrong_peer_and_bss_do_not_acknowledge(self):
   self.owner.handle(self.send(self.review(self.draft())));row=self.state.outbox[0]
-  old=o.model.kiss_frame('W7DK',[],'N0ANT','',row['id'],'ACK')
-  other=o.model.kiss_frame('OTHER',[],'N0ANT','',row['id'],'ACK')
-  records=[self.record(self.unescape(old),'radio_to_host',999),self.record(self.unescape(other),'radio_to_host',1001),self.record(bytes.fromhex('000106204e30414e540121052450494e47'),'radio_to_host',1001)]
+  old=o.model.kiss_frame('W7DK',[],'N0DEM','',row['id'],'ACK')
+  other=o.model.kiss_frame('OTHER',[],'N0DEM','',row['id'],'ACK')
+  records=[self.record(self.unescape(old),'radio_to_host',999),self.record(self.unescape(other),'radio_to_host',1001),self.record(bytes.fromhex('000106204e3044454d0121052450494e47'),'radio_to_host',1001)]
   self.owner.observe(records,monitor.describe);self.assertEqual(row['status'],'Submitted')
  def test_in_memory_content_change_cannot_bypass_review(self):
   review=self.review(self.draft());self.state.outbox[0]['text']='changed behind review'
@@ -107,6 +107,6 @@ class Tests(unittest.TestCase):
    client.sendall(b'{"action":"snapshot","request_id":"snap1"}\n')
    o.serve_client(server,self.owner)
    result=json.loads(client.recv(65536));self.assertTrue(result['ok'])
-   self.assertEqual(result['capability']['source'],'N0ANT');self.assertEqual(self.sent,[])
+   self.assertEqual(result['capability']['source'],'N0DEM');self.assertEqual(self.sent,[])
   finally:client.close();server.close()
 if __name__=='__main__':unittest.main()

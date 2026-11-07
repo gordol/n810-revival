@@ -35,7 +35,7 @@ def decode_records(records):
     return result
 
 
-def walks(folder,call='N0ANT'):
+def walks(folder,call='N0DEM'):
     result=[]
     for outing in owner('n810-walk-history.py').load(folder,call):
         rows=[dict(type='session',tag=outing['name'],time=outing['start'])]

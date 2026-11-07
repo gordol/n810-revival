@@ -81,7 +81,7 @@ list)
 	esac
 	;;
 show) echo 'Controller 00:11:22:33:44:55 (public)' ;;
-devices) echo 'Device 01:23:45:67:89:AB Test keyboard' ;;
+devices) echo 'Device 01:23:45:67:89:ab Test keyboard' ;;
 *) : ;;
 esac
 FAKE
@@ -149,14 +149,14 @@ N810_BLUETOOTHCTL=$tmp/bluetoothctl N810_LEDCTL=$tmp/n810-ledctl \
 	"$helper_dir/n810-bluetooth" status >/dev/null
 TMUX=/tmp/fake N810_BLUETOOTHCTL=$tmp/bluetoothctl \
 	N810_LEDCTL=$tmp/n810-ledctl N810_TMUX_BIN=$tmp/tmux \
-	"$helper_dir/n810-bluetooth" pair 01:23:45:67:89:AB
+	"$helper_dir/n810-bluetooth" pair 01:23:45:67:89:ab
 TMUX=/tmp/fake N810_BLUETOOTHCTL=$tmp/bluetoothctl \
 	N810_LEDCTL=$tmp/n810-ledctl N810_TMUX_BIN=$tmp/tmux \
-	"$helper_dir/n810-bluetooth" connect 01:23:45:67:89:AB
+	"$helper_dir/n810-bluetooth" connect 01:23:45:67:89:ab
 PATH="$tmp:$PATH" N810_BLUETOOTHCTL=$tmp/bluetoothctl \
 	"$helper_dir/n810-bluetooth" discover 1 >/dev/null
 N810_BLUETOOTHCTL=$tmp/bluetoothctl \
-	"$helper_dir/n810-bluetooth" info 01:23:45:67:89:AB >/dev/null
+	"$helper_dir/n810-bluetooth" info 01:23:45:67:89:ab >/dev/null
 
 # Distinguish an absent controller from an unavailable bluetoothd, and never
 # continue into an operation in either state.
@@ -260,12 +260,12 @@ if PATH="$tmp:$PATH" N810_AUDIO_BIN="$audio_helper" \
 fi
 
 for expected in \
-	'--agent=KeyboardDisplay pair 01:23:45:67:89:AB' \
-	'trust 01:23:45:67:89:AB' \
-	'connect 01:23:45:67:89:AB' \
+	'--agent=KeyboardDisplay pair 01:23:45:67:89:ab' \
+	'trust 01:23:45:67:89:ab' \
+	'connect 01:23:45:67:89:ab' \
 	'scan on' \
 	'scan off' \
-	'info 01:23:45:67:89:AB' \
+	'info 01:23:45:67:89:ab' \
 	'led notify bluetooth 4' \
 	'tmux display-message -- Bluetooth paired and trusted' \
 	'tmux display-message -- Bluetooth connected' \

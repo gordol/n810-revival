@@ -9,7 +9,7 @@ class Tests(unittest.TestCase):
   colors=[m.band_color(v,35,80) for v in range(35,81,5)]
   self.assertEqual(sorted(sum(c) for c in colors),[sum(c) for c in colors]);self.assertNotIn((255,255,255),colors)
  def test_real_filled_bands_coverage_cache_and_toggles(self):
-  atlas=m.atlas(str(ROOT/'maps'));center=(47.17,-122.52)
+  atlas=m.atlas(str(ROOT/'maps'));center=(47.2,-122.54)
   frames=[]
   for span,interval in ((1,5),(5,10),(20,25)):
    frame,text=m.background(atlas,center,span,80,24,True);self.assertEqual(len(frame),80*24);self.assertIn('%d m bands'%interval,text) if span<20 else self.assertIn('Regional elevation',text)
@@ -36,7 +36,7 @@ class Tests(unittest.TestCase):
    def addnstr(self,*args):pass
    def refresh(self):pass
   with tempfile.TemporaryDirectory() as folder:
-   app=walk.Walk(argparse.Namespace(callsign='N0ANT',budget=20,logs=folder));app.center=(47.17,-122.52);app.span=1;app.fit_requested=False
+   app=walk.Walk(argparse.Namespace(callsign='N0DEM',budget=20,logs=folder));app.center=(47.2,-122.54);app.span=1;app.fit_requested=False
    with patch.object(walk.rgb_map,'enabled',return_value=True),patch.object(walk,'map_layer',side_effect=AssertionError('ANSI map must not be drawn')),patch.object(walk.rgb_map.Surface,'draw') as output:
     app.draw(Screen());self.assertEqual(output.call_count,1)
     app.draw(Screen());self.assertEqual(output.call_count,1)

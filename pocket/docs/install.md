@@ -2,8 +2,19 @@
 
 ## Portable desktop
 
-Install Python 3.11 or newer and Make. Obtain this repository or unpack a source
-release, then run `make n810` from its root. No installer writes system files.
+The portable desktop runs on macOS or Linux with Python 3.11 or newer and Make. Obtain
+an N810 Revival source checkout or extract its source archive, then enter the
+`pocket` directory inside it:
+
+```sh
+cd pocket
+make
+```
+
+If you are already inside `pocket`, run just the Make command. The commands
+throughout this manual use that directory as their starting point. The
+[getting-started walkthrough](../../docs/tutorials/first-session.md) provides
+ZIP and Git download options and first-session controls.
 
 Instance state defaults to `$XDG_STATE_HOME/pocket/INSTANCE`, or
 `~/.local/state/pocket/INSTANCE`. Choose an explicit location with

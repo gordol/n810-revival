@@ -1,14 +1,28 @@
 site_name: N810 revival
+site_url: https://gordol.github.io/n810-revival/
 site_description: Debian and Pocket on the Nokia N810
 docs_dir: docs
+exclude_docs: |
+  AGENTS.md
 site_dir: site
 use_directory_urls: true
 theme:
   name: material
+  custom_dir: overrides
   font: false
   palette:
-    primary: blue grey
-    accent: cyan
+  - scheme: default
+    primary: custom
+    accent: custom
+    toggle:
+      icon: material/weather-night
+      name: Switch to night colors
+  - scheme: slate
+    primary: custom
+    accent: custom
+    toggle:
+      icon: material/weather-sunny
+      name: Switch to day colors
   features:
   - content.code.copy
 plugins:
@@ -17,15 +31,25 @@ markdown_extensions:
 - admonition
 - attr_list
 - tables
-- fenced_code
+- pymdownx.highlight:
+    anchor_linenums: true
+    use_pygments: true
+- pymdownx.inlinehilite
+- pymdownx.superfences:
+    custom_fences:
+    - name: mermaid
+      class: mermaid
+      format: !!python/name:pymdownx.superfences.fence_code_format
 - toc:
     permalink: true
 extra_css:
 - assets/stylesheets/project.css
-- assets/stylesheets/showcase.css
+- assets/stylesheets/home.css
+extra_javascript:
+- assets/javascripts/home.js
 validation:
   nav:
-    omitted_files: info
+    omitted_files: warn
     not_found: warn
   links:
     not_found: warn
@@ -33,7 +57,98 @@ validation:
     absolute_links: warn
 nav:
 - Project: index.md
-- Status: status.md
-- Journal: journal.md
-- What is in this repo: source.md
-- Publication: publication.md
+- Journal:
+  - Read from the beginning: journal.md
+  - Recovering the machine and booting Debian: posts/beginnings.md
+  - Recovering the complete Wi-Fi firmware: posts/2026-10-03-wifi.md
+  - Bringing up charging, display wake, and input: posts/2026-10-05-power-display-input.md
+  - Building the first sidebar desktop: posts/2026-10-05-sidebar-desktop.md
+  - Moving Debian to SD and connecting peripherals: posts/2026-10-13-sd-bluetooth.md
+  - Starting with APRS and the handheld radio: posts/2026-10-14-aprs.md
+  - One radio receiver, several terminal views: posts/2026-10-16-radio-ssh.md
+  - Extending the Linux console to RGB565: posts/2026-10-16-16-bit-console.md
+  - Moving the desktop into the terminal: posts/2026-10-16-pocket-desktop.md
+  - Decoding Morse recordings and preparing an audio input: posts/2026-10-16-cw.md
+  - Measuring the ARM CPU before moving work elsewhere: posts/2026-10-18-cpu-acceleration.md
+  - Rendering water and measuring idle work: posts/2026-10-20-water-and-idle.md
+  - Preparing maps and preserving the last usable view: posts/2026-10-24-maps-with-an-edge.md
+  - Sending LXMF messages through the terminal interface: posts/2026-10-24-lxmf.md
+  - Moving Reticulum execution onto the HTIT: posts/2026-10-29-htit.md
+  - Debugging HTIT reconnects and internal RAM pressure: posts/2026-10-30-htit-recovery.md
+  - Bringing up the graphics clock domain: posts/2026-10-31-gpu-clocks.md
+  - Reconstructing the MBX command stream: posts/2026-11-02-gpu-command-stream.md
+  - Repairing microLXMF parsing and object lifetime: posts/2026-11-02-microlxmf.md
+  - Maintaining the N810 changes on Linux 5.15.224: posts/2026-11-03-kernel.md
+  - Rendering standard glxgears on the MBX: posts/2026-11-03-mbx-rendering.md
+  - Integrating the Pocket applications into version 0.1.0: posts/2026-11-04-pocket-0-1-0.md
+  - Moving geometry onto the GPU and reaching 30 FPS: posts/2026-11-04-gpu-performance.md
+- Get started: start.md
+- Guides: guides.md
+- Roadmap: roadmap.md
+- Licensing:
+  - Scope and attribution: licensing.md
+  - Original software GPL grant: original-code-gpl.md
+  - Cat Wormhole License: license.md
+  - Component review: license-review.md
+  - Upstream notices: upstream-notices.md
+  - Contributors: contributors.md
+  - Contributor agreement: contributor-agreement.md
+- Tutorials:
+  - First local session: tutorials/first-session.md
+  - Laptop window-controls tour: tutorials/laptop-tour.md
+  - Overview and animated backgrounds: tutorials/overview-and-backgrounds.md
+- How-to guides:
+  - Connect over SSH: how-to/ssh.md
+  - Build the native compositor: how-to/build-native.md
+  - Build the N810 kernel: how-to/build-kernel.md
+  - Build the HTIT firmware: how-to/build-htit.md
+  - Build map data: how-to/build-map-data.md
+  - Build the graphics checkpoint: how-to/build-graphics.md
+  - Build and test the 30 FPS driver: how-to/build-gpu-30fps.md
+  - Test the journal checkpoints: how-to/test-journal-checkpoints.md
+  - Run the Pocket tests: how-to/validate.md
+  - Run the APRS map and tmux demo: how-to/aprs-demo.md
+  - Install Pocket: pocket/install.md
+  - Connect services: pocket/connections.md
+  - Send messages: pocket/messaging.md
+  - Package for the Nokia: pocket/nokia.md
+  - Connect an RNode: pocket/rnode-bluetooth.md
+  - Recover a service owner: pocket/local-owner-recovery.md
+  - Build native Reticulum: pocket/native-reticulum.md
+- Reference:
+  - Current status: status.md
+  - Kernel checkpoints: reference/kernels.md
+  - Kernel build inputs: reference/kernel-build-inputs.md
+  - Kernel build verification: reference/kernel-build-verification.md
+  - Journal source index: reference/journal-sources.md
+  - Component build verification: reference/component-build-verification.md
+  - HTIT source inputs: reference/htit-inputs.md
+  - Graphics source checkpoint: reference/graphics-inputs.md
+  - Verified 30 FPS source: reference/gpu-30fps-inputs.md
+  - RGB console patch: reference/console-rgb-patch.md
+  - Acceleration: reference/acceleration.md
+  - Controls: reference/controls.md
+  - Applications: reference/applications.md
+  - Source map: source.md
+  - Hardware and terminology: reference/hardware.md
+  - Source and upstream reading: reference/source-links.md
+  - Platform files: reference/platform-files.md
+  - Bundled source: reference/bundled-source.md
+  - Keyboard navigation: pocket/navigation.md
+  - Service transports: pocket/service-transports.md
+  - External executor protocol: pocket/external-node.md
+  - Service publication: pocket/service-publication.md
+  - Versioning: pocket/versioning.md
+  - Pocket 0.1.0 release: pocket/releases-0.1.0.md
+  - Pocket manual index: pocket/README.md
+- Explanation:
+  - Architecture: explanation/architecture.md
+  - Rendering: explanation/rendering.md
+  - Radio and messaging: explanation/radio.md
+  - Applications and shared services: pocket/apps-and-services.md
+  - Receive history: pocket/receive-history.md
+  - Touch acquisition: pocket/touch-acquisition.md
+repo_url: https://github.com/gordol/n810-revival
+repo_name: gordol/n810-revival
+hooks:
+- tools/docs_hooks.py

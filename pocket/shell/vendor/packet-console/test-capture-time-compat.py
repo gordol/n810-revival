@@ -11,26 +11,26 @@ def load(name):
 
 STAMPS=('2026-10-17T12:34:56+00:00','2026-10-18T12:34:56+00:00',
         '2026-10-18T12:34:56.1234567-07:00','2026-10-18 12:34:56+05:30:15.25','2026-10-18T12:34:56Z')
-PACKET='W1ABC>APRS ctl=03 pid=f0 :N0ANT    :same message{B1'
+PACKET='W1ABC>APRS ctl=03 pid=f0 :N0DEM    :same message{B1'
 
 
 class CaptureTimeTests(unittest.TestCase):
     def test_messages_keep_capture_dates_precision_offsets_and_replay_identity(self):
-        model=load('n810-messages-model');state=model.State('N0ANT')
+        model=load('n810-messages-model');state=model.State('N0DEM')
         for stamp in STAMPS:
             state.add(stamp+' '+PACKET);state.add(stamp+' '+PACKET)
         self.assertEqual(len(state.received),len(STAMPS))
         self.assertEqual(tuple(row['time'] for row in state.received),STAMPS[::-1])
-        legacy=model.State('N0ANT');legacy.add('12:34:56 '+PACKET);legacy.add('12:34:56 '+PACKET)
+        legacy=model.State('N0DEM');legacy.add('12:34:56 '+PACKET);legacy.add('12:34:56 '+PACKET)
         self.assertEqual(len(legacy.received),1);self.assertEqual(legacy.received[0]['time'],'12:34:56')
 
     def test_services_keep_distinct_dates_and_legacy_lines(self):
-        model=load('n810-services-model');state=model.State('N0ANT')
+        model=load('n810-services-model');state=model.State('N0DEM')
         for stamp in STAMPS:
             state.add(stamp+' '+PACKET);state.add(stamp+' '+PACKET)
         self.assertEqual(state.total,len(STAMPS));self.assertEqual(len(state.messages),len(STAMPS))
         self.assertEqual(tuple(row['time'] for row in state.messages),STAMPS[::-1])
-        legacy=model.State('N0ANT');legacy.add('12:34:56 '+PACKET);legacy.add('12:34:56 '+PACKET)
+        legacy=model.State('N0DEM');legacy.add('12:34:56 '+PACKET);legacy.add('12:34:56 '+PACKET)
         self.assertEqual(legacy.total,1)
 
     def test_net_announcement_identity_includes_date_and_capture_precision(self):

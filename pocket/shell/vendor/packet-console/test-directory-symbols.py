@@ -19,7 +19,7 @@ class SymbolTests(unittest.TestCase):
   self.path=Path(self.temp.name)/'db';self.db=d.database(self.path);self.addCleanup(self.db.close);self.monitor=d.load_monitor()
  def test_actual_capture_symbol_position_role_and_no_repeater_inference(self):
   row=record('!4713.00N/12230.00W#BBS')
-  self.assertEqual(d.ingest(self.db,[row],self.monitor,'N0ANT'),1)
+  self.assertEqual(d.ingest(self.db,[row],self.monitor,'N0DEM'),1)
   symbol=self.db.execute("SELECT stamp,detail FROM evidence WHERE kind='symbol'").fetchone()
   self.assertEqual(symbol[0],STAMP);self.assertEqual(json.loads(symbol[1]),dict(table='/',code='#'))
   batch=p.map_stations(self.path)['rows'][0];detail=p.station_details(self.path,'TEST')
@@ -28,25 +28,25 @@ class SymbolTests(unittest.TestCase):
   self.assertIn('digipeater_advertised',batch['categories']);self.assertNotIn('repeater',batch['categories'])
  def test_duplicate_does_not_change_counts_or_evidence(self):
   row=record('!4713.00N/12230.00W#')
-  d.ingest(self.db,[row],self.monitor,'N0ANT');before=list(self.db.execute('SELECT * FROM evidence ORDER BY kind'))
-  self.assertEqual(d.ingest(self.db,[row],self.monitor,'N0ANT'),0)
+  d.ingest(self.db,[row],self.monitor,'N0DEM');before=list(self.db.execute('SELECT * FROM evidence ORDER BY kind'))
+  self.assertEqual(d.ingest(self.db,[row],self.monitor,'N0DEM'),0)
   self.assertEqual(list(self.db.execute('SELECT * FROM evidence ORDER BY kind')),before)
   self.assertEqual(self.db.execute('SELECT packets FROM stations').fetchone()[0],1)
  def test_missing_or_invalid_symbol_stays_unknown(self):
   for payload in ('>BBS 146.820MHz','!9913.00N/12230.00W#','!4713.00N/12230.00W '):
    self.assertNotIn('symbol',dict(d.evidence(payload)))
   for table,code in [('/',None),('/', 'xx'),('/', '\0'),('é','#'),('','>')]:self.assertIsNone(d.model.symbol_value(table,code))
-  row=record('>146.820MHz');d.ingest(self.db,[row],self.monitor,'N0ANT')
+  row=record('>146.820MHz');d.ingest(self.db,[row],self.monitor,'N0DEM')
   self.assertIsNone(p.map_stations(self.path)['rows'][0]['symbol'])
  def test_overlay_and_mice_original_bytes_retained(self):
   facts=dict(d.evidence('!4713.00NA12230.00W#'));self.assertEqual(json.loads(facts['symbol']),dict(table='A',code='#'))
   facts=dict(d.evidence('`27}m57>/]comment','T7QPXV'))
   self.assertEqual(json.loads(facts['symbol']),dict(table='/',code='>'))
-  d.ingest(self.db,[record('`27}m57>/]comment',dest='T7QPXV')],self.monitor,'N0ANT')
+  d.ingest(self.db,[record('`27}m57>/]comment',dest='T7QPXV')],self.monitor,'N0DEM')
   self.assertEqual(p.map_stations(self.path)['rows'][0]['symbol']['code'],'>')
  def test_older_capture_cannot_overwrite_newer_symbol(self):
-  d.ingest(self.db,[record('!4713.00N/12230.00W>')],self.monitor,'N0ANT')
-  d.ingest(self.db,[record('!4713.00N/12230.00W#',stamp='2020-01-01T00:00:00+00:00')],self.monitor,'N0ANT')
+  d.ingest(self.db,[record('!4713.00N/12230.00W>')],self.monitor,'N0DEM')
+  d.ingest(self.db,[record('!4713.00N/12230.00W#',stamp='2020-01-01T00:00:00+00:00')],self.monitor,'N0DEM')
   self.assertEqual(p.map_stations(self.path)['rows'][0]['symbol']['code'],'>')
 
 if __name__=='__main__':unittest.main()

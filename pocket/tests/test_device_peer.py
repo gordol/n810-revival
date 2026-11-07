@@ -154,7 +154,7 @@ class PeerTests(unittest.TestCase):
         from device_services import encode
         from wire import decode
         def address(call,last):return bytes(ord(c)<<1 for c in call.ljust(6))+bytes([0x60|last])
-        frame=b'\0'+address('APRS',0)+address('N0ANT',1)+b'\x03\xf0>Peer transport check'
+        frame=b'\0'+address('APRS',0)+address('N0DEM',1)+b'\x03\xf0>Peer transport check'
         record=dict(time='2026-10-26T08:00:00+00:00',direction='radio_to_host',frame=frame.hex())
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
             endpoint=Path(tmp)/'replay.sock'
@@ -174,6 +174,6 @@ class PeerTests(unittest.TestCase):
             self.assertEqual(live['raw_records'],socket_rows)
             self.assertEqual(live['packets'],decode_records(socket_rows))
             self.assertEqual(live['packets'][0]['time'],record['time'])
-            self.assertIn('N0ANT>APRS',live['packets'][0]['raw'])
+            self.assertIn('N0DEM>APRS',live['packets'][0]['raw'])
 
 if __name__=='__main__':unittest.main()

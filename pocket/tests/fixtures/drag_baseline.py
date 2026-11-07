@@ -207,7 +207,7 @@ def main():
     if args.legacy_aprs and (not args.legacy_aprs.is_file() or not args.aprs_maps.is_dir()):parser.error('legacy viewer script and maps directory must exist')
     plans = () if args.minimal or workspace or native_defaults and not (args.app_preview or args.kitchen_sink) else compile_model(Path(__file__).with_name('operator.json').read_text())
     world = World(plans)
-    world.apply([Record(1, 'N0ANT', 'APRS observed', 'Listening'), Record(2, 'W7EXAMPLE', 'Offline record', 'Contact unconfirmed')])
+    world.apply([Record(1, 'N0DEM', 'APRS observed', 'Listening'), Record(2, 'W7EXAMPLE', 'Offline record', 'Contact unconfirmed')])
     geometry = measure(sys.stdout.fileno())
     panel=Panels(args.panel or 'top',mode=args.panel_mode or ('auto' if workspace else 'bar'))
     panel.launcher_count=2+len(workspace)
@@ -439,7 +439,7 @@ def main():
         from native_feed import RadioFeed
         from native_heard import Heard
         native_catalog=Catalog(radio);native_catalog.update()
-        messages_form=Messages('N0ANT');messages_form.update(native_catalog.lines,outbox=native_catalog.outbox,records=native_catalog.bss_records)
+        messages_form=Messages('N0DEM');messages_form.update(native_catalog.lines,outbox=native_catalog.outbox,records=native_catalog.bss_records)
         if native_catalog.error:messages_form.notice='Offline';messages_form.diagnostics=str(native_catalog.error)
         host.app_forms.update({'Messages':messages_form,'Services':Services(native_catalog.service_view),'Nets':Nets(native_catalog.net_view),
                                'Walk':Walk(native_catalog.walk_view),'CW':CW(),'Radio Feed':RadioFeed(native_catalog.feed_view),'Heard':Heard(native_catalog.heard_view)})
@@ -1110,7 +1110,7 @@ def main():
                 elif char == 'u':
                     counter += 1
                     n = counter
-                    inbox.submit(lambda n=n: [Record(1,'N0ANT','APRS observed',f'Synthetic observation {n}')])
+                    inbox.submit(lambda n=n: [Record(1,'N0DEM','APRS observed',f'Synthetic observation {n}')])
             if input_timing is not None:input_timing[0].end('input_handlers',input_timing[1])
             sync_keyboard()
             # Control socket accept/read/write and status are observations.

@@ -1,0 +1,626 @@
+{
+  "checkpoint": "30fps-20261104",
+  "archive_sha256": "d5b128752a3a39a6eaca91c70cde8fc73b2e9ecf5fc0687e952813b9ab0925ff",
+  "source_files": {
+    "common/mbx_context.c": {
+      "archive_path": "mbx-driver/common/mbx_context.c",
+      "sha256": "6c9372019834c3652b8060be97547f1ca0bcfec9838272421a8a869e630933f9"
+    },
+    "common/mbx_context.h": {
+      "archive_path": "mbx-driver/common/mbx_context.h",
+      "sha256": "7bd9593528aec4a8cac52c8f9feec198cb43b5d0ec3a8560b9852f313145f868"
+    },
+    "common/mbx_gl_state.c": {
+      "archive_path": "mbx-driver/common/mbx_gl_state.c",
+      "sha256": "60795e3c88dfb094b69c21a3655f7a5293c04004bbdf7c5451f501a9441f34e6"
+    },
+    "common/mbx_gl_state.h": {
+      "archive_path": "mbx-driver/common/mbx_gl_state.h",
+      "sha256": "4194d93d48da4ea0ceb5887d1c517f353550f894afea39358fc0da6df4a82a38"
+    },
+    "common/mbx_packets.c": {
+      "archive_path": "mbx-driver/common/mbx_packets.c",
+      "sha256": "24f7dfbe2e529c580f35515563d867be30bb7218aa700078f6efc6c1e0c521b6"
+    },
+    "common/mbx_packets.h": {
+      "archive_path": "mbx-driver/common/mbx_packets.h",
+      "sha256": "4338336b514e3d78b27f98b7540f048e2ca21ab9e900243358ad5a9b5a5d6279"
+    },
+    "common/mbx_regions.c": {
+      "archive_path": "mbx-driver/common/mbx_regions.c",
+      "sha256": "8c2e4ebac933bba946cc8b5ae92fc2e00fa24183d9f189c51bfc602304d90f71"
+    },
+    "common/mbx_regions.h": {
+      "archive_path": "mbx-driver/common/mbx_regions.h",
+      "sha256": "3c2576726c660024e5428d78ae5b0fa821c3a7d19ae91e1ce2dfffe2b0ff4a4c"
+    },
+    "common/mbx_vertex_program.c": {
+      "archive_path": "mbx-driver/common/mbx_vertex_program.c",
+      "sha256": "1ebd6eb155e7965e2fba257e6bf57f423af63305b75de8c0d991c28b29c39aed"
+    },
+    "common/mbx_vertex_program.h": {
+      "archive_path": "mbx-driver/common/mbx_vertex_program.h",
+      "sha256": "b9c8026ea380bf5b1a77369762173bfa98f95f0a14cab9b318324280ce0d6860"
+    },
+    "common/mbx_vgp_batch.c": {
+      "archive_path": "mbx-driver/common/mbx_vgp_batch.c",
+      "sha256": "049f28f00bdeca5a0afff86df40e004703f4db5fb0e3aeefe8d7e35f502fbf61"
+    },
+    "common/mbx_vgp_batch.h": {
+      "archive_path": "mbx-driver/common/mbx_vgp_batch.h",
+      "sha256": "9a302aed2aedbafd3572b8e0f01a3508edcd5fee63d334cea54c734791b7ea42"
+    },
+    "common/mbx_vgp_draw.c": {
+      "archive_path": "mbx-driver/common/mbx_vgp_draw.c",
+      "sha256": "ce42f23c1113e72bb4e5a15c10f8940af1a3b0d13dfbbc65e2610c728456b34f"
+    },
+    "common/mbx_vgp_draw.h": {
+      "archive_path": "mbx-driver/common/mbx_vgp_draw.h",
+      "sha256": "4cfb2a60a6b0517db8c21454a3671a9b7b836d15ef54929d491bc02ae9c5e6c6"
+    },
+    "common/mbx_vgp_isa.c": {
+      "archive_path": "mbx-driver/common/mbx_vgp_isa.c",
+      "sha256": "e4b809be4a972c18bb4851a87266f53f7c23234e8f729838b2ad26002d52d0c0"
+    },
+    "common/mbx_vgp_isa.h": {
+      "archive_path": "mbx-driver/common/mbx_vgp_isa.h",
+      "sha256": "4f6899546f78dcd3d05ac855bc1f69e1abfdd7ae3c24e1cb4c65f6110190c649"
+    },
+    "common/mbx_vgp_stream.c": {
+      "archive_path": "mbx-driver/common/mbx_vgp_stream.c",
+      "sha256": "5bf87112390cfdc957037d87a6ed21bd7c61dd7641a2ba96dc3d6598bb142fa4"
+    },
+    "common/mbx_vgp_stream.h": {
+      "archive_path": "mbx-driver/common/mbx_vgp_stream.h",
+      "sha256": "44dc4a263f06c9946f0af9a782b5ba4b69e223dfb22dc9e95eb760a210354f60"
+    },
+    "common/mbx_vgp_topology.c": {
+      "archive_path": "mbx-driver/common/mbx_vgp_topology.c",
+      "sha256": "689f2d8f1377206afb51557a8b17849c9ac69250e188a973c6d0f482437bb689"
+    },
+    "common/mbx_vgp_topology.h": {
+      "archive_path": "mbx-driver/common/mbx_vgp_topology.h",
+      "sha256": "789c0b1c2e3cd2dee9aee6c61610483cd351525a5916d1cd83df8cd0e06d569d"
+    },
+    "common/mbx_vgp_transform.c": {
+      "archive_path": "mbx-driver/common/mbx_vgp_transform.c",
+      "sha256": "738bec83a90b3e6bec15f23f597e488fad2c4fbcca8667331e3f8a4d526dc5d3"
+    },
+    "common/mbx_vgp_transform.h": {
+      "archive_path": "mbx-driver/common/mbx_vgp_transform.h",
+      "sha256": "5e3c9b06bfedf82966f334959aae02c3509407bd7b520904b2cba6062f51061e"
+    },
+    "common/mbx_vgp_wire.c": {
+      "archive_path": "mbx-driver/common/mbx_vgp_wire.c",
+      "sha256": "c71e2ddfaaf6dbcebb8683ac7db29183824f4362d33603781de057314264b011"
+    },
+    "common/mbx_vgp_wire.h": {
+      "archive_path": "mbx-driver/common/mbx_vgp_wire.h",
+      "sha256": "3aaa0e84609c62a2098ff1530c15ca86c96aab595ed5445dacca271d9fd04142"
+    },
+    "experiments/vgp-service-20261104/bench_encoder_cpu.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/bench_encoder_cpu.c",
+      "sha256": "67d6b7d04c28f460260e2a1b55186eeea0f75bb05072fc77eb07fa95dc31a01b"
+    },
+    "experiments/vgp-service-20261104/bench_encoder_replay.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/bench_encoder_replay.c",
+      "sha256": "3e45d2cbe9d03c73a7f8f206d0811fe2a5ee1e9b6b9cf7c0325e909bc8d11955"
+    },
+    "experiments/vgp-service-20261104/common/mbx_context.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_context.c",
+      "sha256": "6c9372019834c3652b8060be97547f1ca0bcfec9838272421a8a869e630933f9"
+    },
+    "experiments/vgp-service-20261104/common/mbx_context.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_context.h",
+      "sha256": "7bd9593528aec4a8cac52c8f9feec198cb43b5d0ec3a8560b9852f313145f868"
+    },
+    "experiments/vgp-service-20261104/common/mbx_gears_fixture.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_gears_fixture.h",
+      "sha256": "132a6a6fabcb4720c2f3ca11269e645720b1342ddab76631e41292b0fa24647c"
+    },
+    "experiments/vgp-service-20261104/common/mbx_gears_frame.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_gears_frame.c",
+      "sha256": "dfe2dd02a33a3fff044881a11fb09aa83af3d6b53727c2149ad6f7917cb4a54c"
+    },
+    "experiments/vgp-service-20261104/common/mbx_gears_frame_fixture.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_gears_frame_fixture.h",
+      "sha256": "cfa4890be87e168ae6e18acc380a47c456d6438328e74f21b4c204423d09865c"
+    },
+    "experiments/vgp-service-20261104/common/mbx_gl_state.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_gl_state.c",
+      "sha256": "60795e3c88dfb094b69c21a3655f7a5293c04004bbdf7c5451f501a9441f34e6"
+    },
+    "experiments/vgp-service-20261104/common/mbx_gl_state.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_gl_state.h",
+      "sha256": "4194d93d48da4ea0ceb5887d1c517f353550f894afea39358fc0da6df4a82a38"
+    },
+    "experiments/vgp-service-20261104/common/mbx_packets.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_packets.c",
+      "sha256": "24f7dfbe2e529c580f35515563d867be30bb7218aa700078f6efc6c1e0c521b6"
+    },
+    "experiments/vgp-service-20261104/common/mbx_packets.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_packets.h",
+      "sha256": "4338336b514e3d78b27f98b7540f048e2ca21ab9e900243358ad5a9b5a5d6279"
+    },
+    "experiments/vgp-service-20261104/common/mbx_regions.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_regions.c",
+      "sha256": "8c2e4ebac933bba946cc8b5ae92fc2e00fa24183d9f189c51bfc602304d90f71"
+    },
+    "experiments/vgp-service-20261104/common/mbx_regions.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_regions.h",
+      "sha256": "3c2576726c660024e5428d78ae5b0fa821c3a7d19ae91e1ce2dfffe2b0ff4a4c"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vertex_program.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vertex_program.c",
+      "sha256": "1ebd6eb155e7965e2fba257e6bf57f423af63305b75de8c0d991c28b29c39aed"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vertex_program.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vertex_program.h",
+      "sha256": "b9c8026ea380bf5b1a77369762173bfa98f95f0a14cab9b318324280ce0d6860"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_batch.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_batch.c",
+      "sha256": "908ae423a2d95540b66fc343b9093b5d33d4bd23261a043f6f358162b7a009dc"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_batch.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_batch.h",
+      "sha256": "8d47511ea33dfccc76da5b4705db0160116c0a28244a7a3c4d624b01f3e19de3"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_draw.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_draw.c",
+      "sha256": "bdef87bbc9effd0ae49868235630e8ce039269bb919b09563153bc16ac38ae0b"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_draw.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_draw.h",
+      "sha256": "c0902442c26faa2a95381051644dad7d79ad9fd47187c1ccb0b2a573b4fc639e"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_isa.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_isa.c",
+      "sha256": "e4b809be4a972c18bb4851a87266f53f7c23234e8f729838b2ad26002d52d0c0"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_isa.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_isa.h",
+      "sha256": "4f6899546f78dcd3d05ac855bc1f69e1abfdd7ae3c24e1cb4c65f6110190c649"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_stream.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_stream.c",
+      "sha256": "c21bdf1e599eaffb16f99a2a3ae20141c7dcda508f86d3ff696d39457e86c99c"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_stream.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_stream.h",
+      "sha256": "25ccbfd306061ef132f08d52d1586e4f9408f27fe6fe28e48a609159b23f5962"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_topology.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_topology.c",
+      "sha256": "689f2d8f1377206afb51557a8b17849c9ac69250e188a973c6d0f482437bb689"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_topology.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_topology.h",
+      "sha256": "789c0b1c2e3cd2dee9aee6c61610483cd351525a5916d1cd83df8cd0e06d569d"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_transform.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_transform.c",
+      "sha256": "738bec83a90b3e6bec15f23f597e488fad2c4fbcca8667331e3f8a4d526dc5d3"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_transform.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_transform.h",
+      "sha256": "5e3c9b06bfedf82966f334959aae02c3509407bd7b520904b2cba6062f51061e"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_wire.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_wire.c",
+      "sha256": "2e4ff3bf8fbce701d22b9d12891332ebb2408fa0e5257b2f32791781401e30a2"
+    },
+    "experiments/vgp-service-20261104/common/mbx_vgp_wire.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_vgp_wire.h",
+      "sha256": "870928db4c023856373d2023fba30174df8e39e56024655455f68dde38c4ce34"
+    },
+    "experiments/vgp-service-20261104/kernel/Makefile": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/Makefile",
+      "sha256": "b8c6e5934237bb631339bff21f80891a080411db704d731ec4290ca4fd39099d"
+    },
+    "experiments/vgp-service-20261104/kernel/clock_commit.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/clock_commit.c",
+      "sha256": "9b86a338a2172f9f084fe40380172d3d93774eddd176ab7c9972028143832a4c"
+    },
+    "experiments/vgp-service-20261104/kernel/clock_commit.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/clock_commit.h",
+      "sha256": "2b48fa471eed33ce25bec15b709bd389691820406a1f383041d6e5acadeb7228"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_context.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_context.c",
+      "sha256": "6c9372019834c3652b8060be97547f1ca0bcfec9838272421a8a869e630933f9"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_context.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_context.h",
+      "sha256": "7bd9593528aec4a8cac52c8f9feec198cb43b5d0ec3a8560b9852f313145f868"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_dma.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_dma.c",
+      "sha256": "3a81828ce970a8181d54de39a8567bf3d18880e17cf761bb7c6e09d2d2072d06"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_dma.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_dma.h",
+      "sha256": "8dfcb3aa9101f19d67c113fb47ffa3436f589e7c745b52ac9e354100e0e7dc6a"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_engine.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_engine.h",
+      "sha256": "0118fccf8488297d4f0e73260c991286ceea3b149690b406d16f65ee12219b75"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_gears_fixture.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_gears_fixture.h",
+      "sha256": "132a6a6fabcb4720c2f3ca11269e645720b1342ddab76631e41292b0fa24647c"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_gears_frame.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_gears_frame.c",
+      "sha256": "dfe2dd02a33a3fff044881a11fb09aa83af3d6b53727c2149ad6f7917cb4a54c"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_gears_frame_fixture.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_gears_frame_fixture.h",
+      "sha256": "cfa4890be87e168ae6e18acc380a47c456d6438328e74f21b4c204423d09865c"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_gpu_operation.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_gpu_operation.h",
+      "sha256": "170df815f1a86b53fab55caf78aec87a7153d0413441e52411eea75ab9b8e8a9"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_mmu.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_mmu.c",
+      "sha256": "9d9b548d9e76f4d749239f35f2d370191bf4b690959c916fc24495e16042bb47"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_mmu.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_mmu.h",
+      "sha256": "9f843bc42ffa5bcc7cb45b33d050380987370f41314fa16b83e0516cfdd539c8"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_packets.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_packets.c",
+      "sha256": "24f7dfbe2e529c580f35515563d867be30bb7218aa700078f6efc6c1e0c521b6"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_packets.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_packets.h",
+      "sha256": "4338336b514e3d78b27f98b7540f048e2ca21ab9e900243358ad5a9b5a5d6279"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_parameter_data.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_parameter_data.c",
+      "sha256": "266094eaa320895e8fd3602c3d6af2c955d3cfee78c4c2a9cf2f69a786f82f1d"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_parameter_data.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_parameter_data.h",
+      "sha256": "7d143d6707f43ff1ac2683c10f7d953fd36cb08311ce591023f35a0db1c7a394"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_post_reset.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_post_reset.c",
+      "sha256": "2a71e3f8d4356228e625f7e0b5becbf5a1354c09ef9fb4c68264cc2881180a6c"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_post_reset.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_post_reset.h",
+      "sha256": "1890256da0bc9eb51b5f29f7106e4beb41ab03f08b9798a641ce9a1339bde385"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_render_service.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_render_service.h",
+      "sha256": "fa2fc8b6e01f0a99accb0548bcc0db4ff242185f5d1d913ab656d55199187a04"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_reset.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_reset.c",
+      "sha256": "4073e731a5567a49bbf83d1d7435229faa006beef1a95eec32e04963bbd9d3b1"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_reset.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_reset.h",
+      "sha256": "d08ec4492d152c023b536530c455f77ee35e816b242c35372ba7199b03ff22b5"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vertex_program.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vertex_program.c",
+      "sha256": "1ebd6eb155e7965e2fba257e6bf57f423af63305b75de8c0d991c28b29c39aed"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vertex_program.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vertex_program.h",
+      "sha256": "b9c8026ea380bf5b1a77369762173bfa98f95f0a14cab9b318324280ce0d6860"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_batch.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_batch.c",
+      "sha256": "908ae423a2d95540b66fc343b9093b5d33d4bd23261a043f6f358162b7a009dc"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_batch.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_batch.h",
+      "sha256": "8d47511ea33dfccc76da5b4705db0160116c0a28244a7a3c4d624b01f3e19de3"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_draw.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_draw.c",
+      "sha256": "bdef87bbc9effd0ae49868235630e8ce039269bb919b09563153bc16ac38ae0b"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_draw.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_draw.h",
+      "sha256": "c0902442c26faa2a95381051644dad7d79ad9fd47187c1ccb0b2a573b4fc639e"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_isa.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_isa.c",
+      "sha256": "e4b809be4a972c18bb4851a87266f53f7c23234e8f729838b2ad26002d52d0c0"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_isa.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_isa.h",
+      "sha256": "4f6899546f78dcd3d05ac855bc1f69e1abfdd7ae3c24e1cb4c65f6110190c649"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_stream.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_stream.c",
+      "sha256": "c21bdf1e599eaffb16f99a2a3ae20141c7dcda508f86d3ff696d39457e86c99c"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_stream.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_stream.h",
+      "sha256": "25ccbfd306061ef132f08d52d1586e4f9408f27fe6fe28e48a609159b23f5962"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_topology.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_topology.c",
+      "sha256": "689f2d8f1377206afb51557a8b17849c9ac69250e188a973c6d0f482437bb689"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_topology.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_topology.h",
+      "sha256": "789c0b1c2e3cd2dee9aee6c61610483cd351525a5916d1cd83df8cd0e06d569d"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_transform.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_transform.c",
+      "sha256": "738bec83a90b3e6bec15f23f597e488fad2c4fbcca8667331e3f8a4d526dc5d3"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_transform.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_transform.h",
+      "sha256": "5e3c9b06bfedf82966f334959aae02c3509407bd7b520904b2cba6062f51061e"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_wire.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_wire.c",
+      "sha256": "2e4ff3bf8fbce701d22b9d12891332ebb2408fa0e5257b2f32791781401e30a2"
+    },
+    "experiments/vgp-service-20261104/kernel/mbx_vgp_wire.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/mbx_vgp_wire.h",
+      "sha256": "870928db4c023856373d2023fba30174df8e39e56024655455f68dde38c4ce34"
+    },
+    "experiments/vgp-service-20261104/kernel/n810_mbx_gpu_probe.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/kernel/n810_mbx_gpu_probe.c",
+      "sha256": "e6ca7542adba07e828df2cccfbf96e3d065ffef4592181cf45cd5b7b80d57fcb"
+    },
+    "experiments/vgp-service-20261104/test_color_dependency.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/test_color_dependency.c",
+      "sha256": "0241f0b6f0f233bb07cea9bfebd651d05ae11b1f505e1676171f5533c670ae87"
+    },
+    "experiments/vgp-service-20261104/test_color_reference.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/test_color_reference.h",
+      "sha256": "e8a33ad91d010ec31a7c1e24381b30c981f64ddd1ccca4867fbf3440fccb340e"
+    },
+    "experiments/vgp-service-20261104/test_frame_allocation.py": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/test_frame_allocation.py",
+      "sha256": "8dc13b42e435f7697e671507c529765957abe66d7ac140581f5499b0c6c930f9"
+    },
+    "experiments/vgp-service-20261104/test_gears_batch.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/test_gears_batch.c",
+      "sha256": "9c77fd0735360b38b89166cbebd3d2717b2815c06c8a3dfb9b476960b919c175",
+      "archive_sha256": "1ffbf79900de0f4b874e52ce27c3d4d145aa3b70dc05f7efeaaf628cb2b35f07",
+      "adaptation": "Updated stale 629-command test expectations to the frozen 227-command compact encoder: capacity, packet offsets, uniform/immediate ranges and terminal command. Production sources are unchanged."
+    },
+    "experiments/vgp-service-20261104/test_stream_batch.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/test_stream_batch.c",
+      "sha256": "039fa8fc47be43068ef37e92271f9f596679318a6964fcf251b83cb4e3b52ba7"
+    },
+    "experiments/vgp-service-20261104/test_strip_stream.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/test_strip_stream.c",
+      "sha256": "0582ebbcef635e3e5a029fb2d01f4051fd1aca8afdbfb058ff77f653342d85cf"
+    },
+    "experiments/vgp-service-20261104/test_strip_wire.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/test_strip_wire.c",
+      "sha256": "da053e2e1c9647f7cd848cf9568b4a397b4ff47e58eef4a05ea31b6b4ddbbe3c"
+    },
+    "experiments/vgp-service-20261104/test_wire_replay.c": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/test_wire_replay.c",
+      "sha256": "a9f2930640b8ce63302032142e872206cb8e6f7a61c808c0f2f38a0c4c1b140a"
+    },
+    "mesa/desktop_pause_guard.c": {
+      "archive_path": "mbx-driver/mesa/desktop_pause_guard.c",
+      "sha256": "581c044732bf8a9f8ab36a631e08aca1e3d392be8b2a018a66d36a8e7afe5d89"
+    },
+    "mesa/draw_mbx_arm_jit.h": {
+      "archive_path": "mbx-driver/mesa/draw_mbx_arm_jit.h",
+      "sha256": "b2c85d8f9704d512c51f0f3c9393eef67bc18307dc8fec84ef44d38a7489e2be"
+    },
+    "mesa/draw_mbx_buffers.h": {
+      "archive_path": "mbx-driver/mesa/draw_mbx_buffers.h",
+      "sha256": "5be04b01311d7b1d43f431fd4d9209cf1b2ee4a27f9df0bb110b573e43504d89"
+    },
+    "mesa/draw_mbx_clip.h": {
+      "archive_path": "mbx-driver/mesa/draw_mbx_clip.h",
+      "sha256": "55d32d0f02b785c329b6af9c24f059c352edfe099f47c1d3ca28330735909565"
+    },
+    "mesa/draw_mbx_fast_vs.h": {
+      "archive_path": "mbx-driver/mesa/draw_mbx_fast_vs.h",
+      "sha256": "28bf9210d0c7cdd2167f5506acb192d9aa8165dad5e956914571cb97395d3b01"
+    },
+    "mesa/gears_status.c": {
+      "archive_path": "mbx-driver/mesa/gears_status.c",
+      "sha256": "ac2add92eec63cd98023e0983bfceef023d735f74c0a906e9cf184a42f216405"
+    },
+    "mesa/mbx_async_image.h": {
+      "archive_path": "mbx-driver/mesa/mbx_async_image.h",
+      "sha256": "5b4f693d9a20d349c6ceb0f05888c4f2bff6e7d4fbd8ec963166e677e6f4115f"
+    },
+    "mesa/mbx_color_cache.h": {
+      "archive_path": "mbx-driver/mesa/mbx_color_cache.h",
+      "sha256": "22931d89393609304631cf7f885dd4fedd92287f606feac9f9742a129e308a7a"
+    },
+    "mesa/mbx_cpu_profile.h": {
+      "archive_path": "mbx-driver/mesa/mbx_cpu_profile.h",
+      "sha256": "f9b3adad922bfa50929643cb83883ec3dff7e102bbd0603593582e1f7692c6e9"
+    },
+    "mesa/mbx_float_fetch.h": {
+      "archive_path": "mbx-driver/mesa/mbx_float_fetch.h",
+      "sha256": "e5692f2a8e739a8d8460be81a162dd68364b243f229954bcc4fb9dbd54b441e2"
+    },
+    "mesa/mbx_shared_image.h": {
+      "archive_path": "mbx-driver/mesa/mbx_shared_image.h",
+      "sha256": "74ff283eae012dce9fbc16fcc10dfa4963c340bf568adcfbfb8dea479ac9eab7"
+    },
+    "mesa/mbx_startup_gate.h": {
+      "archive_path": "mbx-driver/mesa/mbx_startup_gate.h",
+      "sha256": "64421a2cf9713f80e3032a4c536163a25c3fff919bfb6b0949dedcd05e3184e8"
+    },
+    "mesa/mbx_trace.h": {
+      "archive_path": "mbx-driver/mesa/mbx_trace.h",
+      "sha256": "45d91b6f008c52a51e58860c04ef57da879f309195fe1ac5a5dd5d90cbc0aaea"
+    },
+    "mesa/mbx_vgp_capture.h": {
+      "archive_path": "mbx-driver/mesa/mbx_vgp_capture.h",
+      "sha256": "c5dca651162620a1432bd2ea15f3defe2874a9e6942941873af6db14d6cd0941"
+    },
+    "mesa/mbx_vgp_shader.h": {
+      "archive_path": "mbx-driver/mesa/mbx_vgp_shader.h",
+      "sha256": "370d4a80559dfb0d579cc5932669fccb2a0d4f726d60217330eaa813a1259150"
+    },
+    "mesa/prepare_async.py": {
+      "archive_path": "mbx-driver/mesa/prepare_async.py",
+      "sha256": "44324c65dd8bd0dbe623103b67f0fe2defd260456924f3109a92d1e001f40f93"
+    },
+    "mesa/prepare_float_fetch.py": {
+      "archive_path": "mbx-driver/mesa/prepare_float_fetch.py",
+      "sha256": "f5cd81113ef1fe1ac1205d6d5c243567fb0da6a95ac31bd1bea04102312edbd5"
+    },
+    "mesa/prepare_mesa.py": {
+      "archive_path": "mbx-driver/mesa/prepare_mesa.py",
+      "sha256": "1a320ef0fecd80409ca706a0cc236d3fd4891d92eb208187e7274cd01e2bac64"
+    },
+    "mesa/prepare_sampler_scan.py": {
+      "archive_path": "mbx-driver/mesa/prepare_sampler_scan.py",
+      "sha256": "1c3310a70c1a2a0d9c76517577ca59c12de2546aa82e02e8552a1e2d1ac4d65a"
+    },
+    "mesa/prepare_texture_storage.py": {
+      "archive_path": "mbx-driver/mesa/prepare_texture_storage.py",
+      "sha256": "3238a997e13a454119791eed2eaaa89d373dad22b9dfeb60e754430b3f358eef"
+    },
+    "mesa/prepare_tile_cache.py": {
+      "archive_path": "mbx-driver/mesa/prepare_tile_cache.py",
+      "sha256": "a3d8a60ef91562e9e933872140c3c7fa0b86504c2c7778eef5a4d4885d979c22"
+    },
+    "mesa/prepare_vertex_buffers.py": {
+      "archive_path": "mbx-driver/mesa/prepare_vertex_buffers.py",
+      "sha256": "6c5245cb516082b120361315ebe4231fef0d940ffbffeb64396a3c7fb646fbe6"
+    },
+    "mesa/profile_sampler.c": {
+      "archive_path": "mbx-driver/mesa/profile_sampler.c",
+      "sha256": "a7b3672c0ccf7c6710432c62aec6969beb7cb175a67d36880e412aeab9ea5cbf"
+    },
+    "mesa/profile_scene.c": {
+      "archive_path": "mbx-driver/mesa/profile_scene.c",
+      "sha256": "decee56ac45a1e1d79d1421c47a64df1111398874f609458607dfb5921d73d7e"
+    },
+    "mesa/sp_mbx.c": {
+      "archive_path": "mbx-driver/mesa/sp_mbx.c",
+      "sha256": "cd8ef5d90cdc298c87cf298ae49ed3406e866f2e04035ab582efaf82d42b5552"
+    },
+    "mesa/sp_mbx.h": {
+      "archive_path": "mbx-driver/mesa/sp_mbx.h",
+      "sha256": "dde88a88da2b548c689d5c40d94623e31f11e42e93042867bbc8ce03b0b7844c"
+    },
+    "mesa/sp_mbx_backend.h": {
+      "archive_path": "mbx-driver/mesa/sp_mbx_backend.h",
+      "sha256": "841e791339aa09e57b30be2015ef5d5683913a6c9898da8b2f55c03e3283cd5b"
+    },
+    "mesa/sp_mbx_vgp.h": {
+      "archive_path": "mbx-driver/mesa/sp_mbx_vgp.h",
+      "sha256": "d90fc3f94c4485a5a4157c28298bf04899d9e5f422605c54cb2e634bbd214c4e"
+    },
+    "mesa/sp_mbx_vgp_impl.h": {
+      "archive_path": "mbx-driver/mesa/sp_mbx_vgp_impl.h",
+      "sha256": "32d35b47b4a26a12c21f65d33d2c3e56cdf7b46ff2a9dea68beb544854c7d7a7"
+    },
+    "tests/test_color_cache.c": {
+      "archive_path": "mbx-driver/tests/test_color_cache.c",
+      "sha256": "9f6153a184ad6f5ea97fc3f88d7759ac2c7e8c83681e3106cb642f8b22d6060e"
+    },
+    "tests/test_float_fetch.c": {
+      "archive_path": "mbx-driver/tests/test_float_fetch.c",
+      "sha256": "a7b8719a3343964610417edac545322534429c6ecd29964e2d89ff3d358bf476"
+    },
+    "tests/test_sampler_scan.py": {
+      "archive_path": "mbx-driver/tests/test_sampler_scan.py",
+      "sha256": "8f7681030e80e9578ed82ad132ec14bb50135bc6bdcc7e16b023bbab477cc0ff"
+    },
+    "tests/test_vgp_batch.c": {
+      "archive_path": "mbx-driver/tests/test_vgp_batch.c",
+      "sha256": "2d44f1f0ffbcd90915b6b1630d004953002a3c8ee6f32b9d47f511e3bc6f0a72"
+    },
+    "tests/test_vgp_draw.c": {
+      "archive_path": "mbx-driver/tests/test_vgp_draw.c",
+      "sha256": "e5497ef3418c24d9b912cef74286b8f149436d4b6c36e02d2d011b39913180d0"
+    },
+    "tests/test_vgp_stream.c": {
+      "archive_path": "mbx-driver/tests/test_vgp_stream.c",
+      "sha256": "8a90104e18220b41d0c83842a4cf3910d3cf8ab3230a0f6f79deebf5e8eccd13"
+    },
+    "tests/test_vgp_topology.c": {
+      "archive_path": "mbx-driver/tests/test_vgp_topology.c",
+      "sha256": "bc809545b06c3896804946656eab1f516b27127e954f1d7c8cb8e23875a3b74c"
+    },
+    "tests/test_vgp_transform.c": {
+      "archive_path": "mbx-driver/tests/test_vgp_transform.c",
+      "sha256": "5f056ca29da002bd16cd8411ce728e9af0c1c18572dbc263eb2025fa81a27429"
+    },
+    "fixtures/gears-frame.vgp.hex": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/live-stage/gears-frame.vgp",
+      "sha256": "55e3a16bfe83c5b72dd1e8022d29eba190de331490b378a259fe2448f6092134",
+      "decoded_sha256": "13ba7f31d9c012da89013143ca842a8d8c31f5122ee0cb9fc67241b3692bd588",
+      "decoded_bytes": 36268,
+      "encoding": "hex"
+    },
+    "experiments/vgp-20261104/common/mbx_gears_fixture.h": {
+      "archive_path": "mbx-driver/experiments/vgp-service-20261104/common/mbx_gears_fixture.h",
+      "sha256": "132a6a6fabcb4720c2f3ca11269e645720b1342ddab76631e41292b0fa24647c",
+      "purpose": "Compatibility fixture path used by archived baseline tests"
+    }
+  },
+  "module_build_source_sha256": {
+    "mbx_reset.c": "4073e731a5567a49bbf83d1d7435229faa006beef1a95eec32e04963bbd9d3b1",
+    "mbx_vgp_topology.c": "689f2d8f1377206afb51557a8b17849c9ac69250e188a973c6d0f482437bb689",
+    "mbx_vgp_isa.c": "e4b809be4a972c18bb4851a87266f53f7c23234e8f729838b2ad26002d52d0c0",
+    "mbx_vertex_program.c": "1ebd6eb155e7965e2fba257e6bf57f423af63305b75de8c0d991c28b29c39aed",
+    "clock_commit.h": "2b48fa471eed33ce25bec15b709bd389691820406a1f383041d6e5acadeb7228",
+    "mbx_dma.c": "3a81828ce970a8181d54de39a8567bf3d18880e17cf761bb7c6e09d2d2072d06",
+    "mbx_vgp_stream.c": "c21bdf1e599eaffb16f99a2a3ae20141c7dcda508f86d3ff696d39457e86c99c",
+    "mbx_vgp_batch.c": "908ae423a2d95540b66fc343b9093b5d33d4bd23261a043f6f358162b7a009dc",
+    "mbx_vgp_wire.h": "870928db4c023856373d2023fba30174df8e39e56024655455f68dde38c4ce34",
+    "mbx_parameter_data.h": "7d143d6707f43ff1ac2683c10f7d953fd36cb08311ce591023f35a0db1c7a394",
+    "mbx_vgp_transform.h": "5e3c9b06bfedf82966f334959aae02c3509407bd7b520904b2cba6062f51061e",
+    "Makefile": "b8c6e5934237bb631339bff21f80891a080411db704d731ec4290ca4fd39099d",
+    "mbx_engine.h": "0118fccf8488297d4f0e73260c991286ceea3b149690b406d16f65ee12219b75",
+    "mbx_packets.h": "4338336b514e3d78b27f98b7540f048e2ca21ab9e900243358ad5a9b5a5d6279",
+    "mbx_vgp_draw.c": "bdef87bbc9effd0ae49868235630e8ce039269bb919b09563153bc16ac38ae0b",
+    "mbx_post_reset.c": "2a71e3f8d4356228e625f7e0b5becbf5a1354c09ef9fb4c68264cc2881180a6c",
+    "mbx_gears_frame_fixture.h": "cfa4890be87e168ae6e18acc380a47c456d6438328e74f21b4c204423d09865c",
+    "mbx_mmu.c": "9d9b548d9e76f4d749239f35f2d370191bf4b690959c916fc24495e16042bb47",
+    "mbx_context.c": "6c9372019834c3652b8060be97547f1ca0bcfec9838272421a8a869e630933f9",
+    "mbx_vertex_program.h": "b9c8026ea380bf5b1a77369762173bfa98f95f0a14cab9b318324280ce0d6860",
+    "mbx_vgp_isa.h": "4f6899546f78dcd3d05ac855bc1f69e1abfdd7ae3c24e1cb4c65f6110190c649",
+    "mbx_vgp_topology.h": "789c0b1c2e3cd2dee9aee6c61610483cd351525a5916d1cd83df8cd0e06d569d",
+    "mbx_reset.h": "d08ec4492d152c023b536530c455f77ee35e816b242c35372ba7199b03ff22b5",
+    "mbx_vgp_transform.c": "738bec83a90b3e6bec15f23f597e488fad2c4fbcca8667331e3f8a4d526dc5d3",
+    "mbx_vgp_wire.c": "2e4ff3bf8fbce701d22b9d12891332ebb2408fa0e5257b2f32791781401e30a2",
+    "mbx_parameter_data.c": "266094eaa320895e8fd3602c3d6af2c955d3cfee78c4c2a9cf2f69a786f82f1d",
+    "mbx_vgp_stream.h": "25ccbfd306061ef132f08d52d1586e4f9408f27fe6fe28e48a609159b23f5962",
+    "mbx_gears_frame.c": "dfe2dd02a33a3fff044881a11fb09aa83af3d6b53727c2149ad6f7917cb4a54c",
+    "mbx_vgp_batch.h": "8d47511ea33dfccc76da5b4705db0160116c0a28244a7a3c4d624b01f3e19de3",
+    "clock_commit.c": "9b86a338a2172f9f084fe40380172d3d93774eddd176ab7c9972028143832a4c",
+    "mbx_dma.h": "8dfcb3aa9101f19d67c113fb47ffa3436f589e7c745b52ac9e354100e0e7dc6a",
+    "mbx_render_service.h": "fa2fc8b6e01f0a99accb0548bcc0db4ff242185f5d1d913ab656d55199187a04",
+    "mbx_mmu.h": "9f843bc42ffa5bcc7cb45b33d050380987370f41314fa16b83e0516cfdd539c8",
+    "mbx_post_reset.h": "1890256da0bc9eb51b5f29f7106e4beb41ab03f08b9798a641ce9a1339bde385",
+    "mbx_vgp_draw.h": "c0902442c26faa2a95381051644dad7d79ad9fd47187c1ccb0b2a573b4fc639e",
+    "n810_mbx_gpu_probe.c": "e6ca7542adba07e828df2cccfbf96e3d065ffef4592181cf45cd5b7b80d57fcb",
+    "mbx_packets.c": "24f7dfbe2e529c580f35515563d867be30bb7218aa700078f6efc6c1e0c521b6",
+    "mbx_context.h": "7bd9593528aec4a8cac52c8f9feec198cb43b5d0ec3a8560b9852f313145f868",
+    "mbx_gpu_operation.h": "170df815f1a86b53fab55caf78aec87a7153d0413441e52411eea75ab9b8e8a9",
+    "mbx_gears_fixture.h": "132a6a6fabcb4720c2f3ca11269e645720b1342ddab76631e41292b0fa24647c"
+  },
+  "tested_binaries": {
+    "module_sha256": "48002b292b524c2c7195f4541693376db6d0872cf9d5277f318c5d2f385d986a",
+    "mesa_sha256": "02878840d6bacadc155ca6278ce617c0b14e265428c811327b3a06611876e66d"
+  },
+  "physical_result": {
+    "repeat_fps": [
+      30.777833752519214,
+      30.627538614748268
+    ],
+    "combined_fps": 30.70282477645235
+  },
+  "scope": "Frozen single-image synchronous command replay and bounded FIFO polling. Later multi-image experiments remain in the active bring-up workspace."
+}

@@ -215,7 +215,7 @@ def classify_symbol(table,code):
                 advertised_gateway_link_symbol=gateway,classification_source=SYMBOL_CLASSIFICATION_SOURCE)
 
 
-def self_call_snapshot(self_calls=None,own_call='N0ANT'):
+def self_call_snapshot(self_calls=None,own_call='N0DEM'):
     """Return exact configured addresses, never the whole base-callsign family."""
     values=(own_call,) if self_calls is None else self_calls
     if not isinstance(values,tuple) or len(values)>32:raise ValueError('Expected at most 32 exact self identities as a tuple')
@@ -226,7 +226,7 @@ def self_call_snapshot(self_calls=None,own_call='N0ANT'):
     return tuple(result)
 
 
-def station_counts(db,*,self_calls=None,own_call='N0ANT'):
+def station_counts(db,*,self_calls=None,own_call='N0DEM'):
     """Directory-wide received aggregates; raw history and TX are separate."""
     identities=self_call_snapshot(self_calls,own_call)
     condition='call IN ('+','.join('?' for _ in identities)+')' if identities else '0'

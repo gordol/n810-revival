@@ -2,7 +2,7 @@
 import textwrap
 
 DESCRIPTIONS = {
-    'Self addresses': 'Open the Stations editor. Enter exact callsigns separated by commas or spaces. N0ANT and N0ANT-7 are separate identities. Empty means none. This changes labels and counts, never what is received or transmitted.',
+    'Self addresses': 'Open the Stations editor. Enter exact callsigns separated by commas or spaces. N0DEM and N0DEM-7 are separate identities. Empty means none. This changes labels and counts, never what is received or transmitted.',
     'Remote stations': 'All directory stations except your exact configured self addresses. This is a directory total, independent of filtering or pagination.',
     'Self stations': 'Received station records matching your exact self addresses. A matching address does not prove an RF echo.',
     'Raw history': 'The receive source retains up to 200 raw records. Directory aggregates persist separately; they are not a complete packet archive.',

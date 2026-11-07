@@ -1,0 +1,4 @@
+.pio/
+sdkconfig.htit_tb
+sdkconfig.htit_tb.old
+__pycache__/

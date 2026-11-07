@@ -318,7 +318,7 @@ def run_owned(win,args):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--call',default='N0ANT')
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--call',default='N0DEM')
     p.add_argument('--socket',default='/dev/shm/n810-aprs.sock');p.add_argument('--kiss',default='/dev/shm/n810-kiss.sock')
     p.add_argument('--path',default='WIDE1-1,WIDE2-1');p.add_argument('--store',default=STORE)
     args=p.parse_args();args.call=callsign(args.call);args.path=[callsign(c) for c in args.path.split(',') if c]

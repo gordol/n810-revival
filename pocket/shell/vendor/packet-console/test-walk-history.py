@@ -8,11 +8,11 @@ class Tests(unittest.TestCase):
    root=Path(d);position={'lat':47.2,'lon':-122.5,'time':1234,'accuracy':10}
    for tag,start in (('a','08:00:00'),('b','08:10:00')):
     stamp='2026-10-15T'+start+'-07:00'
-    rows=[dict(type='session',time=stamp,callsign='N0ANT',tag=tag),dict(type='position',time=stamp,position=position),dict(type='armed',time=stamp),dict(type='submission',time=stamp,probe={'number':1,'position':position,'payload':'hello '+tag,'status':'Submitted'})]
+    rows=[dict(type='session',time=stamp,callsign='N0DEM',tag=tag),dict(type='position',time=stamp,position=position),dict(type='armed',time=stamp),dict(type='submission',time=stamp,probe={'number':1,'position':position,'payload':'hello '+tag,'status':'Submitted'})]
     (root/(tag+'.jsonl')).write_text('\n'.join(json.dumps(r) for r in rows)+'\n{broken tail')
-   report={'packet':'N0ANT>APN810,WIDE1-1,qAR,VCAPK:hello a','provenance':'user_provided'}
+   report={'packet':'N0DEM>APN810,WIDE1-1,qAR,VCAPK:hello a','provenance':'user_provided'}
    (root/'internet-reports.jsonl').write_text(json.dumps(report)+'\n')
-   walks=h.load(root,'N0ANT');self.assertEqual(len(walks),1)
+   walks=h.load(root,'N0DEM');self.assertEqual(len(walks),1)
    self.assertEqual(len(walks[0]['track']),2);self.assertEqual(len(walks[0]['probes']),2)
    self.assertEqual(walks[0]['probes'][0]['internet_reports'][0]['gate'],'VCAPK')
    self.assertEqual(walks[0]['probes'][0]['internet_reports'][0]['provenance'],'user_provided')
@@ -23,9 +23,9 @@ class Tests(unittest.TestCase):
   import argparse
   with tempfile.TemporaryDirectory() as d:
    root=Path(d);pos={'lat':47.2,'lon':-122.5,'time':1234,'accuracy':10}
-   rows=[dict(type='session',callsign='N0ANT',time='2026-10-15T08:00:00-07:00'),dict(type='position',position=pos,time='2026-10-15T08:01:00-07:00'),dict(type='submission',probe={'number':1,'position':pos,'payload':'test'})]
+   rows=[dict(type='session',callsign='N0DEM',time='2026-10-15T08:00:00-07:00'),dict(type='position',position=pos,time='2026-10-15T08:01:00-07:00'),dict(type='submission',probe={'number':1,'position':pos,'payload':'test'})]
    (root/'old.jsonl').write_text('\n'.join(json.dumps(r) for r in rows))
-   app=w.Walk(argparse.Namespace(callsign='N0ANT',budget=20,logs=d))
+   app=w.Walk(argparse.Namespace(callsign='N0DEM',budget=20,logs=d))
    self.assertTrue(app.view_history);self.assertFalse(app.plan.armed);self.assertEqual(app.plan.count,0);self.assertIsNone(app.plan.pending)
    app.key(ord('h'));self.assertFalse(app.view_history);self.assertFalse(app.plan.armed);app.log.close()
 if __name__=='__main__':unittest.main()

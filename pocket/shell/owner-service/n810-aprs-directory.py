@@ -373,7 +373,7 @@ def main():
     p.add_argument('--db',default='~/.local/state/n810-aprs/directory.sqlite3')
     p.add_argument('--socket',default='/dev/shm/n810-aprs-replay.sock')
     p.add_argument('--feed-socket',default='/dev/shm/n810-aprs.sock')
-    p.add_argument('--call',default='N0ANT');p.add_argument('--collect',action='store_true')
+    p.add_argument('--call',default='N0DEM');p.add_argument('--collect',action='store_true')
     p.add_argument('--json',action='store_true',help='Print station statistics as JSON lines, then exit')
     p.add_argument('--import-history',action='append',default=[],help='Conservatively import saved decoded JSON/JSONL, then exit')
     p.add_argument('--via',help='Filter JSON statistics by confirmed used relay')

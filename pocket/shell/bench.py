@@ -6,7 +6,7 @@ import tracemalloc
 from core import Host, Window
 
 h=Host(76,22,[Window('Contacts',1,1,35,12),Window('Connections',20,5,38,10)])
-h.content('Contacts',1,('N0ANT | unconfirmed',));h.content('Connections',1,('APRS | observed',))
+h.content('Contacts',1,('N0DEM | unconfirmed',));h.content('Connections',1,('APRS | observed',))
 h.flush(76*22)
 samples=[];cells=[];sizes=[]
 tracemalloc.start()

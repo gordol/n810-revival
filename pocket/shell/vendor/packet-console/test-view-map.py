@@ -58,12 +58,12 @@ class MapTests(unittest.TestCase):
    def addnstr(self,y,x,text,n,attr):
     for i,c in enumerate(text[:n]):self.grid[x+i,y]=c
   state=v.State();state.atlas=Atlas();state.center=[47.17,-122.52];state.roads=False
-  state.stations={'N0ANT':dict(call='N0ANT',lon=-122.52,lat=47.17)}
+  state.stations={'N0DEM':dict(call='N0DEM',lon=-122.52,lat=47.17)}
   w=Win();v.map_panel(w,state,120,0,0,55,15)
   self.assertEqual(w.grid[12,5],'*')
   self.assertNotIn('+',w.grid.values())
   row=''.join(w.grid.get((x,5),' ') for x in range(55))
-  self.assertIn('N0ANT',row)
+  self.assertIn('N0DEM',row)
   self.assertNotIn('(you)',row)
  def test_auto_fit(self):
   s=v.State();s.auto_fit=True;s.center=[0,0]

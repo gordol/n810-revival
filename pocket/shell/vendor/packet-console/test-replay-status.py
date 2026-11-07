@@ -22,7 +22,7 @@ class ReplayStatus(unittest.TestCase):
     def test_replay_packet_arrival_never_claims_live_radio(self):
         with patch.dict(view.os.environ, {'N810_DEV_MODE':'REPLAY'}):
             state=view.State()
-            row=state.add('12:34:56 N0ANT>APRS,WIDE1-1 ctl=03 pid=f0 >test')
+            row=state.add('12:34:56 N0DEM>APRS,WIDE1-1 ctl=03 pid=f0 >test')
             self.assertIsNotNone(row)
             self.assertEqual(state.status,'Receiving APRS')
             self.assertEqual(view.friendly_status(state.status),

@@ -65,8 +65,8 @@ class ULSTests(unittest.TestCase):
 
     def test_message_context_uses_aprs_callsign_not_mesh_identity(self):
         from native_messages import Messages
-        app=Messages('N0ANT')
-        app.update(['12:00:00 W1AW-7>APRS ctl=03 pid=f0 :N0ANT    :Hello'])
+        app=Messages('N0DEM')
+        app.update(['12:00:00 W1AW-7>APRS ctl=03 pid=f0 :N0DEM    :Hello'])
         self.assertEqual(app.selected_entities()[0].key,'W1AW-7')
         app.protocol='reticulum'
         self.assertEqual(app.selected_entities(),())

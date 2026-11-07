@@ -1,0 +1,15 @@
+aprslib / aprs-python attribution
+
+Upstream author: Rossen Georgiev.
+Project: https://github.com/rossengeorgiev/aprs-python
+Comparison revision: c2a0f18ce028a4cced582567a73d57f0d03cd00f
+Source: aprslib/parsing/mice.py
+License declaration: setup.py, GPLv2 (no later-version permission inferred).
+Complete license: aprslib-LICENSE.txt in this directory.
+
+The mice() implementation in pocket/shell/vendor/packet-console/n810-aprs-decode.py
+was created after consulting this upstream implementation on 15 October 2026.
+It retains a corresponding validation pattern and decoder structure. Preserve
+upstream GPLv2 terms for this derivation. The historical source URL used master;
+the comparison revision above identifies the source examined in this review.
+Original project modifications remain subject to applicable GPL obligations.

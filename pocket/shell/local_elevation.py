@@ -6,12 +6,39 @@ from data_paths import data_root,content_identity
 from threading import RLock
 import hashlib,json,sys,time,zlib,math,platform
 _lock=RLock();_checked=0.;_signature=();_catalogue=();_buckets={}
+def _relative(root,name):
+ path=Path(name)
+ if path.is_absolute() or '..' in path.parts:raise ValueError('Elevation catalogue paths must be relative')
+ return root/path
+
 def sources():
- root=Path(__file__).with_name('data')
- paths=[root/'elevation-western-wa/index.json',root/'elevation-lakewood/index.json',data_root()/'elevation-western-wa/index.json',data_root()/'elevation-lakewood/index.json']
- paths+=sorted((data_root()/'elevation-fine').glob('*-guarded/index.json'))
- return [p for p in paths if p.is_file()]
-@lru_cache(maxsize=128)
+ root=data_root();manifest=root/'elevation.json'
+ if manifest.is_file():
+  document=json.loads(manifest.read_text())
+  if document.get('version')!=1 or not isinstance(document.get('packs'),list):raise ValueError('Invalid elevation catalogue')
+  paths=[_relative(root,name) for name in document['packs']]
+  if any(not p.is_file() for p in paths):raise ValueError('An installed elevation pack is missing')
+  return paths
+ legacy=Path(__file__).with_name('data')
+ paths=[legacy/'elevation-western-wa/index.json',legacy/'elevation-lakewood/index.json',root/'elevation-western-wa/index.json',root/'elevation-lakewood/index.json']
+ paths+=sorted((root/'elevation-fine').glob('*-guarded/index.json'))
+ # A shared data directory may also be linked into the old shell layout.
+ return list(dict.fromkeys(p.resolve() for p in paths if p.is_file()))
+
+def display_sources(pixel_metres,paths=None):
+ """Select locally derived overview levels; fine samples remain the hole fallback."""
+ result=[]
+ for path in sources() if paths is None else paths:
+  path=Path(path);m=read_index(path,path.stat().st_mtime_ns,path.stat().st_size)
+  step=abs(m['latitude_step'])*111320
+  suitable=[row for row in m.get('overviews',()) if step*row['factor']<=pixel_metres]
+  if suitable:
+   level=_relative(path.parent,max(suitable,key=lambda row:row['factor'])['index'])
+   if level.is_file():result.append(level)
+  result.append(path)
+ return result
+
+@lru_cache(maxsize=256)
 def read_index(path,modified,size):
  if size>1024*1024:raise ValueError('Elevation index exceeds bounds')
  m=json.loads(path.read_text())
@@ -19,7 +46,7 @@ def read_index(path,modified,size):
  m.pop('maximum_bounds',None)
  m['catalogue_id']=str(path)
  m['_index_stamp']=modified
- if '-guarded' in path.parent.name:m['source']='USGS 3DEP fine western Washington export'
+ if path.parent.name.startswith('wa-') and path.parent.name.endswith('-guarded'):m['source']='USGS 3DEP fine western Washington export'
  return m
 def catalogue(force=False):
  global _checked,_signature,_catalogue,_buckets
@@ -39,7 +66,7 @@ def catalogue(force=False):
    _checked=now
   return _catalogue
 def revision():
- catalogue();return tuple(content_identity(Path(path)) for path,stamp,size in _signature)
+ return tuple(content_identity(path) for path in sources())
 @lru_cache(maxsize=4 if platform.machine().lower() in ('arm','armv6l','armv7','armv7l') else 64)
 def tile(path,stamp,tx,ty):
  m=read_index(path,stamp,path.stat().st_size);item=m['tiles'][f'{tx},{ty}'];name=f'{tx}-{ty}.i16.zlib'
@@ -51,15 +78,21 @@ def tile(path,stamp,tx,ty):
  values=array('h');values.frombytes(data)
  if sys.byteorder!='little':values.byteswap()
  return values,item['width']
+def _sample_entry(path,m,latitude,longitude,*,clamp_edges=False):
+ x=(longitude-m['longitude_first'])/m['longitude_step'];y=(latitude-m['latitude_first'])/m['latitude_step']
+ if clamp_edges and -.5<=x<=m['nx']-.5 and -.5<=y<=m['nz']-.5:
+  x=min(m['nx']-1,max(0,x));y=min(m['nz']-1,max(0,y))
+ if not 0<=x<=m['nx']-1 or not 0<=y<=m['nz']-1:return None
+ ix=min(m['nx']-2,int(x));iy=min(m['nz']-2,int(y));fx=x-ix;fy=y-iy;stamp=m['_index_stamp']
+ def get(xx,yy):
+  values,width=tile(path,stamp,xx//256,yy//256);return values[yy%256*width+xx%256]
+ a,b,c,d=get(ix,iy),get(ix+1,iy),get(ix,iy+1),get(ix+1,iy+1)
+ if m['nodata'] in (a,b,c,d):return None
+ return a*(1-fx)*(1-fy)+b*fx*(1-fy)+c*(1-fx)*fy+d*fx*fy
+
 def sample(latitude,longitude):
  catalogue()
  for path,m in _buckets.get((math.floor(longitude*4),math.floor(latitude*4)),()):
-  x=(longitude-m['longitude_first'])/m['longitude_step'];y=(latitude-m['latitude_first'])/m['latitude_step']
-  if not 0<=x<=m['nx']-1 or not 0<=y<=m['nz']-1:continue
-  ix=min(m['nx']-2,int(x));iy=min(m['nz']-2,int(y));fx=x-ix;fy=y-iy;stamp=m['_index_stamp']
-  def get(xx,yy):
-   values,width=tile(path,stamp,xx//256,yy//256);return values[yy%256*width+xx%256]
-  a,b,c,d=get(ix,iy),get(ix+1,iy),get(ix,iy+1),get(ix+1,iy+1)
-  if m['nodata'] in (a,b,c,d):continue
-  return a*(1-fx)*(1-fy)+b*fx*(1-fy)+c*(1-fx)*fy+d*fx*fy,m
+  value=_sample_entry(path,m,latitude,longitude)
+  if value is not None:return value,m
  return None,None

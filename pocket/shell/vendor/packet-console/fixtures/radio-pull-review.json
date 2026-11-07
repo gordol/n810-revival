@@ -1,0 +1,102 @@
+{
+  "fixture_only": true,
+  "description": "Synthetic cached bank data for local Pull review; not device evidence.",
+  "catalog": {
+    "captured": "2026-10-17T00:00:00Z",
+    "radio_snapshot": {
+      "complete": true,
+      "finished": "2026-10-16T23:00:00Z",
+      "banks": [
+        {
+          "index": 2,
+          "name": "Fixture supported",
+          "channels": [
+            {
+              "index": 0,
+              "response": {
+                "status": 0
+              },
+              "decoded": {
+                "channel_id": 0,
+                "name_str": "Fixture FM",
+                "rx_freq": 146520000,
+                "tx_freq": 146520000,
+                "rx_sub_audio": 0,
+                "tx_sub_audio": 10000,
+                "rx_mod": 0,
+                "tx_mod": 0,
+                "bandwidth": 0,
+                "tx_at_max_power": false,
+                "tx_at_med_power": false,
+                "tx_disable": true,
+                "scan": true,
+                "mute": false,
+                "talk_around": false,
+                "pre_de_emph_bypass": true,
+                "fixture_unknown_flag": 73
+              }
+            },
+            {
+              "index": 5,
+              "response": {
+                "status": 0
+              },
+              "decoded": {
+                "channel_id": 5,
+                "name_str": "Fixture FM",
+                "rx_freq": 0,
+                "tx_freq": 146520000,
+                "rx_sub_audio": 0,
+                "tx_sub_audio": 10000,
+                "rx_mod": 0,
+                "tx_mod": 0,
+                "bandwidth": 0,
+                "tx_at_max_power": false,
+                "tx_at_med_power": false,
+                "tx_disable": true,
+                "scan": true,
+                "mute": false,
+                "talk_around": false,
+                "pre_de_emph_bypass": true,
+                "fixture_unknown_flag": 73
+              }
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "name": "Fixture DCS blocked",
+          "channels": [
+            {
+              "index": 0,
+              "response": {
+                "status": 0
+              },
+              "decoded": {
+                "channel_id": 0,
+                "name_str": "Fixture FM",
+                "rx_freq": 146520000,
+                "tx_freq": 146520000,
+                "rx_sub_audio": 23,
+                "tx_sub_audio": 10000,
+                "rx_mod": 0,
+                "tx_mod": 0,
+                "bandwidth": 0,
+                "tx_at_max_power": false,
+                "tx_at_med_power": false,
+                "tx_disable": true,
+                "scan": true,
+                "mute": false,
+                "talk_around": false,
+                "pre_de_emph_bypass": true,
+                "fixture_unknown_flag": 73
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "radio_banks": null,
+    "radio_profiles": null
+  }
+}

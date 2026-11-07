@@ -23,7 +23,7 @@ def open_window(name):
               'Radio':['python3','/home/nokia/n810-radio-control.py'],
               'Radio Preview':['python3','/home/nokia/n810-radio-preview.py'],
               'Stations':['python3','/home/nokia/n810-aprs-directory.py'],
-              'Messages':['python3','/home/nokia/n810-aprs-messages.py','--call','N0ANT'],
+              'Messages':['python3','/home/nokia/n810-aprs-messages.py','--call','N0DEM'],
               'APRS':['python3','/home/nokia/n810-aprs-view.py','--socket','/dev/shm/n810-aprs.sock']}
     windows=subprocess.check_output(['n810-tmux','list-windows','-t',session,'-F','#{window_id}\t#{window_name}'],text=True)
     for row in windows.splitlines():

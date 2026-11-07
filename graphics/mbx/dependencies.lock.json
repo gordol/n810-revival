@@ -1,0 +1,281 @@
+{
+  "mesa": {
+    "url": "https://archive.mesa3d.org/older-versions/22.x/mesa-22.3.6.tar.xz",
+    "sha256": "4ec8ec65dbdb1ee9444dba72970890128a19543a58cf05931bd6f54f124e117f",
+    "version": "22.3.6"
+  },
+  "sysroot_packages": [
+    {
+      "file": "libbsd0_0.11.7-2_armel.deb",
+      "sha256": "f048b2e3fa3377782bd8b1dc5f9bc4779f5eb1795fd99b52e66a6c981d8ea322",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libb/libbsd/libbsd0_0.11.7-2_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libb/libbsd/libbsd0_0.11.7-2_armel.deb"
+      ]
+    },
+    {
+      "file": "libc6-dev_2.36-9+deb12u14_armel.deb",
+      "sha256": "f3a7f1a276d8676fe9ae60298577b7f33cc5c4571a2c2960f616ce80f24c6045",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/g/glibc/libc6-dev_2.36-9+deb12u14_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/g/glibc/libc6-dev_2.36-9+deb12u14_armel.deb"
+      ]
+    },
+    {
+      "file": "libc6_2.36-9+deb12u14_armel.deb",
+      "sha256": "5eb674d8a73cccad372a7d35878209fc403266da1c23eb5974cdadb69de4091e",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/g/glibc/libc6_2.36-9+deb12u14_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/g/glibc/libc6_2.36-9+deb12u14_armel.deb"
+      ]
+    },
+    {
+      "file": "libexpat1-dev_2.5.0-1+deb12u2_armel.deb",
+      "sha256": "89201642e9ad43be2259bc13e6ae4edfe636456b5818a1f81d7751a661ccf85a",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/e/expat/libexpat1-dev_2.5.0-1+deb12u2_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/e/expat/libexpat1-dev_2.5.0-1+deb12u2_armel.deb"
+      ]
+    },
+    {
+      "file": "libexpat1_2.5.0-1+deb12u2_armel.deb",
+      "sha256": "4753aa4dbbfedded0319a55bf292fb116d9ed1c29b5bc44b842576adf0bfcda7",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/e/expat/libexpat1_2.5.0-1+deb12u2_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/e/expat/libexpat1_2.5.0-1+deb12u2_armel.deb"
+      ]
+    },
+    {
+      "file": "libgcc-12-dev_12.2.0-14+deb12u1_armel.deb",
+      "sha256": "5916311189291783f80bfde6cf833bfef1a55593b5a845cb662c036a54fc5f55",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/g/gcc-12/libgcc-12-dev_12.2.0-14+deb12u1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/g/gcc-12/libgcc-12-dev_12.2.0-14+deb12u1_armel.deb"
+      ]
+    },
+    {
+      "file": "libgcc-s1_12.2.0-14+deb12u1_armel.deb",
+      "sha256": "4d9bf44b70e4437e652160ec8c042ed7a186662281f4d58a728f4a87225f1527",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/g/gcc-12/libgcc-s1_12.2.0-14+deb12u1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/g/gcc-12/libgcc-s1_12.2.0-14+deb12u1_armel.deb"
+      ]
+    },
+    {
+      "file": "libmd0_1.0.4-2_armel.deb",
+      "sha256": "d4ceb08997a44d75366618b8bca013e20dfbeb7d1c4d01984b6dc4cdedd33495",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libm/libmd/libmd0_1.0.4-2_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libm/libmd/libmd0_1.0.4-2_armel.deb"
+      ]
+    },
+    {
+      "file": "libpthread-stubs0-dev_0.4-1_armel.deb",
+      "sha256": "11df0a64fa66f0f00fe40ac59658493502fc83190a5e89132f748d6b16b40c4f",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libp/libpthread-stubs/libpthread-stubs0-dev_0.4-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libp/libpthread-stubs/libpthread-stubs0-dev_0.4-1_armel.deb"
+      ]
+    },
+    {
+      "file": "libstdc++-12-dev_12.2.0-14+deb12u1_armel.deb",
+      "sha256": "5a5599a73f204794e8273d823f7bd055014bcbc959cd886a1393918a8a650b02",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/g/gcc-12/libstdc++-12-dev_12.2.0-14+deb12u1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/g/gcc-12/libstdc++-12-dev_12.2.0-14+deb12u1_armel.deb"
+      ]
+    },
+    {
+      "file": "libstdc++6_12.2.0-14+deb12u1_armel.deb",
+      "sha256": "0ddc1914184e5beb5db4c7d7c6c2ce7de14094ac8cdf1d5b9ed6e2097ff8b6b1",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/g/gcc-12/libstdc++6_12.2.0-14+deb12u1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/g/gcc-12/libstdc++6_12.2.0-14+deb12u1_armel.deb"
+      ]
+    },
+    {
+      "file": "libx11-6_1.8.4-2+deb12u2_armel.deb",
+      "sha256": "a09925794f0dc4f8b4cac87352e7926eb81c988e7ef6022dab12bff65e91ef87",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libx11/libx11-6_1.8.4-2+deb12u2_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libx11/libx11-6_1.8.4-2+deb12u2_armel.deb"
+      ]
+    },
+    {
+      "file": "libx11-data_1.8.4-2+deb12u2_all.deb",
+      "sha256": "987a848aeb1c358e4186368871b0526f10bb14c6b53214ab3bf8b69abb830191",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libx11/libx11-data_1.8.4-2+deb12u2_all.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libx11/libx11-data_1.8.4-2+deb12u2_all.deb"
+      ]
+    },
+    {
+      "file": "libx11-dev_1.8.4-2+deb12u2_armel.deb",
+      "sha256": "ba22e4b4b6e8417c2435fd506604ac1ae5c48947d252ae34b0b927f77c648c07",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libx11/libx11-dev_1.8.4-2+deb12u2_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libx11/libx11-dev_1.8.4-2+deb12u2_armel.deb"
+      ]
+    },
+    {
+      "file": "libxau-dev_1.0.9-1_armel.deb",
+      "sha256": "2e0e3227867469703e8aaca6929d21f598ef282cd3964e677aa95b171a6ae80f",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxau/libxau-dev_1.0.9-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxau/libxau-dev_1.0.9-1_armel.deb"
+      ]
+    },
+    {
+      "file": "libxau6_1.0.9-1_armel.deb",
+      "sha256": "21881ba5e6babe6b2d06f61a10e858816734a6f85b02ab7de9eaeb32245fccfb",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxau/libxau6_1.0.9-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxau/libxau6_1.0.9-1_armel.deb"
+      ]
+    },
+    {
+      "file": "libxcb-randr0-dev_1.15-1_armel.deb",
+      "sha256": "93144d1dbe8ae22ef4cb32c6b6fa2fe7a21a5de39cf50640e2762573fc65b704",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb-randr0-dev_1.15-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxcb/libxcb-randr0-dev_1.15-1_armel.deb"
+      ]
+    },
+    {
+      "file": "libxcb-randr0_1.15-1_armel.deb",
+      "sha256": "1b14568d9f9a147f7ee91f53a31fe75c215f0d808e6b8603803c1dc12991e374",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb-randr0_1.15-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxcb/libxcb-randr0_1.15-1_armel.deb"
+      ]
+    },
+    {
+      "file": "libxcb-render0-dev_1.15-1_armel.deb",
+      "sha256": "76a287d5faccafe1430755ec1cbafb63c9fa9876474650247d8c2ce9c6498e57",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb-render0-dev_1.15-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxcb/libxcb-render0-dev_1.15-1_armel.deb"
+      ]
+    },
+    {
+      "file": "libxcb-render0_1.15-1_armel.deb",
+      "sha256": "1473f56ffcf3c69714238375e3cd761241f192838acd96d8aed0556103ebd671",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb-render0_1.15-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxcb/libxcb-render0_1.15-1_armel.deb"
+      ]
+    },
+    {
+      "file": "libxcb-shape0-dev_1.15-1_armel.deb",
+      "sha256": "6dc4f01aa1978d1e220ac6f368997d8ae318601a6c29f3a622f26d6f48f6253a",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb-shape0-dev_1.15-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxcb/libxcb-shape0-dev_1.15-1_armel.deb"
+      ]
+    },
+    {
+      "file": "libxcb-shape0_1.15-1_armel.deb",
+      "sha256": "b441a29b3f2a9f9fece5d2feb9bb82465191e909bcb76a9f61a120ce1f559555",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb-shape0_1.15-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxcb/libxcb-shape0_1.15-1_armel.deb"
+      ]
+    },
+    {
+      "file": "libxcb1-dev_1.15-1_armel.deb",
+      "sha256": "e27d3519eef47f712fe11de6be6b1963a8a900ff32acccaf14a77a69af873751",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb1-dev_1.15-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxcb/libxcb1-dev_1.15-1_armel.deb"
+      ]
+    },
+    {
+      "file": "libxcb1_1.15-1_armel.deb",
+      "sha256": "7c7105e8ca084c84fa21ef7f0c22fd9e558513aeb1f6eac16e0300036b47d1a3",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb1_1.15-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxcb/libxcb1_1.15-1_armel.deb"
+      ]
+    },
+    {
+      "file": "libxdmcp-dev_1.1.2-3_armel.deb",
+      "sha256": "14ed07fd70bb5a9f81db25c288a92461b67368f3df52555f21e28259cd8f7870",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxdmcp/libxdmcp-dev_1.1.2-3_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxdmcp/libxdmcp-dev_1.1.2-3_armel.deb"
+      ]
+    },
+    {
+      "file": "libxdmcp6_1.1.2-3_armel.deb",
+      "sha256": "c7fe718e9a513e4de93e729efc51cd92638a7fbbc3ef167161c2bb523ef15a07",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxdmcp/libxdmcp6_1.1.2-3_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxdmcp/libxdmcp6_1.1.2-3_armel.deb"
+      ]
+    },
+    {
+      "file": "libxext-dev_1.3.4-1+b1_armel.deb",
+      "sha256": "5afd158e3d93db395645a1d321e2be2068f261fcc99a7404eff37c2cb88c4e80",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxext/libxext-dev_1.3.4-1+b1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxext/libxext-dev_1.3.4-1+b1_armel.deb"
+      ]
+    },
+    {
+      "file": "libxext6_1.3.4-1+b1_armel.deb",
+      "sha256": "21a96fc556e0fdf8c47335d4c3caf01ecfda7a92961d8bd81fc53a968544d013",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/libx/libxext/libxext6_1.3.4-1+b1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/libx/libxext/libxext6_1.3.4-1+b1_armel.deb"
+      ]
+    },
+    {
+      "file": "linux-libc-dev_6.1.176-1_armel.deb",
+      "sha256": "06c6fb53c25b204500c74a44b5b39aaaf5609bcf12f6b1c0680665db1ea4366a",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/l/linux/linux-libc-dev_6.1.176-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/l/linux/linux-libc-dev_6.1.176-1_armel.deb"
+      ]
+    },
+    {
+      "file": "x11proto-dev_2022.1-1_all.deb",
+      "sha256": "3cab66a6591774188a568f9b54c4e7956f18da76e0e0fc4a779db5f6bcc3f148",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/x/xorgproto/x11proto-dev_2022.1-1_all.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/x/xorgproto/x11proto-dev_2022.1-1_all.deb"
+      ]
+    },
+    {
+      "file": "xorg-sgml-doctools_1.11-1.1_all.deb",
+      "sha256": "168345058319094e475a87ace66f5fb6ae802109650ea8434d672117982b5d0a",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/x/xorg-sgml-doctools/xorg-sgml-doctools_1.11-1.1_all.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/x/xorg-sgml-doctools/xorg-sgml-doctools_1.11-1.1_all.deb"
+      ]
+    },
+    {
+      "file": "xtrans-dev_1.4.0-1_all.deb",
+      "sha256": "9ce1af9464faee0c679348dd11cdf63934c12e734a64e0903692b0cb5af38e06",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/x/xtrans/xtrans-dev_1.4.0-1_all.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/x/xtrans/xtrans-dev_1.4.0-1_all.deb"
+      ]
+    },
+    {
+      "file": "zlib1g-dev_1.2.13.dfsg-1_armel.deb",
+      "sha256": "731bbcae63272072ac4332b3086e88306e116b789adc083f9f7af52c1a7bc813",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/z/zlib/zlib1g-dev_1.2.13.dfsg-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/z/zlib/zlib1g-dev_1.2.13.dfsg-1_armel.deb"
+      ]
+    },
+    {
+      "file": "zlib1g_1.2.13.dfsg-1_armel.deb",
+      "sha256": "e048eb368e45058d2a62449e8a967a4cb336c7af05c9075a9bbd1107c38f627a",
+      "urls": [
+        "https://deb.debian.org/debian/pool/main/z/zlib/zlib1g_1.2.13.dfsg-1_armel.deb",
+        "https://security.debian.org/debian-security/pool/updates/main/z/zlib/zlib1g_1.2.13.dfsg-1_armel.deb"
+      ]
+    }
+  ]
+}

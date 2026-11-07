@@ -11,7 +11,7 @@ class NavigationAudit(unittest.TestCase):
         from native_messages import Messages
         state={'peers':[{'identity':'a','label':'Alpha','pinned':True},{'identity':'b','label':'Bravo','pinned':True}], 'capabilities':['send','send_channel','connect','disconnect','verify_peer','message_discovery']}
         provider=SimpleNamespace(label='Owner',snapshot=lambda:state,request=Mock(return_value='job'))
-        form=Messages('N0ANT',services={protocol:provider});form.protocol=protocol;form.lines()
+        form=Messages('N0DEM',services={protocol:provider});form.protocol=protocol;form.lines()
         return form,form.chats[protocol],provider
     def test_both_chat_protocols_navigate_the_active_conversations_and_actions(self):
         for protocol in ('reticulum','meshcore'):
@@ -111,10 +111,11 @@ class NavigationAudit(unittest.TestCase):
     def test_actual_manual_search_owns_shortcuts_and_escape(self):
         from on_device_manual import ManualBrowser
         form=ManualBrowser(forms={});form.lines()
-        navigation(form).select('action:\x06');native_key(form,'\r');self.assertTrue(form.search_edit)
+        native_key(form,'\x06');self.assertTrue(form.search_edit)
         for key in 'radio[]/':native_key(form,key)
         self.assertEqual(form.query,'radio[]/');self.assertFalse(form.items.searching)
         rows,_=native_presentation(form,form.lines(),form.spans(),form.width,form.height)
         self.assertIn('radio[]/',rows[-1])
-        native_key(form,'\t');self.assertTrue(form.search_edit)
-        native_key(form,'\x1b');self.assertFalse(form.search_edit)
+        native_key(form,'\t');self.assertFalse(form.search_edit)
+        self.assertEqual(form.layout.focus,'topics')
+        native_key(form,'\x06');native_key(form,'\x1b');self.assertFalse(form.search_edit)

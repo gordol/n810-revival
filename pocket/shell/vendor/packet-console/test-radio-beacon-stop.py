@@ -14,7 +14,7 @@ class Tests(unittest.TestCase):
         self.sent=[];self.tx=b.Transaction(lambda *args:self.sent.append(args),root/'request',root/'result')
         self.status=f.packed('StatusExt',is_power_on=True,is_in_tx=True)
         self.settings=f.packed('Settings',auto_share_loc_ch=1,kiss_en=True)
-        self.beacon=f.packed('BSSSettings',aprs_callsign='N0ANT',should_share_location=True,location_share_interval=0,smart_beacon_en=False,_unk_bss_1=1)
+        self.beacon=f.packed('BSSSettings',aprs_callsign='N0DEM',should_share_location=True,location_share_interval=0,smart_beacon_en=False,_unk_bss_1=1)
         self.channel=f.channel(bandwidth=1,pre_de_emph_bypass=False)
     def tearDown(self):self.temp.cleanup()
     def start(self):

@@ -12,3 +12,27 @@ audit/
 *.key
 .env
 .env.*
+
+# Local documentation, map and firmware development environments.
+.venv-htit/
+.venv-maps/
+.venv-tests/
+
+# Generated historical terminal credentials and dependencies.
+.private/
+node_modules/
+*.dSYM/
+
+# Download and build map data locally.
+/pocket/data/*
+!/pocket/data/README.md
+/pocket/shell/data/elevation-*/
+/pocket/shell/data/*3dep*
+/pocket/shell/data/*etopo*
+/pocket/shell/map-assets/accepted-preview/
+/pocket/shell/vendor/packet-console/map-sources/*
+!/pocket/shell/vendor/packet-console/map-sources/README.md
+/pocket/shell/vendor/packet-console/maps/*
+!/pocket/shell/vendor/packet-console/maps/README.md
+/pocket/shell/vendor/map-library-resources/packet-console/maps/*
+!/pocket/shell/vendor/map-library-resources/packet-console/maps/README.md

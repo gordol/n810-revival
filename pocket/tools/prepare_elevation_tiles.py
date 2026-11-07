@@ -85,7 +85,7 @@ def prepare(tiff,export,destination,maximum_allowed_m=9000,allow_empty=False):
             tiles[f'{tx},{ty}']=dict(file=name,width=tw,height=th,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
     image.close()
     if not valid and not allow_empty:raise ValueError('USGS export contains no valid elevations')
-    index=dict(version=1,source='USGS 3DEP western Washington export',request_url=envelope['request_url'],
+    index=dict(version=1,source=envelope.get('source','USGS 3DEP export'),request_url=envelope['request_url'],
                accessed=datetime.now(timezone.utc).date().isoformat(),nx=width,nz=height,tile_size=size,
                longitude_first=extent['xmin']+(extent['xmax']-extent['xmin'])/(2*width),
                latitude_first=extent['ymin']+(extent['ymax']-extent['ymin'])/(2*height),
@@ -93,7 +93,10 @@ def prepare(tiff,export,destination,maximum_allowed_m=9000,allow_empty=False):
                extent=extent,units='meters',nodata=-32768,maximum_allowed_m=maximum_allowed_m,nodata_guard_pixels=2 if np is not None else 0,valid_samples=valid,missing_samples=missing,
                sparse_tiff_safe=True,range_m=[minimum,maximum] if valid else [None,None],tiles=tiles,note='Export spacing is not native DEM resolution or a guarantee of RF clearance')
     (destination/'index.json').write_text(json.dumps(index,indent=2)+'\n')
-    from build_elevation_bounds import build
+    if __package__:
+        from .build_elevation_bounds import build
+    else:
+        from build_elevation_bounds import build
     build(destination)
     return dict(tiles=len(tiles),valid=valid,missing=missing,bytes=sum(t['bytes'] for t in tiles.values()),range_m=index['range_m'])
 

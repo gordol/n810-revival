@@ -1,0 +1,19 @@
+{
+  "manuals": [
+    {
+      "name": "spru281e.pdf",
+      "title": "TI C55x Optimizing C/C++ Compiler Guide, Rev E, March 2003",
+      "url": "https://www.ti.com/lit/ug/spru281e/spru281e.pdf",
+      "bytes": 1624154,
+      "sha256": "880207e4ea292614789e09b2ff1834daee9b66fd7dadf9975c7f8ff4345e97a6"
+    },
+    {
+      "name": "spru371f.pdf",
+      "title": "TI C55x DSP CPU Reference Guide, Rev F",
+      "url": "https://www.ti.com/lit/ug/spru371f/spru371f.pdf",
+      "bytes": 1122365,
+      "sha256": "43a9461ba20be87cb4ce212e633fb78b892ff2f02131820581777e198d88f40a"
+    }
+  ],
+  "scope": "reference documents; no vendor compiler or executable downloaded"
+}

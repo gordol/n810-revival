@@ -31,7 +31,7 @@ class Tests(unittest.TestCase):
         self.tx=b.Transaction(lambda *args:self.sent.append(args),self.root/'request',self.root/'result')
         self.status=packed('StatusExt',is_power_on=True,is_in_rx=True)
         self.settings=packed('Settings',auto_share_loc_ch=1,kiss_en=True,channel_b_lower=2)
-        self.beacon=packed('BSSSettings',aprs_callsign='N0ANT')
+        self.beacon=packed('BSSSettings',aprs_callsign='N0DEM')
     def tearDown(self):self.temp.cleanup()
     def start(self,action=b.ACTION):
         b.atomic(self.root/'request',dict(id='one',action=action,created_at=time.time()))
@@ -88,7 +88,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.writes(),[]);self.assertEqual(self.tx.result['state'],'verified')
         self.assertFalse(self.tx.result['changed'])
     def test_enabled_beacon_is_read_and_preserved_without_setting_write(self):
-        self.beacon=packed('BSSSettings',aprs_callsign='N0ANT',should_share_location=True)
+        self.beacon=packed('BSSSettings',aprs_callsign='N0DEM',should_share_location=True)
         self.start();self.drive()
         self.assertEqual(self.tx.result['state'],'verified')
         self.assertEqual(self.tx.result['reads']['beacon_before'],self.tx.result['reads']['beacon_after'])
@@ -98,7 +98,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(self.tx.result['state'],'verified')
         self.assertEqual(self.writes()[0][1][-2:],b'\xff\xaa')
     def test_walking_ssid_refused_before_write(self):
-        self.beacon=packed('BSSSettings',aprs_callsign='N0ANT',aprs_ssid=7)
+        self.beacon=packed('BSSSettings',aprs_callsign='N0DEM',aprs_ssid=7)
         self.start();self.drive();self.assertEqual(self.tx.result['state'],'failed');self.assertFalse(self.writes())
     def test_every_other_changed_bit_rejected(self):
         raw=channel();desired=raw[:13]+bytes([raw[13]|0x10])+raw[14:]
@@ -112,7 +112,7 @@ class Tests(unittest.TestCase):
             self.sent.clear();setattr(self,field,value);self.start();self.drive()
             self.assertEqual(self.writes(),[]);self.assertEqual(self.tx.result['state'],'failed')
             self.tx.seen=None
-            self.status=packed('StatusExt',is_power_on=True,is_in_rx=True);self.beacon=packed('BSSSettings',aprs_callsign='N0ANT')
+            self.status=packed('StatusExt',is_power_on=True,is_in_rx=True);self.beacon=packed('BSSSettings',aprs_callsign='N0DEM')
         self.start();self.drive(raw=channel(rx_freq=146520000));self.assertFalse(self.writes())
     def test_changed_settings_abort_before_write(self):
         changed=bytearray(self.settings);changed[-1]^=1

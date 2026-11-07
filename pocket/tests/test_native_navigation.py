@@ -164,7 +164,7 @@ class NativeCatalogTests(unittest.TestCase):
         from settings import SettingsWindow
         host=Host(100,30,[])
         radio=State();system=SystemState(radio)
-        forms=[Messages('N0ANT'),Services(lambda:{}),Nets(lambda:{}),Walk(lambda:{}),Heard(lambda:{}),RadioFeed(lambda:{}),CW(decoder=SimpleNamespace()),WorkbenchView(Mock()),ReaderView(Mock()),LibraryView(Mock()),RadioManager(radio),RadioQuick(radio,RadioManager(radio),Mock()),System(system),FontPreview(host),CalendarView()]
+        forms=[Messages('N0DEM'),Services(lambda:{}),Nets(lambda:{}),Walk(lambda:{}),Heard(lambda:{}),RadioFeed(lambda:{}),CW(decoder=SimpleNamespace()),WorkbenchView(Mock()),ReaderView(Mock()),LibraryView(Mock()),RadioManager(radio),RadioQuick(radio,RadioManager(radio),Mock()),System(system),FontPreview(host),CalendarView()]
         from station_workspace import Context,Stations,StationMap
         from audio_monitor import AudioMonitor
         context=Context()

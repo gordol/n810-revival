@@ -806,11 +806,13 @@ class Host:
              'Title [x] / [+][=] Close / maximize-restore',
              'Hold at side edge  Carry window to next desktop',
              'Panel wheel        Switch desktop',
+             'Enable panel edits Settings > Panel > Layout > Edit panels',
              'Drag [::widget]    Move widget between panels',
              'N                  Add panel at a free edge',
              'Click panel        Select panel for docking',
              'P                  Dock selected panel',
              'D                  Remove selected empty panel',
+             'Esc                Finish panel editing',
              'Overview           Click focus; drag into desktop'))
         return tuple((page[0],page[1:]) for page in pages)
 

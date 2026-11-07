@@ -1,0 +1,649 @@
+diff --git a/drivers/tty/vt/vt.c b/drivers/tty/vt/vt.c
+--- a/drivers/tty/vt/vt.c
++++ b/drivers/tty/vt/vt.c
+@@ -106,6 +106,11 @@
+ #include <linux/ctype.h>
+ #include <linux/bsearch.h>
+ #include <linux/gcd.h>
++#include <linux/vt_rgb.h>
++
++static bool rgb_console;
++module_param_named(rgb, rgb_console, bool, 0400);
++MODULE_PARM_DESC(rgb, "Preserve RGB terminal colors for framebuffer consoles");
+ 
+ #define MAX_NR_CON_DRIVER 16
+ 
+@@ -617,6 +622,8 @@
+ }
+ 
+ 
++static void do_update_region(struct vc_data *vc, unsigned long start, int count);
++
+ static void con_scroll(struct vc_data *vc, unsigned int t, unsigned int b,
+ 		enum con_scroll dir, unsigned int nr)
+ {
+@@ -627,7 +634,20 @@
+ 	if (b > vc->vc_rows || t >= b || nr < 1)
+ 		return;
+ 	vc_uniscr_scroll(vc, t, b, dir, nr);
+-	if (con_is_visible(vc) && vc->vc_sw->con_scroll(vc, t, b, dir, nr))
++	if (vc->vc_rgb) {
++		size_t first = (size_t)t * vc->vc_cols;
++		size_t moved = (size_t)(b - t - nr) * vc->vc_cols;
++		size_t shift = (size_t)nr * vc->vc_cols;
++
++		if (dir == SM_UP) {
++			vc_rgb_move(vc, first, first + shift, moved);
++			vc_rgb_fill(vc, first + moved, shift, vc_rgb_current(vc, true));
++		} else {
++			vc_rgb_move(vc, first + shift, first, moved);
++			vc_rgb_fill(vc, first, shift, vc_rgb_current(vc, true));
++		}
++	}
++	if (!vc->vc_rgb && con_is_visible(vc) && vc->vc_sw->con_scroll(vc, t, b, dir, nr))
+ 		return;
+ 
+ 	s = clear = (u16 *)(vc->vc_origin + vc->vc_size_row * t);
+@@ -639,6 +659,9 @@
+ 	}
+ 	scr_memmovew(d, s, (b - t - nr) * vc->vc_size_row);
+ 	scr_memsetw(clear, vc->vc_video_erase_char, vc->vc_size_row * nr);
++	if (vc->vc_rgb && con_should_update(vc))
++		do_update_region(vc, vc->vc_origin + vc->vc_size_row * t,
++				 (b - t) * vc->vc_cols);
+ }
+ 
+ static void do_update_region(struct vc_data *vc, unsigned long start, int count)
+@@ -761,6 +784,7 @@
+ 
+ 	count /= 2;
+ 	p = screenpos(vc, offset, viewed);
++	vc_rgb_invert(vc, p, count);
+ 	if (vc->vc_sw->con_invert_region) {
+ 		vc->vc_sw->con_invert_region(vc, p, count);
+ 	} else {
+@@ -812,6 +836,7 @@
+ 
+ 	if (old_offset != -1 && old_offset >= 0 &&
+ 	    old_offset < vc->vc_screenbuf_size) {
++		vc_rgb_invert(vc, screenpos(vc, old_offset, true), 1);
+ 		scr_writew(old, screenpos(vc, old_offset, true));
+ 		if (con_should_update(vc))
+ 			vc->vc_sw->con_putc(vc, old, oldy, oldx);
+@@ -827,6 +852,7 @@
+ 		p = screenpos(vc, offset, true);
+ 		old = scr_readw(p);
+ 		new = old ^ vc->vc_complement_mask;
++		vc_rgb_invert(vc, p, 1);
+ 		scr_writew(new, p);
+ 		if (con_should_update(vc)) {
+ 			oldx = (offset >> 1) % vc->vc_cols;
+@@ -842,6 +868,10 @@
+ 	unsigned short *p = (unsigned short *) vc->vc_pos;
+ 
+ 	vc_uniscr_insert(vc, nr);
++	vc_rgb_move(vc, (vc->vc_pos - vc->vc_origin) / 2 + nr,
++		    (vc->vc_pos - vc->vc_origin) / 2,
++		    vc->vc_cols - vc->state.x - nr);
++	vc_rgb_store(vc, p, nr, true);
+ 	scr_memmovew(p + nr, p, (vc->vc_cols - vc->state.x - nr) * 2);
+ 	scr_memsetw(p, vc->vc_video_erase_char, nr * 2);
+ 	vc->vc_need_wrap = 0;
+@@ -855,6 +885,10 @@
+ 	unsigned short *p = (unsigned short *) vc->vc_pos;
+ 
+ 	vc_uniscr_delete(vc, nr);
++	vc_rgb_move(vc, (vc->vc_pos - vc->vc_origin) / 2,
++		    (vc->vc_pos - vc->vc_origin) / 2 + nr,
++		    vc->vc_cols - vc->state.x - nr);
++	vc_rgb_store(vc, p + vc->vc_cols - vc->state.x - nr, nr, true);
+ 	scr_memmovew(p, p + nr, (vc->vc_cols - vc->state.x - nr) * 2);
+ 	scr_memsetw(p + vc->vc_cols - vc->state.x - nr, vc->vc_video_erase_char,
+ 			nr * 2);
+@@ -883,6 +917,7 @@
+ 		i ^= CUR_BG;
+ 	if ((type & CUR_INVERT_FG_BG) && (i & CUR_FG) == ((i & CUR_BG) >> 4))
+ 		i ^= CUR_FG;
++	vc_rgb_invert(vc, (u16 *)vc->vc_pos, 1);
+ 	scr_writew(i, (u16 *)vc->vc_pos);
+ 	if (con_should_update(vc))
+ 		vc->vc_sw->con_putc(vc, i, vc->state.y, vc->state.x);
+@@ -891,6 +926,7 @@
+ static void hide_softcursor(struct vc_data *vc)
+ {
+ 	if (softcursor_original != -1) {
++		vc_rgb_invert(vc, (u16 *)vc->vc_pos, 1);
+ 		scr_writew(softcursor_original, (u16 *)vc->vc_pos);
+ 		if (con_should_update(vc))
+ 			vc->vc_sw->con_putc(vc, softcursor_original,
+@@ -1202,6 +1238,8 @@
+ 	unsigned int user;
+ 	unsigned short *oldscreen, *newscreen;
+ 	struct uni_screen *new_uniscr = NULL;
++	struct vc_rgb *new_rgb = NULL;
++	unsigned int old_cols = 0;
+ 
+ 	WARN_CONSOLE_UNLOCKED();
+ 
+@@ -1245,9 +1283,22 @@
+ 	if (!newscreen)
+ 		return -ENOMEM;
+ 
++	if (vc->vc_rgb) {
++		size_t i, cells = new_screen_size / sizeof(u16);
++
++		new_rgb = kmalloc_array(cells, sizeof(*new_rgb), GFP_USER);
++		if (!new_rgb) {
++			kfree(newscreen);
++			return -ENOMEM;
++		}
++		for (i = 0; i < cells; i++)
++			new_rgb[i] = vc_rgb_current(vc, true);
++		old_cols = vc->vc_cols;
++	}
+ 	if (get_vc_uniscr(vc)) {
+ 		new_uniscr = vc_uniscr_alloc(new_cols, new_rows);
+ 		if (!new_uniscr) {
++			kfree(new_rgb);
+ 			kfree(newscreen);
+ 			return -ENOMEM;
+ 		}
+@@ -1261,6 +1312,7 @@
+ 
+ 	err = resize_screen(vc, new_cols, new_rows, user);
+ 	if (err) {
++		kfree(new_rgb);
+ 		kfree(newscreen);
+ 		vc_uniscr_free(new_uniscr);
+ 		return err;
+@@ -1300,6 +1352,16 @@
+ 			    get_vc_uniscr(vc), rlth/2, first_copied_row,
+ 			    min(old_rows, new_rows));
+ 	vc_uniscr_set(vc, new_uniscr);
++	if (new_rgb) {
++		unsigned int y, rows = min(old_rows - first_copied_row, new_rows);
++
++		for (y = 0; y < rows; y++)
++			memcpy(new_rgb + (size_t)y * new_cols,
++			       vc->vc_rgb + (size_t)(y + first_copied_row) * old_cols,
++			       min(old_cols, new_cols) * sizeof(*new_rgb));
++		kfree(vc->vc_rgb);
++		vc->vc_rgb = new_rgb;
++	}
+ 
+ 	update_attr(vc);
+ 
+@@ -1402,6 +1464,7 @@
+ 		put_pid(vc->vt_pid);
+ 		vc_uniscr_set(vc, NULL);
+ 		kfree(vc->vc_screenbuf);
++		kfree(vc->vc_rgb);
+ 		vc_cons[currcons].d = NULL;
+ 	}
+ 	return vc;
+@@ -1580,6 +1643,7 @@
+ 		default:
+ 			return;
+ 	}
++	vc_rgb_store(vc, start, count, true);
+ 	scr_memsetw(start, vc->vc_video_erase_char, 2 * count);
+ 	if (con_should_update(vc))
+ 		do_update_region(vc, (unsigned long) start, count);
+@@ -1609,6 +1673,7 @@
+ 			return;
+ 	}
+ 	vc_uniscr_clear_line(vc, vc->state.x + offset, count);
++	vc_rgb_store(vc, start + offset, count, true);
+ 	scr_memsetw(start + offset, vc->vc_video_erase_char, 2 * count);
+ 	vc->vc_need_wrap = 0;
+ 	if (con_should_update(vc))
+@@ -1626,6 +1691,7 @@
+ 	count = min(vpar, vc->vc_cols - vc->state.x);
+ 
+ 	vc_uniscr_clear_line(vc, vc->state.x, count);
++	vc_rgb_store(vc, (u16 *)vc->vc_pos, count, true);
+ 	scr_memsetw((unsigned short *)vc->vc_pos, vc->vc_video_erase_char, 2 * count);
+ 	if (con_should_update(vc))
+ 		vc->vc_sw->con_clear(vc, vc->state.y, vc->state.x, 1, count);
+@@ -1640,6 +1706,8 @@
+ 	vc->state.reverse = false;
+ 	vc->state.blink = false;
+ 	vc->state.color = vc->vc_def_color;
++	vc->state.rgb_fg = VC_RGB_DEFAULT;
++	vc->state.rgb_bg = VC_RGB_DEFAULT;
+ }
+ 
+ struct rgb { u8 r; u8 g; u8 b; };
+@@ -1655,9 +1723,11 @@
+ 		c->g = i&2 ? 0xff : 0x55;
+ 		c->b = i&4 ? 0xff : 0x55;
+ 	} else if (i < 232) {   /* 6x6x6 colour cube. */
+-		c->r = (i - 16) / 36 * 85 / 2;
+-		c->g = (i - 16) / 6 % 6 * 85 / 2;
+-		c->b = (i - 16) % 6 * 85 / 2;
++		static const u8 levels[] = { 0, 95, 135, 175, 215, 255 };
++
++		c->r = levels[(i - 16) / 36];
++		c->g = levels[(i - 16) / 6 % 6];
++		c->b = levels[(i - 16) % 6];
+ 	} else                  /* Grayscale ramp. */
+ 		c->r = c->g = c->b = i * 10 - 2312;
+ }
+@@ -1665,6 +1735,11 @@
+ static void rgb_foreground(struct vc_data *vc, const struct rgb *c)
+ {
+ 	u8 hue = 0, max = max3(c->r, c->g, c->b);
++
++	if (rgb_console && vc_rgb_alloc(vc)) {
++		vc->state.rgb_fg = (c->r << 16) | (c->g << 8) | c->b;
++		return;
++	}
+ 
+ 	if (c->r > max / 2)
+ 		hue |= 4;
+@@ -1686,6 +1761,10 @@
+ 
+ static void rgb_background(struct vc_data *vc, const struct rgb *c)
+ {
++	if (rgb_console && vc_rgb_alloc(vc)) {
++		vc->state.rgb_bg = (c->r << 16) | (c->g << 8) | c->b;
++		return;
++	}
+ 	/* For backgrounds, err on the dark side. */
+ 	vc->state.color = (vc->state.color & 0x0f)
+ 		| (c->r&0x80) >> 1 | (c->g&0x80) >> 2 | (c->b&0x80) >> 3;
+@@ -1712,12 +1791,12 @@
+ 	if (vc->vc_par[i] == 5 && i + 1 <= vc->vc_npar) {
+ 		/* 256 colours */
+ 		i++;
+-		rgb_from_256(vc->vc_par[i], &c);
++		rgb_from_256(min(vc->vc_par[i], 255U), &c);
+ 	} else if (vc->vc_par[i] == 2 && i + 3 <= vc->vc_npar) {
+ 		/* 24 bit */
+-		c.r = vc->vc_par[i + 1];
+-		c.g = vc->vc_par[i + 2];
+-		c.b = vc->vc_par[i + 3];
++		c.r = min(vc->vc_par[i + 1], 255U);
++		c.g = min(vc->vc_par[i + 2], 255U);
++		c.b = min(vc->vc_par[i + 3], 255U);
+ 		i += 3;
+ 	} else
+ 		return i;
+@@ -1806,10 +1885,12 @@
+ 			i = vc_t416_color(vc, i, rgb_background);
+ 			break;
+ 		case 39:
++			vc->state.rgb_fg = VC_RGB_DEFAULT;
+ 			vc->state.color = (vc->vc_def_color & 0x0f) |
+ 				(vc->state.color & 0xf0);
+ 			break;
+ 		case 49:
++			vc->state.rgb_bg = VC_RGB_DEFAULT;
+ 			vc->state.color = (vc->vc_def_color & 0xf0) |
+ 				(vc->state.color & 0x0f);
+ 			break;
+@@ -1819,12 +1900,15 @@
+ 					vc->state.intensity = VCI_BOLD;
+ 				vc->vc_par[i] -= 60;
+ 			}
+-			if (vc->vc_par[i] >= 30 && vc->vc_par[i] <= 37)
++			if (vc->vc_par[i] >= 30 && vc->vc_par[i] <= 37) {
++				vc->state.rgb_fg = VC_RGB_DEFAULT;
+ 				vc->state.color = color_table[vc->vc_par[i] - 30]
+ 					| (vc->state.color & 0xf0);
+-			else if (vc->vc_par[i] >= 40 && vc->vc_par[i] <= 47)
++			} else if (vc->vc_par[i] >= 40 && vc->vc_par[i] <= 47) {
++				vc->state.rgb_bg = VC_RGB_DEFAULT;
+ 				vc->state.color = (color_table[vc->vc_par[i] - 40] << 4)
+ 					| (vc->state.color & 0x0f);
++			}
+ 			break;
+ 		}
+ 	update_attr(vc);
+@@ -2859,6 +2943,9 @@
+ 			      (tc &  0xff);
+ 		tc |= (vc_attr << 8) & ~himask;
+ 
++		vc_rgb_store(vc, (u16 *)vc->vc_pos, 1, false);
++		if (inverse)
++			vc_rgb_invert(vc, (u16 *)vc->vc_pos, 1);
+ 		scr_writew(tc, (u16 *)vc->vc_pos);
+ 
+ 		if (con_should_update(vc) && draw->x < 0) {
+@@ -3131,6 +3218,8 @@
+ 				continue;
+ 		}
+ 		vc_uniscr_putc(vc, c);
++		vc_rgb_fill(vc, (vc->vc_pos - vc->vc_origin) / sizeof(u16), 1,
++			    (struct vc_rgb){ VC_RGB_DEFAULT, VC_RGB_DEFAULT });
+ 		scr_writew((vc->vc_attr << 8) + c, (unsigned short *)vc->vc_pos);
+ 		notify_write(vc, c);
+ 		cnt++;
+@@ -4779,6 +4868,9 @@
+ 
+ void vcs_scr_writew(struct vc_data *vc, u16 val, u16 *org)
+ {
++	if ((unsigned long)org >= vc->vc_origin && (unsigned long)org < vc->vc_scr_end)
++		vc_rgb_fill(vc, ((unsigned long)org - vc->vc_origin) / sizeof(u16), 1,
++			    (struct vc_rgb){ VC_RGB_DEFAULT, VC_RGB_DEFAULT });
+ 	scr_writew(val, org);
+ 	if ((unsigned long)org == vc->vc_pos) {
+ 		softcursor_original = -1;
+diff --git a/drivers/video/fbdev/core/fbcon.c b/drivers/video/fbdev/core/fbcon.c
+--- a/drivers/video/fbdev/core/fbcon.c
++++ b/drivers/video/fbdev/core/fbcon.c
+@@ -79,6 +79,7 @@
+ #include <asm/irq.h>
+ 
+ #include "fbcon.h"
++#include <linux/vt_rgb.h>
+ 
+ /*
+  * FIXME: Locking
+@@ -173,6 +174,7 @@
+ 			int count, int ypos, int xpos);
+ static void fbcon_clear_margins(struct vc_data *vc, int bottom_only);
+ static void fbcon_cursor(struct vc_data *vc, int mode);
++static void fbcon_do_cursor(struct vc_data *vc, struct fb_info *info, int mode, int c);
+ static void fbcon_bmove(struct vc_data *vc, int sy, int sx, int dy, int dx,
+ 			int height, int width);
+ static int fbcon_switch(struct vc_data *vc);
+@@ -384,8 +386,7 @@
+ 	c = scr_readw((u16 *) vc->vc_pos);
+ 	mode = (!ops->cursor_flash || ops->cursor_state.enable) ?
+ 		CM_ERASE : CM_DRAW;
+-	ops->cursor(vc, info, mode, get_color(vc, info, c, 1),
+-		    get_color(vc, info, c, 0));
++	fbcon_do_cursor(vc, info, mode, c);
+ 	console_unlock();
+ }
+ 
+@@ -1249,6 +1250,130 @@
+  *  restriction is simplicity & efficiency at the moment.
+  */
+ 
++static bool fbcon_rgb_supported(struct vc_data *vc, struct fb_info *info)
++{
++	return vc->vc_rgb && info->pseudo_palette &&
++		info->fix.visual == FB_VISUAL_TRUECOLOR &&
++		info->var.bits_per_pixel >= 15 &&
++		info->var.red.length && info->var.red.length <= 8 &&
++		info->var.green.length && info->var.green.length <= 8 &&
++		info->var.blue.length && info->var.blue.length <= 8;
++}
++
++static u32 fbcon_rgb_pixel(struct fb_info *info, u32 rgb)
++{
++	const struct fb_var_screeninfo *var = &info->var;
++	u32 r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255;
++	u32 pixel;
++
++	pixel = (r >> (8 - var->red.length)) << var->red.offset;
++	pixel |= (g >> (8 - var->green.length)) << var->green.offset;
++	pixel |= (b >> (8 - var->blue.length)) << var->blue.offset;
++	if (var->transp.length && var->transp.length <= 8)
++		pixel |= ((1U << var->transp.length) - 1) << var->transp.offset;
++	return pixel;
++}
++
++static bool fbcon_rgb_putcs(struct vc_data *vc, struct fb_info *info,
++			   const unsigned short *s, int count, int y, int x)
++{
++	struct fbcon_display *display = &fb_display[vc->vc_num];
++	struct fbcon_ops *ops = info->fbcon_par;
++	u32 *palette = info->pseudo_palette;
++	u32 saved_fg, saved_bg;
++	int n, fg, bg;
++	struct vc_rgb color, next;
++
++	if (!fbcon_rgb_supported(vc, info) || y >= vc->vc_rows || x >= vc->vc_cols)
++		return false;
++	saved_fg = palette[14];
++	saved_bg = palette[15];
++	while (count > 0) {
++		color = vc_rgb_cell(vc, y, x);
++		for (n = 1; n < count && x + n < vc->vc_cols; n++) {
++			next = vc_rgb_cell(vc, y, x + n);
++			if (color.fg != next.fg || color.bg != next.bg ||
++			    (scr_readw(s) & 0xff00) != (scr_readw(s + n) & 0xff00))
++				break;
++		}
++		fg = get_color(vc, info, scr_readw(s), 1);
++		bg = get_color(vc, info, scr_readw(s), 0);
++		if (color.fg != VC_RGB_DEFAULT || color.bg != VC_RGB_DEFAULT) {
++			u32 fg_pixel = color.fg == VC_RGB_DEFAULT ? palette[fg] :
++				fbcon_rgb_pixel(info, color.fg);
++			u32 bg_pixel = color.bg == VC_RGB_DEFAULT ? palette[bg] :
++				fbcon_rgb_pixel(info, color.bg);
++
++			palette[14] = fg_pixel;
++			palette[15] = bg_pixel;
++			fg = 14;
++			bg = 15;
++		}
++		ops->putcs(vc, info, s, n, real_y(display, y), x, fg, bg);
++		palette[14] = saved_fg;
++		palette[15] = saved_bg;
++		s += n;
++		x += n;
++		count -= n;
++	}
++	return true;
++}
++
++static bool fbcon_rgb_clear(struct vc_data *vc, struct fb_info *info,
++			   int y, int x, int height, int width)
++{
++	struct fbcon_display *display = &fb_display[vc->vc_num];
++	struct vc_rgb color = vc_rgb_current(vc, true);
++	struct fb_fillrect region;
++	u32 *palette = info->pseudo_palette, saved;
++
++	if (!fbcon_rgb_supported(vc, info) || color.bg == VC_RGB_DEFAULT)
++		return false;
++	saved = palette[15];
++	palette[15] = fbcon_rgb_pixel(info, color.bg);
++	region.color = 15;
++	region.dx = x * vc->vc_font.width;
++	region.width = width * vc->vc_font.width;
++	region.height = vc->vc_font.height;
++	region.rop = ROP_COPY;
++	while (height--) {
++		region.dy = real_y(display, y++) * vc->vc_font.height;
++		info->fbops->fb_fillrect(info, &region);
++	}
++	palette[15] = saved;
++	return true;
++}
++
++static void fbcon_do_cursor(struct vc_data *vc, struct fb_info *info, int mode, int c)
++{
++	struct fbcon_ops *ops = info->fbcon_par;
++	struct vc_rgb color = vc_rgb_cell(vc, vc->state.y, vc->state.x);
++	u32 *palette = info->pseudo_palette, saved_fg = 0, saved_bg = 0;
++	int fg = get_color(vc, info, c, 1), bg = get_color(vc, info, c, 0);
++	bool rgb = fbcon_rgb_supported(vc, info);
++
++	if (rgb) {
++		saved_fg = palette[14];
++		saved_bg = palette[15];
++		if (color.fg != VC_RGB_DEFAULT || color.bg != VC_RGB_DEFAULT) {
++			u32 fg_pixel = color.fg == VC_RGB_DEFAULT ? palette[fg] :
++				fbcon_rgb_pixel(info, color.fg);
++			u32 bg_pixel = color.bg == VC_RGB_DEFAULT ? palette[bg] :
++				fbcon_rgb_pixel(info, color.bg);
++
++			palette[14] = fg_pixel;
++			palette[15] = bg_pixel;
++			fg = 14;
++			bg = 15;
++		}
++	}
++	ops->cursor(vc, info, mode, fg, bg);
++	if (rgb) {
++		palette[14] = saved_fg;
++		palette[15] = saved_bg;
++	}
++}
++
+ static void fbcon_clear(struct vc_data *vc, int sy, int sx, int height,
+ 			int width)
+ {
+@@ -1262,6 +1387,8 @@
+ 		return;
+ 
+ 	if (!height || !width)
++		return;
++	if (fbcon_rgb_clear(vc, info, sy, sx, height, width))
+ 		return;
+ 
+ 	if (sy < vc->vc_top && vc->vc_top == logo_lines) {
+@@ -1294,7 +1421,8 @@
+ 	struct fbcon_display *p = &fb_display[vc->vc_num];
+ 	struct fbcon_ops *ops = info->fbcon_par;
+ 
+-	if (!fbcon_is_inactive(vc, info))
++	if (!fbcon_is_inactive(vc, info) &&
++	    !fbcon_rgb_putcs(vc, info, s, count, ypos, xpos))
+ 		ops->putcs(vc, info, s, count, real_y(p, ypos), xpos,
+ 			   get_color(vc, info, scr_readw(s), 1),
+ 			   get_color(vc, info, scr_readw(s), 0));
+@@ -1338,8 +1466,7 @@
+ 	if (!ops->cursor)
+ 		return;
+ 
+-	ops->cursor(vc, info, mode, get_color(vc, info, c, 1),
+-		    get_color(vc, info, c, 0));
++	fbcon_do_cursor(vc, info, mode, c);
+ }
+ 
+ static int scrollback_phys_max = 0;
+diff --git a/include/linux/console_struct.h b/include/linux/console_struct.h
+--- a/include/linux/console_struct.h
++++ b/include/linux/console_struct.h
+@@ -43,10 +43,15 @@
+  * These members are defined separately from struct vc_data as we save &
+  * restore them at times.
+  */
++struct vc_rgb {
++	u32 fg, bg;
++};
++
+ struct vc_state {
+ 	unsigned int	x, y;
+ 
+ 	unsigned char	color;
++	u32		rgb_fg, rgb_bg;
+ 
+ 	unsigned char	Gx_charset[2];
+ 	unsigned int	charset		: 1;
+@@ -95,6 +100,7 @@
+ 	struct tty_port port;			/* Upper level data */
+ 
+ 	struct vc_state state, saved_state;
++	struct vc_rgb *vc_rgb;
+ 
+ 	unsigned short	vc_num;			/* Console number */
+ 	unsigned int	vc_cols;		/* [#] Console size */
+diff --git a/include/linux/vt_rgb.h b/include/linux/vt_rgb.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/vt_rgb.h
+@@ -0,0 +1,97 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _LINUX_VT_RGB_H
++#define _LINUX_VT_RGB_H
++
++#include <linux/console_struct.h>
++#include <linux/slab.h>
++#include <linux/string.h>
++
++#define VC_RGB_DEFAULT U32_MAX
++
++static inline struct vc_rgb vc_rgb_current(const struct vc_data *vc, bool erase)
++{
++	struct vc_rgb color = { vc->state.rgb_fg, vc->state.rgb_bg };
++
++	if (vc->vc_decscnm ^ (!erase && vc->state.reverse))
++		swap(color.fg, color.bg);
++	return color;
++}
++
++static inline size_t vc_rgb_count(const struct vc_data *vc)
++{
++	return vc->vc_screenbuf_size / sizeof(u16);
++}
++
++static inline bool vc_rgb_alloc(struct vc_data *vc)
++{
++	size_t count = vc_rgb_count(vc);
++
++	if (vc->vc_rgb)
++		return true;
++	vc->vc_rgb = kmalloc_array(count, sizeof(*vc->vc_rgb), GFP_KERNEL);
++	if (!vc->vc_rgb)
++		return false;
++	memset(vc->vc_rgb, 0xff, count * sizeof(*vc->vc_rgb));
++	return true;
++}
++
++static inline void vc_rgb_fill(struct vc_data *vc, size_t first, size_t count,
++			      struct vc_rgb color)
++{
++	if (!vc->vc_rgb || first >= vc_rgb_count(vc))
++		return;
++	count = min(count, vc_rgb_count(vc) - first);
++	while (count--)
++		vc->vc_rgb[first++] = color;
++}
++
++static inline void vc_rgb_store(struct vc_data *vc, const u16 *pos,
++			       size_t count, bool erase)
++{
++	unsigned long address = (unsigned long)pos;
++
++	if (address < vc->vc_origin || address >= vc->vc_scr_end)
++		return;
++	vc_rgb_fill(vc, (address - vc->vc_origin) / sizeof(u16), count,
++		    vc_rgb_current(vc, erase));
++}
++
++static inline void vc_rgb_move(struct vc_data *vc, size_t dest,
++			      size_t source, size_t count)
++{
++	size_t cells = vc_rgb_count(vc);
++
++	if (!vc->vc_rgb || source >= cells || dest >= cells)
++		return;
++	count = min(count, min(cells - source, cells - dest));
++	memmove(vc->vc_rgb + dest, vc->vc_rgb + source,
++		count * sizeof(*vc->vc_rgb));
++}
++
++static inline void vc_rgb_invert(struct vc_data *vc, const u16 *pos,
++				size_t count)
++{
++	size_t first;
++	unsigned long address = (unsigned long)pos;
++
++	if (!vc->vc_rgb || address < vc->vc_origin || address >= vc->vc_scr_end)
++		return;
++	first = (address - vc->vc_origin) / sizeof(u16);
++	count = min(count, vc_rgb_count(vc) - first);
++	while (count--) {
++		swap(vc->vc_rgb[first].fg, vc->vc_rgb[first].bg);
++		first++;
++	}
++}
++
++static inline struct vc_rgb vc_rgb_cell(const struct vc_data *vc,
++				       unsigned int y, unsigned int x)
++{
++	struct vc_rgb color = { VC_RGB_DEFAULT, VC_RGB_DEFAULT };
++
++	if (vc->vc_rgb && y < vc->vc_rows && x < vc->vc_cols)
++		color = vc->vc_rgb[(size_t)y * vc->vc_cols + x];
++	return color;
++}
++
++#endif

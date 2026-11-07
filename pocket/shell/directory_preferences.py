@@ -3,7 +3,7 @@
 
 def self_calls(preferences):
     if 'station-self' not in preferences:
-        return None  # Domain's exact N0ANT default, never its SSID family.
+        return None  # Domain's exact N0DEM default, never its SSID family.
     group = preferences['station-self']
     return tuple(group[key] for key in sorted(group) if key.startswith('self-call-'))
 

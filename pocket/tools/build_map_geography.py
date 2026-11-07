@@ -1,14 +1,22 @@
 """Build compact named arterial/forest-road and water layers from cached OSM XML."""
 from pathlib import Path
 import xml.etree.ElementTree as ET
-import gzip,json,hashlib
+import argparse,gzip,json,hashlib
 from shapely.geometry import Polygon,LineString,box,Point
 from shapely.ops import polygonize,unary_union
 from shapely.strtree import STRtree
-root=Path(__file__).resolve().parents[1];nodes={};ways={};relations={};sources=[]
-for p in sorted(root.glob('data/osm-local-source*/*.osm')):
- tree=ET.parse(p).getroot()
- sources.append(dict(file=str(p.relative_to(root)),sha256=hashlib.sha256(p.read_bytes()).hexdigest()))
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--osm',type=Path,required=True)
+parser.add_argument('--forest-source',type=Path,required=True)
+parser.add_argument('--state-source',type=Path,required=True)
+parser.add_argument('--output',type=Path,required=True)
+args=parser.parse_args()
+nodes={};ways={};relations={};sources=[]
+inputs=sorted(args.osm.glob('*.osm'))+sorted(args.osm.glob('*.osm.gz'))
+if not inputs:parser.error('No OSM extracts found in --osm directory')
+for p in inputs:
+ tree=ET.fromstring(gzip.decompress(p.read_bytes()) if p.suffix=='.gz' else p.read_bytes())
+ sources.append(dict(file=p.name,sha256=hashlib.sha256(p.read_bytes()).hexdigest()))
  for e in tree:
   if e.tag=='node':nodes[e.attrib['id']]=e
   elif e.tag=='way':ways[e.attrib['id']]=e
@@ -53,7 +61,7 @@ for e in relations.values():
  water+=polys(g)
  if not g.is_empty and t.get('name'):
   c=g.representative_point();labels.append(dict(name=t['name'],lon=c.x,lat=c.y,kind='lake'))
-forest=root/'data/forest-roads-source.geojson.gz'
+forest=args.forest_source
 if forest.is_file():
  for f in json.load(gzip.open(forest,'rt'))['features']:
   g=f.get('geometry');p=f.get('properties',{})
@@ -61,7 +69,7 @@ if forest.is_file():
   lines=[g['coordinates']] if g['type']=='LineString' else g['coordinates'] if g['type']=='MultiLineString' else []
   for line in lines:
    roads.append(dict(name=('NF-'+str(p.get('id',''))+' '+str(p.get('name') or '')).strip(),kind='forest',points=line,max_span=30,status=p.get('symbol_name'),openforuseto=p.get('openforuseto')))
-state=root/'data/state-roads-source.json.gz'
+state=args.state_source
 if state.is_file():
  for f in json.load(gzip.open(state,'rt'))['features']:
   p=f['attributes']
@@ -73,6 +81,5 @@ for r in roads:
  r['points']=[p[:2] for p in r['points']]
  r['bbox']=[min(p[0] for p in r['points']),min(p[1] for p in r['points']),max(p[0] for p in r['points']),max(p[1] for p in r['points'])]
 payload=dict(version=1,roads=roads,labels=labels,water=water,sources=sources,attribution='OpenStreetMap contributors; US Forest Service; Washington State Department of Transportation',license_url='https://www.openstreetmap.org/copyright')
-out=root/'data/map-geography.json.gz';out.write_bytes(gzip.compress(json.dumps(payload,separators=(',',':')).encode()))
+out=args.output;out.parent.mkdir(parents=True,exist_ok=True);out.write_bytes(gzip.compress(json.dumps(payload,separators=(',',':')).encode(),mtime=0))
 print(dict(roads=len(roads),labels=len(labels),water=len(water),bytes=out.stat().st_size))
-print(sorted({r['name'] for r in roads}))

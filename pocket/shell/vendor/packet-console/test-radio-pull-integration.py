@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 ROOT=Path(__file__).resolve().parent
-WORLD=ROOT.parent/'explorations/current-world'
+WORLD=ROOT.parents[1]
 sys.path.insert(0,str(WORLD))
 from radio_manager import State,RadioManager
 from radio_drafts import Drafts,library

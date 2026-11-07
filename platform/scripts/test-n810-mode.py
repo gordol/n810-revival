@@ -8,6 +8,10 @@ helper = Path(__file__).with_name('n810-mode').resolve()
 with tempfile.TemporaryDirectory() as directory:
     root = Path(directory)
     for name in ('screen', 'state', 'init'): (root/name).mkdir()
+    # Patch only the test copy's uid lookup; every service and sysfs path is mocked.
+    helper_copy=root/'mode-under-test'
+    helper_copy.write_text(helper.read_text().replace('$(id -u)', '0'))
+    helper_copy.chmod(0o755)
     (root/'online').write_text('1\n')
     (root/'init/n810-wake').write_text('#!/bin/sh\nexit 0\n')
     (root/'init/n810-wake').chmod(0o755)
@@ -38,7 +42,7 @@ esac
     env = dict(os.environ, N810_MODE_SCREEN_DIR=str(root/'screen'), N810_MODE_STATE_DIR=str(root/'state'),
                N810_MODE_INIT_DIR=str(root/'init'), N810_MODE_SCREEN_COMMAND=str(screen), N810_MODE_ONLINE=str(root/'online'))
     def run(action, success=True):
-        result = subprocess.run([str(helper), action], env=env, capture_output=True, text=True)
+        result = subprocess.run([str(helper_copy), action], env=env, capture_output=True, text=True)
         assert (result.returncode == 0) == success, (action, result.stdout, result.stderr)
         return result.stdout
     def quiet(): return (root/'screen/quiet-charging').exists()

@@ -9,21 +9,9 @@ dist/
 shell/native/build-host/
 shell/vendor/native/libpocket_rns.provenance.json
 data/uls.sqlite
-data/elevation-fine/
-data/shoreline-puget.json.gz
 data/osm-local-source*/
-data/geography/
-data/hydrography/
-data/regional-geography-source.json.gz
-data/osm-water-source.geojson.gz
-data/hydrography-source.geojson.gz
 
 # Private downloaded repeater directory; retain publisher notice locally.
 data/repeaters/
 
-# Prepared regional DEMs ship in the separate reference-data package.
-shell/data/elevation-western-wa/
-shell/data/elevation-lakewood/
 
-# Downloaded/prepared public reference snapshots ship separately from source.
-/data/

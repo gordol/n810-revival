@@ -75,7 +75,7 @@ def check_mapping(status,settings,beacon,read_only=False):
     for name,width,kind in layouts['BSSSettings']:
         if name=='aprs_callsign':callsign=bits(beacon,offset,width).to_bytes(width//8,'big').split(b'\0',1)[0].decode('ascii','replace')
         offset+=width
-    if callsign!='N0ANT' or bits(beacon,16,4)!=0:raise ValueError('Fresh home callsign/SSID does not match N0ANT-0')
+    if callsign!='N0DEM' or bits(beacon,16,4)!=0:raise ValueError('Fresh home callsign/SSID does not match N0DEM-0')
 
 
 class Transaction:

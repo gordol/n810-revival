@@ -210,5 +210,5 @@ def run(win, args):
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--socket',default='/dev/shm/n810-aprs.sock')
-    parser.add_argument('--call',default='N0ANT')
+    parser.add_argument('--call',default='N0DEM')
     curses.wrapper(run,parser.parse_args())

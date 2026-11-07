@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-16",
+  "artifacts": [
+    {
+      "name": "c55x-binutils-cvs.zip",
+      "group": "c55x",
+      "bytes": 15999400,
+      "sha256": "96f4cb5cdb63d047852166fb70137f1269f0766b699b024d3a2365a26b7527eb",
+      "url": "https://sourceforge.net/code-snapshots/cvs/c/c5/c55x-binutils.zip",
+      "note": "Open C55x assembler/linker source CVS repository snapshot; GNU GPL notices."
+    },
+    {
+      "name": "spru374g.pdf",
+      "group": "manual",
+      "bytes": 2384132,
+      "sha256": "68d02c16f6dccbe51aadf3aa1a72d6ae7ba4cf6cdb9238d8a7506dba76500445",
+      "url": "https://www.ti.com/lit/ug/spru374g/spru374g.pdf",
+      "note": "TI mnemonic instruction documentation; reference, not implementation source."
+    }
+  ]
+}

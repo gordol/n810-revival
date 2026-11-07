@@ -9,7 +9,7 @@ def module(name,file):
 
 if __name__=='__main__':
  p=argparse.ArgumentParser(description=__doc__)
- p.add_argument('logs');p.add_argument('fingerprint');p.add_argument('output');p.add_argument('--callsign',default='N0ANT')
+ p.add_argument('logs');p.add_argument('fingerprint');p.add_argument('output');p.add_argument('--callsign',default='N0DEM')
  args=p.parse_args();maps=module('prepared_maps','n810-map.py');history=module('prepared_history','n810-walk-history.py')
  archive=history.load(args.logs,args.callsign)
  if not archive:p.error('No saved walk found')

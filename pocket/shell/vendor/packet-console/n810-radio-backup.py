@@ -59,7 +59,7 @@ class Link:
 def main():
     def stop(*_):raise KeyboardInterrupt('Backup interrupted')
     signal.signal(signal.SIGTERM,stop)
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--address',default='38:D2:00:00:E3:32')
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--address',default='02:00:00:00:00:13')
     p.add_argument('--output',type=Path,required=True);p.add_argument('--all-banks',action='store_true');args=p.parse_args()
     layouts=json.loads(Path(__file__).with_name('radio-read-layouts.json').read_text())
     output=args.output;output.mkdir(parents=True,exist_ok=False);os.chmod(output,0o700)

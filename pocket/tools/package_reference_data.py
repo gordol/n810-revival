@@ -2,20 +2,41 @@
 import argparse,gzip,hashlib,json,tarfile,io
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-SELECTED=('map-geography.json.gz','geography','hydrography','elevation-fine','uls.sqlite','shoreline-puget.json.gz','repeaters/repeaters.json')
+SELECTED=('map-geography.json.gz','geography','hydrography','elevation-fine','elevation.json','maps','uls.sqlite','shoreline-puget.json.gz','repeaters/repeaters.json')
 def digest(path):
     with path.open('rb') as source:return hashlib.file_digest(source,'sha256').hexdigest()
 def package(output):
     files={}
-    for name in SELECTED:
+    catalogue=ROOT/'data/elevation.json'
+    selected=tuple(name for name in SELECTED if name!='elevation-fine' or not catalogue.is_file())
+    for name in selected:
         source=ROOT/'data'/name
         if not source.exists():continue
         if source.is_dir():
             files.update((str(p.relative_to(ROOT/'data')),p) for p in source.rglob('*') if p.is_file())
         else:files[name]=source
-    for name in ('elevation-western-wa','elevation-lakewood'):
-        source=ROOT/'shell/data'/name
-        files.update((str(p.relative_to(ROOT/'shell/data')),p) for p in source.rglob('*') if p.is_file())
+    if catalogue.is_file():
+        document=json.loads(catalogue.read_text())
+        if document.get('version')!=1:raise ValueError('Unsupported elevation catalogue')
+        for name in document['packs']:
+            relative=Path(name)
+            if relative.is_absolute() or '..' in relative.parts:raise ValueError('Invalid elevation catalogue path')
+            index=ROOT/'data'/relative
+            metadata=json.loads(index.read_text())
+            indices=[index]+[index.parent/row['index'] for row in metadata.get('overviews',())]
+            for path in indices:
+                if not path.is_relative_to(ROOT/'data') or '..' in path.parts:raise ValueError('Invalid elevation overview path')
+                files[str(path.relative_to(ROOT/'data'))]=path
+                for item in json.loads(path.read_text())['tiles'].values():
+                    tile=Path(item['file'])
+                    if tile.name!=str(tile):raise ValueError('Invalid elevation tile path')
+                    source=path.parent/tile
+                    files[str(source.relative_to(ROOT/'data'))]=source
+    else:
+        # Compatibility for existing installations without a selected catalogue.
+        for name in ('elevation-western-wa','elevation-lakewood'):
+            source=ROOT/'shell/data'/name
+            files.update((str(p.relative_to(ROOT/'shell/data')),p) for p in source.rglob('*') if p.is_file())
     if not all(name in files for name in ('geography/index.json','hydrography/index.json','uls.sqlite','repeaters/repeaters.json')):
         raise ValueError('Complete prepared map, FCC and repeater snapshots required')
     if any(p.is_symlink() for p in files.values()):raise ValueError('Reference snapshots must be regular files')

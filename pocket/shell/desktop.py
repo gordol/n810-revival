@@ -220,7 +220,7 @@ def main():
     if args.legacy_aprs and (not args.legacy_aprs.is_file() or not args.aprs_maps.is_dir()):parser.error('legacy viewer script and maps directory must exist')
     plans = () if args.minimal or workspace or native_defaults and not (args.app_preview or args.kitchen_sink) else compile_model(Path(__file__).with_name('operator.json').read_text())
     world = World(plans)
-    world.apply([Record(1, 'N0ANT', 'APRS observed', 'Listening'), Record(2, 'W7EXAMPLE', 'Offline record', 'Contact unconfirmed')])
+    world.apply([Record(1, 'N0DEM', 'APRS observed', 'Listening'), Record(2, 'W7EXAMPLE', 'Offline record', 'Contact unconfirmed')])
     geometry = measure(sys.stdout.fileno())
     panel=Panels(args.panel or 'top',mode=args.panel_mode or ('auto' if workspace else 'bar'))
     panel.launcher_count=2+len(workspace)
@@ -349,7 +349,7 @@ def main():
             import importlib
             factory=getattr(importlib.import_module(module_name),class_name)
             if name=='Messages':
-                messages_form=factory('N0ANT',services={key:(app_context.services.get(key) if app_context else registered_apps.providers.get(key)) for key in ('reticulum','meshcore')})
+                messages_form=factory('N0DEM',services={key:(app_context.services.get(key) if app_context else registered_apps.providers.get(key)) for key in ('reticulum','meshcore')})
                 update_messages()
                 return messages_form
             if name=='Terrain Profile':
@@ -1439,7 +1439,7 @@ def main():
                 elif char == 'u':
                     counter += 1
                     n = counter
-                    inbox.submit(lambda n=n: [Record(1,'N0ANT','APRS observed',f'Synthetic observation {n}')])
+                    inbox.submit(lambda n=n: [Record(1,'N0DEM','APRS observed',f'Synthetic observation {n}')])
             if input_timing is not None:input_timing[0].end('input_handlers',input_timing[1])
             # Control socket accept/read/write and status are observations.
             # Mutating control callbacks mark the model explicitly; real input,

@@ -500,7 +500,7 @@ def map_overlays(state,span,width,height,viewport=None):
     if getattr(state,'map_engine_name','legacy')=='next' and target and 'position' in target:
         lat,lon=target['position'];known[target['call']]=dict(call=target['call'],lat=lat,lon=lon)
     visible_stations=[p for p in known.values() if not state.call_filter or p['call']==state.call_filter or p['call'] in relay_calls or (tracks and p['call']==tracks.call)]
-    stations=sorted(visible_stations,key=lambda p:(p['call']!=chosen,p['call'] not in relay_calls,p['call'].split('-')[0]!=getattr(state,'my_call','N0ANT').split('-')[0]))
+    stations=sorted(visible_stations,key=lambda p:(p['call']!=chosen,p['call'] not in relay_calls,p['call'].split('-')[0]!=getattr(state,'my_call','N0DEM').split('-')[0]))
     def pixel(lon,lat):
         x,y=viewport.project(lon,lat) if viewport is not None else state.atlas.project(lon,lat,state.center,span,width,height)
         return round(x),round(y)
@@ -548,7 +548,7 @@ def map_overlays(state,span,width,height,viewport=None):
     labeled=[];ordinary=0
     limit=6 if span>=240 else 12 if span>=120 else 1000
     for p in stations:
-        mine=p['call'].split('-')[0]==getattr(state,'my_call','N0ANT').split('-')[0]
+        mine=p['call'].split('-')[0]==getattr(state,'my_call','N0DEM').split('-')[0]
         important=p['call']==chosen or mine or p['call'] in relay_calls or (tracks and p['call']==tracks.call)
         x,y=pixel(p['lon'],p['lat'])
         if not (0<=x<width and 0<=y<height):continue

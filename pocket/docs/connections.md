@@ -159,7 +159,7 @@ Reticulum → Radio shows the selected external node and the age of its latest
 status response. Disconnect the radio before changing offload preferences.
 
 - **Board B:** select a USB serial device on the owning computer, or
-  `rfcomm://2C:BC:BB:9F:E0:E2/1` for the already-paired experimental HTIT.
+  `rfcomm://02:00:00:00:00:03/1` as a fictional RFCOMM example. Replace its address with your paired HTIT.
 - **Auto A:** monitor that board; retain local execution when application
   offload is unavailable.
 - **Disabled O:** disable external offload and automatic polling. Local

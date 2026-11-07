@@ -51,7 +51,7 @@ class ChatTests(unittest.TestCase):
         view.key('[');self.assertEqual(self.sent[-1],('contacts_page',dict(offset=288)))
 
     def test_messages_protocol_switch_preserves_receive_view_and_drafts(self):
-        view=Messages('N0ANT');view.key('p');self.assertEqual(view.protocol,'reticulum')
+        view=Messages('N0DEM');view.key('p');self.assertEqual(view.protocol,'reticulum')
         view.key('p');self.assertEqual(view.protocol,'meshcore');view.key('p');self.assertEqual(view.protocol,'aprs')
         for protocol in ('aprs','reticulum','meshcore'):
             view.protocol=protocol;view.width=40;view.height=12

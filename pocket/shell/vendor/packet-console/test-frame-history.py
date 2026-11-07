@@ -21,7 +21,7 @@ def row(frame=b'\0test',direction='radio_to_host'):
 
 def address(call,last=False):
  return bytes(ord(c)<<1 for c in call.ljust(6))+bytes([0x60|last])
-FRAME=b'\0'+address('APRS')+address('N0ANT',True)+b'\x03\xf0raw replay test'
+FRAME=b'\0'+address('APRS')+address('N0DEM',True)+b'\x03\xf0raw replay test'
 
 
 class HistoryTests(unittest.TestCase):
@@ -32,7 +32,7 @@ class HistoryTests(unittest.TestCase):
   for _ in range(5):records.add(row(b'\0'+b'x'*65535))
   self.assertLessEqual(records.size,h.MAX_BYTES)
   records=h.History();records.add(row(FRAME));records.add(row(FRAME,'host_to_radio_written'))
-  self.assertEqual(len(records.decoded(lambda frame:'N0ANT>APRS ctl=03 pid=f0 test')),1)
+  self.assertEqual(len(records.decoded(lambda frame:'N0DEM>APRS ctl=03 pid=f0 test')),1)
   for bad in (dict(row(),direction='queued'),dict(row(),frame='zz'),dict(row(),time='12:00')):
    with self.assertRaises((ValueError,KeyError)):records.add(bad)
 
@@ -60,7 +60,7 @@ class HistoryTests(unittest.TestCase):
    history=p/'n810-frame-history.py'
    history.write_text(history.read_text().replace("'~/.local/state/n810-aprs/raw-frames.json'",repr(saved)))
    fake=p/'fake.py'
-   fake.write_text('import signal,sys,pathlib\nsignal.signal(signal.SIGTERM,lambda *_:sys.exit(0))\np=pathlib.Path(__file__).with_suffix(".started")\nif not p.exists():\n p.touch()\n print('+repr('@KISS '+json.dumps(row(FRAME)))+',flush=True)\n print("12:34:56 N0ANT>APRS ctl=03 pid=f0 raw replay test",flush=True)\n print('+repr('@KISS '+json.dumps(row(FRAME,'host_to_radio_written')))+',flush=True)\nprint("Fake receiver ready",flush=True)\nsignal.pause()\n')
+   fake.write_text('import signal,sys,pathlib\nsignal.signal(signal.SIGTERM,lambda *_:sys.exit(0))\np=pathlib.Path(__file__).with_suffix(".started")\nif not p.exists():\n p.touch()\n print('+repr('@KISS '+json.dumps(row(FRAME)))+',flush=True)\n print("12:34:56 N0DEM>APRS ctl=03 pid=f0 raw replay test",flush=True)\n print('+repr('@KISS '+json.dumps(row(FRAME,'host_to_radio_written')))+',flush=True)\nprint("Fake receiver ready",flush=True)\nsignal.pause()\n')
    source=(ROOT/'n810-aprs-feed.py').read_text().replace("'/dev/shm/n810-aprs.sock'",repr(decoded)).replace("'/dev/shm/n810-aprs-replay.sock'",repr(replay)).replace("'/home/nokia/uvpro-aprs-listen.py'",repr(str(fake))).replace("'~/.local/state/n810-aprs/last-packets.json'",repr(str(p/'legacy.json')))
    (p/'feed.py').write_text(source)
    def start():
@@ -97,7 +97,7 @@ class HistoryTests(unittest.TestCase):
    try:
     data=b''
     while b'Fake receiver ready' not in data:data+=client.recv(8192)
-    self.assertIn(b'12:34:56 N0ANT>APRS ctl=03 pid=f0 raw replay test',data)
+    self.assertIn(b'12:34:56 N0DEM>APRS ctl=03 pid=f0 raw replay test',data)
     self.assertEqual(data.count(b'raw replay test'),1)
     self.assertEqual(len(export()),2)
     self.assertEqual(len(h.page(path=p/'packets.sqlite3')['records']),2)

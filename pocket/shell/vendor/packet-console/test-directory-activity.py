@@ -14,18 +14,18 @@ class ActivityTests(unittest.TestCase):
   self.db=d.database(Path(self.temp.name)/'db');self.addCleanup(self.db.close)
   self.monitor=d.load_monitor()
  def test_zero_and_duplicate_batches_are_silent(self):
-  emit=Mock();self.assertEqual(d.collect_once(self.db,[],self.monitor,'N0ANT',emit),0);emit.assert_not_called()
-  self.assertEqual(d.collect_once(self.db,[ROW],self.monitor,'N0ANT',emit),1)
+  emit=Mock();self.assertEqual(d.collect_once(self.db,[],self.monitor,'N0DEM',emit),0);emit.assert_not_called()
+  self.assertEqual(d.collect_once(self.db,[ROW],self.monitor,'N0DEM',emit),1)
   event=json.loads(emit.call_args.args[0]);self.assertEqual(event['call'],'TEST');self.assertEqual(event['captured_at'],ROW['time'])
   self.assertEqual(event['packet_type'],'aprs_ui');self.assertEqual(event['source']['kind'],'raw_snapshot')
   self.assertIn('service:BBS',[f['kind'] for f in event['facts']]);emit.reset_mock()
-  self.assertEqual(d.collect_once(self.db,[ROW],self.monitor,'N0ANT',emit),0);emit.assert_not_called()
+  self.assertEqual(d.collect_once(self.db,[ROW],self.monitor,'N0DEM',emit),0);emit.assert_not_called()
  def test_rollback_does_not_publish_activity(self):
   activity=[];bad=dict(ROW,frame='nothex')
-  with self.assertRaises(ValueError):d.ingest(self.db,[ROW,bad],self.monitor,'N0ANT',activity)
+  with self.assertRaises(ValueError):d.ingest(self.db,[ROW,bad],self.monitor,'N0DEM',activity)
   self.assertEqual(activity,[]);self.assertEqual(self.db.execute('SELECT count(*) FROM stations').fetchone()[0],0)
  def test_collection_errors_remain_visible(self):
-  handlers={};args=type('Args',(),dict(db=str(Path(self.temp.name)/'other'),socket='unused',call='N0ANT'))()
+  handlers={};args=type('Args',(),dict(db=str(Path(self.temp.name)/'other'),socket='unused',call='N0DEM'))()
   def signal_handler(sig,handler):handlers[sig]=handler
   def stop_sleep(_):handlers[d.signal.SIGTERM]()
   with patch.object(d.signal,'signal',side_effect=signal_handler),patch.object(d,'snapshot',side_effect=OSError('feed unavailable')),patch.object(d.time,'sleep',side_effect=stop_sleep),patch('builtins.print') as output:

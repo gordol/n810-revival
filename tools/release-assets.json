@@ -1,0 +1,165 @@
+{
+  "format": 1,
+  "files": {
+    "docs/assets/screenshots/console-rgb-20261015.png": {
+      "sha256": "70db1d9d9fb1b68a244474add5b0d49b1c34c3044f60d7b70fd4b89568525a81",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/console-glyphs-20261016.png": {
+      "sha256": "49f3d2dfe74ef2dc97e674281ba492b65992341f7e685361e992547c41822524",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/native-water-20261020.png": {
+      "sha256": "4b0bf7645c58445561458e477ed11d50dfe342ff12db26f9709c926267fada5a",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/terrain-laptop-20261016.png": {
+      "sha256": "7015331869589c6593985ec10b389fe0b4a96ac5a266654abc8af9ff62510fdc",
+      "kind": "media"
+    },
+    "docs/assets/demos/terrain-day.mp4": {
+      "sha256": "bcbf0846b4a6aceeb62ee5628e37091edde7d774e092ec35d7b840f7022c71c9",
+      "kind": "media"
+    },
+    "docs/assets/demos/terrain-day-poster.png": {
+      "sha256": "38e805741208c6f715ec32d36c83981991f6a76f5b756570f2f5f9b69f53a332",
+      "kind": "media"
+    },
+    "docs/assets/demos/terrain-night.mp4": {
+      "sha256": "dd08611ea1a23226ec513b2a81e8197e18e4a8369e4a50034472c00441309c08",
+      "kind": "media"
+    },
+    "docs/assets/demos/terrain-night-poster.png": {
+      "sha256": "d6d9e154e54533a8fedcfb1d2a75bfef24ed093828394e35f23b6efa21b960b4",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/sidebar-desktop-20261005.png": {
+      "sha256": "8efe258878d0f0b3f981a9a6819b048e8e3338cadc8dd94adf6cfd01c156f1c0",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/xfce-20261013.png": {
+      "sha256": "9173542ff8921fea0c7e562276080a38297b4f6ef4e596797891e98861aaf7da",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/mbx-gears-20261104.png": {
+      "sha256": "e1b1c3d5cb516bf7153816ad5174cfadbc5d55e413ef76417673489306bece21",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/setup-tasks-20261004.png": {
+      "sha256": "e4c9ec01b5de349d8872f67c04b445b4985abda63fa53713b48a4ab348e5d934",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/room-study-20261020.png": {
+      "sha256": "806c9a37e6566ca1a377f317e99d6d587ded282b81186420ce2c37166fe2a304",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/radio-help-20261017.png": {
+      "sha256": "647222b368d7880f8801db72d7a775a99599887b932c4b7344364808ac1f8f0c",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/mbx-gears-first-live-20261103.png": {
+      "sha256": "f9c250203987d747bff48097bddb6b347db4afe53dee2e4c30cfdf87380720d5",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/aprs-inspector-demo-20261104.png": {
+      "sha256": "06275dd6ff3a83b22a240f8d7927f747f8a2a1f0fe956caaddeef7b562bd48ad",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/pocket-window-move-20261104.png": {
+      "sha256": "96da001e58c9fc1e9ebf132fb7c071f24bfddfd17511d834befb2af7dcd6e8ca",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/pocket-settings-20261104.png": {
+      "sha256": "6e1cd72de94c4f946a1a56abe336ea0f5d084a6a76626113e5f793b29a76fc09",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/wifi-firmware-results.png": {
+      "sha256": "ae82d630867237858c4dc07e2fbafe5f385ffdb3d3b57ac994cd7b89589e7eaa",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/gpu-background-results.png": {
+      "sha256": "d6b669de75b7253ad44946d12ad0fe51894e13e806c6b270729683e400c50179",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/aprs-map-demo-20261104.png": {
+      "sha256": "6c69d6e115de35e81c1a1e0a5b5f7b3ff359a998ed8b040f993c5e9b023cc0e2",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/aprs-tmux-demo-20261104.png": {
+      "sha256": "aee62c7656a57e3ca431539a3b68ade9490969af9c08037e9c9d8d5b37bb1688",
+      "kind": "media"
+    },
+    "docs/assets/demos/mbx-gears-device-20261104.mp4": {
+      "sha256": "5c50a02a3f6acf680b1a8e3c9ea6590e11fa5d2df100ca49e4690c9d15f37460",
+      "kind": "media"
+    },
+    "docs/assets/demos/mbx-gears-device-20261104-poster.png": {
+      "sha256": "361cd58e53b2a057c770fad096be136b701e395c634adbf5f16e15dba0854d1f",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/mbx-gears-30fps-20261104.png": {
+      "sha256": "a98a12398ecf2631357063cf8c6a35281b08bd2943a276dcd9db2099bece951b",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/gpu-terrain-20261105.png": {
+      "sha256": "22d9db607bc10f65d9ce628a421cb06b65e12adb84b7e08d44c5f318a4a3aab6",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/pocket-first-launch-20261105.png": {
+      "sha256": "45db932a1d47180375f034abce764faad19214e681910ae0276a31d0b9cfa0ee",
+      "kind": "media"
+    },
+    "docs/assets/demos/pocket-desktop-20261106.gif": {
+      "sha256": "176b49a121aba3f266ca00385f9f740b911129a087ab86358fe5ffc3a6661c72",
+      "kind": "media"
+    },
+    "docs/assets/demos/pocket-desktop-20261106.png": {
+      "sha256": "3f9f440beeeacc216749d914874239e38b699fd7627f9db6967f1e2cb39e7f58",
+      "kind": "media"
+    },
+    "docs/assets/demos/pocket-map-small-20261106.png": {
+      "sha256": "d23586574f7264668c613bd09361dc5cf0f971557e1008aefa25fa59183e6f01",
+      "kind": "media"
+    },
+    "docs/assets/demos/pocket-map-large-20261106.png": {
+      "sha256": "40f3b0fca84a879a28c0612b3bc40f6ba141c6773079305dde9c45c172ad136c",
+      "kind": "media"
+    },
+    "docs/assets/demos/aprs-tmux-tour-20261106.mp4": {
+      "sha256": "c41abfd96a934723ac760767d5a3451e6ea69cda84250198b18d2029c034854d",
+      "kind": "media"
+    },
+    "docs/assets/demos/aprs-tmux-tour-20261106-poster.png": {
+      "sha256": "697758d3e23e165363850ce673d0d45bdc90f622fde229ccb051019523d33a84",
+      "kind": "media"
+    },
+    "docs/assets/demos/pocket-overview-effects-20261106.mp4": {
+      "sha256": "f27bdea3860f0939da23536658ca4d2b0f8c22d4acb4859176f4a3f9e91aea08",
+      "kind": "media"
+    },
+    "docs/assets/demos/pocket-overview-effects-20261106-poster.png": {
+      "sha256": "9a3e906b337dd200801f1c4c404e2a902d5468d1a2e3cb2b09dd0c8d2fc41452",
+      "kind": "media"
+    },
+    "docs/assets/demos/laptop-window-tour-20261106.mp4": {
+      "sha256": "dab31716242afe54359d65400e0aca34805fd6683a22e923308f97ab01f5121f",
+      "kind": "media"
+    },
+    "docs/assets/demos/laptop-window-tour-20261106-poster.png": {
+      "sha256": "8deb82b19ebe3e5e600c92f104b22750bfd30e2be0b31dc3f5c7af64910ac946",
+      "kind": "media"
+    },
+    "pocket/shell/data/camera-presets.json": {
+      "sha256": "7b2fdb6e499758b261aadf382b302c0f67df7d4d1733d8ab591c59c61cf7f4a2",
+      "kind": "authored-data"
+    },
+    "pocket/shell/data/loader-ambient.json": {
+      "sha256": "8993d4dc0055e162f500d3cfac01dcb494faf0ce55cfd85ebc23ab64450068da",
+      "kind": "authored-data"
+    },
+    "pocket/shell/data/loader-ambient.zlib": {
+      "sha256": "66c35308e497c804e2405f7401a910b7af03c0b7a20cbdf45f6162b7c02365fa",
+      "kind": "authored-data"
+    }
+  }
+}

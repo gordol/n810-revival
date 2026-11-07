@@ -1,0 +1,24 @@
+/* The landing page gives the actual desktop room to be seen. */
+.md-content:has(.home-page) { width: 100%; }
+.md-content:has(.home-page) .md-content__inner { margin: 0 1.2rem 3rem; }
+.home-intro { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: end; margin-bottom: 1.7rem; }
+.home-page .home-intro h1 { font-size: clamp(2.6rem, 5vw, 4.2rem); letter-spacing: -.055em; margin-bottom: .55rem; }
+.home-page .home-intro p { margin: 0; }
+.home-page .home-intro > div p { color: var(--md-typeset-a-color); font-size: 1.05rem; }
+.home-page .home-description { max-width: 25rem; justify-self: end; color: var(--md-default-fg-color--light); font-size: .85rem; line-height: 1.65; }
+.home-page .home-demo { margin: 0; max-width: none; }
+.home-page .home-demo img { display: block; width: 100%; height: auto; background: #10141a; border: 1px solid #394446; border-radius: 4px; box-shadow: 0 16px 42px #1022211a; }
+.home-page .home-demo figcaption { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; max-width: none; margin: .7rem 0 0; text-align: left; font-size: .65rem; font-style: normal; line-height: 1.6; color: var(--md-default-fg-color--light); }
+.home-page #home-motion { flex-shrink: 0; color: var(--md-typeset-a-color); font: inherit; text-decoration: underline; text-underline-offset: .2em; cursor: pointer; }
+.home-links { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem; margin: 1.5rem 0 1rem; font-size: .8rem; }
+.home-page .home-primary { display: inline-flex; gap: 1.7rem; align-items: center; padding: .6rem 1rem; background: var(--md-typeset-a-color); color: var(--md-default-bg-color); border-radius: 3px; text-decoration: none; font-weight: 600; }
+.home-page .home-reading { font-size: .8rem; }
+.home-guide { border-top: 1px solid var(--project-rule); margin-top: 2rem; padding-top: .5rem; max-width: 43rem; }
+@media (max-width: 700px) {
+  .home-intro { grid-template-columns: 1fr; gap: .8rem; margin-bottom: 1.1rem; }
+  .home-page .home-description { justify-self: start; }
+  .home-page .home-intro h1 { font-size: 2.7rem; }
+  .md-content:has(.home-page) .md-content__inner { margin: 0 .7rem 2rem; }
+  .home-links { gap: 1rem; }
+  .home-page .home-demo figcaption { align-items: flex-start; }
+}

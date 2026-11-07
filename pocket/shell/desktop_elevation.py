@@ -19,10 +19,10 @@ def signature():
     data=[data_root()/name for name in ('shoreline-puget.json.gz','geography/index.json','map-geography.json.gz','hydrography/index.json')]
     return tuple(content_identity(p) for p in [*sources(),*renderers,*data])
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=256)
 def metadata(path,modified,size):
-    value=json.loads(path.read_text());value.pop('maximum_bounds',None)
-    return value
+    from local_elevation import read_index
+    return read_index(path,modified,size)
 
 
 def configure(engine):
@@ -49,31 +49,42 @@ def geography_lines(engine,view,streams=False):
 def sample(view):
     import numpy as np
     import zlib
-    paths=sources();packs=[(p,metadata(p,p.stat().st_mtime_ns,p.stat().st_size)) for p in paths]
-    packs.sort(key=lambda item:abs(item[1]['longitude_step']*item[1]['latitude_step']),reverse=True)
     h,w=view.height*2,view.width
     dx=view.span/max(1,w-1)/(111.32*np.cos(np.radians(view.center[0])))
     dy=view.span/max(1,w-1)*view.cell_aspect/2/111.32
     lon=view.center[1]+(np.arange(w)-(w-1)/2)*dx
     lat=view.center[0]-(np.arange(h)-(h-1)/2)*dy
     result=np.full((h,w),np.nan);spacing=np.full((h,w),np.inf)
+    pixel_metres=view.span*1000/max(1,w-1)*min(1,view.cell_aspect/2)
+    from local_elevation import display_sources
+    paths=sources()
+    if any('overviews' in metadata(p,p.stat().st_mtime_ns,p.stat().st_size) for p in paths):paths=display_sources(pixel_metres,paths)
+    packs=[(p,metadata(p,p.stat().st_mtime_ns,p.stat().st_size)) for p in paths]
+    packs.sort(key=lambda item:abs(item[1]['longitude_step']*item[1]['latitude_step']),reverse=True)
     for path,m in packs:
         xx=(lon-m['longitude_first'])/m['longitude_step'];yy=(lat-m['latitude_first'])/m['latitude_step']
-        cols=np.where((xx>=0)&(xx<m['nx']-1))[0];rows=np.where((yy>=0)&(yy<m['nz']-1))[0]
+        cols=np.where((xx>=-.5)&(xx<=m['nx']-.5))[0];rows=np.where((yy>=-.5)&(yy<=m['nz']-.5))[0]
         if not len(cols) or not len(rows):continue
-        xs=xx[cols];ys=yy[rows];ix=xs.astype(int);iy=ys.astype(int)
+        source_metres=abs(m['latitude_step'])*111320
+        region=np.ix_(rows,cols)
+        needed=(~np.isfinite(result[region])) | (spacing[region]>max(pixel_metres,source_metres)*(1+1e-9))
+        if not needed.any():continue
+        xs=np.clip(xx[cols],0,m['nx']-1);ys=np.clip(yy[rows],0,m['nz']-1);ix=np.minimum(xs.astype(int),m['nx']-2);iy=np.minimum(ys.astype(int),m['nz']-2)
         values=np.full((len(rows),len(cols)),np.nan)
         cache={}
         def gather(x,y):
             x,y=np.broadcast_arrays(x,y);out=np.full(x.shape,np.nan)
-            for tx,ty in set(zip((x//256).ravel(),(y//256).ravel())):
+            tile_x,tile_y=x//256,y//256
+            columns=(m['nx']+255)//256
+            for number in np.unique(tile_y*columns+tile_x):
+                tx,ty=int(number%columns),int(number//columns)
                 key=f'{tx},{ty}';item=m['tiles'].get(key)
                 if item is None:continue
                 if key not in cache:
-                    raw=(path.parent/item['file']).read_bytes()
-                    if hashlib.sha256(raw).hexdigest()!=item['sha256']:raise ValueError('DEM integrity failure')
-                    cache[key]=np.frombuffer(zlib.decompress(raw),dtype='<i2').reshape(item['height'],item['width'])
-                mask=(x//256==tx)&(y//256==ty);out[mask]=cache[key][y[mask]%256,x[mask]%256]
+                    from local_elevation import tile
+                    values,stride=tile(path,m['_index_stamp'],int(tx),int(ty))
+                    cache[key]=np.frombuffer(values,dtype=np.int16).reshape(item['height'],stride)
+                mask=(tile_x==tx)&(tile_y==ty);out[mask]=cache[key][y[mask]%256,x[mask]%256]
             out[out==m['nodata']]=np.nan
             return out
         fx=xs-ix;fy=(ys-iy)[:,None]
@@ -81,7 +92,7 @@ def sample(view):
             v=gather(ix[None,:]+ox,iy[:,None]+oy)
             if ox==oy==0:values=v*weight
             else:values+=v*weight
-        rr,cc=np.meshgrid(rows,cols,indexing='ij');valid=np.isfinite(values)
+        rr,cc=np.meshgrid(rows,cols,indexing='ij');valid=np.isfinite(values)&needed
         result[rr[valid],cc[valid]]=values[valid]
         spacing[rr[valid],cc[valid]]=abs(m['latitude_step'])*111320
     return result,spacing

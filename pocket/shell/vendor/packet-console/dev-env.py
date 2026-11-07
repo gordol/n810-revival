@@ -130,7 +130,7 @@ def launch(args):
     commands={
         'aprs':['n810-aprs-view.py','--map-engine','next','--tui-theme','color','--maps',str(HERE/'maps'),'--socket',str(root/'aprs.sock')],
         'directory':['n810-aprs-directory.py','--db',str(home/'.local/state/n810-aprs/directory.sqlite3')],
-        'services':['n810-aprs-services.py','--socket',str(root/'aprs.sock'),'--call','N0ANT'],
+        'services':['n810-aprs-services.py','--socket',str(root/'aprs.sock'),'--call','N0DEM'],
         'nets':['n810-nets.py','--socket',str(root/'aprs.sock'),'--lead','0'],
     }
     command=commands[args.app];return subprocess.call([sys.executable,str(HERE/command[0]),*command[1:]],env=env,cwd=HERE)

@@ -19,7 +19,7 @@ class Tests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as folder:
    db=d.database(Path(folder)/'directory.db')
    row=record();row['frame']='00ff01003700020009020082a09a92606c60ac8682a0964060ae92888a64406303f0'
-   self.assertEqual(d.ingest(db,[row],d.load_monitor(),'N0ANT'),0)
+   self.assertEqual(d.ingest(db,[row],d.load_monitor(),'N0DEM'),0)
    self.assertEqual(db.execute('SELECT count(*) FROM stations').fetchone()[0],0)
    db.close()
  def test_shared_mice_history(self):
@@ -27,7 +27,7 @@ class Tests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as folder:
    db=d.database(Path(folder)/'directory.db');path=Path(folder)/'history.json'
    path.write_text(json.dumps({'packets':['00:12:01 K7MM-2>T7QPXV,WIDE1-1,WIDE2-1 ctl=03 pid=f0 `27}m57>/]comment']}))
-   d.import_history(db,path,'N0ANT');d.import_history(db,path,'N0ANT')
+   d.import_history(db,path,'N0DEM');d.import_history(db,path,'N0DEM')
    ev={k:v for k,t,v in d.station_evidence(db,'K7MM-2')}
    self.assertAlmostEqual(json.loads(ev['position'])[0],47.181,6)
    self.assertEqual(json.loads(ev['mice'])['speed_knots'],12)
@@ -48,7 +48,7 @@ class Tests(unittest.TestCase):
  def test_relay_direction(self):
   with tempfile.TemporaryDirectory() as folder:
    db=d.database(Path(folder)/'directory.db')
-   d.ingest(db,[record()],d.load_monitor(),'N0ANT')
+   d.ingest(db,[record()],d.load_monitor(),'N0DEM')
    relays=d.station_evidence(db,'W7DK')
    rows=dict((k,v) for k,t,v in relays)
    self.assertIn('TEST',rows['forwarded'])
@@ -59,15 +59,15 @@ class Tests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as folder:
    db=d.database(Path(folder)/'directory.db');path=Path(folder)/'history.json'
    line='21:28:40 TEST>APRS,W7DK* ctl=03 pid=f0 !4713.13N/12150.61W_PHG7830/W2,WAn,Baldi'
-   path.write_text(json.dumps({'packets':[line,line,line.replace('TEST>','N0ANT>')]}))
-   self.assertEqual(d.import_history(db,path,'N0ANT'),1)
-   self.assertEqual(d.import_history(db,path,'N0ANT'),0)
+   path.write_text(json.dumps({'packets':[line,line,line.replace('TEST>','N0DEM>')]}))
+   self.assertEqual(d.import_history(db,path,'N0DEM'),2)
+   self.assertEqual(d.import_history(db,path,'N0DEM'),0)
    self.assertEqual(db.execute('SELECT packets FROM stations').fetchone(),(0,))
    self.assertEqual(db.execute('SELECT count(*) FROM via').fetchone(),(0,))
    ev={k:(t,v) for k,t,v in d.station_evidence(db,'TEST')}
    self.assertIn('role',ev);self.assertEqual(d.age(ev['position'][0]),'older text')
-   d.ingest(db,[record()],d.load_monitor(),'N0ANT')
-   self.assertEqual(db.execute('SELECT last,packets FROM stations').fetchone(),('2026-10-15T07:00:00+00:00',1))
+   d.ingest(db,[record()],d.load_monitor(),'N0DEM')
+   self.assertEqual(db.execute('SELECT last,packets FROM stations WHERE call="TEST"').fetchone(),('2026-10-15T07:00:00+00:00',1))
    self.assertEqual(db.execute('SELECT count(*) FROM via').fetchone(),(1,))
    db.close()
  def test_readable_details(self):
@@ -94,13 +94,17 @@ class Tests(unittest.TestCase):
  def test_replay_and_used_hops(self):
   with tempfile.TemporaryDirectory() as folder:
    path=Path(folder)/'directory.db';db=d.database(path);monitor=d.load_monitor()
-   self.assertEqual(d.ingest(db,[record(),record()],monitor,'N0ANT'),1)
+   self.assertEqual(d.ingest(db,[record(),record()],monitor,'N0DEM'),1)
    self.assertEqual(db.execute('SELECT packets FROM via').fetchone(),(1,))
-   d.ingest(db,[record('OTHER',False),record('N0ANT')],monitor,'N0ANT')
-   self.assertEqual(db.execute('SELECT count(*) FROM stations').fetchone(),(2,))
-   self.assertEqual(db.execute('SELECT count(*) FROM via').fetchone(),(1,))
+   d.ingest(db,[record('OTHER',False),record('N0DEM')],monitor,'N0DEM')
+   # Received traffic retains the sender identity, including our own call.
+   self.assertEqual(db.execute('SELECT packets FROM stations WHERE call="N0DEM"').fetchone(),(1,))
+   sent=record('N0DEM');sent['direction']='host_to_radio'
+   self.assertEqual(d.ingest(db,[sent],monitor,'N0DEM'),0)
+   self.assertEqual(db.execute('SELECT count(*) FROM stations').fetchone(),(3,))
+   self.assertEqual(db.execute('SELECT count(*) FROM via').fetchone(),(2,))
    db.close();db=d.database(path)
-   self.assertEqual(d.ingest(db,[record()],monitor,'N0ANT'),0)
+   self.assertEqual(d.ingest(db,[record()],monitor,'N0DEM'),0)
    self.assertEqual(db.execute('SELECT packets FROM stations WHERE call="TEST"').fetchone(),(1,))
    db.close()
 

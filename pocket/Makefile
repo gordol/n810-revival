@@ -15,3 +15,6 @@ native:
 
 dist:
 	$(PYTHON) tools/release.py
+
+# Area-selected map acquisition and local derived levels.
+include maps.mk

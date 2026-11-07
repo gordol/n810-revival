@@ -1,0 +1,20 @@
+[binaries]
+c='arm-linux-gnueabi-gcc'
+cpp='arm-linux-gnueabi-g++'
+ar='arm-linux-gnueabi-ar'
+strip='arm-linux-gnueabi-strip'
+pkg-config='pkg-config'
+[host_machine]
+system='linux'
+cpu_family='arm'
+cpu='armv6'
+endian='little'
+[properties]
+needs_exe_wrapper=true
+sys_root='@SYSROOT@'
+pkg_config_libdir=['@SYSROOT@/usr/lib/arm-linux-gnueabi/pkgconfig', '@SYSROOT@/usr/share/pkgconfig']
+[built-in options]
+c_args=['--sysroot=@SYSROOT@', '-nostdinc', '-isystem@SYSROOT@/gcc-intrinsic', '-isystem@SYSROOT@/usr/include/arm-linux-gnueabi', '-isystem@SYSROOT@/usr/include', '-mcpu=arm1136jf-s', '-marm', '-mfpu=vfp', '-mfloat-abi=softfp']
+cpp_args=['--sysroot=@SYSROOT@', '-nostdinc', '-nostdinc++', '-isystem@SYSROOT@/usr/include/c++/12', '-isystem@SYSROOT@/usr/include/arm-linux-gnueabi/c++/12', '-isystem@SYSROOT@/usr/include/c++/12/backward', '-isystem@SYSROOT@/gcc-intrinsic', '-isystem@SYSROOT@/usr/include/arm-linux-gnueabi', '-isystem@SYSROOT@/usr/include', '-mcpu=arm1136jf-s', '-marm', '-mfpu=vfp', '-mfloat-abi=softfp']
+c_link_args=['--sysroot=@SYSROOT@', '-L@SYSROOT@/usr/lib/arm-linux-gnueabi', '-L@SYSROOT@/lib/arm-linux-gnueabi', '-L@SYSROOT@/usr/lib/gcc/arm-linux-gnueabi/12', '-Wl,-rpath-link,@SYSROOT@/usr/lib/arm-linux-gnueabi', '-Wl,-rpath-link,@SYSROOT@/lib/arm-linux-gnueabi']
+cpp_link_args=['--sysroot=@SYSROOT@', '-L@SYSROOT@/usr/lib/arm-linux-gnueabi', '-L@SYSROOT@/lib/arm-linux-gnueabi', '-L@SYSROOT@/usr/lib/gcc/arm-linux-gnueabi/12', '-Wl,-rpath-link,@SYSROOT@/usr/lib/arm-linux-gnueabi', '-Wl,-rpath-link,@SYSROOT@/lib/arm-linux-gnueabi']

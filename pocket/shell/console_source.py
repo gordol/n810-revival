@@ -130,8 +130,8 @@ class Source:
         added=[];code=getattr(module.ingest,'__code__',None)
         self.activity_capable=bool(code and 'activity' in code.co_varnames[:code.co_argcount+code.co_kwonlyargcount])
         try:
-            if self.activity_capable:module.ingest(db,rows,module.load_monitor(),'N0ANT',activity=added)
-            else:module.ingest(db,rows,module.load_monitor(),'N0ANT')
+            if self.activity_capable:module.ingest(db,rows,module.load_monitor(),'N0DEM',activity=added)
+            else:module.ingest(db,rows,module.load_monitor(),'N0DEM')
         finally:db.close()
         previous=self.activity
         self.activity=ActivityPublication((previous.events+tuple(added))[-self.history_limit:],previous.revision+bool(added),self.activity_capable)

@@ -9,6 +9,11 @@ def data_root():
     if checkout.is_dir():return checkout
     return Path('/usr/share/pocket/data')
 
+def map_directory(fallback):
+    """One generated map directory for native and terminal readers."""
+    current=data_root()/'maps'
+    return current if (current/'walk-layers.n8w').is_file() else Path(fallback)
+
 # Stat changes refresh this in-process memo; persisted identities use content.
 from functools import lru_cache
 import hashlib

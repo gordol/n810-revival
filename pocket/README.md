@@ -9,7 +9,7 @@ runs on a laptop for development.
 From this directory:
 
 ```sh
-make n810
+make
 ```
 
 Python 3.11 or newer and a UTF-8 terminal are required. The shell starts

@@ -24,7 +24,7 @@ class Tests(unittest.TestCase):
    def erase(self):pass
    def refresh(self):pass
    def addnstr(self,y,x,text,n,attr):assert 0<=y<self.size[0] and 0<=x<self.size[1] and n<=self.size[1]-x-1
-  data=dict(banks=[dict(index=0,name='Ham',channels=[dict(index=0,response={'status':1})])],settings={'kiss_en':True},beacon={'aprs_callsign':'N0ANT'},reads={})
+  data=dict(banks=[dict(index=0,name='Ham',channels=[dict(index=0,response={'status':1})])],settings={'kiss_en':True},beacon={'aprs_callsign':'N0DEM'},reads={})
   for size in [(39,133),(24,80)]:
    for tab in range(4):r.draw(Win(*size),data,tab,0,0,0,0,None)
 if __name__=='__main__':unittest.main()

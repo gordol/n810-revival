@@ -21,7 +21,7 @@ class Services:
     def help_pages(self):
         from app_help_content import pages
         return pages('Services')
-    def __init__(self,provider,call='N0ANT',model=None):
+    def __init__(self,provider,call='N0DEM',model=None):
         self.provider=provider;self.model=model or load_model();self.state=self.model.State(call)
         self.width=76;self.height=25;self.evidence=False;self.tab=0;self.rows=();self.list=SelectList(());self.scroll=0
         self.layout=AdaptivePanels((PanelSpec('list','Discovery',24,44),PanelSpec('details','Details',28,42)))

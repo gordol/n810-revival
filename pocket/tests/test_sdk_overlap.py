@@ -33,9 +33,9 @@ class OverlapTests(unittest.TestCase):
   async def exercise():
    if failed:
     with self.assertRaisesRegex(ImportError,'SDK fixture failure'):
-     await serial.create_serial_client('htit://2C:BC:BB:9F:DF:72/1/FB:91:48:2D:AA:14/1')
+     await serial.create_serial_client('htit://02:00:00:00:00:01/1/02:00:00:00:00:02/1')
    else:
-    client=await serial.create_serial_client('htit://2C:BC:BB:9F:DF:72/1/FB:91:48:2D:AA:14/1')
+    client=await serial.create_serial_client('htit://02:00:00:00:00:01/1/02:00:00:00:00:02/1')
     await client.disconnect()
   with patch.dict(sys.modules,{'meshcore':sdk,'meshcore.serial_cx':cx,'vendor.apps.domains.meshcore.hub_provider':hub}):asyncio.run(exercise())
   self.assertEqual(closed,[True])

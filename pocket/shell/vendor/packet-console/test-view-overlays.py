@@ -81,7 +81,7 @@ class OverlayTests(unittest.TestCase):
 
     def test_selected_station_wins_shared_cell_over_own_station(self):
         state = self.state()
-        state.stations['N0ANT'] = dict(call='N0ANT', lat=47.17, lon=-122.52)
+        state.stations['N0DEM'] = dict(call='N0DEM', lat=47.17, lon=-122.52)
         win = Window()
         view.map_panel(win, state, 40, 0, 0, 55, 18)
         self.assertEqual(win.cells[12, 5][0], '@')
