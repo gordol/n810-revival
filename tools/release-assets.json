@@ -162,6 +162,18 @@
       "sha256": "281f696ce4eedd3a5fde093fdc2d6e02ab17408faf93c821104638498689b721",
       "kind": "media",
       "provenance": "Isolated Linux terminal capture on 7 November 2026 from reconciled source 97a28dc, replaying filtered 5 November station history and a public club lookup. Live services disabled. No personal QTH imported. Edited at 2x speed; brief partial redraws omitted. Reviewed resize frames and exported loop."
+    },
+    "docs/assets/screenshots/symbian-native-move-20261106.png": {
+      "sha256": "7615337c99d0babfe3927f5c7719ba51a223c6ddcdf7a49a8a7e26985525979c",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/native-desktop-room-20261107.png": {
+      "sha256": "cc5664c297d44d1fa37cfdd15b8ccea7c5c63eef85a4664f1c9cf675bacd3c8a",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/surface-room-targets-20261107.png": {
+      "sha256": "7ae9d582b6ef4088a9c8505aca5fa937de8556abad74c9d59c2558cf21ee0fe4",
+      "kind": "media"
     }
   }
 }

@@ -87,3 +87,11 @@ VFP accelerates ARM floating-point instructions. MBX is the graphics processor. 
 The renderer studies supplied repeatable stress workloads: Room, terrain, water, wildlife, and window overlap. A controlled comparison holds the scene and output dimensions fixed, checks the output, and measures preparation, packing, composition, transfer, and background work separately.
 
 The [overview and backgrounds tour](../tutorials/overview-and-backgrounds.md) shows this composition path in motion, including Matrix and Flux behind the desktop and window previews. Flux calculates points for the current terminal dimensions and applies a bounded density budget. Its density setting changes the number of samples; the [budget calculation](https://github.com/gordol/n810-revival/blob/main/pocket/shell/weather.py) also caps the base workload. Map sampling and Flux density have separate controls and limits.
+
+## A native graphical frontend beside the terminal
+
+The [7 November frontend investigation](../posts/2026-11-07-native-desktop.md) attaches a platform adapter to the same desktop model. Applications retain their state, event handling, windows, and service lifetimes. The native path consumes packed cell composition and structured text directly; the terminal path continues to encode changed spans for its terminal.
+
+Cells still define the text and controls. A graphical application can also supply an image at its window's pixel dimensions. Surface Room uses that path for its geometry while sharing the existing camera/input model. The compositor places that image among windows, chrome, shadows, and overlays according to the desktop's stacking order. A native resize changes the desktop grid and pixel canvas together.
+
+GPU use is stage-specific. The [Mac provider investigation](../posts/2026-11-07-gpu-effects.md) moves selected effect accumulation, map and terrain shading, and composition work to the GPU. Layout, input-data preparation, some geometry preparation, and counted precision corrections continue on the CPU. Readbacks and presentation uploads remain measurable costs. The journal records the tested split and its comparisons; the [roadmap](../roadmap.md#native-graphical-desktop-and-interactive-scenes) identifies the remaining integration and physical-device checks.

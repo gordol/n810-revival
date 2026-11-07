@@ -1174,6 +1174,16 @@
       "note": "The linked files are the reconciled current source. The post identifies the historical observations and their validation scope."
     },
     {
+      "post": "docs/posts/2026-11-06-native-symbian.md",
+      "id": "2026-11-06-native-symbian",
+      "implementation": [],
+      "tests": [],
+      "inputs": [],
+      "guide": null,
+      "source_heading": "Source availability",
+      "note": "The native backend extends EKA2L1. Its loader, kernel/service model, and Window Server come from that upstream project, linked in the narrative. The native backend and physical acceptance runner remain experimental and await a public source checkpoint."
+    },
+    {
       "post": "docs/posts/2026-11-07-map-resizing.md",
       "id": "2026-11-07-map-resizing",
       "implementation": [
@@ -1212,6 +1222,59 @@
       ],
       "guide": "how-to/validate.md",
       "note": "The linked files are the reconciled current source. The post identifies the historical observations and their validation scope."
+    },
+    {
+      "post": "docs/posts/2026-11-07-symbian-surfaces.md",
+      "id": "2026-11-07-symbian-surfaces",
+      "implementation": [],
+      "tests": [],
+      "inputs": [],
+      "guide": null,
+      "source_heading": "Source availability",
+      "note": "These driver candidates extend the published MBX/Mesa foundation. Their physical results are dated here; their candidate source and real-application acceptance are still in progress. Use the frozen 30 FPS build guide for the currently published checkpoint."
+    },
+    {
+      "post": "docs/posts/2026-11-07-native-desktop.md",
+      "id": "2026-11-07-native-desktop",
+      "implementation": [],
+      "tests": [],
+      "inputs": [],
+      "guide": null,
+      "source_heading": "Source availability",
+      "note": "The narrative links the preserved graphical frontend development commit. Later Mac platform inputs and acceptance runners are being integrated separately; the captured results describe the tested local build."
+    },
+    {
+      "post": "docs/posts/2026-11-07-surface-room.md",
+      "id": "2026-11-07-surface-room",
+      "implementation": [],
+      "tests": [],
+      "inputs": [],
+      "guide": null,
+      "source_heading": "Source availability",
+      "note": "The shared exploration policy is linked to its preserved development revision above. The target-range C layer, Mac input adapter, and hit/reset acceptance sequence are being integrated into the public source build."
+    },
+    {
+      "post": "docs/posts/2026-11-07-gpu-effects.md",
+      "id": "2026-11-07-gpu-effects",
+      "implementation": [
+        {
+          "label": "Flux producer",
+          "path": "pocket/shell/flux.py"
+        },
+        {
+          "label": "Flurry producer",
+          "path": "pocket/shell/flurry.py"
+        },
+        {
+          "label": "DEM preparation and shading",
+          "path": "pocket/shell/desktop_elevation.py"
+        }
+      ],
+      "tests": [],
+      "inputs": [],
+      "guide": null,
+      "source_heading": "Published CPU reference implementations",
+      "note": "The Mac OpenGL/Metal provider and its exact-output comparison programs are being integrated into the public source build. The results here describe the recorded local provider. The existing published terminal producers remain available in the repository."
     }
   ]
 }

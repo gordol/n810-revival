@@ -9,8 +9,11 @@ errors=[];sources=set();seen=set();index=['# Journal source index\n','This index
 START='<!-- journal-sources:start -->';END='<!-- journal-sources:end -->'
 for row in entries:
     path=ROOT/row['post'];seen.add(row['post']);post=path.read_text();title=post.splitlines()[0].removeprefix('# ')
-    section=['## Code, tests and build inputs\n','| Material | Repository files |','|---|---|']
+    section=['## '+row.get('source_heading','Code, tests and build inputs')+'\n']
+    if any(row[key] for key in ('implementation','tests','inputs')):
+        section+=['| Material | Repository files |','|---|---|']
     for key,label in [('implementation','Implementation'),('tests','Checks and fixtures'),('inputs','Build inputs')]:
+        if not row[key]:continue
         links=[]
         for item in row[key]:
             source=item['path'];sources.add(source)
@@ -19,7 +22,10 @@ for row in entries:
             url='https://github.com/gordol/n810-revival/blob/main/'+source
             links.append(f"[{item['label']}]({local}) ([GitHub]({url}))")
         section.append('| '+label+' | '+'<br>'.join(links)+' |')
-    section+=['',f"[Build and test instructions](../{row['guide']}) · [Chronological source index](../reference/journal-sources.md#{row['id']})"]
+    if row.get('guide'):
+        section+=['',f"[Build and test instructions](../{row['guide']}) · [Chronological source index](../reference/journal-sources.md#{row['id']})"]
+    else:
+        section+=['',f"[Chronological source index](../reference/journal-sources.md#{row['id']})"]
     if row['note']:section+=['',row['note']]
     block=START+'\n'+'\n'.join(section)+'\n'+END
     if START in post:updated=re.sub(re.escape(START)+r'.*?'+re.escape(END),lambda _:block,post,flags=re.S)
