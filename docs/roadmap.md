@@ -68,7 +68,7 @@ The [native Mac desktop](posts/2026-11-07-native-desktop.md) runs the shared app
 
 The next work follows the remaining boundaries in those tests:
 
-- Complete the platform/build-input integration and verify a fresh checkout through its Makefile targets. Preserve a runnable source checkpoint for each acceptance result.
+- Extend the integrated build checks with the remaining experimental exact-output comparisons. The platform inputs now build from a fresh checkout through the [graphical frontend Makefile targets](pocket/graphics.md).
 - Bring the target-range acceptance checks into the integrated desktop, including capture release, focus loss, hits, reset, and restored graphics state.
 - Resolve the application-view notification warning seen at the end of the combined GPU run, then verify session save and restore.
 - Compare CPU and GPU paths with identical scene inputs, dimensions, quality, warmup, and frame counts. Include preparation, precision repairs, readback, composition, and presentation in the accounting.

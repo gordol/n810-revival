@@ -12,7 +12,7 @@ Surface Room gave the [native frontend](2026-11-07-native-desktop.md) a scene wi
 
 The exploration policy handles WASD movement, IJKL look, Shift running at three times walking speed, and Space jumping. The platform supplies key press/release edges and relative mouse deltas. Clicking the focused Room image captures the mouse; Escape releases capture. Focus loss also releases capture and clears held keys and modifiers, preventing a movement key from remaining stuck after switching applications.
 
-SDL's [relative mouse mode](https://wiki.libsdl.org/SDL2/SDL_SetRelativeMouseMode) supplies continuous movement deltas while the cursor is constrained to the window. The shared [exploration policy](https://github.com/gordol/n810-revival/blob/debbdf2d153371c2fc0d0fc25d14c8f6396f2f56/pocket/graphics/explore_controls.py) keeps movement decisions separate from that platform mechanism.
+SDL's [relative mouse mode](https://wiki.libsdl.org/SDL2/SDL_SetRelativeMouseMode) supplies continuous movement deltas while the cursor is constrained to the window. The shared [exploration policy](https://github.com/gordol/n810-revival/blob/476423b1a9e12ac5029927084c6cafd46af78d0c/pocket/graphics/explore_controls.py) keeps movement decisions separate from that platform mechanism.
 
 Mac text input introduced an unexpected interaction: holding a movement letter could open the accent picker. The movement-only prototype explicitly disabled text input while keeping raw key edges. The complete desktop still needs text input when a text widget owns focus. This made focus ownership part of the input contract rather than a global keyboard preference change.
 
@@ -37,19 +37,24 @@ The game layer saves and restores its OpenGL state. Target boards use the scene 
 
 The acceptance sequence renders the intact targets, fires an aligned shot, and checks both the hit count and the changed GPU image. A second shot at the destroyed target must produce no new hit. Reset restores all three targets and clears the hit count. Separate native-input tests cover modifiers, wheel events, relative capture, and focus reset.
 
-The experimental controls use **G** to toggle the target layer, captured left click to fire, and **R** to reset. The standalone Room launcher starts with the game layer enabled. These controls belong to that Mac-tested checkpoint; publication integration of the game source and its acceptance runner is still underway.
+The experimental controls use **G** to toggle the target layer, captured left click to fire, and **R** to reset. The standalone Room launcher starts with the game layer enabled. The [target logic](https://github.com/gordol/n810-revival/blob/476423b1a9e12ac5029927084c6cafd46af78d0c/pocket/graphics/native/game.c) and [native input adapter](https://github.com/gordol/n810-revival/blob/476423b1a9e12ac5029927084c6cafd46af78d0c/pocket/graphics/native/desktop_input.c) are now included in the source integration. The integrated desktop check exercises Room and resizing; the earlier standalone hit/reset sequence remains separate evidence.
 
 Several fixes came from using the experiment rather than just inspecting a frame. Window overlap originally raised an unsupported-composition exception. The subsequent native pixel compositor supplied ordered translucent layers. Frame pacing also changed to subtract rendering time from the frame budget instead of sleeping for a full interval after drawing. The app reports presentation calls, elapsed wall time, and process CPU separately, so a call count remains distinguishable from physical display refreshes.
 
 The next steps are reproducible target-range tests in the integrated build, interaction checks through the complete desktop, and later physical Nokia validation. The scene, controls, and host results provide the starting evidence for those steps.
 
 <!-- journal-sources:start -->
-## Source availability
+## Code, tests and build inputs
 
+| Material | Repository files |
+|---|---|
+| Implementation | [Target game](../assets/source/journal/pocket/graphics/native/game.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/native/game.c))<br>[Native input](../assets/source/journal/pocket/graphics/native/desktop_input.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/native/desktop_input.c))<br>[Room pixels](../assets/source/journal/pocket/graphics/native/room_pixels.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/native/room_pixels.c))<br>[Exploration controls](../assets/source/journal/pocket/graphics/explore_controls.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/explore_controls.py)) |
+| Checks and fixtures | [Native input tests](../assets/source/journal/pocket/graphics/native/test_desktop_input.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/native/test_desktop_input.c))<br>[Desktop and Room integration](../assets/source/journal/pocket/graphics/check.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/check.py)) |
+| Build inputs | [Native build](../assets/source/journal/pocket/graphics/build.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/build.py))<br>[Source identities](../assets/source/journal/pocket/graphics/SOURCES.json.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/SOURCES.json))<br>[Make targets](../assets/source/journal/pocket/Makefile.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/Makefile))<br>[Optional Mac compute dependencies](../assets/source/journal/pocket/requirements-graphics-macos.txt.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/requirements-graphics-macos.txt)) |
 
-[Chronological source index](../reference/journal-sources.md#2026-11-07-surface-room)
+[Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-surface-room)
 
-The shared exploration policy is linked to its preserved development revision above. The target-range C layer, Mac input adapter, and hit/reset acceptance sequence are being integrated into the public source build.
+Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The earlier standalone hit/reset acceptance sequence has yet to join the integrated test runner.
 <!-- journal-sources:end -->
 
 [Journal](../journal.md) · [Native desktop](2026-11-07-native-desktop.md) · [Roadmap](../roadmap.md#native-graphical-desktop-and-interactive-scenes)
