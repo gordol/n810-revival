@@ -23,7 +23,13 @@ The [MBX bring-up journal](posts/2026-11-03-mbx-rendering.md) describes getting 
 
 Those results establish a hardware-accelerated graphics foundation for investigating game compatibility. Their measurements apply to the documented gears workload and presentation path. A game's executable loading, graphics calls, input, audio, and timing require their own evidence.
 
-### Proposed compatibility work
+### Progress recorded on 7 November 2026
+
+The compatibility investigation now has native ARM execution and two real application targets: ChessGenius and Snakes. The experimental runtime has exercised GPU clear and composition operations. Both applications still need accepted visible UI, working controls, and sustained execution through the same GPU-backed runtime.
+
+The next graphics work concerns persistent drawing surfaces, texture dimensions, clipping, masking, and resource lifetime. Driver probes establish individual operations; application acceptance follows the complete path from executable startup to visible interaction. These candidates remain under development outside the published MBX checkpoint. The published build guide identifies the reproducible driver source currently shipped here.
+
+### Remaining compatibility work
 
 Begin with one legally obtained game whose executable format, CPU requirements, imported libraries, and graphics API can be identified. Record the exact game version and relevant dependencies. Hardware compatibility must be checked against that target: a shared CPU instruction set or related graphics processor provides useful overlap, while the software interfaces still determine what the executable expects.
 
@@ -49,3 +55,9 @@ Record progress separately for executable startup, a correct rendered frame, wor
 The isolated laptop captures made on 6 November exposed two visible issues. Some Settings icons become question marks in the overview, and Station Map thumbnails can contain the header with an empty map area. Compare each miniature with its source cell plane, including half-block terrain and icon glyphs, and verify that previews update when asynchronous map work completes.
 
 The background-off step in the overview tour leaves visible glyphs on desktop 3. Trace the toggle through background state, damage tracking and terminal output. Acceptance requires a cleared desktop after switching the background off, followed by a correctly redrawn effect when it is enabled again. These observations are from the local documentation checkpoint; implementation and device validation remain future work.
+
+## Map previews and selected-area downloads
+
+The retained-map resize correction and selective elevation sampling are recorded in the [7 November journal entry](posts/2026-11-07-map-resizing.md). Further work is to measure cold preparation and refinement on the Nokia, choose a device detail budget, and inspect pan, zoom, clipping, and input under load.
+
+Area selection currently uses the [map build commands](how-to/build-map-data.md) and saved configuration. An integrated area-and-layer download pane still needs progress reporting, cancellation, cache reuse, and a clear estimate of the requested data size. Fine elevation remains available to analysis while locally derived overviews serve display work.

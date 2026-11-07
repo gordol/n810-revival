@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--write',action='store_true');p.add_argument('--tracked',action='store_true');args=p.parse_args()
 entries=json.loads((ROOT/'tools/journal-sources.json').read_text())['entries']
-errors=[];sources=set();seen=set();index=['# Journal source index\n','This index follows all 23 journal entries from the first recovery work through the frozen 30 FPS result. Each source link opens a local text copy from this checkout; the adjacent GitHub link identifies its repository location. Build guides open inside this site.\n','The [checkpoint test guide](../how-to/test-journal-checkpoints.md) gives the commands and external inputs. Each entry identifies its source version and the scope of its tests.\n']
+errors=[];sources=set();seen=set();index=['# Journal source index\n','This index follows the journal from the first recovery work through the latest documented investigations. Each source link opens a local text copy from this checkout; the adjacent GitHub link identifies its repository location. Build guides open inside this site.\n','The [checkpoint test guide](../how-to/test-journal-checkpoints.md) gives the commands and external inputs. Each entry identifies its source version and the scope of its tests.\n']
 START='<!-- journal-sources:start -->';END='<!-- journal-sources:end -->'
 for row in entries:
     path=ROOT/row['post'];seen.add(row['post']);post=path.read_text();title=post.splitlines()[0].removeprefix('# ')

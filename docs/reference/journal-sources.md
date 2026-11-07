@@ -1,6 +1,6 @@
 # Journal source index
 
-This index follows all 23 journal entries from the first recovery work through the frozen 30 FPS result. Each source link opens a local text copy from this checkout; the adjacent GitHub link identifies its repository location. Build guides open inside this site.
+This index follows the journal from the first recovery work through the latest documented investigations. Each source link opens a local text copy from this checkout; the adjacent GitHub link identifies its repository location. Build guides open inside this site.
 
 The [checkpoint test guide](../how-to/test-journal-checkpoints.md) gives the commands and external inputs. Each entry identifies its source version and the scope of its tests.
 
@@ -359,3 +359,51 @@ The earlier graphics snapshot contains these implementations and tests. The late
 [Build and test instructions](../how-to/build-gpu-30fps.md) · [Chronological source index](../reference/journal-sources.md#2026-11-04-gpu-performance)
 
 This frozen checkpoint contains the driver and Mesa changes behind the two physical 30 FPS runs, together with the offline regression tests and pinned build inputs.
+
+<a id="2026-11-05-help-and-input"></a>
+
+## Following our own keyboard instructions
+
+[Read the journal entry](../posts/2026-11-05-help-and-input.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Help browser](../assets/source/journal/pocket/shell/on_device_manual/browser.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/on_device_manual/browser.py))<br>[Navigation dispatcher](../assets/source/journal/pocket/shell/native_navigation.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/native_navigation.py)) |
+| Checks and fixtures | [Help focus regression](../assets/source/journal/pocket/tests/test_help_focus.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_help_focus.py))<br>[Application focus checks](../assets/source/journal/pocket/tests/test_app_focus_consistency.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_app_focus_consistency.py)) |
+| Build inputs | [Pocket build targets](../assets/source/journal/pocket/Makefile.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/Makefile)) |
+
+[Build and test instructions](../how-to/validate.md) · [Chronological source index](../reference/journal-sources.md#2026-11-05-help-and-input)
+
+The linked files are the reconciled current source. The post identifies the historical observations and their validation scope.
+
+<a id="2026-11-06-session-recovery"></a>
+
+## Keeping session state correct across reconnects
+
+[Read the journal entry](../posts/2026-11-06-session-recovery.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Radio state ownership](../assets/source/journal/pocket/shell/radio_state.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/radio_state.py))<br>[Session attachments](../assets/source/journal/pocket/shell/system_links.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/system_links.py)) |
+| Checks and fixtures | [Retained radio snapshots](../assets/source/journal/pocket/tests/test_radio_snapshot_cache.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_radio_snapshot_cache.py))<br>[Attachment tests](../assets/source/journal/pocket/tests/test_system_attachment.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_system_attachment.py)) |
+| Build inputs | [Pocket build targets](../assets/source/journal/pocket/Makefile.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/Makefile)) |
+
+[Build and test instructions](../how-to/validate.md) · [Chronological source index](../reference/journal-sources.md#2026-11-06-session-recovery)
+
+The linked files are the reconciled current source. The post identifies the historical observations and their validation scope.
+
+<a id="2026-11-07-map-resizing"></a>
+
+## Resizing the map without stretching its annotations
+
+[Read the journal entry](../posts/2026-11-07-map-resizing.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Retained map sampling](../assets/source/journal/pocket/shell/offline_map.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/offline_map.py))<br>[Station projection](../assets/source/journal/pocket/shell/station_workspace.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/station_workspace.py))<br>[Elevation sampling](../assets/source/journal/pocket/shell/desktop_elevation.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/desktop_elevation.py))<br>[Map build commands](../assets/source/journal/pocket/tools/maps.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tools/maps.py)) |
+| Checks and fixtures | [Resize and sampling regressions](../assets/source/journal/pocket/tests/test_map_latency_regressions.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_map_latency_regressions.py))<br>[Incremental regions](../assets/source/journal/pocket/tests/test_map_incremental_regions.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_map_incremental_regions.py)) |
+| Build inputs | [Pocket build targets](../assets/source/journal/pocket/Makefile.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/Makefile)) |
+
+[Build and test instructions](../how-to/validate.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-map-resizing)
+
+The linked files are the reconciled current source. The post identifies the historical observations and their validation scope.
