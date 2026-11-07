@@ -22,5 +22,13 @@ fcc-data:
 setup:
 	$(PYTHON) shell/launch.py --instance "$(INSTANCE)" --setup $(EXTRA)
 
+# Independent pixel frontend. Terminal launch is unchanged.
+.PHONY: tui gui graphics-native
+tui: shell
+graphics-native:
+	$(PYTHON) graphics/build.py
+gui:
+	$(PYTHON) graphics/gui.py $(EXTRA)
+
 # Area-selected map acquisition and local derived levels.
 include maps.mk

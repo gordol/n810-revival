@@ -65,14 +65,16 @@ static uint64_t blend_inherit(uint64_t color,uint64_t under){
     return blend_pack(fg,bg);
 }
 static PyObject *blend_scene(PyObject *self,PyObject *args){
-    (void)self;PyObject *target_obj,*base_obj,*plans,*dirty_obj;int fill,show,dx,dy;double opacity,size,shadow;
-    if(!PyArg_ParseTuple(args,"OOOOidiiidd",&target_obj,&base_obj,&plans,&dirty_obj,&fill,&opacity,&show,&dx,&dy,&size,&shadow))return NULL;
+    (void)self;PyObject *target_obj,*base_obj,*plans,*dirty_obj,*apps=Py_None;int fill,show,dx,dy;double opacity,size,shadow;
+    if(!PyArg_ParseTuple(args,"OOOOidiiidd|O",&target_obj,&base_obj,&plans,&dirty_obj,&fill,&opacity,&show,&dx,&dy,&size,&shadow,&apps))return NULL;
     if((fill!=0&&fill!=1)||(show!=0&&show!=1)||!isfinite(opacity)||opacity<0||opacity>1||!isfinite(shadow)||shadow<0||shadow>1||dx < -1||dx>1||dy < -1||dy>1||!isfinite(size)||size<0||size>65535){PyErr_SetString(PyExc_ValueError,"invalid blend material");return NULL;}
     Surface *target=surface(target_obj),*base=surface(base_obj);if(!target||!base)return NULL;
     if(target==base||target->w!=base->w||target->h!=base->h){PyErr_SetString(PyExc_ValueError,"blend plane dimensions/alias mismatch");return NULL;}
     Py_ssize_t count=PyTuple_Size(plans);if(count<0)return NULL;
     if(count>4096){PyErr_SetString(PyExc_ValueError,"too many blend windows");return NULL;}
     Layer *layers=PyMem_Calloc(count?count:1,sizeof(*layers));if(!layers)return PyErr_NoMemory();
+    Layer *app_layers=PyMem_Calloc(count?count:1,sizeof(*app_layers));
+    if(!app_layers){PyMem_Free(layers);return PyErr_NoMemory();}
     Py_buffer dirty={0};PyObject *result=NULL;
     if(PyObject_GetBuffer(dirty_obj,&dirty,PyBUF_FORMAT|PyBUF_C_CONTIGUOUS))goto done;
     if(dirty.itemsize!=4||dirty.ndim!=1||!dirty.format||strcmp(dirty.format,"I")||dirty.len%4||(uintptr_t)dirty.buf%4){PyErr_SetString(PyExc_ValueError,"invalid blend indices");goto done;}
@@ -85,6 +87,17 @@ static PyObject *blend_scene(PyObject *self,PyObject *args){
         Surface *p=surface(plane);if(!p)goto done;
         if(p==target){PyErr_SetString(PyExc_ValueError,"blend target aliases a window");goto done;}
         layers[i]=(Layer){p,x,y};
+    }
+    if(apps!=Py_None){
+        if(!fill||!PyTuple_Check(apps)||PyTuple_Size(apps)!=count){PyErr_SetString(PyExc_ValueError,"invalid app blend layers");goto done;}
+        for(Py_ssize_t i=0;i<count;i++){
+            PyObject *entry=PyTuple_GetItem(apps,i),*obj;int x,y;
+            if(entry==Py_None)continue;
+            if(!PyArg_ParseTuple(entry,"Oii",&obj,&x,&y))goto done;
+            Surface *p=surface(obj);if(!p)goto done;
+            if(p==target){PyErr_SetString(PyExc_ValueError,"app layer aliases target");goto done;}
+            app_layers[i]=(Layer){p,x,y};
+        }
     }
     /* Inputs stay under the GIL; callers submit the existing bounded batches. */
     for(size_t i=0;i<nd;i++){
@@ -116,6 +129,15 @@ static PyObject *blend_scene(PyObject *self,PyObject *args){
                     uint64_t pane=blend_pane(prior.ink,opacity);under=(BlendCell){prior.glyph,pane};
                     value=glyph==32?(show?(BlendCell){behind.glyph,blend_pane(behind.ink,opacity)}:under):(BlendCell){glyph,blend_text(pane)};
                 }
+                Layer app=app_layers[j];
+                int64_t ax=x-app.x,ay=y-app.y;
+                if(app.plane&&xx>0&&yy>0&&xx<plane->w-1&&yy<plane->h-1&&ax>=0&&ay>=0&&ax<app.plane->w&&ay<app.plane->h){
+                    size_t ai=(size_t)ay*app.plane->w+(size_t)ax;
+                    if(app.plane->valid[ai]){
+                        value=(BlendCell){app.plane->glyph[ai],app.plane->ink[ai]};
+                        under=(BlendCell){value.glyph==0x2584||value.glyph==0x2580||value.glyph==0x2588?value.glyph:32,value.ink};
+                    }
+                }
                 if(!fill){
                     if(value.glyph==32||value.glyph==0x2584||value.glyph==0x2580)value=behind;
                     else if(value.ink>=(UINT64_C(1)<<48)){
@@ -131,5 +153,5 @@ static PyObject *blend_scene(PyObject *self,PyObject *args){
     result=PyLong_FromSize_t(nd);
 done:
     if(dirty.obj)PyBuffer_Release(&dirty);
-    PyMem_Free(layers);return result;
+    PyMem_Free(app_layers);PyMem_Free(layers);return result;
 }
