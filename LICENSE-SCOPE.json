@@ -7019,7 +7019,7 @@
     },
     {
       "path": "tools/check-journal.py",
-      "sha256": "2dc4cf1b4048349e6659c9fa993be65a9e3513d9692ac68ae27daf0d74a620d9",
+      "sha256": "9b7fc4003aa1bd4a23ecd2399b0f21820211f09f72c978834813f199a3cab325",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",

@@ -23,15 +23,15 @@ The [MBX bring-up journal](posts/2026-11-03-mbx-rendering.md) describes getting 
 
 Those results establish a hardware-accelerated graphics foundation for investigating game compatibility. Their measurements apply to the documented gears workload and presentation path. A game's executable loading, graphics calls, input, audio, and timing require their own evidence.
 
-### Progress recorded on 7 November 2026
+### Progress recorded on 6–7 November 2026
 
-The compatibility investigation now has native ARM execution and two real application targets: ChessGenius and Snakes. The experimental runtime has exercised GPU clear and composition operations. Both applications still need accepted visible UI, working controls, and sustained execution through the same GPU-backed runtime.
+[Native ChessGenius execution](posts/2026-11-06-native-symbian.md) reached a visible board and completed d2-d4 followed by the game's e7-e6 reply on the N810. That milestone used CPU softpipe rendering. Its later run reduced startup to the first partial UI and completed graphics teardown after a requested stop.
 
-The next graphics work concerns persistent drawing surfaces, texture dimensions, clipping, masking, and resource lifetime. Driver probes establish individual operations; application acceptance follows the complete path from executable startup to visible interaction. These candidates remain under development outside the published MBX checkpoint. The published build guide identifies the reproducible driver source currently shipped here.
+The [subsequent GPU investigation](posts/2026-11-07-symbian-surfaces.md) has exact physical-device results for selected clear, retained-surface, scissor, and large-texture operations. ChessGenius and Snakes both execute native ARM code and reach GPU jobs. Complete GPU-backed application UI, controls, and sustained execution remain pending. The driver candidates and runtime have yet to become a public reproducible compatibility checkpoint.
 
 ### Remaining compatibility work
 
-Begin with one legally obtained game whose executable format, CPU requirements, imported libraries, and graphics API can be identified. Record the exact game version and relevant dependencies. Hardware compatibility must be checked against that target: a shared CPU instruction set or related graphics processor provides useful overlap, while the software interfaces still determine what the executable expects.
+Continue with the identified ChessGenius and Snakes targets, retaining their executable identities and dependencies in the test records. Hardware compatibility must be checked against that target: a shared CPU instruction set or related graphics processor provides useful overlap, while the software interfaces still determine what the executable expects.
 
 Implement the interfaces needed to reach successive observable milestones. For asynchronous requests, document completion, cancellation, errors, and callback ordering as the game observes them. Choose Linux implementation mechanisms after establishing those requirements. Preserve the existing system architecture while supplying the behavior needed by the target application.
 
@@ -46,7 +46,7 @@ flowchart TB
     interaction --> play["Record a repeatable playable session"]
 ```
 
-*The game milestones describe proposed work. The MBX checkpoint is the existing measured result linked above.*
+*Native loading and one software-rendered game interaction have been demonstrated. The remaining GPU application milestones build on the physical driver results linked above.*
 
 Record progress separately for executable startup, a correct rendered frame, working controls, working audio, and sustained play. Each result should identify the source revision, game version, hardware, configuration, and observed limitations. Publish technical findings and permitted captures with links to the corresponding implementation and tests. Keep unverified compatibility expectations in this roadmap until a reproducible result supports a journal entry.
 
@@ -61,3 +61,18 @@ The background-off step in the overview tour leaves visible glyphs on desktop 3.
 The retained-map resize correction and selective elevation sampling are recorded in the [7 November journal entry](posts/2026-11-07-map-resizing.md). Further work is to measure cold preparation and refinement on the Nokia, choose a device detail budget, and inspect pan, zoom, clipping, and input under load.
 
 Area selection currently uses the [map build commands](how-to/build-map-data.md) and saved configuration. An integrated area-and-layer download pane still needs progress reporting, cancellation, cache reuse, and a clear estimate of the requested data size. Fine elevation remains available to analysis while locally derived overviews serve display work.
+
+## Native graphical desktop and interactive scenes
+
+The [native Mac desktop](posts/2026-11-07-native-desktop.md) runs the shared application registry and desktop model, consumes packed composition batches, and draws Surface Room directly at window pixel resolution. [Target-range interaction](posts/2026-11-07-surface-room.md) adds movement, aiming, hit state, and reset. The later [GPU provider](posts/2026-11-07-gpu-effects.md) has exact-output comparisons for windows, Flux, Flurry, Station Map, and terrain.
+
+The next work follows the remaining boundaries in those tests:
+
+- Complete the platform/build-input integration and verify a fresh checkout through its Makefile targets. Preserve a runnable source checkpoint for each acceptance result.
+- Bring the target-range acceptance checks into the integrated desktop, including capture release, focus loss, hits, reset, and restored graphics state.
+- Resolve the application-view notification warning seen at the end of the combined GPU run, then verify session save and restore.
+- Compare CPU and GPU paths with identical scene inputs, dimensions, quality, warmup, and frame counts. Include preparation, precision repairs, readback, composition, and presentation in the accounting.
+- Reduce copies and GPU readback where the platform permits, with image comparisons and buffer-lifetime checks before changing the default.
+- Validate supported cells, direct scene pixels, transparency, and mixed graphics state on the physical N810. Mac shader and Metal results define host evidence; the MBX path needs its own device results.
+
+Moving projectiles would extend the current immediate ray-based target test with travel time and collision over simulation steps. That remains a possible scene extension, separate from the implemented hit/reset behavior.

@@ -84,7 +84,12 @@ nav:
   - Moving geometry onto the GPU and reaching 30 FPS: posts/2026-11-04-gpu-performance.md
   - Following our own keyboard instructions: posts/2026-11-05-help-and-input.md
   - Keeping session state correct across reconnects: posts/2026-11-06-session-recovery.md
+  - Playing a Symbian chess game through native ARM execution: posts/2026-11-06-native-symbian.md
   - Resizing the map without stretching its annotations: posts/2026-11-07-map-resizing.md
+  - Teaching the MBX path the drawing operations that Symbian apps use: posts/2026-11-07-symbian-surfaces.md
+  - Running the Pocket desktop in a native Mac window: posts/2026-11-07-native-desktop.md
+  - Adding movement, aiming, and targets to Surface Room: posts/2026-11-07-surface-room.md
+  - Moving desktop effects and terrain work onto the Mac GPU: posts/2026-11-07-gpu-effects.md
 - Get started: start.md
 - Guides: guides.md
 - Roadmap: roadmap.md

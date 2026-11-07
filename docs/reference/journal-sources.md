@@ -392,6 +392,17 @@ The linked files are the reconciled current source. The post identifies the hist
 
 The linked files are the reconciled current source. The post identifies the historical observations and their validation scope.
 
+<a id="2026-11-06-native-symbian"></a>
+
+## Playing a Symbian chess game through native ARM execution
+
+[Read the journal entry](../posts/2026-11-06-native-symbian.md)
+
+
+[Chronological source index](../reference/journal-sources.md#2026-11-06-native-symbian)
+
+The native backend extends EKA2L1. Its loader, kernel/service model, and Window Server come from that upstream project, linked in the narrative. The native backend and physical acceptance runner remain experimental and await a public source checkpoint.
+
 <a id="2026-11-07-map-resizing"></a>
 
 ## Resizing the map without stretching its annotations
@@ -407,3 +418,50 @@ The linked files are the reconciled current source. The post identifies the hist
 [Build and test instructions](../how-to/validate.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-map-resizing)
 
 The linked files are the reconciled current source. The post identifies the historical observations and their validation scope.
+
+<a id="2026-11-07-symbian-surfaces"></a>
+
+## Teaching the MBX path the drawing operations that Symbian apps use
+
+[Read the journal entry](../posts/2026-11-07-symbian-surfaces.md)
+
+
+[Chronological source index](../reference/journal-sources.md#2026-11-07-symbian-surfaces)
+
+These driver candidates extend the published MBX/Mesa foundation. Their physical results are dated here; their candidate source and real-application acceptance are still in progress. Use the frozen 30 FPS build guide for the currently published checkpoint.
+
+<a id="2026-11-07-native-desktop"></a>
+
+## Running the Pocket desktop in a native Mac window
+
+[Read the journal entry](../posts/2026-11-07-native-desktop.md)
+
+
+[Chronological source index](../reference/journal-sources.md#2026-11-07-native-desktop)
+
+The narrative links the preserved graphical frontend development commit. Later Mac platform inputs and acceptance runners are being integrated separately; the captured results describe the tested local build.
+
+<a id="2026-11-07-surface-room"></a>
+
+## Adding movement, aiming, and targets to Surface Room
+
+[Read the journal entry](../posts/2026-11-07-surface-room.md)
+
+
+[Chronological source index](../reference/journal-sources.md#2026-11-07-surface-room)
+
+The shared exploration policy is linked to its preserved development revision above. The target-range C layer, Mac input adapter, and hit/reset acceptance sequence are being integrated into the public source build.
+
+<a id="2026-11-07-gpu-effects"></a>
+
+## Moving desktop effects and terrain work onto the Mac GPU
+
+[Read the journal entry](../posts/2026-11-07-gpu-effects.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Flux producer](../assets/source/journal/pocket/shell/flux.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/flux.py))<br>[Flurry producer](../assets/source/journal/pocket/shell/flurry.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/flurry.py))<br>[DEM preparation and shading](../assets/source/journal/pocket/shell/desktop_elevation.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/desktop_elevation.py)) |
+
+[Chronological source index](../reference/journal-sources.md#2026-11-07-gpu-effects)
+
+The Mac OpenGL/Metal provider and its exact-output comparison programs are being integrated into the public source build. The results here describe the recorded local provider. The existing published terminal producers remain available in the repository.

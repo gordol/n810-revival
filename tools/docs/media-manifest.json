@@ -225,6 +225,24 @@
       "disposition": "preserved-capture",
       "regeneration": "Requires a validated recipe or original hardware; do not silently replace.",
       "provenance": "Isolated Linux terminal capture on 7 November 2026 from reconciled source 97a28dc, replaying filtered 5 November station history and a public club lookup. Live services disabled. No personal QTH imported. Edited at 2x speed; brief partial redraws omitted. Reviewed resize frames and exported loop."
+    },
+    "docs/assets/screenshots/symbian-native-move-20261106.png": {
+      "sha256": "7615337c99d0babfe3927f5c7719ba51a223c6ddcdf7a49a8a7e26985525979c",
+      "bytes": 29010,
+      "disposition": "preserved-capture",
+      "regeneration": "Actual N810 framebuffer, native ChessGenius move/reply, software rendering, 6 November 2026. Game artwork remains third-party material. Preserve this historical result; later captures require their own dated caption."
+    },
+    "docs/assets/screenshots/native-desktop-room-20261107.png": {
+      "sha256": "cc5664c297d44d1fa37cfdd15b8ccea7c5c63eef85a4664f1c9cf675bacd3c8a",
+      "bytes": 7863,
+      "disposition": "preserved-capture",
+      "regeneration": "Local Mac GPU frontend output, direct Room scene, 7 November 2026. Preserve this historical result; later captures require their own dated caption."
+    },
+    "docs/assets/screenshots/surface-room-targets-20261107.png": {
+      "sha256": "7ae9d582b6ef4088a9c8505aca5fa937de8556abad74c9d59c2558cf21ee0fe4",
+      "bytes": 8554,
+      "disposition": "preserved-capture",
+      "regeneration": "Local Mac GPU target-range initial state, 7 November 2026. Preserve this historical result; later captures require their own dated caption."
     }
   }
 }
