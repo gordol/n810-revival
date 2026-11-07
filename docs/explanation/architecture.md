@@ -2,7 +2,7 @@
 
 The N810 platform supplies boot, storage, networking, power, input, and display behavior. Its runtime commands live under `platform/scripts/`; service definitions and keymaps live under `platform/device/`; configuration templates live under `platform/config/`.
 
-Pocket supplies the window host and applications. Python maintains models, focus, settings, and saved layouts. Views produce terminal cells. The N810's RGB console and a laptop terminal can both display those cells, which lets the same desktop run locally on either machine.
+Pocket supplies the window host and applications. Python maintains models, focus, settings, and saved layouts. Views produce retained cells and structured text; the native graphical frontend also accepts direct scene pixels. The terminal frontend sends changed cells to the N810 RGB console or a laptop terminal. The SDL/OpenGL frontend consumes native composition batches while retaining the same desktop model and application lifetimes.
 
 ```mermaid
 flowchart TB
@@ -41,7 +41,7 @@ flowchart TB
     compose --> terminal["Encode terminal output"]
 ```
 
-This diagram describes relationships in the terminal desktop. The glyphs and colors remain cells through composition. A pixel surface produced by an independent graphics experiment has its own presentation contract.
+This diagram describes relationships in the terminal desktop. The glyphs and colors remain cells through composition. The integrated graphical frontend also composes direct Room images with window chrome and overlays. Its platform adapter provides input, dimensions, and presentation; the [graphical build guide](../pocket/graphics.md) and [native desktop journal](../posts/2026-11-07-native-desktop.md) describe that path.
 
 ## Which accelerator is involved?
 
