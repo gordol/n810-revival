@@ -57,6 +57,11 @@ all apps, not a mutable global font selection. The Nokia defaults to console
 text at its physical 800×480 resolution. CoreText-generated font files are local
 build outputs, not redistributed system-font files.
 
+Graphical single-line borders use generated one-pixel strokes with common
+joins. Window corners, straight edges, dividers and settings icons share these
+shapes. This avoids mixing the console font's two-pixel verticals with its thin
+rounded corners. The terminal font and terrain/block glyphs are unchanged.
+
 ## Inputs and behavior
 
 All native sources, the SDL input adapter, font conversion and room-mesh generator
@@ -138,6 +143,20 @@ change display modes or take a VT from another application. VT keyboard input,
 touch, services and completions use the desktop's existing selector; idle has no
 SDL pump or periodic frame poll. Display/service lifecycle belongs to the device
 session owner. Build success alone is not physical-device acceptance.
+
+The Nokia frontend defaults to the existing process-owned touch source, so
+acquisition continues while a frame is rendered. Calibration and normal desktop
+pointer routing remain shared. `--touch-acquisition python` is an explicit
+diagnostic override; the terminal frontend's packaged default is unchanged.
+
+On Nokia, ordinary desktop text defaults to `--cell-renderer cpu`: the native C
+rasterizer writes only changed cells, including optional grayscale font coverage,
+without creating a GL context. This avoids turning small glyphs into hundreds of
+GPU rectangles. Apps, input routing and layout are the same shared desktop.
+Direct pixel and 3D applications retain their existing renderers; this choice
+does not turn them into CPU text. `--cell-renderer gpu` explicitly selects the
+previous GPU glyph path and still requires an active verified service.
+`--allow-software` admits software GL for diagnostic runs; it never loads a driver.
 
 ### Mac native-density UI text
 

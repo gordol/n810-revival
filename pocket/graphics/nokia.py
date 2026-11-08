@@ -40,6 +40,8 @@ def main():
     p.add_argument('--native-library',type=Path,required=True)
     p.add_argument('--state',type=Path,required=True)
     p.add_argument('--font-mode',choices=('console','crisp','smooth'),default='console')
+    p.add_argument('--allow-software',action='store_true',help='admit software GL for input/display diagnostics; does not enable or load a GPU service')
+    p.add_argument('--cell-renderer',choices=('cpu','gpu'),default='cpu',help='desktop text rasterizer; direct pixel apps are unchanged')
     p.add_argument('--seconds',type=float)
     p.add_argument('--actions',type=Path)
     p.add_argument('--output',type=Path)
@@ -52,7 +54,8 @@ def main():
     a.state.mkdir(parents=True,exist_ok=True)
     display=Window(a.display_library,fd=a.framebuffer_fd)
     platform=NokiaPlatform(a.font,a.renderer_library,display,output=a.output,
-        actions=json.loads(a.actions.read_text()) if a.actions else (),seconds=a.seconds,font_mode=a.font_mode)
+        actions=json.loads(a.actions.read_text()) if a.actions else (),seconds=a.seconds,
+        font_mode=a.font_mode,require_gpu=not a.allow_software,cell_renderer=a.cell_renderer)
     previous={};old=termios.tcgetattr(sys.stdin)
     def stop(signum,frame):
         platform.closed=True
@@ -65,7 +68,7 @@ def main():
         tty.setraw(sys.stdin,when=termios.TCSANOW)
         return platform.run(['--shell','--session',str(a.state/'desktop.json'),
             '--app-state',str(a.state),'--station-db',str(a.state/'directory.sqlite3'),
-            '--native',str(a.native_library),*rest])
+            '--native',str(a.native_library),'--touch-acquisition','process',*rest])
     finally:
         try:platform.close()
         finally:
