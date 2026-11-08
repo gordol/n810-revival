@@ -34,3 +34,8 @@ gui:
 
 # Area-selected map acquisition and local derived levels.
 include maps.mk
+
+# Explicit optional game preparation; app opening never downloads data.
+.PHONY: doom
+doom:
+	$(PYTHON) shell/apps/doom-app/build.py $(EXTRA)

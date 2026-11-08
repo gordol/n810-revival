@@ -3,11 +3,12 @@
 """GPU cell rasterizer. The active MBX service belongs to the display owner."""
 import ctypes as C
 from array import array
-from cells import Font,style
+from cells import style
+from font_supplement import load as load_font
 from paint import foreground,background
 class Renderer:
- def __init__(self,host,font,library,require_gpu=True,**unused):
-  self.host=host;self.font=Font(font);self.pixels=bytearray(768000);self.lib=C.CDLL(str(library));self.bulk_batches=0;self.cells_drawn=0
+ def __init__(self,host,font,library,require_gpu=True,font_mode="console",**unused):
+  self.host=host;self.font=load_font(font,font_mode);self.pixels=bytearray(768000);self.lib=C.CDLL(str(library));self.bulk_batches=0;self.cells_drawn=0
   if not (0<host.width<=512 and 0<host.height<=256 and (self.font.width,self.font.height)==(8,16)):raise ValueError('MBX frontend requires unchanged800x480/8x16layout')
   self.lib.pocket_mbx_open.argtypes=[C.c_int];self.lib.pocket_mbx_open.restype=C.c_void_p
   self.lib.pocket_mbx_error.restype=C.c_char_p
@@ -20,6 +21,13 @@ class Renderer:
   if not self.handle:raise RuntimeError(self.lib.pocket_mbx_error().decode())
   self.renderer_name=self.lib.pocket_mac_renderer().decode() if hasattr(self.lib,'pocket_mac_renderer') else 'Nokia MBX GPU transform'
   self.font.add_desktop_glyphs()
+  coverage=getattr(self.font,'coverage',{})
+  ordered_coverage=sorted(coverage)
+  self.coverage_codes=(C.c_uint32*len(coverage))(*(ord(ch) for ch in ordered_coverage))
+  self.coverage_bits=C.create_string_buffer(b''.join(coverage[ch] for ch in ordered_coverage))
+  if coverage:
+   self.lib.pocket_mbx_font_coverage.argtypes=[C.c_void_p,C.c_void_p,C.c_void_p,C.c_uint]
+   if self.lib.pocket_mbx_font_coverage(self.handle,self.coverage_codes,self.coverage_bits,len(coverage)):raise ValueError('Native font coverage rejected')
   ordered=sorted(self.font.mapping)
   self.font_codes=(C.c_uint32*len(ordered))(*(ord(ch) for ch in ordered))
   self.font_bits=C.create_string_buffer(b''.join(self.font.glyph(ch) for ch in ordered))

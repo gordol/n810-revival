@@ -5,9 +5,8 @@ import argparse,importlib.util,json,signal,sys,time,ctypes as C,os
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 CONFIG=json.loads((HERE.parent/'build/graphics/frontend.json').read_text())
-sys.path.insert(0,CONFIG['graphics_path'])
-from font_supplement import install as install_font
-install_font()
+sys.path.insert(0,CONFIG['graphics_path']);sys.path.insert(0,str(HERE.parent/'shell'))
+
 from platform_window import Window
 from explore_controls import ExploreControls
 spec=importlib.util.spec_from_file_location('graphical_platform',Path(CONFIG['graphics_path'])/'full.py')
@@ -17,7 +16,7 @@ class DesktopWindow(Window):
     """Full desktop keyboard semantics; Escape is app input, not window close."""
     def active_room(self):
         platform=getattr(self,'platform',None)
-        return next((room for room in platform.pixel_apps if room._active()),None) if platform else None
+        return next((room for room in platform.pixel_apps if getattr(room,'input_role',None)=='first-person' and room._active()),None) if platform else None
     def controls_for(self,room):
         if not hasattr(self,'controls'):self.controls={}
         if room not in self.controls:self.controls[room]=ExploreControls(time.monotonic())
@@ -77,6 +76,7 @@ def main():
     p.add_argument('--seconds',type=float);p.add_argument('--actions',type=Path)
     p.add_argument('--output',type=Path);p.add_argument('--report',type=Path)
     p.add_argument('--resize-check',action='store_true',help='exercise actual OS window-size events')
+    p.add_argument('--font-mode',choices=('console','crisp','smooth'),default=os.environ.get('POCKET_GUI_FONT','smooth' if sys.platform=='darwin' else 'console'))
     p.add_argument('--effect-backend',choices=('gpu','cpu'),default='gpu' if sys.platform=='darwin' and __import__('platform').machine()=='arm64' else 'cpu')
     p.add_argument('--allow-software',action='store_true',help='explicit software-GL test mode; not GPU performance evidence')
     p.add_argument('--headless',action='store_true',help='GPU verification without the presentation window')
@@ -84,7 +84,7 @@ def main():
     state=args.state;state.mkdir(parents=True,exist_ok=True)
     window=None if args.headless else DesktopWindow(CONFIG['display_library'])
     actions=json.loads(args.actions.read_text()) if args.actions else ()
-    platform=shared.Platform(CONFIG['font'],CONFIG['gpu_library'],window,output=args.output,actions=actions,require_gpu=not args.allow_software)
+    platform=shared.Platform(CONFIG['font'],CONFIG['gpu_library'],window,output=args.output,actions=actions,require_gpu=not args.allow_software,font_mode=args.font_mode)
     restore_effects=None
     if args.effect_backend=='gpu':
         try:import mlx.core

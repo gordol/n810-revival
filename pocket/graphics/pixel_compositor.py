@@ -32,6 +32,9 @@ class Compositor:
   if not handle:raise MemoryError('Native pixel layer allocation failed')
   try:
    records=native.lib.export_cells(plane.pointer,array('I',range(cols*rows)))
+   if len(r.coverage_codes):
+    self.lib.pocket_pixel_layer_font_coverage.argtypes=[C.c_void_p,C.c_void_p,C.c_void_p,C.c_uint]
+    if self.lib.pocket_pixel_layer_font_coverage(handle,r.coverage_codes,r.coverage_bits,len(r.coverage_codes)):raise ValueError('Layer font coverage rejected')
    if self.lib.pocket_pixel_layer_build(handle,C.c_char_p(records),len(records),r.font_codes,r.font_bits,len(r.font_codes),r.layer_palette,len(r.layer_palette),r.layer_fallback,fill,opacity):
     raise ValueError('Native text pixel layer rejected')
   except Exception:
@@ -43,7 +46,9 @@ class Compositor:
   # Explicit local candidate. MBX admission remains guarded in native code.
   h=self.host
   if os.environ.get('POCKET_GPU_COMPOSE')!='1' or len(apps)!=1 or h.launcher_lines or h.drag:return False
-  app=apps[0];seen=False;handles=[];positions=[];keys=[];active=set()
+  app=apps[0]
+  if getattr(app,'input_role',None)!='first-person':return False
+  seen=False;handles=[];positions=[];keys=[];active=set()
   rx,ry,_,_=h.bounds(h.window(app.name));ox,oy=getattr(h,'origin',(0,0));rx=(rx+ox+1)*8;ry=(ry+oy+1)*16
   dx,dy={'SE':(1,1),'S':(0,1),'SW':(-1,1),'W':(-1,0),'NW':(-1,-1),'N':(0,-1),'NE':(1,-1),'E':(1,0)}[h.shadow_direction]
   dx=round(dx*h.shadow_size*8) if h.shadow_enabled else 0;dy=round(dy*h.shadow_size*16) if h.shadow_enabled else 0;alpha=round(h.shadow_opacity*255) if h.shadow_enabled else 0

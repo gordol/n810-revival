@@ -104,7 +104,7 @@ class DesktopDoom:
     def lines(self):
         if not self.error:return ()
         return ('Doom could not start.',*tuple(self.error[i:i+max(20,self.width)] for i in range(0,len(self.error),max(20,self.width))),
-                '', 'Build: apps/doom-app/build.py','R: retry   ?: game and window help')
+                '', 'Prepare: make doom (from pocket/)','R: retry   ?: game and window help')
     def spans(self):return ()
     def _dispose(self):
         if self.engine:
