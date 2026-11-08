@@ -10,7 +10,7 @@
     },
     {
       "path": "containers/release.Dockerfile",
-      "sha256": "e3897681ef2ebf25b4a8074399085da2d82a3df5ebfae3e6a10179d3ed0eb95f",
+      "sha256": "8a0bbf8cf6fa3fdfa06c3fbdb7b7f80fbd89cf71cad558be49a461a2eeb4a401",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
@@ -1178,7 +1178,7 @@
     },
     {
       "path": "platform/scripts/n810-jffs2-extract.py",
-      "sha256": "d4323a23a8e34c8ce3fa6f8c1e8ba747c59738b6a9735f999b29783908af7481",
+      "sha256": "71f641aa89f6f0176ad35cec393433c109a88a4621f8cfeb15db9cb66f9a094e",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV; JFFS2 upstream terms and exception preserved.",
       "limits": "No ownership claim over the upstream algorithm or source; referenced library terms remain applicable."
@@ -7707,6 +7707,76 @@
       "license": "GPL-2.0-or-later",
       "scope": "Original project source export tooling and regression tests.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
+    },
+    {
+      "path": "containers/sd-image.Dockerfile",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "b09d5e64e32b10420be229552d9f74106c317fc770197a70d8af9abbf8e5e364"
+    },
+    {
+      "path": "containers/sd-image.Dockerfile.dockerignore",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "97f3e78dfefb4d2929eaff1733628097800c10851e0dae80528fab0be407b860"
+    },
+    {
+      "path": "platform/bootstrap/setup_touch.py",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "8cef0ad285aba1cc1c7114a8031a311f5f57cdf95432623f7caa6f659ffb4d63"
+    },
+    {
+      "path": "platform/bootstrap/test_setup_touch.py",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "c4aed52c5af56632381103e373b8b2dbdef1fd77bb25f930fbf0abeb3cd9708f"
+    },
+    {
+      "path": "platform/bootstrap/n810-setup-touch.service",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "8a38d2e5cc9c79e03c461e2f2efd4e71b1d42b73f6f6c185ad4270d70fe04312"
+    },
+    {
+      "path": "Makefile",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "3238c022465892232a27d55430740504ff606822b9e071dd928b7d9b11761bc7"
+    },
+    {
+      "path": "platform/bootstrap/firmware.py",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "a4fbfbbee973331596f4bce3d89580e666456fc94b286f46decb32a39f081fcd"
+    },
+    {
+      "path": "platform/bootstrap/firmware.lock.json",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "1b9bf28c76ede38f47802b9a614d4cae3fb474ff19f06d56da9cb131459b164d"
+    },
+    {
+      "path": "platform/bootstrap/test_firmware.py",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "4f82fb14342356c29b66a806d5bc9be742196382f4d380950dd75ba57644253b"
+    },
+    {
+      "path": "platform/bootstrap/build_sd.py",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "94a332ff96473d08c1ea5cd025b5af350e65b73b05a65432a7d63ccd0ec26979"
     }
   ]
 }

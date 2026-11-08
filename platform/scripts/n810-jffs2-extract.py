@@ -94,7 +94,8 @@ def strip_oob(source, dest, page=2048, oob=64):
 
 
 def scan(image):
-    data = open(image, "rb").read()
+    with open(image, "rb") as stream:
+        data = stream.read()
     dirents = {}
     inodes = collections.defaultdict(list)
     counts = collections.Counter()

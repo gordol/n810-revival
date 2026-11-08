@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+**
+!platform/
+!platform/kernel/
+!platform/kernel/**
+!platform/bootstrap/
+!platform/bootstrap/**
+**/__pycache__/
+**/*.pyc
+!platform/scripts/
+!platform/scripts/n810-touch-calibrate.c
+!platform/scripts/n810-touch-fit.py
+!pocket/
+!pocket/shell/
+!pocket/shell/touch.py
+!pocket/shell/touch_evdev.py
+!pocket/shell/touch_diagnostics.py
+!pocket/shell/pointer_events.py
+!platform/scripts/n810-jffs2-extract.py
+!platform/scripts/n810-bluetooth-address
+!platform/scripts/n810-wifi-service
+!platform/device/
+!platform/device/n810-bluetooth-address.service
+!platform/device/10-n810-address.conf
+!platform/device/n810-wifi.service
