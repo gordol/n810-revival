@@ -1,3 +1,7 @@
+<!-- Use a Conventional Commit title: fix(scope): describe the change.
+For breaking changes, use ! and explain migration in a BREAKING CHANGE: footer
+in the final squash commit. See CONTRIBUTING.md. -->
+
 ## Change
 
 Describe the problem and resulting behavior. Link the affected guide or journal
