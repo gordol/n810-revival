@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 import subprocess
 import tarfile
-from nokia_release_verify import verify, PLATFORM_FILES
+from nokia_release_verify import verify, PLATFORM_FILES, HOST_GEOMETRY
 
 ROOT=Path(__file__).resolve().parents[1]
 BASELINE='5e63c3ffdef4b8ece894f85efe2a6ba46062fd39acf4ed129dabcdeafdded319'
@@ -50,11 +50,17 @@ def runtime_files(files):
                 'experiments/map-drag-trial/geographic_palette.py',
                 'experiments/map-drag-trial/regional-pack-v2/bake.py'}
     duplicates=('vendor/apps/experiments/cw-reference/', 'vendor/packet-console/experiments/cw-reference/')
+    build_trees=('apps/doom-app/vendor/doomgeneric/','native/reticulum/')
+    notices={'LICENSE','LICENSE.txt','COPYING','NOTICE','NOTICE.md','UPSTREAM.md','SOURCE.json','MsgPack-LICENSE'}
     result={}
     for name,raw in files.items():
         if name=='vendor/apps/domains/reticulum/desktop_stack.py':continue
-        if name.startswith('native/reticulum/') and name.endswith('.py'):continue
-        if 'tests' in Path(name).parts or (name.endswith('.py') and Path(name).name.startswith(('test-', 'test_', 'bench-', 'benchmark'))):continue
+        leaf=Path(name).name
+        if name.startswith(build_trees) and leaf not in notices:continue
+        if 'tests' in Path(name).parts or '__pycache__' in Path(name).parts or leaf.startswith(('test-', 'test_', 'bench-', 'benchmark')) or leaf=='bench.py':continue
+        if name.startswith('vendor/packet-console/fixtures/'):continue
+        if name in ('apps/doom-app/build.py','apps/doom-app/bridge.c'):continue
+        if name.startswith('native/accelerators/') and leaf in ('build.py','probe.c'):continue
         duplicate=next((prefix for prefix in duplicates if name.startswith(prefix)),None)
         if duplicate:
             if raw!=files.get('vendor/apps/cw-reference/'+name[len(duplicate):]):
@@ -117,7 +123,7 @@ def main():
             for name in ('native/cell_module.c','native/cell_engine.c'):
                 if files[name]!=tar.extractfile(name).read():raise ValueError('Rebuild native compositor for changed source')
         for name in baseline['platform_files']:
-            if name!='build-info.json':files[name]=tar.extractfile(name).read()
+            if name!='build-info.json' and not name.startswith(HOST_GEOMETRY):files[name]=tar.extractfile(name).read()
     if args.native_compositor is not None:
         files.update(compositor_files(args.native_compositor,source))
     if args.native_reticulum is not None:

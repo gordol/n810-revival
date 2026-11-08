@@ -19,6 +19,11 @@ reuses the original platform libraries when compositor sources are unchanged.
 For a rebuilt compositor, supply `--native-compositor /path/to/arm-build`; the
 packager verifies its source hashes, binary hash and ARM soft-float ABI.
 All Python application code comes from the committed active tree.
+The runtime payload excludes tests, benchmarks, packet-test fixtures and
+compile-only Doom and native Reticulum sources. Licenses, runtime feature
+assets and source inputs required for native-library verification remain.
+`CONTENTS.json` lists the included/excluded file accounting. Full development
+sources remain in the repository and source archive, outside the app payload.
 Build that target with `python3 tools/build_native.py --arm-headers /path/to/extracted/usr/include --output /path/to/arm-build`
 in a Linux environment with the ARM soft-float cross compiler and Debian ARM
 Python 3.11 development headers. Add `--arm-vfp` for the N810 ARM1136 VFP

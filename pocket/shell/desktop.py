@@ -534,11 +534,14 @@ def main(platform=None,argv=None):
         hardware=lambda:((radio.payload.get('live') or {}).get('data') or {}).get('bluetooth_controller') if radio else None)
     bluetooth_control=None if connections is not None else getattr(feed_source,'control',None)
     host.app_forms['Bluetooth']=Bluetooth(bluetooth_state)
-    from draw_metrics import RenderDebug
-    host.app_forms['Render Debug']=RenderDebug(lambda:metrics.render if metrics else None,
-        lambda:host.shown(host.window('Render Debug')) and not host.window('Render Debug').rolled,
-        lambda:(host.width,host.height,'6 Hz target' if host.background_enabled and host.effect in ('flurry','flux','terrain') else 'event driven',host._native is not None,host.native_error,
-                host.flurry_provider.status() if host.flurry_provider else {'backend':'python','reason':'not requested'}),host=host)
+    def create_render_debug(host):
+        from draw_metrics import RenderDebug
+        return RenderDebug(lambda:metrics.render if metrics else None,
+            lambda:host.shown(host.window('Render Debug')) and not host.window('Render Debug').rolled,
+            lambda:(host.width,host.height,'6 Hz target' if host.background_enabled and host.effect in ('flurry','flux','terrain') else 'event driven',host._native is not None,host.native_error,
+                    host.flurry_provider.status() if host.flurry_provider else {'backend':'python','reason':'not requested'}),host=host)
+    if host.window('Render Debug').opened:
+        host.app_forms['Render Debug']=create_render_debug(host)
     applications=[]
     for name,requested in (('Workbench',args.workbench),('Reader',args.reader),
                            ('Library',bool(args.library or args.library_root))):
@@ -1025,9 +1028,11 @@ def main(platform=None,argv=None):
             if name in registered_apps.by_title:
                 registered_apps.open(registered_apps.by_title[name]);manager_mode=False;return
             if name=='Help':show_help();return
-            if name=='Render Debug' and metrics is None:
-                from draw_metrics import Metrics
-                metrics=Metrics()
+            if name=='Render Debug':
+                if name not in host.app_forms:host.app_forms[name]=create_render_debug(host)
+                if metrics is None:
+                    from draw_metrics import Metrics
+                    metrics=Metrics()
             if name=='APRS Walk Logs' and radio and radio.source and hasattr(radio.source,'request_walks'):radio.source.request_walks(time.time())
             if name=='CW' and name in host.app_forms:
                 if host.app_forms[name]._closed:

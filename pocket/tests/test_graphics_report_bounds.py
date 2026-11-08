@@ -6,8 +6,12 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'graphics'))
 from full import Platform
 
 class ReportBounds(unittest.TestCase):
- def test_long_run_preserves_early_menu_and_failure_without_unbounded_history(self):
+ def test_default_does_not_collect_or_inspect_frame_history(self):
   p=Platform('unused','unused')
+  p.record_frame() # No host/registry exists: disabled diagnostics must not inspect them.
+  self.assertEqual(p.report,{})
+ def test_long_run_preserves_early_menu_and_failure_without_unbounded_history(self):
+  p=Platform('unused','unused',diagnostics=True)
   form=SimpleNamespace(error='early construction failure')
   p.registry=SimpleNamespace(forms={'Example':form});p.host=SimpleNamespace(focus='First app',launcher_lines=['menu'])
   p.frames=1;p.record_frame()

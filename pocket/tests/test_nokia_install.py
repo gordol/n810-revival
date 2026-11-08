@@ -236,9 +236,27 @@ class PackageContracts(unittest.TestCase):
     def test_runtime_package_excludes_development_files(self):
         files={'desktop.py':b'core', 'owner-service/test_feed.py':b'test',
                'vendor/domain/tests/probe.py':b'probe', 'vendor/maps/map.py':b'map',
-               'vendor/maps/README.md':b'help', 'vendor/maps/bench-render.py':b'benchmark'}
+               'vendor/maps/README.md':b'help', 'vendor/maps/bench-render.py':b'benchmark',
+               'bench.py':b'bench','native/test_render.c':b'test',
+               'native/__pycache__/unused.pyc':b'cache',
+               'vendor/packet-console/fixtures/example.json':b'test fixture',
+               'apps/doom-app/build.py':b'build','apps/doom-app/bridge.c':b'build',
+               'apps/doom-app/vendor/doomgeneric/engine.c':b'build',
+               'native/reticulum/engine.cpp':b'build',
+               'native/accelerators/coverage/probe.c':b'probe',
+               'native/accelerators/coverage/build.py':b'build'}
         self.assertEqual(set(package.runtime_files(files)),
                          {'desktop.py','vendor/maps/map.py','vendor/maps/README.md'})
+
+    def test_runtime_retains_notices_feature_assets_and_verification_inputs(self):
+        files={name:b'needed' for name in (
+            'apps/doom-app/vendor/doomgeneric/LICENSE',
+            'apps/doom-app/vendor/doomgeneric/SOURCE.json',
+            'native/reticulum/vendor/microLXMF/LICENSE',
+            'native/cell_module.c','native/accelerators/coverage/kernels.c',
+            'vendor/apps/domains/reader/fixtures/field-notes.rss',
+            'vendor/packet-console/tools/build-terrain-next.py','build_trace.py')}
+        self.assertEqual(package.runtime_files(files),files)
 
     def test_duplicate_cw_sources_must_match_canonical_copy(self):
         canonical='vendor/apps/cw-reference/reference.py'
@@ -287,6 +305,7 @@ class PackageContracts(unittest.TestCase):
             for name in ('install.py','session_entry.py','upgrade_session.py','rnode_spp_prepare.py','rnode_spp_prepare.provenance.json'):(platform/name).write_bytes((ROOT/'platform/n810'/name).read_bytes())
             (platform/'registration/register_candidate.py').write_bytes((ROOT/'platform/n810/registration/register_candidate.py').read_bytes())
             baseline=root/'baseline.tar.gz';platform_files={'vendor/native/_cellengine.abi3.so':b'opaque fixture bytes','build-info.json':b'{}',
+                'native/build-host/Darwin-arm64-geometry/libgeometry.dylib':b'host-only fixture',
                 'vendor/native/libpocket_rns.so':b'fixture native library',
                 'vendor/native/libpocket_rns.provenance.json':json.dumps(dict(abi=2,platform='Linux-armv6l',library_sha256=sha(b'fixture native library'))).encode()}
             with tarfile.open(baseline,'w:gz') as archive:
@@ -312,11 +331,14 @@ class PackageContracts(unittest.TestCase):
                 payload=output/'files';manifest=json.loads((payload/'device-poc/pocket-manifest.json').read_text())
                 actual={str(path.relative_to(payload)) for path in payload.rglob('*') if path.is_file()}
                 self.assertEqual(actual,set(manifest['files'])|{'device-poc/pocket-manifest.json'})
+                self.assertFalse(any(name.startswith('native/build-host/Darwin-') for name in actual))
                 for name,digest in manifest['files'].items():self.assertEqual(sha((payload/name).read_bytes()),digest)
                 identity=(payload/'build_identity.py').read_bytes()
                 self.assertTrue(constants(output/'register_candidate.py',{'FILE_PAYLOAD'})['FILE_PAYLOAD'])
             else:
-                with tarfile.open(output/'nokia.tar.gz') as archive:identity=archive.extractfile('build_identity.py').read()
+                with tarfile.open(output/'nokia.tar.gz') as archive:
+                    identity=archive.extractfile('build_identity.py').read()
+                    self.assertFalse(any(name.startswith('native/build-host/Darwin-') for name in archive.getnames()))
             exec(compile(identity,'build_identity.py','exec'),namespace)
             self.assertEqual(namespace['release_id'](),commit[:12])
             self.assertNotIn('IDENTITY',namespace)

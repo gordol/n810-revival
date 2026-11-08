@@ -104,7 +104,7 @@ def main():
     state=args.state;state.mkdir(parents=True,exist_ok=True)
     window=None if args.headless else DesktopWindow(CONFIG['display_library'])
     actions=json.loads(args.actions.read_text()) if args.actions else ()
-    platform=shared.Platform(CONFIG['font'],CONFIG['gpu_library'],window,output=args.output,actions=actions,require_gpu=not args.allow_software,font_mode=args.font_mode)
+    platform=shared.Platform(CONFIG['font'],CONFIG['gpu_library'],window,output=args.output,actions=actions,require_gpu=not args.allow_software,font_mode=args.font_mode,diagnostics=args.report is not None)
     restore_effects=None
     if args.effect_backend=='gpu':
         try:import mlx.core

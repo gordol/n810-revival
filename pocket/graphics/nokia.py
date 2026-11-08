@@ -55,7 +55,7 @@ def main():
     display=Window(a.display_library,fd=a.framebuffer_fd)
     platform=NokiaPlatform(a.font,a.renderer_library,display,output=a.output,
         actions=json.loads(a.actions.read_text()) if a.actions else (),seconds=a.seconds,
-        font_mode=a.font_mode,require_gpu=not a.allow_software,cell_renderer=a.cell_renderer)
+        font_mode=a.font_mode,require_gpu=not a.allow_software,cell_renderer=a.cell_renderer,diagnostics=a.report is not None)
     previous={};old=termios.tcgetattr(sys.stdin)
     def stop(signum,frame):
         platform.closed=True

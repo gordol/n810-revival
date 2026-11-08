@@ -8,6 +8,25 @@ class GraphicalFrontend(unittest.TestCase):
   if not (ROOT/'build/graphics/frontend.json').exists():raise unittest.SkipTest('run make graphics-native first')
  def run_frontend(self,*args):
   return subprocess.run([sys.executable,str(ROOT/'graphics/launch.py'),*map(str,args)],capture_output=True,timeout=45)
+ def test_normal_startup_has_no_report_history_or_debug_imports(self):
+  code='''
+import json,sys,tempfile,os
+from pathlib import Path
+root=Path(sys.argv[1]);sys.path.insert(0,str(root/'graphics'))
+from full import Platform
+c=json.loads((root/'build/graphics/frontend.json').read_text())
+for debug in (False,True):
+ with tempfile.TemporaryDirectory(prefix='gui-import-',dir='/tmp') as d:
+  os.environ.update(HOME=d,XDG_STATE_HOME=d+'/state',XDG_CONFIG_HOME=d+'/config',XDG_CACHE_HOME=d+'/cache')
+  p=Platform(c['font'],c['gpu_library'],None,cell_renderer='cpu',frames=4 if debug else 2,diagnostics=debug,actions=[{'launch':'window:Render Debug' if debug else 'window:Settings'}])
+  p.run(['--shell','--session',d+'/desktop.json','--app-state',d,'--station-db',d+'/directory.sqlite3','--native',c['native_library'],'--no-local-services','--no-save','--no-animation'])
+  assert ('history' in p.report)==debug
+  assert ('draw_metrics' in sys.modules)==debug
+  assert ('Render Debug' in p.host.app_forms)==debug
+  assert not any(n=='unittest' or n.startswith(('pytest','test_')) for n in sys.modules)
+'''
+  result=subprocess.run([sys.executable,'-c',code,str(ROOT)],capture_output=True,timeout=60)
+  self.assertEqual(result.returncode,0,result.stderr.decode())
  def test_independent_pixel_frame_and_no_terminal_output(self):
   with tempfile.TemporaryDirectory() as d:
    output=Path(d)/'frame';r=self.run_frontend('--once','--output',output)

@@ -11,7 +11,8 @@ from cells import style
 from window import Window
 class Platform:
  history_capacity=128
- def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console",cell_renderer="gpu"):
+ def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console",cell_renderer="gpu",diagnostics=False):
+  self.diagnostics=diagnostics
   self.cell_renderer=cell_renderer
   self.require_gpu=require_gpu;self.font_mode=font_mode
   from presentation_text import create
@@ -99,7 +100,7 @@ class Platform:
   from presentation_text import supported
   text=self.presentation_text
   enabled=bool(text and supported(self.host,visible,raw_capture=self.output is not None))
-  self.report['native_text']=dict(enabled=enabled,reason='native atlas' if enabled else 'complete bitmap fallback')
+  if self.diagnostics:self.report['native_text']=dict(enabled=enabled,reason='native atlas' if enabled else 'complete bitmap fallback')
   for app in visible:
    if hasattr(app,'native_text'):app.native_text=enabled
   if self.renderer.defer_text(enabled):self.dirty=True
@@ -115,13 +116,15 @@ class Platform:
    else:text.clear()
   if self.display:self.display.present(frame)
   if self.output:Path(self.output).write_bytes(frame)
-  self.report['pixel_apps']={app.name:dict(frames=app.pixel_frames,jobs=app.pixel_jobs,error=getattr(app,'error',''),cell_layer=self.host.window(app.name).layer is not None) for app in self.pixel_apps}
-  self.record_frame()
-  self.report.update(frames=self.frames,focus=self.host.focus,opened=[w.name for w in self.host.windows if w.opened],native=True,desktop_ansi=False)
+  if self.diagnostics:
+   self.report['pixel_apps']={app.name:dict(frames=app.pixel_frames,jobs=app.pixel_jobs,error=getattr(app,'error',''),cell_layer=self.host.window(app.name).layer is not None) for app in self.pixel_apps}
+   self.record_frame()
+   self.report.update(frames=self.frames,focus=self.host.focus,opened=[w.name for w in self.host.windows if w.opened],native=True,desktop_ansi=False)
   if self.limit and self.frames>=self.limit:self.closed=True
   return True
  def record_frame(self):
   """Bound diagnostics even when an animated desktop runs all day."""
+  if not self.diagnostics:return
   errors={name:form.error for name,form in self.registry.forms.items() if form.error}
   self.report.setdefault('errors',{}).update(errors)
   self.report['menu_opened']=self.report.get('menu_opened',False) or bool(self.host.launcher_lines)
@@ -144,7 +147,7 @@ def main():
  parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--font',type=Path,required=True);parser.add_argument('--renderer-library',type=Path,required=True);parser.add_argument('--display-library',type=Path);parser.add_argument('--native-library',type=Path,required=True);parser.add_argument('--state',type=Path,required=True);parser.add_argument('--frames',type=int,default=0);parser.add_argument('--output',type=Path);parser.add_argument('--actions',type=Path);parser.add_argument('--report',type=Path)
  args,rest=parser.parse_known_args();args.state.mkdir(parents=True,exist_ok=True,mode=0o700)
  display=Window(args.display_library) if args.display_library else None
- platform=Platform(args.font,args.renderer_library,display,frames=args.frames,output=args.output,actions=json.loads(args.actions.read_text()) if args.actions else ())
+ platform=Platform(args.font,args.renderer_library,display,frames=args.frames,output=args.output,actions=json.loads(args.actions.read_text()) if args.actions else (),diagnostics=args.report is not None)
  try:platform.run(['--shell','--session',str(args.state/'desktop.json'),'--app-state',str(args.state),'--station-db',str(args.state/'directory.sqlite3'),'--native',str(args.native_library),*rest])
  finally:
   platform.close()
