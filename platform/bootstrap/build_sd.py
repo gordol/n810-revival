@@ -117,8 +117,10 @@ def main() -> None:
         if shutil.which(tool) is None:
             parser.error(f'Missing Linux build tool: {tool}')
     native_armel = subprocess.check_output(['dpkg', '--print-architecture'], text=True).strip() == 'armel'
-    if not native_armel and shutil.which('qemu-arm-static') is None:
-        parser.error('Cross-architecture builders need qemu-arm-static and ARM binfmt support.')
+    if not native_armel:
+        for tool in ('qemu-arm-static', 'arch-test'):
+            if shutil.which(tool) is None:
+                parser.error(f'Cross-architecture builders need {tool} and ARM binfmt support.')
     work = args.work.absolute()
     if work.exists() or work == Path('/') or str(work).startswith('/dev/'):
         parser.error('Use a new ordinary directory for --work, never a block device.')
