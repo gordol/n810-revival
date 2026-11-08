@@ -96,7 +96,9 @@ def main():
         print('Packet archive unavailable: '+str(error),file=sys.stderr,flush=True)
     print('RAM feed ready: '+path+' | restored '+str(len(history))+' packets | raw snapshot on exit', flush=True)
     def drop(c):
-        sel.unregister(c)
+        # A signal can interrupt removal after unregister, before clients.pop.
+        try: sel.unregister(c)
+        except KeyError: pass
         clients.pop(c, None)
         replay_clients.discard(c)
         c.close()

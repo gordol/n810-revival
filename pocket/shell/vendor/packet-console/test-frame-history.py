@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Raw history and broker replay integration tests; no Bluetooth or RF."""
+import ast
+import selectors
 import importlib.util
 import json
 import os
@@ -25,6 +27,27 @@ FRAME=b'\0'+address('APRS')+address('N0DEM',True)+b'\x03\xf0raw replay test'
 
 
 class HistoryTests(unittest.TestCase):
+ def test_cleanup_resumes_after_interrupted_unregister(self):
+  # Exercise the broker's actual closure with the state left by SIGTERM
+  # between selector removal and removal from the client collections.
+  tree=ast.parse((ROOT/'n810-aprs-feed.py').read_text())
+  main=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='main')
+  drop=next(node for node in main.body if isinstance(node,ast.FunctionDef) and node.name=='drop')
+  with selectors.DefaultSelector() as selector:
+   client,peer=socket.socketpair()
+   try:
+    clients={client:bytearray()};replays={client}
+    selector.register(client,selectors.EVENT_READ)
+    selector.unregister(client)
+    scope=dict(sel=selector,clients=clients,replay_clients=replays)
+    exec(compile(ast.Module(body=[drop],type_ignores=[]),str(ROOT/'n810-aprs-feed.py'),'exec'),scope)
+    scope['drop'](client)
+    self.assertFalse(clients)
+    self.assertFalse(replays)
+    self.assertEqual(client.fileno(),-1)
+   finally:
+    client.close();peer.close()
+
  def test_limits_and_directions(self):
   records=h.History()
   for _ in range(205):records.add(row())
