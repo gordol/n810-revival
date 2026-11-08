@@ -102,6 +102,7 @@ def main() -> None:
     parser.add_argument('--work', type=Path, required=True, help='New local output directory; never a device path')
     parser.add_argument('--kernel-package', type=Path, required=True)
     parser.add_argument('--ssh-key', type=Path, required=True, help='Owner public key, not a private key')
+    parser.add_argument('--touch-tools', type=Path, default=Path('/opt/n810-touch'))
     parser.add_argument('--user', default='nokia', help='First local account (default: nokia)')
     parser.add_argument('--size-mib', type=int, default=2048, help='Root partition size in MiB (default: 2048)')
     args = parser.parse_args()
@@ -121,6 +122,9 @@ def main() -> None:
         for tool in ('qemu-arm-static', 'arch-test'):
             if shutil.which(tool) is None:
                 parser.error(f'Cross-architecture builders need {tool} and ARM binfmt support.')
+    for name in ('n810-touch-calibrate', 'n810-touch-fit.py', 'touch-runtime/touch_evdev.py'):
+        if not (args.touch_tools / name).is_file():
+            parser.error('Missing touch tools; use make sd-image or supply --touch-tools.')
     work = args.work.absolute()
     if work.exists() or work == Path('/') or str(work).startswith('/dev/'):
         parser.error('Use a new ordinary directory for --work, never a block device.')
@@ -162,6 +166,24 @@ def main() -> None:
     for host_key in (root / 'etc/ssh').glob('ssh_host_*'):
         host_key.unlink()
     shutil.copytree(modules, root / 'lib/modules' / release, symlinks=True)
+    # First-boot setup uses the same collector and fit tool as the bring-up work.
+    write_file(root, '/etc/modules-load.d/n810-touch.conf', 'tsc2005\n')
+    touch_source = args.touch_tools
+    shutil.copytree(touch_source, root / 'usr/local/lib/n810-touch')
+    shutil.copyfile(Path(__file__).with_name('setup_touch.py'), root / 'usr/local/lib/n810-touch/setup_touch.py')
+    write_file(root, '/usr/local/sbin/n810-setup-touch',
+               '#!/bin/sh\nexec python3 /usr/local/lib/n810-touch/setup_touch.py "$@"\n', 0o755)
+    write_file(root, '/etc/systemd/system/n810-setup-touch.service',
+               Path(__file__).with_name('n810-setup-touch.service').read_text())
+    wants = root / 'etc/systemd/system/multi-user.target.wants'
+    wants.mkdir(parents=True, exist_ok=True)
+    (wants / 'n810-setup-touch.service').symlink_to('../n810-setup-touch.service')
+    state = root / 'home' / args.user / '.local/state/current-world'
+    state.mkdir(parents=True, exist_ok=True)
+    (state / 'touch-calibration.json').symlink_to('/etc/n810/touch-calibration.json')
+    owner = (root / 'home' / args.user).stat()
+    for directory in (state.parent.parent, state.parent, state):
+        os.chown(directory, owner.st_uid, owner.st_gid)
     partition = work / 'n810-root.ext4'
     partition_bytes = args.size_mib * 1024 * 1024
     with partition.open('wb') as image:

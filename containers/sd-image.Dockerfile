@@ -11,6 +11,10 @@ WORKDIR /src
 COPY platform/kernel/ platform/kernel/
 ARG JOBS=4
 RUN python3 platform/kernel/build.py --work /build/kernel --root-device /dev/mmcblk0p1 --jobs "$JOBS"
+RUN apt-get update && apt-get install -y --no-install-recommends gcc-arm-linux-gnueabi libc6-dev-armel-cross && rm -rf /var/lib/apt/lists/*
+COPY platform/scripts/n810-touch-calibrate.c platform/scripts/n810-touch-fit.py /opt/n810-touch/
+RUN arm-linux-gnueabi-gcc -Os -static -march=armv6 -marm -mfloat-abi=soft -Wall -Wextra -Werror /opt/n810-touch/n810-touch-calibrate.c -lm -o /opt/n810-touch/n810-touch-calibrate
+COPY pocket/shell/touch.py pocket/shell/touch_evdev.py pocket/shell/touch_diagnostics.py pocket/shell/pointer_events.py /opt/n810-touch/touch-runtime/
 COPY platform/bootstrap/ platform/bootstrap/
-RUN python3 platform/bootstrap/test_build_sd.py -q
+RUN PYTHONPATH=/opt/n810-touch/touch-runtime python3 -m unittest discover -s platform/bootstrap -p "test_*.py" -v
 CMD ["python3", "platform/bootstrap/build_sd.py", "--help"]

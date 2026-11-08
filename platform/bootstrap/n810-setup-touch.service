@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Unit]
+Description=Set up the N810 touchscreen on first boot
+Wants=systemd-udev-settle.service
+After=systemd-user-sessions.service systemd-udev-settle.service
+Before=getty@tty1.service
+ConditionPathExists=!/etc/n810/touch-calibration.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/n810-setup-touch
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=multi-user.target

@@ -7713,14 +7713,35 @@
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md",
-      "sha256": "a832ed908e0e62c4d1cd53a0af17dc931bb67282905e6236a43cfd2eaed73288"
+      "sha256": "b92a957c9662dcc7eb9ff806cd030a2ce260c0e3f401d00fbc82dcc1fafac3d4"
     },
     {
       "path": "containers/sd-image.Dockerfile.dockerignore",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md",
-      "sha256": "e433a727241ddc677281b40c0174cc6990d583feddf255fdbf2339cefbf5187d"
+      "sha256": "fcfc7d21430a6b492447c17383b63c37d6598925df4867f46f467ebe109866c9"
+    },
+    {
+      "path": "platform/bootstrap/setup_touch.py",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "8cef0ad285aba1cc1c7114a8031a311f5f57cdf95432623f7caa6f659ffb4d63"
+    },
+    {
+      "path": "platform/bootstrap/test_setup_touch.py",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "c4aed52c5af56632381103e373b8b2dbdef1fd77bb25f930fbf0abeb3cd9708f"
+    },
+    {
+      "path": "platform/bootstrap/n810-setup-touch.service",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "8a38d2e5cc9c79e03c461e2f2efd4e71b1d42b73f6f6c185ad4270d70fe04312"
     }
   ]
 }

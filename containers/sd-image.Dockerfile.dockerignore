@@ -8,3 +8,12 @@
 !platform/bootstrap/**
 **/__pycache__/
 **/*.pyc
+!platform/scripts/
+!platform/scripts/n810-touch-calibrate.c
+!platform/scripts/n810-touch-fit.py
+!pocket/
+!pocket/shell/
+!pocket/shell/touch.py
+!pocket/shell/touch_evdev.py
+!pocket/shell/touch_diagnostics.py
+!pocket/shell/pointer_events.py
