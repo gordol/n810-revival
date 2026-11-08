@@ -5,6 +5,53 @@ the resulting behavior, and how you checked it. The maintainer reviews changes
 before integration. The [agent instructions](AGENTS.md) apply to automated work;
 the [documentation instructions](docs/AGENTS.md) describe the writing standard.
 
+## Commit messages and versions
+
+Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)
+for new commits and pull request titles:
+
+```text
+fix(launcher): observe the final process state before failing
+feat(maps): add area selection for downloads
+docs(build): record the verified container build
+feat(protocol)!: require the new frame header
+```
+
+Use `feat` for features and `fix` for bug fixes. Other supported types are
+`build`, `chore`, `ci`, `docs`, `perf`, `refactor`, `revert`, `style`, and `test`.
+The scope is optional. Mark incompatible changes with `!` and explain the
+migration in a `BREAKING CHANGE:` footer. A breaking-change footer on its own
+is also valid Conventional Commits syntax. Preserve that footer in the final
+commit message.
+
+The Review workflow checks PR titles, including title edits. Squash-merge PRs
+using the checked title and a body that preserves any breaking-change details.
+For a rebase merge, every retained commit must follow this convention. Historical
+commits retain their original messages.
+
+We use [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
+`pocket/VERSION` is the version for the integrated project; upstream kernel,
+Mesa, firmware dependencies and frozen checkpoints keep their own versions.
+Source and documentation archives for one release share the same version and
+source commit. Git release tags use `vMAJOR.MINOR.PATCH`, with prerelease labels
+such as `v0.2.0-rc.1` when appropriate.
+
+The compatibility boundary covers documented app/framework APIs, command-line
+options and Make targets, configuration and persisted data formats, and public
+IPC and wire protocols. An incompatible change requires migration instructions.
+Experimental interfaces must be identified as such in their documentation.
+
+During `0.x` development, increment the minor version for features or breaking
+changes and the patch version for compatible fixes. Once `1.0.0` establishes the
+stable interface, use major increments for breaking changes, minor increments
+for compatible features, and patch increments for compatible fixes. Documentation
+and maintenance changes can accompany the next release; their commit type alone
+does not determine a version bump. The maintainer reviews the complete change set
+before choosing a version. Released tags and archives are immutable.
+
+The existing version is `0.1.0`. Updating a version, creating a tag, and publishing
+a release are explicit maintainer actions. Review checks do not publish releases.
+
 ## Working checkout
 
 Work from a clone or Git worktree of `gordol/n810-revival`. Pocket is the
