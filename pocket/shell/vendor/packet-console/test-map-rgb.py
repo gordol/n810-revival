@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]/'tests'))
+from reference_fixtures import maps
 import importlib.util,io,unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -9,7 +13,7 @@ class Tests(unittest.TestCase):
   colors=[m.band_color(v,35,80) for v in range(35,81,5)]
   self.assertEqual(sorted(sum(c) for c in colors),[sum(c) for c in colors]);self.assertNotIn((255,255,255),colors)
  def test_real_filled_bands_coverage_cache_and_toggles(self):
-  atlas=m.atlas(str(ROOT/'maps'));center=(47.2,-122.54)
+  atlas=m.atlas(str(maps()));center=(47.2,-122.54)
   frames=[]
   for span,interval in ((1,5),(5,10),(20,25)):
    frame,text=m.background(atlas,center,span,80,24,True);self.assertEqual(len(frame),80*24);self.assertIn('%d m bands'%interval,text) if span<20 else self.assertIn('Regional elevation',text)
@@ -36,20 +40,20 @@ class Tests(unittest.TestCase):
    def addnstr(self,*args):pass
    def refresh(self):pass
   with tempfile.TemporaryDirectory() as folder:
-   app=walk.Walk(argparse.Namespace(callsign='N0DEM',budget=20,logs=folder));app.center=(47.2,-122.54);app.span=1;app.fit_requested=False
+   app=walk.Walk(argparse.Namespace(callsign='N0DEM',budget=20,logs=folder));app.atlas=m.atlas(str(maps()));app.center=(47.2,-122.54);app.span=1;app.fit_requested=False
    with patch.object(walk.rgb_map,'enabled',return_value=True),patch.object(walk,'map_layer',side_effect=AssertionError('ANSI map must not be drawn')),patch.object(walk.rgb_map.Surface,'draw') as output:
     app.draw(Screen());self.assertEqual(output.call_count,1)
     app.draw(Screen());self.assertEqual(output.call_count,1)
    app.log.close()
  def test_trail_clips_and_does_not_join_long_gap(self):
-  atlas=m.atlas(str(ROOT/'maps'))
+  atlas=m.atlas(str(maps()))
   spec=importlib.util.spec_from_file_location('clip_test',ROOT/'n810-walk-map.py');wm=importlib.util.module_from_spec(spec);spec.loader.exec_module(wm)
   points=[dict(lon=0,lat=0,time=1),dict(lon=1,lat=0,time=30)]
   cells=m.trail(points,lambda p:(p['lon']*20-5,4),10,10,wm.clip)
   self.assertEqual(set(cells),{(x,4) for x in range(10)})
   points[1]['time']=300;self.assertEqual(m.trail(points,lambda p:(1,1),10,10,wm.clip),{})
  def test_regional_heights_and_large_view_cost_is_bounded(self):
-  atlas=m.atlas(str(ROOT/'maps'))
+  atlas=m.atlas(str(maps()))
   frame,text=m.background(atlas,(47.5,-122.5),500,100,30,True)
   self.assertGreater(len({bg for _,_,bg in frame}),4);self.assertIn('Regional elevation',text)
   frame,text=m.background(atlas,(47.5,-122.5),48000,100,30,True);self.assertEqual(len(frame),3000)

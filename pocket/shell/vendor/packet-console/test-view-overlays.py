@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]/'tests'))
+from reference_fixtures import maps
 """APRS overlay acceptance checks with synthetic geography; no device or radio."""
 import importlib.util
 from pathlib import Path
@@ -110,14 +114,14 @@ class OverlayTests(unittest.TestCase):
         state = view.State()
         with patch.object(view._map, 'Atlas', return_value=Atlas()), \
                 patch.object(view.importlib.util, 'spec_from_file_location') as load:
-            view.init_map(state, str(ROOT / 'maps'))
+            view.init_map(state, str(maps()))
         load.assert_not_called()
         self.assertIsNone(state.map_engine)
         self.assertEqual(state.map_engine_name, 'legacy')
 
     def test_next_engine_ansi_adapter_resize_and_inspector_return(self):
         state = self.state()
-        view.init_map(state, str(ROOT / 'maps'), 'next')
+        view.init_map(state, str(maps()), 'next')
         state.center = [state.stations['BALDI']['lat'], state.stations['BALDI']['lon']]
         self.assertEqual(state.map_engine.style, 'ansi')
         win = Window()
@@ -135,10 +139,10 @@ class OverlayTests(unittest.TestCase):
 
     def trial_state(self):
         state = self.state()
-        view.init_map(state, str(ROOT / 'maps'), 'next')
+        view.init_map(state, str(maps()), 'next')
         state.center = [state.stations['BALDI']['lat'], state.stations['BALDI']['lon']]
         state.help = state.debug = state.auto_fit = False
-        state.map_dir = str(ROOT / 'maps')
+        state.map_dir = str(maps())
         state.socket_path = '/nonexistent'
         state.debug_key = state.debug_record = None
         state.debug_scroll = 0
@@ -242,7 +246,7 @@ class OverlayTests(unittest.TestCase):
         self.assertIn('p/x windows', footer)
         rendered = '\n'.join(''.join(win.cells.get((x, y), (' ', 0))[0]
                                      for x in range(100)) for y in range(30))
-        self.assertIn('Rainier', rendered)
+        self.assertIn('Test Peak', rendered)
         view.trial_panel_key(state, ord('v'))
         self.assertFalse(view.trial_panels(state).visible)
         self.assertEqual(state.focus, 'detail')
@@ -360,7 +364,7 @@ class OverlayTests(unittest.TestCase):
     def test_next_labels_and_autofit_consume_canonical_engine_places(self):
         state=self.state()
         state.map_engine_name='next'
-        canonical=(dict(name='Mt Rainier',lat=46.85,lon=-121.75,kind='peak'),)
+        canonical=(dict(name='Test Peak',lat=46.85,lon=-121.75,kind='peak'),)
         state.atlas.places=MagicMock(return_value=canonical)
         # Raw pack labels must not be traversed by the next consumer.
         class RawPacks:
@@ -376,7 +380,7 @@ class OverlayTests(unittest.TestCase):
 
     def test_legacy_labels_keep_raw_source_behavior(self):
         state=self.state()
-        label=dict(name='Seattle',lat=47.6,lon=-122.3,kind='city')
+        label=dict(name='Harbor City',lat=47.6,lon=-122.3,kind='city')
         state.atlas.packs=[dict(labels=[label]),dict(labels=[label])]
         self.assertEqual(view.place_labels(state),(label,label))
 

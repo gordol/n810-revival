@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]/'tests'))
+from reference_fixtures import maps
 """Walk-only layer coverage, road profiles, row runs and color backgrounds."""
 import importlib.util,random,unittest
 from pathlib import Path
@@ -7,7 +11,7 @@ s=importlib.util.spec_from_file_location('walk_map_test',ROOT/'n810-walk-map.py'
 
 class Tests(unittest.TestCase):
  def test_coverage_fallback_cache_and_sizes(self):
-  a=m.Atlas(str(ROOT/'maps'))
+  a=m.Atlas(str(maps()))
   for w,h in ((130,33),(77,18),(65,33)):
    for span in (40,20,10,5,2.5,1.25):
     runs,names=a.background((47.2,-122.54),span,w,h,True)
@@ -22,7 +26,7 @@ class Tests(unittest.TestCase):
   a.background((0,0),40,77,18,False);self.assertEqual(a.stats['unknown'],77*18*2)
   with self.assertRaises(ValueError):a.background((47,-122),48001,77,18,True)
  def test_roads_off_and_wide_only_major(self):
-  a=m.Atlas(str(ROOT/'maps'))
+  a=m.Atlas(str(maps()))
   runs,_=a.background((47.2,-122.54),2,130,33,True)
   self.assertTrue(any(k.startswith('street') for *_,k in runs));self.assertGreater(a.stats['road_cells'],0)
   runs,_=a.background((47.2,-122.54),20,130,33,True)
@@ -36,7 +40,7 @@ class Tests(unittest.TestCase):
    self.assertNotEqual(m.attr('band45'),m.attr('band45',False))
    self.assertEqual(m.attr('street5',False)&~m.curses.A_DIM,208+7)
  def test_fine_intervals_and_creek_independent_of_roads(self):
-  a=m.Atlas(str(ROOT/'maps'))
+  a=m.Atlas(str(maps()))
   for span,interval in ((1,5),(2.5,5),(5,10),(10,25)):
    runs,_=a.background((47.2,-122.54),span,130,33,False)
    self.assertEqual(a.stats['interval'],interval)

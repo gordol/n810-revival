@@ -7,6 +7,8 @@ import unittest
 import wave
 import importlib.util
 import json
+import hashlib
+from reference_fixtures import maps
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'shell'))
 
@@ -29,6 +31,15 @@ class Dependencies(unittest.TestCase):
             spec=importlib.util.spec_from_file_location('packaged_map_worker_test',app/'worker.py')
             module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
             inventory=json.loads((app/'dependency-inventory.json').read_text())
+            # Generated geographic inputs accompany this temporary package only.
+            # The source inventory pins code; downloads are supplied by the user.
+            for fixture in maps().iterdir():
+                relative='packet-console/maps/'+fixture.name
+                target=root/'vendor/map-library-resources'/relative
+                target.parent.mkdir(parents=True,exist_ok=True)
+                raw=fixture.read_bytes();target.write_bytes(raw)
+                inventory['files'].append(dict(path=relative,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest()))
+            (app/'dependency-inventory.json').write_text(json.dumps(inventory))
             state=root/'private-state'
             worker=module.Worker('rainier',root/'vendor/map-library-resources/explorations/current-world',
                                  state/'staging',inventory,state_root=state)

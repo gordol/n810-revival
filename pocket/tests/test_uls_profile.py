@@ -1,3 +1,5 @@
+from reference_fixtures import activate
+activate()
 import json
 from pathlib import Path
 import sqlite3
@@ -104,16 +106,16 @@ class ULSTests(unittest.TestCase):
 
 
 class ProfileTests(unittest.TestCase):
-    def test_grid_uses_existing_usgs_asset_and_exact_sample_centers(self):
+    def test_grid_uses_fixture_asset_and_exact_sample_centers(self):
         metadata,values=grid()
-        self.assertIn('USGS',metadata['source'])
+        self.assertIn('Fictional',metadata['source'])
         self.assertEqual(elevation(metadata['latitude_first'],metadata['longitude_first']),values[0])
         self.assertIsNone(elevation(0,0))
 
-    def test_real_path_profile_retains_geography_and_source(self):
+    def test_fictional_path_profile_retains_geography_and_source(self):
         result=calculate('46.72,-121.90','46.90,-121.60',count=129)
         self.assertEqual(result['missing_samples'],0)
-        self.assertIn('USGS',result['source'])
+        self.assertIn('fictional-regional',result['source'])
         self.assertGreater(max(row['elevation_m'] for row in result['samples']),2000)
         self.assertGreater(result['distance_m'],20000)
         self.assertIsNotNone(result['adaptive_sampling'])
@@ -131,7 +133,7 @@ class ProfileTests(unittest.TestCase):
         self.assertIsNotNone(app.result,app.error)
         app.screen='profile'
         text='\n'.join(app.lines())
-        self.assertIn('USGS',text);self.assertIn('LOS',text)
+        self.assertIn('fictional-regional',text);self.assertIn('LOS',text)
         self.assertIn('*',text);self.assertFalse(app.pending)
 
 

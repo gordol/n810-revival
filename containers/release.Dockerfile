@@ -37,9 +37,33 @@ FROM source-check AS map-check
 COPY --from=map-deps /opt/maps /opt/maps
 RUN --network=none /opt/maps/bin/python -m unittest discover -s pocket/tests -p 'test_*pipeline.py' -v
 
+# Dependency installation is independent of source changes and remains cached.
+FROM toolchain AS source-test-deps
+RUN apt-get update && apt-get install -y --no-install-recommends python3-venv python3-dev python3-dbus python3-gi && rm -rf /var/lib/apt/lists/*
+COPY requirements-maps.txt /tmp/source-test-requirements/maps.txt
+COPY hardware/htit/rfcomm-ble-hub/host/requirements.txt /tmp/source-test-requirements/htit.txt
+COPY pocket/requirements-meshcore.txt /tmp/source-test-requirements/meshcore.txt
+COPY hardware/htit/experiments/ibss-rsn/requirements-test.txt /tmp/source-test-requirements/rsn.txt
+RUN /usr/bin/python3 -m venv --system-site-packages /opt/source-tests && /opt/source-tests/bin/pip install -r /tmp/source-test-requirements/maps.txt -r /tmp/source-test-requirements/htit.txt -r /tmp/source-test-requirements/meshcore.txt -r /tmp/source-test-requirements/rsn.txt
+
+COPY hardware/htit/experiments/ibss-rsn/rsn-port/source_archive.py /tmp/rsn-source/source_archive.py
+RUN PYTHONPATH=/tmp/rsn-source HTIT_RSN_WORK=/tmp/htit-rsn-ci /opt/source-tests/bin/python -c "from source_archive import archive; archive()"
+
+# Exercise the complete source suite as a normal user, including Linux D-Bus
+# bindings and the host wire protocol. Test execution is offline.
+FROM source-test-deps AS full-source-check
+COPY --from=map-check /src /src
+COPY --from=source-check /opt/docs /opt/docs
+RUN useradd --create-home source-tester && install -d -o source-tester -g source-tester /verification/source-tests && chown -R source-tester:source-tester /src /tmp/htit-rsn-ci
+RUN --network=none runuser -u source-tester -- /opt/source-tests/bin/python tools/check-source.py --work /verification/source-tests/run --jobs 2
+RUN --network=none runuser -u source-tester -- env POCKET_SOURCE=/src/pocket /opt/source-tests/bin/python -m unittest discover -s hardware/htit/rfcomm-ble-hub/tests -q
+RUN --network=none runuser -u source-tester -- /opt/source-tests/bin/python -m unittest discover -s hardware/htit/experiments/ibss-rsn -p 'test_*.py' -q
+RUN --network=none runuser -u source-tester -- env HTIT_RSN_WORK=/tmp/htit-rsn-ci python3 -m unittest discover -s hardware/htit/experiments/ibss-rsn/rsn-port -p test_rsn.py -q
+RUN chown -R root:root /src
+
 # A fresh source-only build exercises the portable GUI with an explicit Mesa
 # software context, plus ARM cross-builds. It does not establish hardware speed.
-FROM map-check AS gui-check
+FROM full-source-check AS gui-check
 RUN apt-get update && apt-get install -y --no-install-recommends libsdl2-dev libgl1-mesa-dev libgl1-mesa-dri xvfb xauth && rm -rf /var/lib/apt/lists/*
 COPY --from=graphics /build/mesa/package /opt/arm-mesa
 RUN make -C pocket graphics-native && python3 pocket/graphics/build_nokia.py --mesa-include /opt/arm-mesa/include --mesa-library /opt/arm-mesa/libOSMesa.so.8

@@ -1,5 +1,16 @@
 # Run the Pocket tests
 
+With Docker and Make available, run the complete container build from the repository root:
+
+```sh
+make container-check
+```
+
+This builds the kernel, frozen graphics checkpoint, HTIT firmware and graphical
+frontend. It runs the full Pocket and bundled radio suites as a normal user with
+network access disabled, then runs the HTIT host checks and software-OpenGL GUI
+checks. Dependency installation happens in separate cached build stages.
+
 With Python 3.11 or newer and Make installed, run the focused host tests from the repository root:
 
 ```sh
@@ -21,7 +32,13 @@ Regional map data is downloaded and built separately. The [map build guide](buil
 
 On Linux, the proxy test also needs D-Bus and GLib bindings available to the selected Python interpreter. Debian’s `python3-dbus` and `python3-gi` packages supply them for Debian’s `/usr/bin/python3`; a virtual environment made from that interpreter with `--system-site-packages` can use them. A separately installed Python needs its own matching bindings. On other hosts the runner identifies that Linux-only suite explicitly.
 
-The 7 November fresh-checkout run exposed legacy regional-data dependencies in the full suite. The [current build verification](../reference/component-build-verification.md#fresh-checkout-walkthrough-7-november) records the failures. The standalone elevation and map-pipeline suites use included fictional fixtures.
+The map and terrain suites generate fictional raster, vector and elevation packs
+in temporary directories. The fixtures cover renderer loading, source selection,
+profiles, line-of-sight workers, cancellation and package dependency checks.
+They require no regional download. A separate FCC integration test identifies
+its prepared real-data snapshot requirement and skips when that snapshot is absent.
+The [build verification](../reference/component-build-verification.md#fresh-checkout-walkthrough-7-november)
+records the original failures and their corrections.
 
 The [HTIT guide](build-htit.md) supplies firmware and host-protocol checks. The [map guide](build-map-data.md) supplies real-data rebuilds and format-conversion tests.
 

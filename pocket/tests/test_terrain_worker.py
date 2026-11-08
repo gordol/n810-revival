@@ -1,3 +1,5 @@
+from reference_fixtures import activate
+activate()
 import sys,time,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
@@ -55,7 +57,7 @@ class WorkerTests(unittest.TestCase):
             (Path(folder)/(key+'.msgpack')).write_bytes(b'broken')
             self.assertIsNone(terrain_cache.read(key))
 
-    def test_visible_cells_match_detailed_profiles_on_real_terrain(self):
+    def test_visible_cells_match_detailed_profiles_on_fixture_terrain(self):
         from terrain_elevation import calculate
         start='47.25290000,-122.44430000'
         result=viewshed(start,radius_km=1,frequency_mhz=915,tx_height_m=15,

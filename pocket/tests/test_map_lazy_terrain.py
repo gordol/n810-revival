@@ -1,3 +1,4 @@
+from reference_fixtures import maps
 # SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Flat and close RGB views must not decode the filtered elevation pack."""
@@ -13,12 +14,12 @@ class LazyTerrainTests(unittest.TestCase):
  def test_flat_and_close_rgb_do_not_read_filtered_pack(self):
   for span,terrain in ((2.,True),(100.,False)):
    with self.subTest(span=span,terrain=terrain):
-    engine=m.Engine(ROOT/'shell/vendor/packet-console/maps',style='rgb')
+    engine=m.Engine(maps(),style='rgb')
     with patch.object(m,'Terrain',side_effect=AssertionError('unneeded terrain decode')):
      cells,legend=engine.prepare(m.Viewport((47.17,-122.5),span,30,12),terrain=terrain)
     self.assertEqual(len(cells),360);self.assertFalse(engine._terrain_loaded)
  def test_filtered_pack_is_loaded_once_when_requested(self):
-  engine=m.Engine(ROOT/'shell/vendor/packet-console/maps',style='rgb')
+  engine=m.Engine(maps(),style='rgb')
   with patch.object(m,'Terrain',return_value=object()) as load:
    first=engine.terrain;self.assertIs(first,engine.terrain);load.assert_called_once()
   self.assertIsNone(engine._atlas)

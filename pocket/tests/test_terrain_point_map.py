@@ -1,3 +1,5 @@
+from reference_fixtures import activate
+activate()
 import sys,time,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
@@ -12,7 +14,7 @@ class PointMapTests(unittest.TestCase):
             if app.map.image:return app
             time.sleep(.01)
         self.fail(app.map.renderer.error or 'No map frame')
-    def test_two_map_clicks_calculate_real_profile_and_return_to_map(self):
+    def test_two_map_clicks_calculate_fixture_profile_and_return_to_map(self):
         app=self.app();self.assertEqual(app.screen,'map')
         for x,y in ((35,14),(53,17)):
             expected=app.map.position_at(x,y)
@@ -25,7 +27,7 @@ class PointMapTests(unittest.TestCase):
         until=time.monotonic()+5
         while app.pending and time.monotonic()<until:app.poll();time.sleep(.005)
         self.assertIsNotNone(app.result,app.error)
-        self.assertIn('USGS',app.result['source'])
+        self.assertIn('fictional-fine',app.result['source'])
         app.key('m');self.assertEqual(app.screen,'map')
         app.lines();self.assertIsNotNone(app.layer())
     def test_drag_pans_without_changing_endpoints(self):
