@@ -20,7 +20,7 @@ import uuid
 
 PACKAGES = (
     'systemd-sysv,dbus,udev,ifupdown,iproute2,openssh-server,sudo,'
-    'ca-certificates,kmod,passwd,python3,python3-venv,make,git,tmux,whiptail,kbd,bluez'
+    'ca-certificates,kmod,passwd,python3,python3-venv,make,git,tmux,whiptail,kbd,bluez,wpasupplicant,iw,wireless-regdb,isc-dhcp-client'
 )
 SOURCES = (
     'deb https://deb.debian.org/debian bookworm main',
@@ -102,6 +102,7 @@ def main() -> None:
     parser.add_argument('--work', type=Path, required=True, help='New local output directory; never a device path')
     parser.add_argument('--kernel-package', type=Path, required=True)
     parser.add_argument('--ssh-key', type=Path, required=True, help='Owner public key, not a private key')
+    parser.add_argument('--firmware', type=Path, required=True, help='Validated local firmware directory')
     parser.add_argument('--touch-tools', type=Path, default=Path('/opt/n810-touch'))
     parser.add_argument('--user', default='nokia', help='First local account (default: nokia)')
     parser.add_argument('--size-mib', type=int, default=2048, help='Root partition size in MiB (default: 2048)')
@@ -125,6 +126,10 @@ def main() -> None:
     for name in ('n810-touch-calibrate', 'n810-touch-fit.py', 'touch-runtime/touch_evdev.py'):
         if not (args.touch_tools / name).is_file():
             parser.error('Missing touch tools; use make sd-image or supply --touch-tools.')
+    from firmware import validate
+    firmware_lock = json.loads(Path(__file__).with_name('firmware.lock.json').read_text())['files']
+    for name, record in firmware_lock.items():
+        validate((args.firmware / name).read_bytes(), record)
     work = args.work.absolute()
     if work.exists() or work == Path('/') or str(work).startswith('/dev/'):
         parser.error('Use a new ordinary directory for --work, never a block device.')
@@ -166,6 +171,25 @@ def main() -> None:
     for host_key in (root / 'etc/ssh').glob('ssh_host_*'):
         host_key.unlink()
     shutil.copytree(modules, root / 'lib/modules' / release, symlinks=True)
+    # Public or owner-supplied firmware remains part of this private image only.
+    for name,destination in [('3826.arm','usr/lib/firmware/3826.arm'),('bc4fw.bin','usr/lib/firmware/nokia/bc4fw.bin')]:
+        target=root/destination;target.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copyfile(args.firmware/name,target);target.chmod(0o644)
+    shutil.copyfile(args.firmware/'FIRMWARE.json',work/'FIRMWARE.json')
+    (root/'usr/local/sbin').mkdir(parents=True,exist_ok=True)
+    platform=Path(__file__).resolve().parents[1]
+    for name in ('n810-bluetooth-address','n810-wifi-service'):
+        shutil.copyfile(platform/'scripts'/name,root/'usr/local/sbin'/name)
+        (root/'usr/local/sbin'/name).chmod(0o755)
+    write_file(root,'/etc/systemd/system/n810-bluetooth-address.service',
+               (platform/'device/n810-bluetooth-address.service').read_text())
+    write_file(root,'/etc/systemd/system/bluetooth.service.d/10-n810-address.conf',
+               (platform/'device/10-n810-address.conf').read_text())
+    write_file(root,'/etc/systemd/system/n810-wifi.service',
+               (platform/'device/n810-wifi.service').read_text().replace('[Unit]',
+               '[Unit]\nConditionPathExists=/etc/wpa_supplicant/wpa_supplicant-wlan0.conf'))
+    write_file(root,'/etc/modules-load.d/n810-wifi.conf','p54spi\n')
+    write_file(root,'/etc/modules-load.d/n810-bluetooth.conf','hci_uart\nhci_nokia\n')
     # First-boot setup uses the same collector and fit tool as the bring-up work.
     write_file(root, '/etc/modules-load.d/n810-touch.conf', 'tsc2005\n')
     touch_source = args.touch_tools
@@ -226,6 +250,7 @@ def main() -> None:
         'kernel_build_manifest_sha256': sha256(args.kernel_package / 'BUILD.json'),
         'apt_sources': SOURCES, 'packages_requested': PACKAGES.split(','),
         'kernel_image_sha256': sha256(boot_image),
+        'firmware': json.loads((work/'FIRMWARE.json').read_text()),
         'root_device': '/dev/mmcblk0p1', 'user': args.user,
         'ssh_public_key_sha256': hashlib.sha256(key.encode()).hexdigest(),
         'password': 'chosen interactively; not recorded', 'ssh_password_login': False,

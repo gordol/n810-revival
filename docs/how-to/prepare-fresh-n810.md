@@ -27,6 +27,24 @@ From the repository root, run:
 make sd-image SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub"
 ```
 
+The command downloads the pinned Wi-Fi and Bluetooth firmware and verifies the
+hashes. It caches verified downloads in the Docker volume `n810-sd-firmware`.
+For firmware from your own Maemo backup, add its directory:
+
+```sh
+make sd-image SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" \
+    MAEMO_BACKUP="$HOME/n810-backup"
+```
+
+That directory can contain `initfs.jffs2` and optionally `rootfs.jffs2` (data-only
+JFFS2 partition images), or extracted `3826.arm` and `bc4fw.bin` files. The builder
+reads it without modifying it. Available backup files take precedence over
+public downloads. Add `SD_FIRMWARE_OFFLINE=1` to require firmware from the backup
+or verified cache. Debian package downloads still need network access.
+
+See the [firmware reference](../reference/firmware.md) for exact sources,
+accepted formats and license findings.
+
 When prompted, enter and confirm a password for the `nokia` account. Use this
 password for console login and `sudo`. SSH uses your supplied public key.
 
@@ -35,7 +53,7 @@ Wait for the export completion message. The kit is in `dist/n810-sd/`:
 - `n810-sd.img`: the complete card image.
 - `n810-kernel-ramboot.bin`: the matching kernel for temporary boot.
 - `n810-root.ext4` and `n810-modules.tar.gz`: the filesystem and modules.
-- `BUILD.json`, `INSTALLATION.json`, and `BOOT.txt`: checksums and kit metadata.
+- `BUILD.json`, `FIRMWARE.json`, `INSTALLATION.json`, and `BOOT.txt`: checksums and kit metadata.
 
 Keep this directory private; the filesystem contains your account's password
 hash. Choose a new directory for subsequent builds. For a 4 GiB root partition:
@@ -126,3 +144,51 @@ ssh nokia@192.168.10.1
 
 The first boot of this generic image still needs attended tablet acceptance.
 Use the [status page](../status.md) to check the current installation coverage.
+
+## 6. Configure Wi-Fi and Bluetooth
+
+The image includes the firmware, p54 and Nokia Bluetooth modules, BlueZ, and
+Wi-Fi configuration tools. On the tablet, check the detected interfaces:
+
+```sh
+ip -br link
+bluetoothctl list
+```
+
+On your computer, create `wpa_supplicant-wlan0.conf` with your own two-letter
+country code, SSID and WPA-Personal password. For example, replace each
+placeholder in this template:
+
+```text
+country=YOUR_COUNTRY_CODE
+network={
+    ssid="YOUR_NETWORK_NAME"
+    psk="YOUR_NETWORK_PASSWORD" # Replace this example locally.
+    key_mgmt=WPA-PSK
+}
+```
+
+Keep that file private. From the computer, copy it over the verified SSH link:
+
+```sh
+scp wpa_supplicant-wlan0.conf nokia@192.168.10.1:~/
+```
+
+On the tablet, install it with owner-only permissions, remove the transfer copy,
+and start the managed service:
+
+```sh
+sudo install -d -m 700 /etc/wpa_supplicant
+sudo install -m 600 ~/wpa_supplicant-wlan0.conf /etc/wpa_supplicant/wpa_supplicant-wlan0.conf
+rm ~/wpa_supplicant-wlan0.conf
+```
+
+```sh
+sudo systemctl enable --now n810-wifi.service
+sudo systemctl status n810-wifi.service
+```
+
+Use `bluetoothctl` to power on the controller and pair your devices. If a
+controller is absent, inspect `systemctl status n810-bluetooth-address.service`
+and `journalctl -u bluetooth.service` along with the kernel log. The firmware
+reference records the startup dependencies and device-validation boundary.

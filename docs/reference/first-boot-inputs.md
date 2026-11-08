@@ -38,14 +38,14 @@ previously exported file from your own tablet, run
 
 | Component | Current input path and setup boundary |
 |---|---|
-| Wi-Fi | The maintained p54 SPI driver requests `3826.arm` firmware and reads the radio's EEPROM. Firmware acquisition and validation still need a device setup path. The Maemo WLAN CAL emulation harness is a research tool with recorded limitations. |
-| Bluetooth | The Nokia driver requests `nokia/bc4fw.bin`. The existing `n810-bluetooth-address` helper can preserve a supplied address or generate a stable locally administered address. Installing firmware and the Bluetooth service remains separate platform integration work. |
+| Wi-Fi | The builder acquires and validates `3826.arm`. The kernel supplies a compiled default EEPROM image and supports an optional override. The Maemo WLAN CAL emulation harness is a research tool with recorded limitations. |
+| Bluetooth | The Nokia driver requests `nokia/bc4fw.bin`. The existing `n810-bluetooth-address` helper can preserve a supplied address or generate a stable locally administered address. The builder installs the firmware, address helper and BlueZ ordering. |
 | Touch | The first-boot service reuses an available tslib transform after visual confirmation or collects a fresh mapping. |
 | Battery and power | CAL inspection includes the BME PMM block used during power research. Automatic import of that block into a Debian power-management service remains unimplemented. |
 | SSH and account identity | The builder installs the owner's public key. First boot generates host keys and machine identity. |
 
-The SD builder supplies a base system. Pocket supervisor installation and the
-wireless firmware steps remain work items in the [status page](../status.md).
+The [firmware reference](firmware.md) records acquisition sources and license findings.
+Pocket supervisor installation and device acceptance remain work items in the [status page](../status.md).
 
 ## Verification
 
