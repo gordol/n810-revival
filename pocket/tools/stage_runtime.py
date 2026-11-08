@@ -29,9 +29,13 @@ def stage(destination, profile='release', frontend=None):
     files.update(profile_files(graphics, profile))
     for name in ('graphics/LICENSE-MIT', 'graphics/SOURCES.json'):
         files[name] = (ROOT / name).read_bytes()
+    aliases = {}
     if frontend:
         config = json.loads(frontend.read_text())
         for key, value in list(config.items()):
+            if profile == 'release' and key == 'renderer_library':
+                del config[key]  # Used only by the isolated fixture frontend.
+                continue
             if key == 'graphics_path':
                 config[key] = 'graphics'
             elif key.endswith('_library') or key == 'font':
@@ -41,16 +45,26 @@ def stage(destination, profile='release', frontend=None):
                 files[name] = source.read_bytes()
                 if key == 'native_library' and (source.parent/'provenance.json').is_file():
                     files['build/graphics/provenance.json'] = (source.parent/'provenance.json').read_bytes()
+                if key == 'font':
+                    for suffix in ('.glyphs', '.smooth'):
+                        sidecar=source.with_suffix(suffix)
+                        if sidecar.is_file():files['build/graphics/'+sidecar.name]=sidecar.read_bytes()
                 config[key] = name
         # Pixel views load these siblings of the selected renderer.
-        for source in frontend.parent.glob('*.so'):
-            files['build/graphics/' + source.name] = source.read_bytes()
+        for leaf in ('room-pixels.so', 'libOSMesa.so.8'):
+            source=frontend.parent/leaf
+            if not source.is_file():continue
+            name='build/graphics/'+leaf
+            target='build/graphics/'+source.resolve().name
+            if source.is_symlink() and target in files:aliases[name]=Path(target).name
+            else:files[name]=source.read_bytes()
         files['build/graphics/frontend.json'] = (json.dumps(config, indent=2) + '\n').encode()
     destination.mkdir(parents=True)
     for name, raw in files.items():
         path = destination / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(raw)
+    for name, target in aliases.items():(destination/name).symlink_to(target)
     (destination / 'runtime-profile.json').write_text(json.dumps({'profile': profile, 'files': len(files)}, indent=2) + '\n')
     return files
 

@@ -47,6 +47,8 @@ class RuntimeProfileTests(unittest.TestCase):
             files=stage(target,frontend=frontend)
             self.assertNotIn('graphics/launch.py',files)
             self.assertNotIn('graphics/desktop.py',files)
+            self.assertNotIn('build/graphics/reference.so',files)
+            self.assertTrue((target/'build/graphics/room-pixels.so').is_symlink())
             help_result=subprocess.run([sys.executable,'-I',str(target/'graphics/run.py'),'--help'],capture_output=True,timeout=15,cwd=d)
             self.assertEqual(help_result.returncode,0,help_result.stderr.decode())
             self.assertNotIn(b'--report',help_result.stdout)
@@ -64,7 +66,8 @@ assert not hasattr(Platform,'record_frame')
 c=json.loads((r/'build/graphics/frontend.json').read_text());c={k:str(r/v) for k,v in c.items()}
 d=str(r.parent/'state');Path(d).mkdir()
 os.environ.update(HOME=d,XDG_STATE_HOME=d+'/state',XDG_CONFIG_HOME=d+'/config',XDG_CACHE_HOME=d+'/cache')
-p=Platform(c['font'],c['gpu_library'],None,cell_renderer='cpu',frames=1)
+mode='smooth' if Path(c['font']).with_suffix('.smooth').exists() else 'console'
+p=Platform(c['font'],c['gpu_library'],None,cell_renderer='cpu',frames=1,font_mode=mode)
 p.run(['--shell','--session',d+'/desktop.json','--app-state',d,'--station-db',d+'/directory.sqlite3','--native',c['native_library'],'--no-local-services','--no-save','--no-animation'])
 assert not any(n in sys.modules for n in ('draw_metrics','pointer_trace','flurry_trial'))
 assert not any(w.name=='Render Debug' for w in p.host.windows)
