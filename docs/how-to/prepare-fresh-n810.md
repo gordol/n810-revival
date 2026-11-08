@@ -29,8 +29,8 @@ release, combined image, root-device setting, and modules. A kernel built for
 ## Build the personalized SD image
 
 On the same Linux builder, install `mmdebstrap`, `qemu-user-static`,
-`binfmt-support`, and `e2fsprogs`. Enable the ARM userspace emulator for
-cross-architecture chroots. Make or select an SSH public key on your own
+`binfmt-support`, `arch-test`, and `e2fsprogs`. Enable the ARM userspace emulator
+for cross-architecture chroots. Make or select an SSH public key on your own
 computer; use an Ed25519 `.pub` file as the input. From the repository root:
 
 ```sh
