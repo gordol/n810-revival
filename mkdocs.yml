@@ -107,6 +107,7 @@ nav:
   - Overview and animated backgrounds: tutorials/overview-and-backgrounds.md
 - How-to guides:
   - Connect over SSH: how-to/ssh.md
+  - Prepare a fresh N810 SD card: how-to/prepare-fresh-n810.md
   - Build the native compositor: how-to/build-native.md
   - Build the N810 kernel: how-to/build-kernel.md
   - Build the HTIT firmware: how-to/build-htit.md

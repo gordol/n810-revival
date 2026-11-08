@@ -71,17 +71,18 @@ PYTHONPATH=shell python3 -m n810_bootstrap check /path/INSTALLATION.json
 PYTHONPATH=shell python3 -m n810_bootstrap prepare /path/INSTALLATION.json /path/new-kit
 ```
 
-## Remaining first-install inputs
+## Fresh SD-card input
 
-The repo has kernel build tools, target runtime scripts, Pocket app packaging and
-an installed-Nokia-to-empty-mounted-root copy tool. It does **not yet provide a
-complete redistributable first-install system kit**. That still needs:
+The [fresh N810 SD-card guide](../../docs/how-to/prepare-fresh-n810.md) builds a
+Debian Bookworm armel card image with matching kernel modules, an owner-chosen
+local password, an owner SSH public key, and fresh first-boot identity. Its
+`INSTALLATION.json` can be checked and prepared with this app as an `n810-system`
+kit. The app only copies and verifies the generated files. The guide covers
+writing the card on a Linux host and a temporary kernel boot.
 
-- A reproducible Debian armel root filesystem and its package/source manifest.
-- A reviewed firmware inclusion/distribution policy and per-tablet calibration.
-- A matching kernel/modules pair and a tested boot/recovery procedure.
-- A reviewed target storage layout and a general host/recovery installation path.
-- First-boot identity/setup and complete installation acceptance on another N810.
+The SD builder and Setup do **not yet provide a complete accepted tablet
+installation**. Device-specific firmware and calibration, a full Pocket console
+supervisor installation, and a first boot on another N810 remain to be verified.
 
 The historical partition writer is tied to one prepared image and disk layout;
 it is not invoked or presented as a general installer here. The on-device

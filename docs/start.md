@@ -6,16 +6,16 @@ The tablet runs Debian armel, the N810 kernel and modules, and the Pocket consol
 
 | Your starting point | Next step |
 | --- | --- |
-| An N810 running Maemo or another original system | First-install preparation is still in development. The required inputs are described below. |
+| An N810 running Maemo or another original system | [Prepare a fresh Debian SD card](how-to/prepare-fresh-n810.md), then test a temporary kernel boot. |
 | An N810 already running Debian and the Pocket console supervisor | Follow the [Nokia package and installation guide](pocket/nokia.md). It lists the platform archive and native library inputs required to build an update. |
 | A configured N810 that you want to use from a laptop | Follow [Use Pocket over SSH](how-to/ssh.md). |
 | A laptop where you want to explore the desktop | Follow [Your first Pocket session](tutorials/first-session.md). |
 
 ### First-install preparation
 
-A complete first installation needs a Debian armel filesystem, matching kernel and modules, firmware and calibration handling, a storage layout, and a tested boot and recovery procedure. The project is assembling these into a reproducible installation kit. The complete procedure still needs verification on another N810.
+A Linux builder can now produce a personalized Debian armel SD image with matching kernel modules. The owner chooses a local password and supplies an SSH public key. This does not flash the tablet. The temporary NOLO boot command is documented, but device-specific firmware and calibration handling and a first boot on a second N810 still need verification before this is a complete installer.
 
-The [kernel build guide](how-to/build-kernel.md) reproduces the kernel and modules from the included source inputs. The [platform reference](reference/platform-files.md) describes the runtime scripts and their role in the tablet system. These are individual parts of the installation kit.
+The [fresh SD guide](how-to/prepare-fresh-n810.md) connects the [kernel build](how-to/build-kernel.md) to a card image. The [platform reference](reference/platform-files.md) describes the runtime scripts that still need device installation.
 
 ## Explore Pocket on your laptop
 
