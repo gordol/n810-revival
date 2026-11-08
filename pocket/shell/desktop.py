@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Local synthetic operator console; no device or network access."""
+DEVELOPMENT = True  # Build-time feature; release export removes diagnostic blocks.
 import sys
 _BOOT_STARTED=__import__('time').monotonic()
 import argparse
@@ -35,12 +36,12 @@ def present_form_content(host,name,form,lines,spans,layer,metrics=None):
     if patch is not None:
         patched_layer,indices=patch
         if patched_layer is layer:
-            if metrics:metrics.model_call(name,'layer_patch',host.layer_patch,name,layer,indices)
+            if DEVELOPMENT and (metrics):metrics.model_call(name,'layer_patch',host.layer_patch,name,layer,indices)
             else:host.layer_patch(name,layer,indices)
         else:
             # A stale producer delta cannot describe the currently sampled plane.
             host.invalidate(host.window(name).rect)
-    if metrics:metrics.model_call(name,'content',host.content,name,lines,lines,spans,layer)
+    if DEVELOPMENT and (metrics):metrics.model_call(name,'content',host.content,name,lines,lines,spans,layer)
     else:host.content(name,lines,lines,spans,layer)
 
 
@@ -51,7 +52,8 @@ def drain_touch_ready(source, trace):
     started=time.monotonic()
     for _ in range(4):
         batch=source.drain()
-        trace.received(source,batch)
+        if DEVELOPMENT:
+            trace.received(source,batch)
         for event in batch:
             merged=(coalesce_motion(events[-1],event)
                     if events and events[-1][0]=='mouse' and event[0]=='mouse' else None)
@@ -94,7 +96,8 @@ def arguments(argv=None,full=False):
     parser.add_argument('--timezone',help='IANA display time zone, saved per desktop (default UTC)')
     parser.add_argument('--session', type=Path, default=default_path())
     parser.add_argument('--native-stations',action='store_true',help='open native linked Stations and Station Map')
-    parser.add_argument('--flurry-trial',type=Path,help='bounded private 80x24 Flurry comparison; requires a NEW output directory')
+    if DEVELOPMENT:
+        parser.add_argument('--flurry-trial',type=Path,help='bounded private 80x24 Flurry comparison; requires a NEW output directory')
     parser.add_argument('--flurry-library',type=Path,help='opt-in tested Flurry numeric library; unsupported settings use Python')
     parser.add_argument('--flurry-sha256',help='expected hash for the explicitly selected Flurry library')
     parser.add_argument('--native',type=Path,help='explicit native cell compositor library (default: verified host build)')
@@ -125,7 +128,8 @@ def arguments(argv=None,full=False):
     parser.add_argument('--no-animation', action='store_true')
     parser.add_argument('--static-world',action='store_true',help='freeze terrain world age for controlled UI tests; not saved as a preference')
     parser.add_argument('--minimal',action='store_true',help='plain event-driven desktop; defer showcase imports and backgrounds')
-    parser.add_argument('--metrics',type=Path,help='write aggregate draw timings on exit (no screen contents)')
+    if DEVELOPMENT:
+        parser.add_argument('--metrics',type=Path,help='write aggregate draw timings on exit (no screen contents)')
     parser.add_argument('--move', choices=['outline','live'], default=None)
     parser.add_argument('--resize', choices=['outline','live'], default=None)
     parser.add_argument('--smoke', action='store_true')
@@ -157,20 +161,23 @@ def arguments(argv=None,full=False):
     parser.add_argument('--touch-calibration',type=Path)
     parser.add_argument('--touch-display',help='physical WIDTHxHEIGHT, matching calibration')
     parser.add_argument('--touch-rotation',type=int,choices=(0,90,180,270),default=0)
-    parser.add_argument('--pointer-trace',type=Path,help='opt-in bounded pointer/camera diagnostic JSON; no effect on gesture timing')
+    if DEVELOPMENT:
+        parser.add_argument('--pointer-trace',type=Path,help='opt-in bounded pointer/camera diagnostic JSON; no effect on gesture timing')
     return parser,parser.parse_args(argv)
 
 
 def main(platform=None,argv=None):
     startup={'imports_complete_seconds':time.monotonic()-_BOOT_STARTED}
     parser,args=arguments(argv)
-    from pointer_trace import PointerTrace
-    pointer_trace=PointerTrace(args.pointer_trace)
+    if DEVELOPMENT:
+        from pointer_trace import PointerTrace
+    pointer_trace=None
+    if DEVELOPMENT:pointer_trace=PointerTrace(args.pointer_trace)
     if args.keyboard_fd is not None and not 3<=args.keyboard_fd<=65535:parser.error('keyboard descriptor must be in 3..65535')
     if args.navigation_trial:
         from native_navigation import native_key,native_presentation,native_pointer,navigation
     trial=None
-    if args.flurry_trial:
+    if DEVELOPMENT and (args.flurry_trial):
         from flurry_trial import Trial
         trial=Trial(args.flurry_trial);trial.configure(args)
     if bool(args.receive_feed)!=bool(args.receive_snapshot):parser.error('receive feed and snapshot sockets must be provided together')
@@ -188,7 +195,7 @@ def main(platform=None,argv=None):
     if args.terminal_opacity is not None and not 0<=args.terminal_opacity<=1:parser.error('--terminal-opacity must be between 0 and 1')
     if args.flurry_sha256 and not args.flurry_library:parser.error('--flurry-sha256 requires --flurry-library')
     metrics=None
-    if args.metrics:
+    if DEVELOPMENT and (args.metrics):
         from draw_metrics import Metrics
         metrics=Metrics()
     import compute_runtime
@@ -226,7 +233,7 @@ def main(platform=None,argv=None):
     geometry = platform.geometry() if platform else measure(sys.stdout.fileno())
     panel=Panels(args.panel or 'top',mode=args.panel_mode or ('auto' if workspace else 'bar'))
     panel.launcher_count=2+len(workspace)
-    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if trial else (geometry.columns,geometry.rows)))
+    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)))
     if width < 40 or height < 12:
         raise SystemExit('Use a terminal at least 40 columns by 14 rows.')
     windows = (app_gallery.windows(width,height) if app_gallery is not None else [])+[
@@ -242,7 +249,8 @@ def main(platform=None,argv=None):
         windows.append(Window('System',max(0,(width-78)//2),2,min(78,width),min(27,height-2),visible=False,opened=False))
     if native_defaults or args.audio_socket or args.audio_provider:
         windows.append(Window('Audio Monitor',1,1,min(86,width),min(30,height),visible=False,opened=False))
-    windows.append(Window('Render Debug',1,1,min(76,width),min(18,height),visible=False,opened=False))
+    if DEVELOPMENT:
+        windows.append(Window('Render Debug',1,1,min(76,width),min(18,height),visible=False,opened=False))
     tw,th=min(82,width),min(26,height)
     windows.append(Window('Terminal',max(0,(width-tw)//2),max(0,(height-th)//2),tw,th,visible=False,opened=False))
     if demo_apps is not None:windows.extend(demo_apps.windows(width,height))
@@ -449,7 +457,7 @@ def main(platform=None,argv=None):
     if args.minimal:
         host.background_enabled=False;host.shadow_enabled=False;host.window_opacity=1
         host.animate=False;host.move_mode=host.resize_mode='live';host.show_connectivity=bool(args.device_radio or args.radio_state or args.receive_feed)
-    if trial:trial.apply(host)
+    if DEVELOPMENT and (trial):trial.apply(host)
     if args.flurry_library:
         from flurry_compute import Provider
         host.flurry_provider=Provider(args.flurry_library,args.flurry_sha256)
@@ -469,7 +477,7 @@ def main(platform=None,argv=None):
         other=next((p for p in panel.panels if p is not first and p.dock==args.panel),None)
         if other:other.dock=first.dock
         first.dock=args.panel
-    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if trial else (geometry.columns,geometry.rows)))
+    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)))
     host.reserved_bottom=panel.overlay_bottom;host.resize(width,height+panel.overlay_bottom);host.origin=(ox,oy)
     if args.native_stations and not station_enabled:parser.error('--native-stations requires --station-db or a workspace containing Directory')
     if native_defaults and workspace and not store.loaded:
@@ -534,13 +542,14 @@ def main(platform=None,argv=None):
         hardware=lambda:((radio.payload.get('live') or {}).get('data') or {}).get('bluetooth_controller') if radio else None)
     bluetooth_control=None if connections is not None else getattr(feed_source,'control',None)
     host.app_forms['Bluetooth']=Bluetooth(bluetooth_state)
-    def create_render_debug(host):
-        from draw_metrics import RenderDebug
-        return RenderDebug(lambda:metrics.render if metrics else None,
-            lambda:host.shown(host.window('Render Debug')) and not host.window('Render Debug').rolled,
-            lambda:(host.width,host.height,'6 Hz target' if host.background_enabled and host.effect in ('flurry','flux','terrain') else 'event driven',host._native is not None,host.native_error,
-                    host.flurry_provider.status() if host.flurry_provider else {'backend':'python','reason':'not requested'}),host=host)
-    if host.window('Render Debug').opened:
+    if DEVELOPMENT:
+        def create_render_debug(host):
+            from draw_metrics import RenderDebug
+            return RenderDebug(lambda:metrics.render if metrics else None,
+                lambda:host.shown(host.window('Render Debug')) and not host.window('Render Debug').rolled,
+                lambda:(host.width,host.height,'6 Hz target' if host.background_enabled and host.effect in ('flurry','flux','terrain') else 'event driven',host._native is not None,host.native_error,
+                        host.flurry_provider.status() if host.flurry_provider else {'backend':'python','reason':'not requested'}),host=host)
+    if DEVELOPMENT and host.window('Render Debug').opened:
         host.app_forms['Render Debug']=create_render_debug(host)
     applications=[]
     for name,requested in (('Workbench',args.workbench),('Reader',args.reader),
@@ -697,11 +706,13 @@ def main(platform=None,argv=None):
     terminal_keys=TerminalKeys(time.monotonic,enabled=os.environ.get("TERM")!="linux" and args.keyboard_device is None and args.keyboard_fd is None)
     if platform:terminal_keys.confirmed=True
     def app_pointer(form,event,column,row,width,route):
-        before=pointer_trace.state(form) if pointer_trace.path else None
+        before=pointer_trace.state(form) if DEVELOPMENT and (pointer_trace.path) else None
         handled=native_pointer(form,column,row,width,event[1],event[4],event=event) if args.navigation_trial else deliver_pointer(form,event,column,row,width)
-        pointer_trace.record(host,form,event,column,row,width,route,before,handled)
+        if DEVELOPMENT:
+            pointer_trace.record(host,form,event,column,row,width,route,before,handled)
         return handled
-    pointer_trace.input_source=lambda:touch.diagnostics() if touch is not None else None
+    if DEVELOPMENT:
+        pointer_trace.input_source=lambda:touch.diagnostics() if touch is not None else None
     def cancel_touch():
         nonlocal terminal_pointer
         if terminal_pointer is not None:terminal_pointer.pointer(0,0,0,True);terminal_pointer=None
@@ -1028,9 +1039,9 @@ def main(platform=None,argv=None):
             if name in registered_apps.by_title:
                 registered_apps.open(registered_apps.by_title[name]);manager_mode=False;return
             if name=='Help':show_help();return
-            if name=='Render Debug':
+            if DEVELOPMENT and (name=='Render Debug'):
                 if name not in host.app_forms:host.app_forms[name]=create_render_debug(host)
-                if metrics is None:
+                if DEVELOPMENT and (metrics is None):
                     from draw_metrics import Metrics
                     metrics=Metrics()
             if name=='APRS Walk Logs' and radio and radio.source and hasattr(radio.source,'request_walks'):radio.source.request_walks(time.time())
@@ -1176,7 +1187,7 @@ def main(platform=None,argv=None):
         while True:
             if stopping:break
             flux_cpu_start=time.thread_time() if host.background_enabled and host.effect=='flux' else None
-            iteration_start=metrics.begin() if metrics else None
+            iteration_start=metrics.begin() if DEVELOPMENT and (metrics) else None
             input_events = platform.events() if platform else decoder.feed(b'', expire=not events)
             quit_now = False
             if platform and platform.closed:break
@@ -1233,7 +1244,7 @@ def main(platform=None,argv=None):
             # Debug can enable metrics during dispatch. Finish only the sample
             # started here, on the same metrics owner, even if it changes later.
             input_timing=None
-            if metrics and input_events:
+            if DEVELOPMENT and (metrics and input_events):
                 metrics.input(terrain_pending=bool(host.terrain_renderer and host.terrain_renderer.pending and not host.terrain_renderer.pending.done()))
                 input_timing=(metrics,metrics.begin())
             for event in input_events:
@@ -1487,7 +1498,7 @@ def main(platform=None,argv=None):
                     counter += 1
                     n = counter
                     inbox.submit(lambda n=n: [Record(1,'N0CALL','APRS observed',f'Synthetic observation {n}')])
-            if input_timing is not None:input_timing[0].end('input_handlers',input_timing[1])
+            if DEVELOPMENT and (input_timing is not None):input_timing[0].end('input_handlers',input_timing[1])
             # Control socket accept/read/write and status are observations.
             # Mutating control callbacks mark the model explicitly; real input,
             # provider/worker wakeups and existing deadlines retain their paths.
@@ -1535,7 +1546,7 @@ def main(platform=None,argv=None):
             lifecycle_refresh=first_frame or refresh_models or model_inputs or resized or view!=model_view
             if lifecycle_refresh or host.animations or host.drag or host.camera_motion or (keyboard_router is not None and keyboard_router.safety_interval() is not None):
                 sync_keyboard()
-            model_start=metrics.begin() if metrics and refresh_models else None
+            model_start=metrics.begin() if DEVELOPMENT and (metrics and refresh_models) else None
             if mirror_due is not None and time.monotonic()>=mirror_due:
                 if first_frame or host.terrain_loading or host.terrain_arrival is not None:
                     mirror_due=time.monotonic()+.05
@@ -1568,14 +1579,14 @@ def main(platform=None,argv=None):
             if resized:
                 resized = False
                 geometry = platform.geometry() if platform else measure(sys.stdout.fileno())
-                if trial:trial.viewport(geometry.columns,geometry.rows)
+                if DEVELOPMENT and (trial):trial.viewport(geometry.columns,geometry.rows)
                 if touch is not None:
                     cancel_touch()
                     if geometry.columns>=24 and geometry.rows>=6:touch.resize(geometry.columns,geometry.rows)
                     else:
                         selector.unregister(touch);touch.close();touch=None;touch_error='viewport too small'
                 if geometry.columns >= 24 and geometry.rows >= 6:
-                    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if trial else (geometry.columns,geometry.rows)))
+                    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)))
                     host.reserved_bottom=panel.overlay_bottom;host.resize(width,height+panel.overlay_bottom)
                     host.origin=(ox,oy)
                     for p in panel.panels:p.cache=None
@@ -1583,10 +1594,10 @@ def main(platform=None,argv=None):
                     # any synchronized output before clearing the new viewport.
                     if platform is None:sys.stdout.write(presentation.close()+'\x1b[2J')
             if refresh_models:
-                if metrics:
+                if DEVELOPMENT and (metrics):
                     from draw_metrics import enable_renderer_timing
                     enable_renderer_timing(host)
-                section_start=metrics.begin() if metrics else None
+                section_start=metrics.begin() if DEVELOPMENT and (metrics) else None
                 if panel_models:
                     tabs = [(f'@{i}', f'{i+1}{"*" if i == host.desktop else ""} ') for i in range(3)] + [(w.name,host.window_label(w)) for w in host.task_windows()]
                     next_menu=launcher.lines(host.height)
@@ -1594,73 +1605,73 @@ def main(platform=None,argv=None):
                 sw=host.window('Settings')
                 if (full_models or 'form:Settings' in due_owners) and host.shown(sw) and not sw.rolled:
                     settings.width=max(8,sw.w-2);settings.height=max(4,sw.h-2)
-                    lines=metrics.model_call('Settings','lines',settings.lines) if metrics else settings.lines()
-                    spans=metrics.model_call('Settings','spans',settings.spans) if metrics else settings.spans()
+                    lines=metrics.model_call('Settings','lines',settings.lines) if DEVELOPMENT and (metrics) else settings.lines()
+                    spans=metrics.model_call('Settings','spans',settings.spans) if DEVELOPMENT and (metrics) else settings.spans()
                     if args.navigation_trial:lines,spans=native_presentation(settings,lines,spans,sw.w-2,sw.h-2)
                     host.content('Settings',lines,lines,spans)
                 cw=host.window('Calendar')
                 if (full_models or 'form:Calendar' in due_owners) and host.shown(cw) and not cw.rolled:
-                    lines=metrics.model_call('Calendar','lines',calendar_view.lines,time.time()) if metrics else calendar_view.lines(time.time())
+                    lines=metrics.model_call('Calendar','lines',calendar_view.lines,time.time()) if DEVELOPMENT and (metrics) else calendar_view.lines(time.time())
                     spans=()
                     if args.navigation_trial:lines,spans=native_presentation(calendar_view,lines,spans,cw.w-2,cw.h-2)
                     host.content('Calendar',lines,lines,spans)
-                if metrics:metrics.end('model_header',section_start);section_start=metrics.begin()
+                if DEVELOPMENT and (metrics):metrics.end('model_header',section_start);section_start=metrics.begin()
                 if source_models:
-                    if radio:metrics.model_call('radio','update',radio.update) if metrics else radio.update()
+                    if radio:metrics.model_call('radio','update',radio.update) if DEVELOPMENT and (metrics) else radio.update()
                     # A publication racing the scheduling decision must still reach every app.
                     if radio and radio.publication_read and not host.drag:full_models=True
-                    if native_catalog and (metrics.model_call('catalog','update',native_catalog.update) if metrics else native_catalog.update()):
+                    if DEVELOPMENT and (native_catalog and (metrics.model_call('catalog','update',native_catalog.update) if metrics else native_catalog.update())):
                         from native_catalog import reconcile_views
                         reconcile_views(host)
                         if map_form is not None:map_form.update_tracks(native_catalog.evidence)
                         update_messages()
-                    if system_state:metrics.model_call('system','update',system_state.update) if metrics else system_state.update()
-                    metrics.model_call('world','bind',bind) if metrics else bind()
+                    if system_state:metrics.model_call('system','update',system_state.update) if DEVELOPMENT and (metrics) else system_state.update()
+                    metrics.model_call('world','bind',bind) if DEVELOPMENT and (metrics) else bind()
                 if full_models:
                     for name,terminal in terminals.items():
                         if not host.window(name).opened:terminal.close()
                         elif not terminal.closed:
                             terminal.child.poll();terminal.resize()
-                            metrics.model_call(name,'present',terminal.present) if metrics else terminal.present()
+                            metrics.model_call(name,'present',terminal.present) if DEVELOPMENT and (metrics) else terminal.present()
                     if int(time.monotonic())!=demo_tick:
                         demo_tick=int(time.monotonic())
                         if demo_apps is not None:demo_apps.update(host,demo_tick)
                 from app_widgets import configure_views
                 time_display.configure(host.timezone_name)
                 configure_views(host.list_scrollbars,host.list_counts,host.status_verbosity)
-                if metrics:metrics.end('model_sources',section_start);section_start=metrics.begin()
+                if DEVELOPMENT and (metrics):metrics.end('model_sources',section_start);section_start=metrics.begin()
                 for index,application in enumerate(applications):
                     owner='application:'+str(index)
                     if full_models or owner in due_owners:
-                        metrics.model_call('application-'+str(index),'poll',application.poll) if metrics else application.poll()
+                        metrics.model_call('application-'+str(index),'poll',application.poll) if DEVELOPMENT and (metrics) else application.poll()
                         serviced_owners.add(owner)
                         # Application-owned forms share the application's view.
                         for name,form in host.app_forms.items():
                             if form is getattr(application,'view',None):due_owners.add('form:'+name)
-                if metrics:metrics.end('model_applications',section_start);section_start=metrics.begin()
+                if DEVELOPMENT and (metrics):metrics.end('model_applications',section_start);section_start=metrics.begin()
                 for name in host.app_forms:
                     if not (full_models or 'form:'+name in due_owners):continue
                     serviced_owners.add('form:'+name)
                     w=host.window(name)
                     if hasattr(host.app_forms[name],'set_active'):
-                        metrics.model_call(name,'set_active',host.app_forms[name].set_active,w.opened) if metrics else host.app_forms[name].set_active(w.opened)
+                        metrics.model_call(name,'set_active',host.app_forms[name].set_active,w.opened) if DEVELOPMENT and (metrics) else host.app_forms[name].set_active(w.opened)
                     if hasattr(host.app_forms[name],'poll'):
-                        metrics.model_call(name,'poll',host.app_forms[name].poll) if metrics else host.app_forms[name].poll()
+                        metrics.model_call(name,'poll',host.app_forms[name].poll) if DEVELOPMENT and (metrics) else host.app_forms[name].poll()
                     if not host.shown(w) and getattr(host.app_forms[name],'pointer_captured',False) and hasattr(host.app_forms[name],'cancel_pointer'):
                         host.app_forms[name].cancel_pointer()
                     if host.shown(w) and not w.rolled:
-                        if name=='Render Debug' and metrics is None:
+                        if DEVELOPMENT and (name=='Render Debug' and metrics is None):
                             from draw_metrics import Metrics
                             metrics=Metrics()
                         form=host.app_forms[name]
                         if hasattr(form,'width'):form.width=max(8,w.w-2)
                         if hasattr(form,'height'):form.height=max(3,w.h-2)
-                        lines=metrics.model_call(name,'lines',form.lines) if metrics else form.lines()
-                        spans=(metrics.model_call(name,'spans',form.spans) if metrics else form.spans()) if hasattr(form,'spans') else ()
+                        lines=metrics.model_call(name,'lines',form.lines) if DEVELOPMENT and (metrics) else form.lines()
+                        spans=(metrics.model_call(name,'spans',form.spans) if DEVELOPMENT and (metrics) else form.spans()) if hasattr(form,'spans') else ()
                         if args.navigation_trial:lines,spans=native_presentation(form,lines,spans,w.w-2,w.h-2)
-                        layer=(metrics.model_call(name,'layer',form.layer) if metrics else form.layer()) if hasattr(form,'layer') else None
+                        layer=(metrics.model_call(name,'layer',form.layer) if DEVELOPMENT and (metrics) else form.layer()) if hasattr(form,'layer') else None
                         present_form_content(host,name,form,lines,spans,layer,metrics)
-                if metrics:metrics.end('model_apps',section_start);section_start=metrics.begin()
+                if DEVELOPMENT and (metrics):metrics.end('model_apps',section_start);section_start=metrics.begin()
                 if panel_models:
                     settings.width=max(8,sw.w-2)
                     time_display.configure(host.timezone_name)
@@ -1704,8 +1715,8 @@ def main(platform=None,argv=None):
                 notified_owners.difference_update(serviced_owners)
                 if not host.drag or full_models:
                     model_inputs=False;model_view=view;model_deferred=False;model_full_deferred=False
-                if metrics:metrics.end('model_panel',section_start)
-            if metrics:
+                if DEVELOPMENT and (metrics):metrics.end('model_panel',section_start)
+            if DEVELOPMENT and (metrics):
                 if model_start is not None:metrics.end('model_layout',model_start)
                 elif not refresh_models:metrics.add('model_layout_reused_chunks')
                 metrics.add('flush_calls');metrics.add('damage_cells_before_flush',len(host.damage))
@@ -1715,14 +1726,15 @@ def main(platform=None,argv=None):
                 presented_forms=tuple(form for form in host.app_forms.values()
                     if hasattr(form,'presented') and (type(form) is not LazyApplication
                         or form.owner is not None and hasattr(form.owner,'presented')))
-            pointer_trace.sample(host)
+            if DEVELOPMENT:
+                pointer_trace.sample(host)
             host.observe_composition=platform is not None or metrics is not None
-            if metrics and args.metrics and not first_frame:
+            if DEVELOPMENT and (metrics and args.metrics and not first_frame):
                 try:metrics.save_live(args.metrics.with_suffix('.live.msgpack'),host,dict(build_identity.IDENTITY),presentation=presentation)
                 except (OSError,ValueError,TypeError) as error:metrics.metadata['live_report_error']=str(error)
             # Keep optional metrics serialization/I/O outside draw timing.
-            if metrics:phase_start=metrics.begin()
-            trace_start=(time.monotonic_ns(),time.thread_time_ns()) if pointer_trace.path is not None else None
+            if DEVELOPMENT and (metrics):phase_start=metrics.begin()
+            trace_start=(time.monotonic_ns(),time.thread_time_ns()) if DEVELOPMENT and (pointer_trace.path is not None) else None
             camera_frame=host.camera_motion is not None
             # Buffer large map replacements across composition batches. Small
             # controls/menu changes retain the ordinary urgent presentation.
@@ -1730,12 +1742,12 @@ def main(platform=None,argv=None):
             static_ui=not host.background_enabled and not (host.drag or host.animations or host.slide or host.camera_motion or host.terrain_loading or host.terrain_arrival is not None)
             output,changed,computed=host.flush(width*height if host._native is not None or static_ui or first_frame and args.minimal or host.terrain_loading or host.terrain_arrival is not None else 2048,max_seconds=None if static_ui or first_frame and args.minimal else .012,serialize=platform is None)
             if platform:platform.consume(changed,computed)
-            trace_composed=(time.monotonic_ns(),time.thread_time_ns()) if trace_start is not None else None
-            if metrics and host.terrain_renderer and host.terrain_renderer.completed and 'terrain_ready_seconds' not in startup:
+            trace_composed=(time.monotonic_ns(),time.thread_time_ns()) if DEVELOPMENT and (trace_start is not None) else None
+            if DEVELOPMENT and (metrics and host.terrain_renderer and host.terrain_renderer.completed and 'terrain_ready_seconds' not in startup):
                 startup['terrain_ready_seconds']=time.monotonic()-_BOOT_STARTED
                 events=host.terrain_renderer.trace.snapshot()
                 startup['terrain_build_events']=[{'kind':e.kind,'count':e.count,'seconds':e.when-_BOOT_STARTED} for e in events]
-            if metrics:
+            if DEVELOPMENT and (metrics):
                 compose_seconds=time.monotonic()-phase_start[0]
                 metrics.end('host_compose',phase_start)
                 metrics.add('composed_cells',computed);metrics.add('changed_cells',changed)
@@ -1757,7 +1769,7 @@ def main(platform=None,argv=None):
                 host.minimize_targets=panel.minimize_targets((w.name for w in windows),host.origin)
                 panel_view=current_panel_view
             if platform is None:output+=f'\x1b[{geometry.rows};1H\x1b[2K' if host.screensaver else panel_output
-            if metrics:phase_start=metrics.begin()
+            if DEVELOPMENT and (metrics):phase_start=metrics.begin()
             platform_presented=platform.present(not host.damage) if platform else False
             output='' if platform else presentation.write(output,not host.damage,time.monotonic(),max_hold=.35 if map_frame else .08,atomic=map_frame or os.environ.get('TERM')=='linux' or camera_frame or host.effect=='terrain' and host.background_enabled,urgent=host.ui_painted and not map_frame)
             if output or platform_presented:
@@ -1771,20 +1783,21 @@ def main(platform=None,argv=None):
                 if not host.damage:
                     for form in presented_forms:form.presented(time.monotonic())
                     if presented_forms:lifecycle_refresh=True
-                if metrics and not host.damage:
+                if DEVELOPMENT and (metrics and not host.damage):
                     startup.setdefault('first_coherent_output_seconds',time.monotonic()-_BOOT_STARTED)
                     if not host.terrain_loading and host.terrain_arrival is None and host.terrain_renderer and host.terrain_renderer.completed:
                         if 'first_final_terrain_output_seconds' not in startup:
                             startup['first_final_terrain_output_seconds']=time.monotonic()-_BOOT_STARTED
-                            if args.metrics:
+                            if DEVELOPMENT and (args.metrics):
                                 try:args.metrics.with_suffix('.startup.msgpack').write_bytes(pack(startup))
                                 except OSError:pass
                 if not host.damage and host.terrain_arrival is not None and host.arrival_progress==0 and not host.arrival_presented:
                     # Time the reveal from its first completed presentation.
                     host.terrain_arrival=host.clock();host.arrival_presented=True
-            if trace_start is not None:
-                pointer_trace.frame(host,trace_start,trace_composed,(time.monotonic_ns(),time.thread_time_ns()),changed,computed,len(output.encode('utf-8')))
-            if metrics:
+            if DEVELOPMENT and (trace_start is not None):
+                if DEVELOPMENT:
+                    pointer_trace.frame(host,trace_start,trace_composed,(time.monotonic_ns(),time.thread_time_ns()),changed,computed,len(output.encode('utf-8')))
+            if DEVELOPMENT and (metrics):
                 write_seconds=time.monotonic()-phase_start[0]
                 debug_window=host.window('Render Debug')
                 ignore=host.bounds(debug_window) if host.shown(debug_window) else None
@@ -1800,28 +1813,28 @@ def main(platform=None,argv=None):
                 if output:metrics.add('terminal_write_calls')
                 if output:metrics.add('output_frames');metrics.wrote()
             now=time.monotonic()
-            if trial and trial.update(metrics.render,host,radio.source if radio else None):break
-            metrics.model_call('session','save',store.save,now) if metrics else store.save(now)
+            if DEVELOPMENT and (trial and trial.update(metrics.render,host,radio.source if radio else None)):break
+            metrics.model_call('session','save',store.save,now) if DEVELOPMENT and (metrics) else store.save(now)
             if receive_status:receive_status.update(now)
             owner_delays={}
             def owner_delay(owner,delay):
                 if delay is not None:owner_delays[owner]=min(owner_delays.get(owner,delay),delay)
             timeout=0 if host.damage else .016 if host.animations or host.slide or host.camera_motion or host.edge or host.terrain_loading or host.terrain_arrival is not None else .04 if decoder.pending else .1 if host.background_enabled and host.effect!='flux' else None
-            model_intervals=[] if metrics else None
+            model_intervals=[] if DEVELOPMENT and (metrics) else None
             if lifecycle_refresh:
                 for index,application in enumerate(applications):
-                    interval=metrics.model_call('application-'+str(index),'interval',application.poll_interval) if metrics else application.poll_interval()
-                    if metrics and interval is not None and len(model_intervals)<64:model_intervals.append(dict(owner='application-'+str(index),seconds=interval))
+                    interval=metrics.model_call('application-'+str(index),'interval',application.poll_interval) if DEVELOPMENT and (metrics) else application.poll_interval()
+                    if DEVELOPMENT and (metrics and interval is not None and len(model_intervals)<64):model_intervals.append(dict(owner='application-'+str(index),seconds=interval))
                     if interval is not None:
                         timeout=interval if timeout is None else min(timeout,interval)
                         owner_delay('application:'+str(index),interval)
                 for name,form in host.app_forms.items():
-                    interval=(metrics.model_call(name,'interval',form.poll_interval) if metrics else form.poll_interval()) if hasattr(form,'poll_interval') else None
+                    interval=(metrics.model_call(name,'interval',form.poll_interval) if DEVELOPMENT and (metrics) else form.poll_interval()) if hasattr(form,'poll_interval') else None
                     window=host.window(name)
                     if host.shown(window) and not window.rolled and hasattr(form,'presentation_interval'):
                         presentation_delay=form.presentation_interval()
                         if presentation_delay is not None:interval=presentation_delay if interval is None else min(interval,presentation_delay)
-                    if metrics and interval is not None and len(model_intervals)<64:model_intervals.append(dict(owner=name,seconds=interval,visible=host.shown(host.window(name))))
+                    if DEVELOPMENT and (metrics and interval is not None and len(model_intervals)<64):model_intervals.append(dict(owner=name,seconds=interval,visible=host.shown(host.window(name))))
                     if interval is not None:
                         timeout=interval if timeout is None else min(timeout,interval)
                         owner_delay('form:'+name,interval)
@@ -1853,7 +1866,7 @@ def main(platform=None,argv=None):
             if delay is not None:timeout=delay if timeout is None else min(timeout,delay)
             if lifecycle_refresh:model_schedule.arm(owner_delays,now,serviced_owners)
             model_delay=model_schedule.delay(time.monotonic())
-            if metrics:
+            if DEVELOPMENT and (metrics):
                 from draw_metrics import pending_model_renderers
                 metrics.model_schedule=dict(model_delay=model_delay,selector_timeout=timeout,form_intervals=model_intervals,
                     pending_renderers=pending_model_renderers(host),renderer_count=len(getattr(host,'app_renderers',())),
@@ -1865,11 +1878,12 @@ def main(platform=None,argv=None):
                 # Chrome has drained; run the deferred form update before the
                 # event loop can sleep waiting for another unrelated input.
                 timeout=0
-            if metrics and iteration_start is not None:metrics.end('main_phase',iteration_start)
+            if DEVELOPMENT and (metrics and iteration_start is not None):metrics.end('main_phase',iteration_start)
             # A narrow ownership safety deadline exists only during held motion.
             keyboard_delay=keyboard_router.safety_interval() if keyboard_router is not None else None
             if keyboard_delay is not None:timeout=keyboard_delay if timeout is None else min(timeout,keyboard_delay)
-            pointer_trace.sample(host)
+            if DEVELOPMENT:
+                pointer_trace.sample(host)
             if lifecycle_refresh:app_readiness.sync((*host.app_forms.values(),*applications))
             else:app_readiness.rearm_integers()
             if host.drag and due_owners and not refresh_models and not launcher.active:
@@ -1892,14 +1906,15 @@ def main(platform=None,argv=None):
                 else:form.restore_pending=False
     finally:
         try:
-            pointer_trace.sample(host);pointer_trace.close()
+            if DEVELOPMENT:
+                pointer_trace.sample(host);pointer_trace.close()
             if keyboard_router is not None:keyboard_router.close()
-            if trial:
-                try:trial.finish(sys.exc_info()[1],metrics.render if metrics else None)
+            if DEVELOPMENT and (trial):
+                try:trial.finish(sys.exc_info()[1],metrics.render if DEVELOPMENT and (metrics) else None)
                 except OSError as error:print('Could not save trial receipt: '+str(error),file=sys.stderr)
             if touch is not None:
                 cancel_touch();touch.close()
-            if metrics:
+            if DEVELOPMENT and (metrics):
                 for t in terminals.values():t.exit_status=t.child.poll()
                 metrics.add('apps_exited_before_desktop',sum(t.eof or t.exit_status is not None for t in terminals.values()))
             for terminal in terminals.values():terminal.close()
@@ -1941,7 +1956,7 @@ def main(platform=None,argv=None):
         if args.scene_report:
             try:args.scene_report.write_bytes(pack(scene_status))
             except OSError as error:print('Could not save scene report: '+str(error),file=sys.stderr)
-        if metrics:
+        if DEVELOPMENT and (metrics):
             from draw_metrics import renderer_timings
             metrics.metadata={'renderer_timings':renderer_timings(host),'startup':startup,'effective_scene':__import__('draw_metrics').scene_state(host),'engine_identity':dict(build_identity.IDENTITY),'engine_root':str(Path(__file__).resolve().parent),'domain_root':str(Path(station_app.argv[1]).parent) if station_app else None,'scene_acceleration':scene_status,'session_loaded':store.loaded,'session_error':store.error,'session_audit_ok':session_audit_ok,'session_audit_missed':list(store.missed_notifications),'session_work':dict(store.stats),'scenery':host.scenery,'native_selection':native_selection,'native_requested':str(args.native) if args.native else None,'native_loaded':host._native is not None,'native_error':host.native_error,'last_backend':host.render_backend,'last_fallback_reason':host.render_reason,'native_buffer_bytes':host._native.bytes if host._native else 0,'mixed_python_cells':host._native.mixed_python_cells if host._native else 0,
                               'logical_geometry':[host.width,host.height],'terminal_geometry':[geometry.columns,geometry.rows],
@@ -1950,7 +1965,7 @@ def main(platform=None,argv=None):
                               'flurry_sway':host.flurry_sway,'flurry_speed':host.flurry_speed,
                               'flurry_compute':host.flurry_provider.status() if host.flurry_provider else {'backend':'python','reason':'not requested'}}
             try:
-                if args.metrics:metrics.save(args.metrics,terminals.values())
+                if DEVELOPMENT and (args.metrics):metrics.save(args.metrics,terminals.values())
             except OSError as error:print('Could not save draw metrics: '+str(error),file=sys.stderr)
 
 if __name__ == '__main__': main()

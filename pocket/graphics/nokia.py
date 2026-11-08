@@ -8,6 +8,7 @@ loads a driver, changes display mode, or opens a framebuffer by pathname.
 """
 from pathlib import Path
 import argparse,json,os,signal,sys,termios,time,tty
+DEVELOPMENT = True  # Removed by the release exporter.
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE));sys.path.insert(0,str(HERE.parent/'shell'))
 from full import Platform
@@ -43,9 +44,13 @@ def main():
     p.add_argument('--allow-software',action='store_true',help='admit software GL for input/display diagnostics; does not enable or load a GPU service')
     p.add_argument('--cell-renderer',choices=('cpu','gpu'),default='cpu',help='desktop text rasterizer; direct pixel apps are unchanged')
     p.add_argument('--seconds',type=float)
-    p.add_argument('--actions',type=Path)
-    p.add_argument('--output',type=Path)
-    p.add_argument('--report',type=Path)
+    if DEVELOPMENT:
+        p.add_argument('--actions',type=Path)
+    if DEVELOPMENT:
+        p.add_argument('--output',type=Path)
+    if DEVELOPMENT:
+        p.add_argument('--report',type=Path)
+    p.set_defaults(actions=None,output=None,report=None)
     a,rest=p.parse_known_args()
     if not 3<=a.framebuffer_fd<=65535:p.error('framebuffer descriptor must be inherited in 3..65535')
     if a.seconds is not None and not 0<a.seconds<=86400:p.error('seconds must be in (0,86400]')
@@ -76,5 +81,5 @@ def main():
             for sig,handler in previous.items():signal.signal(sig,handler)
             platform.report.update(platform='nokia-framebuffer',desktop_ansi=False,
                 desktop_pty=False,desktop_cells=platform.size)
-            if a.report:a.report.write_text(json.dumps(platform.report,indent=2)+'\n')
+            if DEVELOPMENT and (a.report):a.report.write_text(json.dumps(platform.report,indent=2)+'\n')
 if __name__=='__main__':main()

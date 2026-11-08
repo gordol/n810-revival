@@ -199,3 +199,31 @@ diagnostic runs keep the most recent 128 frame records. `history_dropped`
 counts older records; `activity`, `menu_opened` and accumulated `errors` retain
 the walkthrough results after those frames leave the history. Diagnostics stay
 bounded during long animated sessions instead of retaining every frame in RAM.
+
+## Release and development runtimes
+
+A source checkout is a development environment. For a clean runtime, build the
+native frontend for the target, then stage a separate artifact from `pocket/`:
+
+```sh
+python3 tools/stage_runtime.py --profile release --output /tmp/pocket-release --frontend build/graphics/frontend.json
+python3 /tmp/pocket-release/graphics/run.py
+```
+
+The output directory must not already exist. The generated tree includes the
+built target libraries and font with relocatable paths; it does not contain the
+compiler, build recipes or tests. It does not download maps, FCC data or external
+Python dependencies. Those remain explicit installation inputs. A host build
+cannot supply Nokia ARM libraries.
+
+The release exporter removes code behind the explicit `DEVELOPMENT` feature,
+including frame history, scripted GUI actions, Render Debug, draw timing and
+pointer recording. Their implementation modules and diagnostic command-line
+switches are absent. Required input validation and normal error reporting remain.
+`--profile dev` retains development features in a separate artifact. Neither
+profile copies the test suite. Native binaries retain their existing build and
+verification policy; this Python export does not strip ELF symbols.
+
+Use the same explicit release/dev profile with `tools/package_nokia.py` for the
+Nokia supervisor payload. No Python optimization flag is required. `-O`/`-OO`
+are not dead-code elimination and are not used as the release boundary.

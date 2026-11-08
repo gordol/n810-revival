@@ -123,3 +123,11 @@ license declarations, and media-review manifests as carefully as runtime code.
 The local checks and policy files are preparation. Live enforcement requires
 GitHub rulesets to be enabled and verified. The repository settings
 records that activation procedure and the proposed protection for `main`.
+
+## Runtime artifacts
+
+Keep tests and engineering diagnostics in the development source. Guard optional
+diagnostic implementation with the explicit `DEVELOPMENT` build feature and
+verify the exported release with the implementation modules absent. Default-off
+collection alone is not a release boundary. Do not use Python `-O` to remove
+required validation, or copy a full checkout to a production runtime.

@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 import subprocess
 import tarfile
+from runtime_profile import profile_files
 from nokia_release_verify import verify, PLATFORM_FILES, HOST_GEOMETRY
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -43,7 +44,7 @@ def require_native_reticulum(files):
         raise ValueError('Nokia releases require microReticulum; supply --native-reticulum with a tested ARM build') from error
     if record.get('abi')!=2 or record.get('platform')!='Linux-armv6l' or record.get('library_sha256')!=sha(library):
         raise ValueError('Native Reticulum build identity mismatch')
-def runtime_files(files):
+def runtime_files(files, profile='release'):
     """Repository tests stay in Git; they are not installed application code."""
     map_root='vendor/map-library-resources/explorations/current-world/'
     map_worker={'paint.py','offline_map.py','map_tiles.py','map_palette.py',
@@ -78,7 +79,7 @@ def runtime_files(files):
                 raise ValueError('Pinned map input missing from source: '+row['path'])
         inventory['files']=[row for row in inventory['files'] if 'vendor/map-library-resources/'+row['path'] in result]
         result[recipe]=encoded(inventory)
-    return result
+    return profile_files(result, profile)
 def archive(files):
     output=io.BytesIO()
     with gzip.GzipFile(fileobj=output,mode='wb',filename='',mtime=0) as zipped:
@@ -105,6 +106,7 @@ def adapt(raw,values):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--profile',choices=('release','dev'),default='release',help='release removes development diagnostics; dev retains diagnostic tools (neither includes tests)')
     parser.add_argument('--files',action='store_true',help='Stage runtime files for incremental compressed rsync instead of transferring an archive')
     parser.add_argument('--platform-release',type=Path,required=True,help='Verified original 5e63c3f Nokia archive')
     parser.add_argument('--selector-sha256',type=selector_pin,help='Reviewed installed selector digest after a separate capacity upgrade')
@@ -118,7 +120,7 @@ def main():
     baseline=verify(args.platform_release)
     if baseline['engine_sha256']!=BASELINE:raise ValueError('Unexpected platform baseline')
     source={name[6:]: (ROOT/name).read_bytes() for name in subprocess.check_output(['git','ls-files','shell'],cwd=ROOT,text=True).splitlines()}
-    files=runtime_files(source)
+    files=runtime_files(source,args.profile)
     with tarfile.open(args.platform_release) as tar:
         # Reuse only reviewed original platform libraries; source equality is required.
         if args.native_compositor is None:
@@ -145,13 +147,13 @@ def main():
     shared={name:sha(raw) for name,raw in files.items() if name not in PLATFORM_FILES}
     engine=sha(json.dumps(shared,sort_keys=True,separators=(',',':')).encode())
     files['build-info.json']=encoded(dict(schema_version=1,product_version=product_version,release_id=commit[:12],framework_commit=commit,domain_commit=commit,
-        platform='n810',backend='native cells supplied',artifact_sha256=engine,touch_acquisition_default='process'))
+        build_profile=args.profile,platform='n810',backend='native cells supplied',artifact_sha256=engine,touch_acquisition_default='process'))
     manifest=dict(version=2,engine_sha256=engine,source_commit=commit,shared_files=shared,
         platform_files=sorted(set(files)&PLATFORM_FILES),files={name:sha(raw) for name,raw in sorted(files.items())})
     files['device-poc/pocket-manifest.json']=encoded(manifest)
     raw=b'' if args.files else archive(files)
     if len(raw)>10*1024*1024:raise ValueError('Supervisor package limit exceeded')
-    version='pocket-'+commit[:12];stage='/tmp/'+version+'-register'
+    version='pocket-'+commit[:12]+('-dev' if args.profile=='dev' else '');stage='/tmp/'+version+'-register'
     entry=dict(title='Pocket '+commit[:12],summary='Shell first; grouped device services, System telemetry and Reticulum.',
         engine_sha256=engine,manifest_sha256=sha(files['device-poc/pocket-manifest.json']),retained=version+'/candidate-assets')
     registration=(ROOT/'platform/n810/registration/register_candidate.py').read_bytes()

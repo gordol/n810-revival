@@ -67,7 +67,7 @@ FROM full-source-check AS gui-check
 RUN apt-get update && apt-get install -y --no-install-recommends libsdl2-dev libgl1-mesa-dev libgl1-mesa-dri xvfb xauth && rm -rf /var/lib/apt/lists/*
 COPY --from=graphics /build/mesa/package /opt/arm-mesa
 RUN make -C pocket graphics-native && python3 pocket/graphics/build_nokia.py --mesa-include /opt/arm-mesa/include --mesa-library /opt/arm-mesa/libOSMesa.so.8
-RUN python3 -m unittest discover -s pocket/tests -p 'test_graphical_frontend.py' -v && python3 -m unittest discover -s pocket/tests -p 'test_*pixel*.py' -v && python3 -m unittest discover -s pocket/tests -p test_surface_native_backend.py -v
+RUN python3 -m unittest discover -s pocket/tests -p test_runtime_profile.py -v && python3 -m unittest discover -s pocket/tests -p 'test_graphical_frontend.py' -v && python3 -m unittest discover -s pocket/tests -p 'test_*pixel*.py' -v && python3 -m unittest discover -s pocket/tests -p test_surface_native_backend.py -v
 RUN python3 -m unittest discover -s pocket/tests -p test_nokia_graphics.py -v && python3 -m unittest discover -s pocket/tests -p test_smooth_font.py -v
 RUN --network=none python3 pocket/shell/apps/doom-app/build.py --engine-only
 RUN xvfb-run -a python3 pocket/graphics/check.py --allow-software

@@ -9,15 +9,17 @@ from terminal import Geometry
 from mbx import Renderer
 from cells import style
 from window import Window
+DEVELOPMENT = True  # Removed by the release exporter.
+
 class Platform:
- history_capacity=128
+ if DEVELOPMENT:history_capacity=128
  def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console",cell_renderer="gpu",diagnostics=False):
-  self.diagnostics=diagnostics
+  self.diagnostics=DEVELOPMENT and diagnostics
   self.cell_renderer=cell_renderer
   self.require_gpu=require_gpu;self.font_mode=font_mode
   from presentation_text import create
   self.presentation_text=create(display,font_mode)
-  self.font=font;self.library=library;self.display=display;self.limit=frames;self.output=output;self.actions=list(actions);self.closed=False;self.frames=0;self.dirty=True;self.renderer=None;self.size=(100,30);self.report={};self.pixel_apps=[];self.compositor=None;self.resized=False;self.action_frame=-1
+  self.font=font;self.library=library;self.display=display;self.limit=frames;self.output=output;self.actions=list(actions) if DEVELOPMENT else [];self.closed=False;self.frames=0;self.dirty=True;self.renderer=None;self.size=(100,30);self.report={};self.pixel_apps=[];self.compositor=None;self.resized=False;self.action_frame=-1
  def configure_registry(self,registry):
   def room_factory(host,**options):
    sys.path.insert(0,str(HERE.parent/'shell/apps/surface-renderer'))
@@ -63,7 +65,7 @@ class Platform:
   self.resized=True;self.dirty=True
  def events(self):
   result=[]
-  if self.actions and self.frames and self.action_frame!=self.frames:
+  if DEVELOPMENT and self.actions and self.frames and self.action_frame!=self.frames:
    self.action_frame=self.frames
    action=self.actions.pop(0)
    if action.get('menu'):
@@ -100,7 +102,7 @@ class Platform:
   from presentation_text import supported
   text=self.presentation_text
   enabled=bool(text and supported(self.host,visible,raw_capture=self.output is not None))
-  if self.diagnostics:self.report['native_text']=dict(enabled=enabled,reason='native atlas' if enabled else 'complete bitmap fallback')
+  if DEVELOPMENT and self.diagnostics:self.report['native_text']=dict(enabled=enabled,reason='native atlas' if enabled else 'complete bitmap fallback')
   for app in visible:
    if hasattr(app,'native_text'):app.native_text=enabled
   if self.renderer.defer_text(enabled):self.dirty=True
@@ -115,25 +117,26 @@ class Platform:
    if enabled:text.stage(self.renderer,visible,self.compositor.image_rects if visible else ())
    else:text.clear()
   if self.display:self.display.present(frame)
-  if self.output:Path(self.output).write_bytes(frame)
-  if self.diagnostics:
+  if DEVELOPMENT and (self.output):Path(self.output).write_bytes(frame)
+  if DEVELOPMENT and self.diagnostics:
    self.report['pixel_apps']={app.name:dict(frames=app.pixel_frames,jobs=app.pixel_jobs,error=getattr(app,'error',''),cell_layer=self.host.window(app.name).layer is not None) for app in self.pixel_apps}
    self.record_frame()
    self.report.update(frames=self.frames,focus=self.host.focus,opened=[w.name for w in self.host.windows if w.opened],native=True,desktop_ansi=False)
   if self.limit and self.frames>=self.limit:self.closed=True
   return True
- def record_frame(self):
-  """Bound diagnostics even when an animated desktop runs all day."""
-  if not self.diagnostics:return
-  errors={name:form.error for name,form in self.registry.forms.items() if form.error}
-  self.report.setdefault('errors',{}).update(errors)
-  self.report['menu_opened']=self.report.get('menu_opened',False) or bool(self.host.launcher_lines)
-  activity=self.report.setdefault('activity',{})
-  if self.host.focus in activity or len(activity)<64:activity[self.host.focus]=activity.get(self.host.focus,0)+1
-  history=self.report.setdefault('history',[])
-  history.append(dict(frame=self.frames,focus=self.host.focus,menu=bool(self.host.launcher_lines),size=self.size,errors=errors))
-  if len(history)>self.history_capacity:
-   del history[0];self.report['history_dropped']=self.report.get('history_dropped',0)+1
+ if DEVELOPMENT:
+  def record_frame(self):
+   """Bound diagnostics even when an animated desktop runs all day."""
+   if not self.diagnostics:return
+   errors={name:form.error for name,form in self.registry.forms.items() if form.error}
+   self.report.setdefault('errors',{}).update(errors)
+   self.report['menu_opened']=self.report.get('menu_opened',False) or bool(self.host.launcher_lines)
+   activity=self.report.setdefault('activity',{})
+   if self.host.focus in activity or len(activity)<64:activity[self.host.focus]=activity.get(self.host.focus,0)+1
+   history=self.report.setdefault('history',[])
+   history.append(dict(frame=self.frames,focus=self.host.focus,menu=bool(self.host.launcher_lines),size=self.size,errors=errors))
+   if len(history)>self.history_capacity:
+    del history[0];self.report['history_dropped']=self.report.get('history_dropped',0)+1
  def wait_timeout(self,timeout):return .016 if timeout is None else min(timeout,.016)
  def close(self):
   if self.compositor:self.compositor.close();self.compositor=None
@@ -143,13 +146,14 @@ class Platform:
   spec=importlib.util.spec_from_file_location('pocket_desktop_model',HERE.parent/'shell/desktop.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
   try:return module.main(platform=self,argv=argv)
   finally:self.close()
-def main():
- parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--font',type=Path,required=True);parser.add_argument('--renderer-library',type=Path,required=True);parser.add_argument('--display-library',type=Path);parser.add_argument('--native-library',type=Path,required=True);parser.add_argument('--state',type=Path,required=True);parser.add_argument('--frames',type=int,default=0);parser.add_argument('--output',type=Path);parser.add_argument('--actions',type=Path);parser.add_argument('--report',type=Path)
- args,rest=parser.parse_known_args();args.state.mkdir(parents=True,exist_ok=True,mode=0o700)
- display=Window(args.display_library) if args.display_library else None
- platform=Platform(args.font,args.renderer_library,display,frames=args.frames,output=args.output,actions=json.loads(args.actions.read_text()) if args.actions else (),diagnostics=args.report is not None)
- try:platform.run(['--shell','--session',str(args.state/'desktop.json'),'--app-state',str(args.state),'--station-db',str(args.state/'directory.sqlite3'),'--native',str(args.native_library),*rest])
- finally:
-  platform.close()
-  if args.report:args.report.write_text(json.dumps(platform.report,indent=2)+'\n')
-if __name__=='__main__':main()
+if DEVELOPMENT:
+ def main():
+  parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--font',type=Path,required=True);parser.add_argument('--renderer-library',type=Path,required=True);parser.add_argument('--display-library',type=Path);parser.add_argument('--native-library',type=Path,required=True);parser.add_argument('--state',type=Path,required=True);parser.add_argument('--frames',type=int,default=0);parser.add_argument('--output',type=Path);parser.add_argument('--actions',type=Path);parser.add_argument('--report',type=Path)
+  args,rest=parser.parse_known_args();args.state.mkdir(parents=True,exist_ok=True,mode=0o700)
+  display=Window(args.display_library) if args.display_library else None
+  platform=Platform(args.font,args.renderer_library,display,frames=args.frames,output=args.output,actions=json.loads(args.actions.read_text()) if args.actions else (),diagnostics=args.report is not None)
+  try:platform.run(['--shell','--session',str(args.state/'desktop.json'),'--app-state',str(args.state),'--station-db',str(args.state/'directory.sqlite3'),'--native',str(args.native_library),*rest])
+  finally:
+   platform.close()
+   if DEVELOPMENT and (args.report):args.report.write_text(json.dumps(platform.report,indent=2)+'\n')
+ if __name__=='__main__':main()

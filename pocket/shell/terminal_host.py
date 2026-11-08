@@ -3,6 +3,7 @@
 pyte parses terminal commands; this adapter bounds sequence size and output per
 wake, provides alternate-screen storage and connects cells to the existing Host.
 """
+DEVELOPMENT = True  # Removed by the release exporter.
 import codecs
 import errno
 import fcntl
@@ -267,12 +268,12 @@ class Terminal:
         cursor=self.screen.cursor
         position=cursor.y*self.size[0]+min(cursor.x,self.size[0]-1) if self.show_cursor and not cursor.hidden else None
         if not self.screen.dirty and position==self.cursor_cell:return 0
-        if self.metrics:return self.metrics.call('pty_convert_dirty_rows',self._present,position)
+        if DEVELOPMENT and (self.metrics):return self.metrics.call('pty_convert_dirty_rows',self._present,position)
         return self._present(position)
     def _present(self,position):
         width,height=self.size;changed=[]
         extra={i for i in (self.cursor_cell,position) if i is not None and i//width not in self.screen.dirty}
-        if self.metrics:
+        if DEVELOPMENT and (self.metrics):
             self.metrics.add('pty_dirty_rows',len(self.screen.dirty))
             self.metrics.add('pty_cells_scanned',len(self.screen.dirty)*width+len(extra))
         for y in sorted(self.screen.dirty):
@@ -291,7 +292,7 @@ class Terminal:
             if value!=self.cells[index]:self.cells[index]=value;changed.append(index)
         self.cursor_cell=position
         self.screen.dirty.clear();self.patched+=len(changed)
-        if self.metrics:self.metrics.add('pty_patched_cells',len(changed))
+        if DEVELOPMENT and (self.metrics):self.metrics.add('pty_patched_cells',len(changed))
         if changed:self.host.layer_patch(self.name,(0,0,width,height,self.cells),changed)
         return len(changed)
     def ready(self,mask,byte_budget=8192,time_budget=.004):
@@ -303,7 +304,7 @@ class Terminal:
             if mask&selectors.EVENT_READ:
                 while read<byte_budget:
                     try:
-                        if self.metrics:data=self.metrics.call('pty_read',os.read,self.fd,min(2048,byte_budget-read))
+                        if DEVELOPMENT and (self.metrics):data=self.metrics.call('pty_read',os.read,self.fd,min(2048,byte_budget-read))
                         else:data=os.read(self.fd,min(2048,byte_budget-read))
                     except BlockingIOError:break
                     except OSError as error:
@@ -311,8 +312,8 @@ class Terminal:
                         else:raise
                     if not data:self.finish_read();break
                     read+=len(data);self.received+=len(data)
-                    if self.metrics:self.metrics.add('pty_received_bytes',len(data))
-                    if self.metrics:self.metrics.call('pty_parse',self.parser.feed,data)
+                    if DEVELOPMENT and (self.metrics):self.metrics.add('pty_received_bytes',len(data))
+                    if DEVELOPMENT and (self.metrics):self.metrics.call('pty_parse',self.parser.feed,data)
                     else:self.parser.feed(data)
                     if time.monotonic()-started>=time_budget:break
         except OSError as error:self.error=str(error);self.finish_read()

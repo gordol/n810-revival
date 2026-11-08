@@ -22,6 +22,17 @@ All Python application code comes from the committed active tree.
 The runtime payload excludes tests, benchmarks, packet-test fixtures and
 compile-only Doom and native Reticulum sources. Licenses, runtime feature
 assets and source inputs required for native-library verification remain.
+The default `--profile release` also removes development-only diagnostic blocks
+before packaging and omits the draw-metrics, pointer-trace and Flurry trial
+modules. Render Debug and their command-line switches are absent from that
+artifact. `--profile dev` retains those tools for deliberate device debugging;
+it still excludes tests and build-only dependencies. The selected profile is
+recorded in `build-info.json`.
+
+This export is independent of Python `-O` and `-OO`. Those options do not remove
+arbitrary unused code; they remove assertions, and `-OO` also removes docstrings.
+The release exporter preserves ordinary assertions and error handling.
+
 `CONTENTS.json` lists the included/excluded file accounting. Full development
 sources remain in the repository and source archive, outside the app payload.
 Build that target with `python3 tools/build_native.py --arm-headers /path/to/extracted/usr/include --output /path/to/arm-build`

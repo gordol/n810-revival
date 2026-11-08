@@ -3,8 +3,11 @@
 """Full Pocket model, direct native pixel rendering and an SDL window."""
 import argparse,importlib.util,json,signal,sys,time,ctypes as C,os
 from pathlib import Path
+DEVELOPMENT = True  # Removed by the release exporter.
 HERE=Path(__file__).resolve().parent
 CONFIG=json.loads((HERE.parent/'build/graphics/frontend.json').read_text())
+# Exported runtimes carry relocatable paths; developer builds may use absolutes.
+CONFIG={key:str(HERE.parent/value) if isinstance(value,str) and not Path(value).is_absolute() else value for key,value in CONFIG.items()}
 sys.path.insert(0,CONFIG['graphics_path']);sys.path.insert(0,str(HERE.parent/'shell'))
 
 from platform_window import Window
@@ -93,13 +96,18 @@ class DesktopWindow(Window):
 def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     p.add_argument('--state',type=Path,default=Path.home()/'.local/state/current-world/graphics')
-    p.add_argument('--seconds',type=float);p.add_argument('--actions',type=Path)
-    p.add_argument('--output',type=Path);p.add_argument('--report',type=Path)
-    p.add_argument('--resize-check',action='store_true',help='exercise actual OS window-size events')
+    p.add_argument('--seconds',type=float)
+    if DEVELOPMENT:
+        p.add_argument('--actions',type=Path)
+    if DEVELOPMENT:
+        p.add_argument('--output',type=Path);p.add_argument('--report',type=Path)
+    if DEVELOPMENT:
+        p.add_argument('--resize-check',action='store_true',help='exercise actual OS window-size events')
     p.add_argument('--font-mode',choices=('console','crisp','smooth'),default=os.environ.get('POCKET_GUI_FONT','smooth' if sys.platform=='darwin' else 'console'))
     p.add_argument('--effect-backend',choices=('gpu','cpu'),default='gpu' if sys.platform=='darwin' and __import__('platform').machine()=='arm64' else 'cpu')
     p.add_argument('--allow-software',action='store_true',help='explicit software-GL test mode; not GPU performance evidence')
     p.add_argument('--headless',action='store_true',help='GPU verification without the presentation window')
+    p.set_defaults(actions=None,output=None,report=None,resize_check=False)
     args,extra=p.parse_known_args()
     state=args.state;state.mkdir(parents=True,exist_ok=True)
     window=None if args.headless else DesktopWindow(CONFIG['display_library'])
@@ -121,7 +129,7 @@ def main():
             for room,control in list(getattr(window,'controls',{}).items()):
                 control.advance(time.monotonic(),room);room.set_eye_height(340.+control.height)
                 if not room._active() and window.captured:window.capture(False)
-            if args.resize_check and time.monotonic()-start>1+resize_stage and resize_stage<3:
+            if DEVELOPMENT and (args.resize_check and time.monotonic()-start>1+resize_stage and resize_stage<3):
                 sizes=((1120,800),(640,448),(1280,864));w,h=sizes[resize_stage]
                 window.lib.pocket_window_set_size.argtypes=[C.c_void_p,C.c_int,C.c_int]
                 window.lib.pocket_window_set_size(window.handle,w,h);resize_stage+=1
@@ -139,7 +147,7 @@ def main():
         platform.report.update(renderer=platform.report.get('renderer'),software_allowed=args.allow_software,platform=sys.platform,desktop_pty=False,desktop_ansi=False,desktop_cells=platform.size)
         platform.close()
         if restore_effects:restore_effects()
-        if args.report:args.report.write_text(json.dumps(platform.report,indent=2)+'\n')
-        if args.report or args.headless:print(json.dumps({key:platform.report.get(key) for key in ('frames','focus','opened','native','desktop_ansi','desktop_pty','desktop_cells')}),flush=True)
+        if DEVELOPMENT and (args.report):args.report.write_text(json.dumps(platform.report,indent=2)+'\n')
+        if DEVELOPMENT and (args.report or args.headless):print(json.dumps({key:platform.report.get(key) for key in ('frames','focus','opened','native','desktop_ansi','desktop_pty','desktop_cells')}),flush=True)
         for sig,handler in previous.items():signal.signal(sig,handler)
 if __name__=='__main__':main()
