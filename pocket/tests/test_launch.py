@@ -58,6 +58,9 @@ class LaunchTests(unittest.TestCase):
                         if raw: chunks.append(raw); stream.feed(raw)
                     if predicate(): return
                     if child.poll() is not None: break
+                # The child can exit between the predicate check and poll().
+                # Observe the final state before reporting a failed wait.
+                if predicate(): return
                 self.fail(description+'\n'+text()+'\n'+b''.join(chunks)[-1000:].decode(errors='replace'))
             try:
                 wait(lambda: '[S Socket folder]' in text() and 'Local services' in text(), 'offline shell did not open')

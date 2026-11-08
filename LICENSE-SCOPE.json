@@ -6585,7 +6585,7 @@
     },
     {
       "path": "pocket/tests/test_launch.py",
-      "sha256": "bb8be07f244bb9bf8bcfe673edacf28e9d1e975e123317106d9c2a4410f457c7",
+      "sha256": "b2e8e9ccdd1816ef5c8e61f69ed5ae4972e5be2bf2aa65d45ecb31c9500c43e5",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Grant covers eligible original test expression. It does not relicense imported modules, fixtures, protocols, or a combined dependency distribution.",
