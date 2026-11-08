@@ -7707,6 +7707,20 @@
       "license": "GPL-2.0-or-later",
       "scope": "Original project source export tooling and regression tests.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
+    },
+    {
+      "path": "containers/sd-image.Dockerfile",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "a832ed908e0e62c4d1cd53a0af17dc931bb67282905e6236a43cfd2eaed73288"
+    },
+    {
+      "path": "containers/sd-image.Dockerfile.dockerignore",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "e433a727241ddc677281b40c0174cc6990d583feddf255fdbf2339cefbf5187d"
     }
   ]
 }
