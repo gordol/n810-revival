@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]/'tests'))
+from reference_fixtures import maps
 """Offline geography, rendering and replay-state checks; no radio or network."""
 import importlib.util, pathlib, tempfile, gzip, json, unittest, re
 ROOT=pathlib.Path(__file__).resolve().parent
@@ -13,7 +17,7 @@ class MapTests(unittest.TestCase):
   self.assertEqual((a[1],b[1]),(5,5))
   self.assertIsNone(m.clipped_segment((-2,-2),(-1,-1),10,10))
  def test_pack(self):
-  a=m.Atlas(str(ROOT/'maps'));self.assertTrue(a.packs);self.assertFalse(a.errors)
+  a=m.Atlas(str(maps()));self.assertTrue(a.packs);self.assertFalse(a.errors)
   water,_=a.background([47.38,-122.52],160,55,18,False)
   roads,_=a.background([47.38,-122.52],160,55,18,True)
   self.assertTrue(water);self.assertFalse(any(kind=='road' for _,kind in roads.values()))
@@ -22,24 +26,27 @@ class MapTests(unittest.TestCase):
   _,names=a.background([0,0],160,55,18,True);self.assertEqual(names,[])
  def test_land_water_and_disk_cache(self):
   import base64,zlib
-  atlas=m.Atlas(str(ROOT/'maps'));pack=next(p for p in atlas.packs if p['name']=='Puget Sound & surroundings');r=pack['raster']
+  atlas=m.Atlas(str(maps()));pack=next(p for p in atlas.packs if p['name']=='Fictional regional relief');r=pack['raster']
   pixels=zlib.decompress(base64.b64decode(r['data']));west,south,east,north=pack['bbox']
   def wet(lon,lat):
    x=round((lon-west)/(east-west)*(r['width']-1));y=round((north-lat)/(north-south)*(r['height']-1))
    return pixels[y*r['width']+x]&3
-  self.assertEqual(wet(5.5655,5.5355),0) # Lakewood
-  self.assertEqual(wet(-122.45,47.70),1) # Puget Sound
-  self.assertEqual(wet(-122.26,47.60),2) # Lake Washington
+  # Fixture columns encode sea, inland water, and land independently.
+  def position(column,row=128):
+   return west+column/(r['width']-1)*(east-west),north-row/(r['height']-1)*(north-south)
+  self.assertEqual(wet(*position(20)),0)
+  self.assertEqual(wet(*position(3)),1)
+  self.assertEqual(wet(*position(10)),2)
   with tempfile.TemporaryDirectory() as d:
-   a=m.Atlas(str(ROOT/'maps'),d);first=a.background([47.38,-122.52],160,55,18,False)
+   a=m.Atlas(str(maps()),d);first=a.background([47.38,-122.52],160,55,18,False)
    self.assertTrue(any(kind=='tone00' for _,kind in first[0].values()))
-   b=m.Atlas(str(ROOT/'maps'),d)
+   b=m.Atlas(str(maps()),d)
    b.raster_base=lambda *args: self.fail('Cached base was recalculated')
    self.assertEqual(b.background([47.38,-122.52],160,55,18,False),first)
  def test_terrain_and_lake_reduction(self):
-  a=m.Atlas(str(ROOT/'maps'));p=next(p for p in a.packs if p['name']=='Puget Sound & surroundings')
+  a=m.Atlas(str(maps()));p=next(p for p in a.packs if p['name']=='Fictional regional relief')
   self.assertIn('terrain',p)
-  self.assertTrue(any(label['name']=='Mt Rainier' for label in p['labels']))
+  self.assertTrue(any(label['name']=='Test Peak' for label in p['labels']))
   cells,_=a.background([47.60,-122.26],240,41,15,False)
   self.assertNotEqual(cells[20,7][1],'tone00') # Inland lake suppressed at wide zoom
   cells,_=a.background([47.25,-122.45],40,55,20,False)
@@ -86,14 +93,14 @@ class MapTests(unittest.TestCase):
    x,y=m.Atlas.project(lon,lat,state.center,span,70,25)
    self.assertTrue(0<=x<70 and 0<=y<25)
  def test_regional_coverage_and_priority(self):
-  atlas=m.Atlas(str(ROOT/'maps'))
+  atlas=m.Atlas(str(maps()))
   rasters=[p for p in atlas.packs if 'raster' in p]
-  self.assertEqual(rasters[0]['name'],'Pacific Northwest overview')
-  self.assertEqual(next(p for p in reversed(rasters) if not p.get('fast_samples'))['name'],'Puget Sound & surroundings')
+  self.assertEqual(rasters[0]['name'],'Fictional regional relief')
+  self.assertEqual(next(p for p in reversed(rasters) if not p.get('fast_samples'))['name'],'Fictional regional relief')
   for center in ([49.2,-123.1],[45.5,-122.7],[50.5,-125]):
    cells,names=atlas.background(center,80,55,18,False)
    self.assertGreater(len(cells),900)
-   self.assertIn('Pacific Northwest overview',names)
+   self.assertIn('Fictional regional relief',names)
  def test_bad_pack(self):
   with tempfile.TemporaryDirectory() as d:
    with gzip.open(pathlib.Path(d)/'bad.json.gz','wt') as f:json.dump({'version':9},f)
@@ -112,7 +119,7 @@ class MapTests(unittest.TestCase):
     assert n<=self.size[1]-x-1
     self.text.append(text[:n])
     for offset,char in enumerate(text[:n]):self.cells[x+offset,y]=char
-  state=v.State();state.atlas=m.Atlas(str(ROOT/'maps'));state.center=[47.38,-122.52]
+  state=v.State();state.atlas=m.Atlas(str(maps()));state.center=[47.38,-122.52]
   state.roads=True;state.help=False;state.auto_fit=True;state.selected=0;state.map_dir='maps'
   state.add('17:35:23 BALDI>APOT21 ctl=03 pid=f0 !4713.13N/12150.61W_test')
   for h,w in ((30,100),(24,80),(16,64),(10,40)):

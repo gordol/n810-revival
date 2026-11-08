@@ -18,7 +18,7 @@ These are compilation and local-test results. Physical installation and device a
 
 The kernel builder records the selected compiler, configuration, source hashes and output checks. The graphics builders record dependency hashes and symbol or library compatibility checks. The HTIT wrapper records the source tree, PlatformIO version, environment and output hashes in its private build directory. Generated firmware carries the locally selected PIN, so independently generated executor builds have distinct bytes.
 
-The full Pocket and bundled radio suites use isolated temporary home directories. Packet fixtures contain synthetic traffic. Geography tests use public reference data and landmarks. The HTIT tests cover C/Python framing, an emulated radio engine, the official MeshCore client over local pseudo-terminals, CCMP validation and in-memory RSN peers. See the [validation guide](../how-to/validate.md) for the repeatable commands.
+The full Pocket and bundled radio suites use isolated temporary home directories. Packet fixtures contain synthetic traffic. Map and terrain tests generate fictional reference packs; separately identified regional integration checks use prepared public data. The HTIT tests cover C/Python framing, an emulated radio engine, the official MeshCore client over local pseudo-terminals, CCMP validation and in-memory RSN peers. See the [validation guide](../how-to/validate.md) for the repeatable commands.
 
 [HTIT build](../how-to/build-htit.md) · [Map build](../how-to/build-map-data.md)
 
@@ -58,15 +58,21 @@ The normal-user source run completed 198 test files: 178 passed, 19 failed, and
 one (`test_station_terrain_tools.py`) exceeded the runner’s 240-second limit.
 These are test-file counts, rather than individual test-case counts.
 
-The broad source runner still reaches legacy regional-data tests. They expect
+The initial source runner reached legacy regional-data tests. They expected
 files such as `tahoma-3dep.json`, `walk-layers.n8w`, and `lakewood-relief.json.gz`
 in historical paths that the source release does not populate. The new
-area-selected map pipeline has its own passing fixture tests. Completing that
-migration requires changes to the legacy tests and packaging inputs.
+area-selected map pipeline has its own passing fixture tests. The corrected tests generate fictional raster, road, water and elevation packs in temporary directories. The packaging test adds those generated inputs to its temporary inventory, while the source inventory pins the shipped code. Legacy elevation readers now honor the same data-directory override as the current catalogue.
 
-The HTIT wire-protocol host test fails with GCC 12: `wire.c` compares a `size_t`
+The HTIT wire-protocol host test initially failed with GCC 12: `wire.c` compares a `size_t`
 loop index with `9 + f->len`, and its `-Werror` build rejects the signed/unsigned
-comparison. The independent RSN checks pass. The host-test failure remains open.
+comparison. Converting the length operand to `size_t` fixes the comparison.
+The corrected wire protocol passed all six host tests, and the hub firmware rebuilt.
+
+The follow-up container run passed all 202 Pocket and bundled radio test files,
+including the previously timed-out station terrain suite. The run used a normal
+user and disabled network access during tests. All 28 Python RSN tests passed.
+The compiled RSN gate requires its checksum-pinned WPA source archive during
+dependency preparation, so its subsequent test execution can also run offline.
 
 Run the source suite as a normal user. Nokia session checks deliberately reject
 root. Linux radio-proxy tests also need D-Bus and GLib bindings for the Python

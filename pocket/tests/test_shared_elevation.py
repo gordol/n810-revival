@@ -1,3 +1,5 @@
+from reference_fixtures import activate
+activate()
 import sys,time,unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,13 +11,13 @@ class SharedElevationTests(unittest.TestCase):
   import desktop_elevation
   for pos in ((47.252900,-122.444300),(47.02,-122.9),(46.973167,-123.138167)):
    height,m=sample_elevation(*pos)
-   self.assertIn('fine western',m['source']);self.assertLess(abs(m['latitude_step'])*111320,15)
+   self.assertIn('fictional-fine',m['source']);self.assertLess(abs(m['latitude_step'])*111320,15)
    values,_=desktop_elevation.sample(SimpleNamespace(center=pos,span=0,width=1,height=1,cell_aspect=2))
    self.assertAlmostEqual(height,float(values[0,0]),places=7)
  def test_profile_reports_fine_source_and_actual_grid_spacing(self):
   result=calculate('47.252900,-122.444300','46.973167,-123.138167',count=4097,frequency_mhz=915,tx_height_m=15,rx_height_m=24)
-  self.assertIn('fine western',result['source']);self.assertLess(result['finest_grid_spacing_north_m'],15)
-  fine=sum(row['samples'] for row in result['elevation_sources'] if 'fine western' in row['source'])
+  self.assertIn('fictional-fine',result['source']);self.assertLess(result['finest_grid_spacing_north_m'],15)
+  fine=sum(row['samples'] for row in result['elevation_sources'] if 'fictional-fine' in row['source'])
   self.assertGreater(fine/len(result['samples']),.95)
  def test_path_cache_includes_elevation_revision(self):
   import terrain_sites
@@ -122,6 +124,6 @@ class SharedElevationTests(unittest.TestCase):
  def test_shoreline_uses_local_vector_geometry_at_display_resolution(self):
   from desktop_shoreline import mask
   for pos,expected in (((47.252900,-122.444300),1),((47.203,-122.61),0),
-                       ((47.30,-122.65),1),((47.25,-122.56),0)):
+                       ((47.30,-122.45),1),((47.25,-122.56),0)):
    view=SimpleNamespace(center=pos,span=.01,width=3,height=2,cell_aspect=2)
    result=mask(view);self.assertIsNotNone(result);self.assertEqual(int(result[1,1]),expected)

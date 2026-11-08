@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]/'tests'))
+from reference_fixtures import maps
 # SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
 # SPDX-License-Identifier: GPL-2.0-or-later
 import importlib.util
@@ -11,6 +15,10 @@ spec=importlib.util.spec_from_file_location('walk',Path(__file__).with_name('n81
 w=importlib.util.module_from_spec(spec);spec.loader.exec_module(w)
 
 class Tests(unittest.TestCase):
+ def setUp(self):
+  original=w.walk_map.Atlas
+  p=patch.object(w.walk_map,'Atlas',side_effect=lambda directory:original(str(maps())))
+  p.start();self.addCleanup(p.stop)
  def test_schedule_manual_and_no_catchup(self):
   p=w.Plan(3);p.arm(0,True)
   self.assertFalse(p.tick(59,True));self.assertTrue(p.tick(60,True))
@@ -58,7 +66,8 @@ class Tests(unittest.TestCase):
    root=Path(root);sent=[];owner=w.live.Telemetry(sent.append,root/'state',root/'control',root/'gps')
    owner.tick(0);self.assertEqual(sent,[])
    import time,struct
-   w.live.atomic(root/'gps',{'until':time.time()+45});owner.tick(1)
+   w.live.atomic(root/'gps',{'until':time.time()+45})
+   owner.refresh_controls({root/'gps'},now=1);owner.tick(1)
    self.assertEqual(sent,[w.live.request(20),w.live.request(76)])
    raw=int(47*30000).to_bytes(3,'big',signed=True)+int(-122*30000).to_bytes(3,'big',signed=True)+bytes(6)+int(time.time()).to_bytes(4,'big')+b'\0\12'
    body=b'\0'+raw;frame=b'\xff\1\0'+bytes([len(body)])+struct.pack('>HH',2,0x804c)+body
