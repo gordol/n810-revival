@@ -238,6 +238,8 @@ class PackageContracts(unittest.TestCase):
                'vendor/domain/tests/probe.py':b'probe', 'vendor/maps/map.py':b'map',
                'vendor/maps/README.md':b'help', 'vendor/maps/bench-render.py':b'benchmark',
                'bench.py':b'bench','native/test_render.c':b'test',
+               'geometry_scene_bench.py':b'bench','weather_bench.py':b'bench',
+               'owner-service/COMPATIBILITY-FIXTURES.json':b'test metadata',
                'native/__pycache__/unused.pyc':b'cache',
                'vendor/packet-console/fixtures/example.json':b'test fixture',
                'apps/doom-app/build.py':b'build','apps/doom-app/bridge.c':b'build',

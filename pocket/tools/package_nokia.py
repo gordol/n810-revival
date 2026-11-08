@@ -58,7 +58,9 @@ def runtime_files(files):
         leaf=Path(name).name
         if name.startswith(build_trees) and leaf not in notices:continue
         if 'tests' in Path(name).parts or '__pycache__' in Path(name).parts or leaf.startswith(('test-', 'test_', 'bench-', 'benchmark')) or leaf=='bench.py':continue
+        if Path(name).stem.endswith(('_bench','-bench','_benchmark','-benchmark')):continue
         if name.startswith('vendor/packet-console/fixtures/'):continue
+        if name=='owner-service/COMPATIBILITY-FIXTURES.json':continue
         if name in ('apps/doom-app/build.py','apps/doom-app/bridge.c'):continue
         if name.startswith('native/accelerators/') and leaf in ('build.py','probe.c'):continue
         duplicate=next((prefix for prefix in duplicates if name.startswith(prefix)),None)
