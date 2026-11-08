@@ -8,7 +8,7 @@ flowchart TB
     repo --> hardware["hardware/htit/ · hub and executor firmware"]
     repo --> docs["docs/ · journal and project guides"]
     pocket --> manuals["pocket/docs/ · operator manuals"]
-    docs --> site["Local documentation site"]
+    docs --> site["Documentation site"]
     manuals --> site
 ```
 
@@ -16,7 +16,8 @@ flowchart TB
 
 | Directory | Responsibility |
 |---|---|
-| `pocket/` | Terminal desktop, applications, service adapters, tests, and Nokia packaging. |
+| `pocket/` | Shared desktop, applications, service adapters, tests, and Nokia packaging. |
+| `pocket/graphics/` | Native SDL/OpenGL frontend, direct Room renderer, optional Mac GPU providers, source generators, and host checks. |
 | `platform/scripts/` | N810 operating-system commands and local source tests. |
 | `platform/device/` | Service definitions, keymaps, and policy files intended for the tablet filesystem. |
 | `platform/patches/` | Reviewed source patches, beginning with the [RGB console extension](reference/console-rgb-patch.md). |
@@ -31,13 +32,13 @@ flowchart TB
 | `docs/` | Journal, guides, reference, and architecture explanations. |
 | `tools/` | Publication checks, site assembly, and reproducible documentation fixtures. |
 
-Pocket includes earlier domain code that its current applications import. The [bundled-source map](reference/bundled-source.md) explains packet-console, app domains, terminal dependencies, and Map Library resources. Regional maps, elevation tiles, scene data and prepared previews are included with their source metadata.
+Pocket includes earlier domain code that its current applications import. The [bundled-source map](reference/bundled-source.md) explains packet-console, app domains, terminal dependencies, and Map Library resources. Regional maps, elevation tiles, and prepared previews are downloaded or generated locally using the [map build tools](how-to/build-map-data.md). The repository supplies acquisition/build code, source attribution, and small test fixtures.
 
 The platform runtime has its own [file map](reference/platform-files.md). Pocket's `platform/n810/` adapter packages the application for an existing Nokia supervisor. The top-level platform directory holds the OS-side components underneath it.
 
 The [kernel guide](how-to/build-kernel.md) reconstructs the maintained kernel from the included changes and pinned upstream source. The [graphics build guide](how-to/build-gpu-30fps.md) selects the tested 30 FPS MBX/Mesa source and runs its regression checks.
 
-The [chronological journal source index](reference/journal-sources.md) connects every post to local source views, GitHub files, tests and build guides.
+The [chronological journal source index](reference/journal-sources.md) connects published checkpoints to local source views, GitHub files, tests, and build guides. Experimental entries identify source availability explicitly.
 
 ## Kernel lineage and authorship
 

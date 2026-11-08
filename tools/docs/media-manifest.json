@@ -243,6 +243,12 @@
       "bytes": 8554,
       "disposition": "preserved-capture",
       "regeneration": "Local Mac GPU target-range initial state, 7 November 2026. Preserve this historical result; later captures require their own dated caption."
+    },
+    "docs/assets/demos/surface-room-play-20261107.gif": {
+      "sha256": "5d805c8029743ead4310d1b15fa14a0987b81ac2f74b2650e016e4ec7dca40fb",
+      "bytes": 10737305,
+      "disposition": "preserved-capture",
+      "regeneration": "User-supplied Mac Pocket window recording, 7 November 2026. Preserve the complete sequence at normal speed; export at 960 pixels wide and 20 frames per second."
     }
   }
 }

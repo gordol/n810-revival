@@ -1,6 +1,6 @@
 # Documentation instructions
 
-Read the root [AGENTS.md](../AGENTS.md) and [writing guide](../maintainers/documentation.md).
+Read the root [AGENTS.md](../AGENTS.md). The documentation rules below apply throughout this directory.
 
 - Keep the site focused on using, building, and understanding the project.
   Put GitHub administration, CI setup, publication reviews, writing instructions,

@@ -1,6 +1,6 @@
 # Acceleration checkpoints
 
-Reconciled on 4 November 2026 from the dated development records.
+Updated 7 November 2026. The physical MBX performance observations below retain their original dates and workloads.
 
 | Component | Recorded result | Work remaining |
 |---|---|---|
@@ -11,6 +11,11 @@ Reconciled on 4 November 2026 from the dated development records.
 | MBX rasterization | Standard 400 by 400 glxgears rendered on the Nokia. | Broader fixed-function state support and production integration. |
 | VGP geometry | Diagnostic transforms and lighting compared with Mesa references; live GPU geometry in the 4 November gears runs. | Broader shader and geometry coverage. |
 | Display transfer | Approximately 16.66 DISPC interrupts per second in the earlier comparison and 23.4 in the later GPU-geometry trials. | RFBI/DISPC crop and transfer investigation. |
+| Native graphical desktop | Shared desktop model, direct Room pixels, and actual OS resize/input checks on Apple M1 Pro; source builds and explicit software-GL checks in Linux containers. | Physical Nokia frontend and mixed-state rendering acceptance. |
+| Mac GPU effects and maps | Exact-output comparisons for Flux, Flurry, windows, DEM shading, and terrain; 738-frame combined experimental run. | Matched timing comparisons, remaining CPU preparation/repairs, and session-save notification follow-up. |
+| Symbian GPU drawing | Physical checks of selected clears, retained surfaces, scissor rectangles, and large image sampling. | Full GPU-backed UI and interaction for the test applications. |
+
+The [native frontend guide](../pocket/graphics.md) describes the included source and build commands. The [Mac GPU journal](../posts/2026-11-07-gpu-effects.md) lists the tested stages and CPU work retained. The [Symbian surface journal](../posts/2026-11-07-symbian-surfaces.md) records experimental driver results and failed attempts.
 
 ## Selected performance observations
 
