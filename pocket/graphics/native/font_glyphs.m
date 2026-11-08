@@ -4,8 +4,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-int main(void){
- CTFontRef font=CTFontCreateWithName(CFSTR("Menlo"),14,NULL);
+int main(int argc,char **argv){
+ int smooth=argc==2&&!strcmp(argv[1],"--smooth");
+ CTFontRef font=CTFontCreateWithName(CFSTR("Menlo"),13,NULL);
  CGColorSpaceRef gray=CGColorSpaceCreateDeviceGray();unsigned code;
  while(scanf("%x",&code)==1){
   if(code<32||code>0x10ffff||(code>=0xd800&&code<=0xdfff))continue;
@@ -18,8 +19,10 @@ int main(void){
   double width=CTLineGetTypographicBounds(line,NULL,NULL,NULL);CGContextSetGrayFillColor(ctx,1,1);
   CGContextTranslateCTM(ctx,0,2);if(width>8)CGContextScaleCTM(ctx,8/width,1);
   CGContextSetTextPosition(ctx,0,0);CTLineDraw(line,ctx);
-  for(unsigned y=0;y<16;y++)for(unsigned x=0;x<8;x++)if(pixels[(15-y)*8+x]>=64)bits[y]|=128>>x;
-  fwrite(&utf,4,1,stdout);fwrite(bits,16,1,stdout);
+  for(unsigned y=0;y<16;y++)for(unsigned x=0;x<8;x++)if(pixels[y*8+x]>=64)bits[y]|=128>>x;
+  fwrite(&utf,4,1,stdout);
+  if(smooth){for(unsigned y=0;y<16;y++)fwrite(pixels+y*8,8,1,stdout);}
+  else fwrite(bits,16,1,stdout);
   CGContextRelease(ctx);CFRelease(line);CFRelease(attributed);CFRelease(attrs);CFRelease(text);
  }
  CGColorSpaceRelease(gray);CFRelease(font);return ferror(stdout)?1:0;

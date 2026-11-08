@@ -94,7 +94,7 @@ static unsigned pixel_canvas_width=800,pixel_canvas_height=480;
 int pocket_pixel_canvas_size(unsigned width,unsigned height){if(!width||width>4096||!height||height>4096)return -1;pixel_canvas_width=width;pixel_canvas_height=height;return 0;}
 #define PIXEL_W ((int)pixel_canvas_width)
 #define PIXEL_H ((int)pixel_canvas_height)
-struct pocket_pixel_layer {unsigned width,height;GLuint exact_program,exact_background;GLuint textures[104];unsigned texture_count;uint32_t pixels[];};
+struct pocket_pixel_layer {unsigned width,height;const uint32_t *coverage_codes;const unsigned char *coverage;unsigned coverage_count;GLuint exact_program,exact_background;GLuint textures[104];unsigned texture_count;uint32_t pixels[];};
 void *pocket_pixel_layer_new(unsigned cols,unsigned rows){
  if(!cols||cols>512||!rows||rows>256)return NULL;
  struct pocket_pixel_layer *p=calloc(1,sizeof(*p)+(size_t)cols*8*rows*16*4);
@@ -105,6 +105,11 @@ void pocket_pixel_layer_free(void *handle){struct pocket_pixel_layer *p=handle;i
 static int pixel_glyph(const uint32_t *codes,unsigned n,uint32_t glyph){
  unsigned lo=0,hi=n;while(lo<hi){unsigned m=lo+(hi-lo)/2;if(codes[m]<glyph)lo=m+1;else hi=m;}
  return lo<n&&codes[lo]==glyph?(int)lo:-1;
+}
+int pocket_pixel_layer_font_coverage(void *handle,const uint32_t *codes,const unsigned char *coverage,unsigned count){
+ struct pocket_pixel_layer *p=handle;if(!p||count>1024||(count&&(!codes||!coverage)))return -1;
+ for(unsigned i=0;i<count;++i)if(codes[i]<32||codes[i]>126||(i&&codes[i]<=codes[i-1]))return -1;
+ p->coverage_codes=codes;p->coverage=coverage;p->coverage_count=count;return 0;
 }
 static unsigned pixel_rgb565(uint64_t v){return ((v>>8)&0xf800)|((v>>5)&0x7e0)|((v>>3)&31);}
 int pocket_pixel_layer_build(void *handle,const void *data,size_t bytes,const uint32_t *codes,const unsigned char *font,unsigned glyphs,const uint32_t *palette,unsigned palettes,unsigned fallback,unsigned fill,unsigned opacity){
@@ -124,8 +129,26 @@ int pocket_pixel_layer_build(void *handle,const void *data,size_t bytes,const ui
   else colors=palette[ink];
   const unsigned char *mask=font+16*(unsigned)pixel_glyph(codes,glyphs,ch);
   unsigned x=(i%(p->width/8))*8,y=(i/(p->width/8))*16;
-  for(unsigned row=0;row<16;++row)for(unsigned col=0;col<8;++col)
-   p->pixels[(y+row)*p->width+x+col]=(mask[row]&(128>>col))?(colors&65535)|(255U<<16):(colors>>16)|(alpha<<16);
+  int aa=pixel_glyph(p->coverage_codes,p->coverage_count,ch);
+  const unsigned char *coverage=aa<0?NULL:p->coverage+128*(unsigned)aa;
+  if(!coverage){
+   /* The Nokia/default bitmap path keeps its original branch-only hot loop. */
+   for(unsigned row=0;row<16;++row)for(unsigned col=0;col<8;++col)
+    p->pixels[(y+row)*p->width+x+col]=(mask[row]&(128>>col))?(colors&65535)|(255U<<16):(colors>>16)|(alpha<<16);
+   continue;
+  }
+  for(unsigned row=0;row<16;++row)for(unsigned col=0;col<8;++col){
+   unsigned a=coverage[row*8+col];
+   unsigned out_a=a+(alpha*(255-a)+127)/255;
+   unsigned fg=colors&65535,bg=colors>>16;
+   /* Cached straight-alpha layer: blend foreground coverage with the window
+    * material once at rebuild, then composite that layer normally. */
+   unsigned weight=out_a?(a*255+out_a/2)/out_a:0;
+   unsigned red=((fg>>11)*weight+(bg>>11)*(255-weight)+127)/255;
+   unsigned green=(((fg>>5)&63)*weight+((bg>>5)&63)*(255-weight)+127)/255;
+   unsigned blue=((fg&31)*weight+(bg&31)*(255-weight)+127)/255;
+   p->pixels[(y+row)*p->width+x+col]=(red<<11)|(green<<5)|blue|(out_a<<16);
+  }
  }
  return 0;
 }

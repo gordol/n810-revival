@@ -5,6 +5,7 @@ import ctypes as C
 import time,math
 from app import SurfaceRoom
 class PixelRoom(SurfaceRoom):
+ input_role="first-person"
  def __init__(self,host,library):
   super().__init__(host,asynchronous=False)
   self.lib=C.CDLL(str(library));self.lib.pocket_room_pixels.argtypes=[C.c_float]*5+[C.c_uint,C.c_uint,C.c_void_p,C.c_uint]

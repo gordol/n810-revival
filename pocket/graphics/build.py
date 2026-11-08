@@ -26,7 +26,7 @@ def main():
     sources.extend([POCKET/'shell/font_preview.py',POCKET/'shell/apps/surface-renderer/room.py',POCKET/'shell/vendor/fonts/choices/console-8x16.psf'])
     identity={'version':1,'platform':platform.system(),'machine':platform.machine(),'python':sys.implementation.cache_tag,'compiler':cc,'compiler_version':subprocess.check_output([*cc,'--version'],text=True).splitlines()[0],'sdl':sdl,'sdl_version':subprocess.check_output(['sdl2-config','--version'],text=True).strip(),'native':native['identity'],'inputs':{str(p.relative_to(POCKET)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}}
     stamp=OUT/'BUILD.json';config_path=OUT/'frontend.json'
-    outputs=['reference.so','renderer.so','window.so','room-pixels.so','console-font.psf','frontend.json','room_mesh.h','test-desktop-input','test-desktop-borders']+(['_gpueffects.abi3.so','console-font.glyphs'] if mac else [])
+    outputs=['reference.so','renderer.so','window.so','room-pixels.so','console-font.psf','frontend.json','room_mesh.h','test-desktop-input','test-desktop-borders']+(['_gpueffects.abi3.so','console-font.glyphs','console-font.smooth'] if mac else [])
     if stamp.exists() and json.loads(stamp.read_text())==identity and all((OUT/n).is_file() for n in outputs):
         print('Graphical frontend is up to date.');return
     subprocess.run([sys.executable,str(HERE/'generate_room.py'),str(OUT)],check=True)
@@ -34,7 +34,7 @@ def main():
     font_path=OUT/'console-font.psf';extend(POCKET/'shell/vendor/fonts/choices/console-8x16.psf',font_path)
     subprocess.run([*cc,*flags,str(HERE/'native/cells.c'),'-o',str(OUT/'reference.so')],check=True)
     # One GL owner/context is shared by cells, direct Room pixels and overlays.
-    combined='\n'.join((HERE/'native'/name).read_text() for name in ('mbx_cells.c','terminal.c','game.c','room_pixels.c'))
+    combined='\n'.join((HERE/'native'/name).read_text() for name in ('mbx_cells.c','terminal.c','game.c','room_pixels.c','map_pixels.c'))
     combined=combined.replace('  glFinish();','  game_draw(age,width,height,tx,ty,tw,th);glFinish();')
     (OUT/'renderer.c').write_text(combined)
     subprocess.run([*cc,*flags,'-DPOCKET_DESKTOP_GL','-I'+str(HERE/'native'),'-I'+str(OUT),str(OUT/'renderer.c'),*sdl,*gl,'-lm','-o',str(OUT/'renderer.so')],check=True)
@@ -58,7 +58,9 @@ def main():
         missing=sorted(code for code in required if chr(code) not in font.mapping)
         with font_path.with_suffix('.glyphs').open('wb') as output:
             subprocess.run([str(tool)],input=''.join(f'{code:x}\n' for code in missing).encode(),stdout=output,check=True)
-    config={'font':str(font_path),'renderer_library':str(OUT/'reference.so'),'gpu_library':str(OUT/'renderer.so'),'display_library':str(OUT/'window.so'),'native_library':native['library'],'effect_library':str(OUT/'_gpueffects.abi3.so'),'graphics_path':str(HERE)}
+        with font_path.with_suffix('.smooth').open('wb') as output:
+            subprocess.run([str(tool),'--smooth'],input=''.join(f'{code:x}\n' for code in range(32,127)).encode(),stdout=output,check=True)
+    config={'font' :str(font_path),'renderer_library':str(OUT/'reference.so'),'gpu_library':str(OUT/'renderer.so'),'display_library':str(OUT/'window.so'),'native_library':native['library'],'effect_library':str(OUT/'_gpueffects.abi3.so'),'graphics_path':str(HERE)}
     config_path.write_text(json.dumps(config,indent=2)+'\n');stamp.write_text(json.dumps(identity,sort_keys=True,indent=2)+'\n')
     print('Built graphical frontend from repository source; no device access.')
 
