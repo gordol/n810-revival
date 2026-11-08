@@ -21,10 +21,10 @@ def main():
         if result.returncode:raise RuntimeError(result.stderr.decode()+result.stdout.decode())
         data=json.loads(report.read_text())
         if len(data['apps'])<24 or not data['native'] or data['desktop_ansi'] or data['desktop_pty']:raise AssertionError('Desktop registry/pixel contract failed')
-        if not any(row['menu'] for row in data['history']):raise AssertionError('Menu was not opened')
+        if not data['menu_opened']:raise AssertionError('Menu was not opened')
         for name in ('Connections','Messages','Settings','Terminal','Surface room'):
-            if not any(row['focus']==name for row in data['history']):raise AssertionError('App did not activate: '+name)
-        if any(row['errors'] for row in data['history']):raise AssertionError('App construction failed')
+            if name not in data['activity']:raise AssertionError('App did not activate: '+name)
+        if data['errors']:raise AssertionError('App construction failed')
         if data['desktop_cells']!=[80,25] or output.stat().st_size!=80*8*25*16*2:raise AssertionError('Resize/output dimensions differ')
         room=data['pixel_apps']['Surface room']
         if room['frames']<=0 or room['cell_layer']:raise AssertionError('Room did not produce direct native pixels')

@@ -10,6 +10,7 @@ from mbx import Renderer
 from cells import style
 from window import Window
 class Platform:
+ history_capacity=128
  def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console",cell_renderer="gpu"):
   self.cell_renderer=cell_renderer
   self.require_gpu=require_gpu;self.font_mode=font_mode
@@ -106,10 +107,21 @@ class Platform:
   if self.display:self.display.present(frame)
   if self.output:Path(self.output).write_bytes(frame)
   self.report['pixel_apps']={app.name:dict(frames=app.pixel_frames,jobs=app.pixel_jobs,error=getattr(app,'error',''),cell_layer=self.host.window(app.name).layer is not None) for app in self.pixel_apps}
-  self.report.setdefault('history',[]).append(dict(frame=self.frames,focus=self.host.focus,menu=bool(self.host.launcher_lines),size=self.size,errors={name:form.error for name,form in self.registry.forms.items() if form.error}))
+  self.record_frame()
   self.report.update(frames=self.frames,focus=self.host.focus,opened=[w.name for w in self.host.windows if w.opened],native=True,desktop_ansi=False)
   if self.limit and self.frames>=self.limit:self.closed=True
   return True
+ def record_frame(self):
+  """Bound diagnostics even when an animated desktop runs all day."""
+  errors={name:form.error for name,form in self.registry.forms.items() if form.error}
+  self.report.setdefault('errors',{}).update(errors)
+  self.report['menu_opened']=self.report.get('menu_opened',False) or bool(self.host.launcher_lines)
+  activity=self.report.setdefault('activity',{})
+  if self.host.focus in activity or len(activity)<64:activity[self.host.focus]=activity.get(self.host.focus,0)+1
+  history=self.report.setdefault('history',[])
+  history.append(dict(frame=self.frames,focus=self.host.focus,menu=bool(self.host.launcher_lines),size=self.size,errors=errors))
+  if len(history)>self.history_capacity:
+   del history[0];self.report['history_dropped']=self.report.get('history_dropped',0)+1
  def wait_timeout(self,timeout):return .016 if timeout is None else min(timeout,.016)
  def close(self):
   if self.compositor:self.compositor.close();self.compositor=None

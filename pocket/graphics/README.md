@@ -189,3 +189,8 @@ that terminal's font/profile settings, independently of this GUI presenter.
 `tests/test_native_presentation_text.py` checks native 1×/2× rasterization,
 odd-size density selection, bounds and clipping, unsupported overlap fallback,
 and the single-buffer/single-marks-pass map path when the capability is off.
+
+Graphical reports keep the most recent 128 frame records. `history_dropped`
+counts older records; `activity`, `menu_opened` and accumulated `errors` retain
+the walkthrough results after those frames leave the history. Diagnostics stay
+bounded during long animated sessions instead of retaining every frame in RAM.
