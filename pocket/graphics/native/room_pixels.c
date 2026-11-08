@@ -100,6 +100,15 @@ void *pocket_pixel_layer_new(unsigned cols,unsigned rows){
  struct pocket_pixel_layer *p=calloc(1,sizeof(*p)+(size_t)cols*8*rows*16*4);
  if(p){p->width=cols*8;p->height=rows*16;}return p;
 }
+/* Borrowed read-only RGB565+alpha storage for the Mac Metal compositor.
+ * The layer owner keeps the allocation alive throughout composition; rebuilding
+ * updates these pixels in place. The pointer expires at layer_free, never cache
+ * it past the frame or free it from the presentation consumer. */
+int pocket_mac_layer_view(const void *handle,unsigned *width,unsigned *height,const uint32_t **pixels){
+ const struct pocket_pixel_layer *p=handle;
+ if(!p||!width||!height||!pixels||!p->width||p->width>4096||!p->height||p->height>4096)return -1;
+ *width=p->width;*height=p->height;*pixels=p->pixels;return 0;
+}
 static void pixel_textures_clear(struct pocket_pixel_layer *p){if(p->exact_program){glDeleteProgram(p->exact_program);p->exact_program=0;}if(p->exact_background){glDeleteTextures(1,&p->exact_background);p->exact_background=0;}if(p->texture_count)glDeleteTextures(p->texture_count,p->textures);p->texture_count=0;}
 void pocket_pixel_layer_free(void *handle){struct pocket_pixel_layer *p=handle;if(p)pixel_textures_clear(p);free(p);}
 static int pixel_glyph(const uint32_t *codes,unsigned n,uint32_t glyph){
