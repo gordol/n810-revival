@@ -37,9 +37,20 @@ FROM source-check AS map-check
 COPY --from=map-deps /opt/maps /opt/maps
 RUN --network=none /opt/maps/bin/python -m unittest discover -s pocket/tests -p 'test_*pipeline.py' -v
 
+# Exercise the complete source suite as a normal user, including Linux D-Bus
+# bindings and the host wire protocol. Test execution is offline.
+FROM map-check AS full-source-check
+RUN apt-get update && apt-get install -y --no-install-recommends python3-venv python3-dbus python3-gi && rm -rf /var/lib/apt/lists/*
+RUN /usr/bin/python3 -m venv --system-site-packages /opt/source-tests && /opt/source-tests/bin/pip install -r requirements-maps.txt -r hardware/htit/rfcomm-ble-hub/host/requirements.txt -r pocket/requirements-meshcore.txt -r hardware/htit/experiments/ibss-rsn/requirements-test.txt
+RUN useradd --create-home source-tester && install -d -o source-tester -g source-tester /verification/source-tests
+RUN --network=none runuser -u source-tester -- /opt/source-tests/bin/python tools/check-source.py --work /verification/source-tests/run --jobs 2
+RUN --network=none runuser -u source-tester -- env POCKET_SOURCE=/src/pocket /opt/source-tests/bin/python -m unittest discover -s hardware/htit/rfcomm-ble-hub/tests -q
+RUN --network=none runuser -u source-tester -- /opt/source-tests/bin/python -m unittest discover -s hardware/htit/experiments/ibss-rsn -p 'test_*.py' -q
+RUN --network=none runuser -u source-tester -- env HTIT_RSN_WORK=/tmp/htit-rsn-ci /opt/source-tests/bin/python -m unittest discover -s hardware/htit/experiments/ibss-rsn/rsn-port -p test_rsn.py -q
+
 # A fresh source-only build exercises the portable GUI with an explicit Mesa
 # software context, plus ARM cross-builds. It does not establish hardware speed.
-FROM map-check AS gui-check
+FROM full-source-check AS gui-check
 RUN apt-get update && apt-get install -y --no-install-recommends libsdl2-dev libgl1-mesa-dev libgl1-mesa-dri xvfb xauth && rm -rf /var/lib/apt/lists/*
 RUN make -C pocket graphics-native && python3 pocket/graphics/build_nokia.py
 RUN python3 -m unittest discover -s pocket/tests -p 'test_graphical_frontend.py' -v && python3 -m unittest discover -s pocket/tests -p 'test_*pixel*.py' -v && python3 -m unittest discover -s pocket/tests -p test_surface_native_backend.py -v

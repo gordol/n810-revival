@@ -10,7 +10,7 @@
     },
     {
       "path": "containers/release.Dockerfile",
-      "sha256": "eec8c01b42b389d86914f04d0e00dfa9a597cf898f91baba23e353b65b5f96b0",
+      "sha256": "ed895db78ac38b170657f31fc1c9fa5fa283433c90a5e61ae26218399548d52d",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
