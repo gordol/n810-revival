@@ -4,6 +4,7 @@ Native libraries remain target-specific: optionally supply the frontend.json
 from the already built target. This command does not compile or access devices.
 """
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -68,7 +69,10 @@ def stage(destination, profile='release', frontend=None):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(raw)
     for name, target in aliases.items():(destination/name).symlink_to(target)
-    (destination / 'runtime-profile.json').write_text(json.dumps({'profile': profile, 'files': len(files)}, indent=2) + '\n')
+    revision=subprocess.run(['git','rev-parse','HEAD'],cwd=ROOT,capture_output=True,text=True)
+    manifest={'profile':profile,'source_commit':revision.stdout.strip() if revision.returncode==0 else None,
+              'files':{name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(files.items())},'aliases':aliases}
+    (destination / 'runtime-profile.json').write_text(json.dumps(manifest,indent=2)+'\n')
     return files
 
 
