@@ -7600,7 +7600,7 @@
     },
     {
       "path": "tools/check-source.py",
-      "sha256": "6d271af050566f0a35a1b7d867e5893d8d50b0084984358553d23e1c549f12dd",
+      "sha256": "5373fb98a59fca709a6130c70a47d91aaa6e087a6ed2e4fb2e22659dab6a7196",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
