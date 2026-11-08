@@ -1870,7 +1870,7 @@
     },
     {
       "path": "pocket/graphics/native/room_pixels.c",
-      "sha256": "d1c8841045a1abf84e8985b6894adeff76fa6e06252f6256821c768c5f6723a7",
+      "sha256": "f3ee9479bdaba2604ccce6f321e045b4f31ba9d925bc5efe7250d719529527dd",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6587,6 +6587,13 @@
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md"
+    },
+    {
+      "path": "pocket/tests/test_mac_layer_view.py",
+      "sha256": "5fe3d782b7758b18f5321d05edca262e5d933e90e8a02f0b7e3090a159922965",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
     },
     {
