@@ -1924,7 +1924,7 @@
     },
     {
       "path": "pocket/graphics/nokia.py",
-      "sha256": "92926c875c5b1093b4df7d89921c7b8f2ad4f2de08efa8769b9734cc6d2c08d6",
+      "sha256": "0c6b01ccb4cc86f703ae0f8c56330d07a13592d4bdd338f129c1f01bfd72e61d",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
@@ -6821,7 +6821,7 @@
     },
     {
       "path": "pocket/tests/test_nokia_graphics.py",
-      "sha256": "1e4dcfe7d678cc7814dd2af08fa2ccb6951093b827d5392e70d4a76cc3b937ba",
+      "sha256": "6071939c9b2a5809d4d2423fd7a8a8c3cb1483ae1e74e7cb623b3a97deeb2e30",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"

@@ -1,6 +1,7 @@
 """Nokia pixels reuse selector input and do not poll idle or own the display stack."""
 from pathlib import Path
-import importlib.util,sys,unittest
+import ast,importlib.util,sys,unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'graphics'));sys.path.insert(0,str(ROOT/'shell'))
@@ -20,6 +21,17 @@ class NokiaGraphics(unittest.TestCase):
   self.assertTrue(p.closed)
  def test_pending_scripted_actions_do_not_block(self):
   p=self.platform(actions=[{'key':'\x1b'}]);self.assertEqual(p.wait_timeout(None),0)
+ def test_signal_stop_wakes_the_desktop_selector(self):
+  tree=ast.parse((ROOT/'graphics/nokia.py').read_text())
+  main=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='main')
+  stop=next(n for n in main.body if isinstance(n,ast.FunctionDef) and n.name=='stop')
+  platform=SimpleNamespace(closed=False);wakes=[]
+  signals=SimpleNamespace(SIGTERM=15,getsignal=lambda sig:lambda *event:wakes.append(event))
+  scope=dict(platform=platform,signal=signals)
+  exec(compile(ast.fix_missing_locations(ast.Module(body=[stop],type_ignores=[])),'nokia.py','exec'),scope)
+  scope['stop'](2,None);self.assertTrue(platform.closed);self.assertEqual(wakes,[(2,None)])
+  signals.getsignal=lambda sig:scope['stop']
+  scope['stop'](15,None);self.assertEqual(len(wakes),1)
  def test_vt_input_is_explicit_and_uses_existing_dispatch(self):
   self.assertTrue(nokia.NokiaPlatform.terminal_input)
   text=(ROOT/'shell/desktop.py').read_text()
