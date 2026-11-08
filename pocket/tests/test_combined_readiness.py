@@ -56,7 +56,7 @@ class Tests(unittest.TestCase):
   self.assertTrue(seen)  # Real SIGCHLD has fired; no waitpid outside owner.
   env=self.env(self.selector.select(.1));exec(INGRESS,env)
   self.assertEqual(env['notified_owners'],{'form:CW','all'})
-  env.update(applications=[jobs],metrics=None,full_models='all' in env['notified_owners'],due_owners=env['notified_owners'],serviced_owners=set(),host=SimpleNamespace(app_forms={}))
+  env.update(DEVELOPMENT=True,applications=[jobs],metrics=None,full_models='all' in env['notified_owners'],due_owners=env['notified_owners'],serviced_owners=set(),host=SimpleNamespace(app_forms={}))
   exec(APPLICATIONS,env)
   self.assertTrue(model.closed);self.assertEqual(jobs.models,[])
   self.assertEqual(child.returncode,0);self.assertEqual(env['serviced_owners'],{'application:0'})

@@ -110,7 +110,7 @@ class SamplingTests(unittest.TestCase):
   scheduled={}
   form=SimpleNamespace(presentation_interval=lambda:1.)
   host=SimpleNamespace(app_forms={'System':form},window=lambda name:SimpleNamespace(rolled=False),shown=lambda window:True)
-  environment=dict(applications=[SimpleNamespace(poll_interval=lambda:None)],host=host,metrics=None,model_intervals=None,timeout=None,owner_delay=lambda owner,delay:scheduled.update({owner:delay}))
+  environment=dict(DEVELOPMENT=True,applications=[SimpleNamespace(poll_interval=lambda:None)],host=host,metrics=None,model_intervals=None,timeout=None,owner_delay=lambda owner,delay:scheduled.update({owner:delay}))
   exec(compile(textwrap.dedent(source[start:end]),'desktop-timers','exec'),environment)
   self.assertEqual(scheduled,{'form:System':1.})
   host.shown=lambda window:False;scheduled.clear()
