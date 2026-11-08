@@ -12,7 +12,9 @@ from path_profile import profile,EARTH_M
 
 @lru_cache(maxsize=1)
 def grid():
-    directory=Path(__file__).with_name('data')
+    from data_paths import data_root
+    directory=data_root()
+    if not (directory/'tahoma-3dep.json').is_file():directory=Path(__file__).with_name('data')
     metadata=json.loads((directory/'tahoma-3dep.json').read_text())
     raw=(directory/'tahoma-3dep.i16.zlib').read_bytes()
     if len(raw)>1024*1024 or hashlib.sha256(raw).hexdigest()!=metadata['sha256']:
@@ -41,7 +43,10 @@ def elevation(latitude,longitude):
 
 @lru_cache(maxsize=1)
 def regional_grid():
-    directory=Path(__file__).with_name('data');metadata=json.loads((directory/'pnw-etopo1.json').read_text())
+    from data_paths import data_root
+    directory=data_root()
+    if not (directory/'pnw-etopo1.json').is_file():directory=Path(__file__).with_name('data')
+    metadata=json.loads((directory/'pnw-etopo1.json').read_text())
     raw=(directory/'pnw-etopo1.i16.zlib').read_bytes()
     if hashlib.sha256(raw).hexdigest()!=metadata['sha256']:raise ValueError('Regional elevation grid integrity check failed')
     expected=metadata['nx']*metadata['nz']*2

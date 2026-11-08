@@ -96,6 +96,9 @@ review source diffs when reconciling an older snapshot.
 - Keep public GIS downloads, map tiles, terrain packs and map caches out of Git.
   Ship their acquisition/build tools and source attribution. Use small fictional
   fixtures for offline builder tests and identify regional integration tests.
+  Map UI and terrain tests must also run from a source-only checkout. Use
+  `pocket/tests/reference_fixtures.py` for fictional reference packs; keep any
+  real-data integration prerequisite explicit.
 
 ## Validation and completion
 

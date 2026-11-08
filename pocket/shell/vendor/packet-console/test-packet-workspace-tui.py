@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]/'tests'))
+from reference_fixtures import maps
 """Read-only select/inspect/map/filter workflow through the TUI adapter."""
 import hashlib
 import importlib.util
@@ -36,7 +40,7 @@ class Window:
 class WorkspaceTests(unittest.TestCase):
     def state(self):
         state = view.State()
-        view.init_map(state, str(ROOT / 'maps'), 'next', 'color')
+        view.init_map(state, str(maps()), 'next', 'color')
         state.map_engine.style = 'rgb'
         state.center = [47.38, -122.52]
         state.auto_fit = state.help = state.debug = False
