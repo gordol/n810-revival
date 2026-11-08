@@ -1,6 +1,14 @@
 # Run the Pocket tests
 
-With Docker and Make available, run the complete container build from the repository root:
+With Docker, Python 3 and Make available, clone the repository and run the
+complete container build:
+
+```sh
+git clone https://github.com/gordol/n810-revival.git
+cd n810-revival
+```
+
+From that repository root:
 
 ```sh
 make container-check
@@ -9,7 +17,24 @@ make container-check
 This builds the kernel, frozen graphics checkpoint, HTIT firmware and graphical
 frontend. It runs the full Pocket and bundled radio suites as a normal user with
 network access disabled, then runs the HTIT host checks and software-OpenGL GUI
-checks. Dependency installation happens in separate cached build stages.
+checks. Dependency installation happens in separate cached build stages. The first build
+needs network access to download those dependencies. Docker reuses matching
+layers on later runs.
+
+The [7 November hosted verification](../reference/component-build-verification.md#github-container-build-7-november)
+passed 205 source test files and the HTIT host suites at revision `b331ac7`.
+To reproduce that source revision, run `git checkout b331ac7` before the build.
+A successful command exits with status zero.
+
+To build and export the separate source and documentation archives, run:
+
+```sh
+make release-archives
+```
+
+The archives and their checksums appear in `dist/`. This target includes the
+container checks and reuses matching build layers. Use
+`make container-check-clean` when you explicitly want to rebuild every stage.
 
 With Python 3.11 or newer and Make installed, run the focused host tests from the repository root:
 

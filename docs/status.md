@@ -38,3 +38,15 @@ The [component verification page](reference/component-build-verification.md) rec
 The [native graphical frontend](pocket/graphics.md), [terminal desktop](tutorials/first-session.md), [kernel](how-to/build-kernel.md), [HTIT firmware](how-to/build-htit.md), and [frozen MBX/Mesa checkpoint](how-to/build-gpu-30fps.md) have source and build inputs in the repository. Regional map and elevation data are acquired with the [map build tools](how-to/build-map-data.md). Generated data and native binaries are built locally.
 
 The November 7 source integration passed a fresh-clone Mac graphics build, focused frontend checks, and the Linux release-container build and source-archive unpack/build checks. Container GUI tests explicitly use Mesa software OpenGL. Physical N810 graphics qualification follows the separate device test path. The journal identifies ongoing candidates that have yet to become published build checkpoints.
+
+## Latest verified container build
+
+On 7 November, [GitHub container build 42434184966](https://github.com/gordol/n810-revival/actions/runs/42434184966)
+passed at revision `b331ac7`: 205 source test files, six HTIT wire-protocol
+host tests, 28 Python RSN tests and 11 compiled RSN tests. The build completed
+its kernel, frozen graphics, firmware and native frontend checks and uploaded
+separate source and documentation archives. GUI checks used Mesa software OpenGL.
+
+The [verification record](reference/component-build-verification.md#github-container-build-7-november)
+records the tested revision and launcher-test correction. To run the same
+container build, follow the [validation guide](how-to/validate.md).
