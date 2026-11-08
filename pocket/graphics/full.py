@@ -12,6 +12,8 @@ from window import Window
 class Platform:
  def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console"):
   self.require_gpu=require_gpu;self.font_mode=font_mode
+  from presentation_text import create
+  self.presentation_text=create(display,font_mode)
   self.font=font;self.library=library;self.display=display;self.limit=frames;self.output=output;self.actions=list(actions);self.closed=False;self.frames=0;self.dirty=True;self.renderer=None;self.size=(100,30);self.report={};self.pixel_apps=[];self.compositor=None;self.resized=False;self.action_frame=-1
  def configure_registry(self,registry):
   def room_factory(host,**options):
@@ -32,7 +34,7 @@ class Platform:
     owner=map_factory(host,**options)
     from map_pixels import View
     from font_supplement import load
-    self.pixel_apps.append(View(host,owner,self.library,load(self.font,self.font_mode)));return owner
+    self.pixel_apps.append(View(host,owner,self.library,load(self.font,self.font_mode),presentation_text=bool(getattr(self,'presentation_text',None))));return owner
    registry.entries['station-map']=entry._replace(factory=map_owner)
  def geometry(self):return Geometry(*self.size)
  def attach(self,host,panel,registry):
@@ -83,6 +85,13 @@ class Platform:
  def present(self,complete):
   visible=[app for app in self.pixel_apps if self.host.shown(self.host.window(app.name)) and not self.host.window(app.name).rolled]
   if not complete or not (self.dirty or any(app.pixel_dirty for app in visible)):return False
+  from presentation_text import supported
+  text=self.presentation_text
+  enabled=bool(text and supported(self.host,visible,raw_capture=self.output is not None))
+  self.report['native_text']=dict(enabled=enabled,reason='native atlas' if enabled else 'complete bitmap fallback')
+  for app in visible:
+   if hasattr(app,'native_text'):app.native_text=enabled
+  if self.renderer.defer_text(enabled):self.dirty=True
   if self.dirty:self.renderer.finish()
   self.dirty=False;self.frames+=1;frame=self.renderer.pixels
   if visible:
@@ -90,6 +99,9 @@ class Platform:
     from pixel_compositor import Compositor
     self.compositor=Compositor(self.host,self.renderer,Path(self.library).resolve().parent/'room-pixels.so')
    frame=bytearray(frame);self.compositor.compose(frame,visible)
+  if text:
+   if enabled:text.stage(self.renderer,visible,self.compositor.image_rects if visible else ())
+   else:text.clear()
   if self.display:self.display.present(frame)
   if self.output:Path(self.output).write_bytes(frame)
   self.report['pixel_apps']={app.name:dict(frames=app.pixel_frames,jobs=app.pixel_jobs,error=getattr(app,'error',''),cell_layer=self.host.window(app.name).layer is not None) for app in self.pixel_apps}

@@ -8,6 +8,7 @@ from font_supplement import load as load_font
 from paint import foreground,background
 class Renderer:
  def __init__(self,host,font,library,require_gpu=True,font_mode="console",**unused):
+  self.deferred_text=False
   self.host=host;self.font=load_font(font,font_mode);self.pixels=bytearray(768000);self.lib=C.CDLL(str(library));self.bulk_batches=0;self.cells_drawn=0
   if not (0<host.width<=512 and 0<host.height<=256 and (self.font.width,self.font.height)==(8,16)):raise ValueError('MBX frontend requires unchanged800x480/8x16layout')
   self.lib.pocket_mbx_open.argtypes=[C.c_int];self.lib.pocket_mbx_open.restype=C.c_void_p
@@ -78,6 +79,18 @@ class Renderer:
    h.invalidate((0,0,100,30));raise
   self.cells_drawn+=drawn;self.bulk_batches+=1
   return changed,computed,drawn
+ def defer_text(self,enabled):
+  if self.deferred_text==bool(enabled):return False
+  self.lib.pocket_mbx_defer_text.argtypes=[C.c_void_p,C.c_int]
+  changed=bool(getattr(self,'deferred_text',False))!=bool(enabled)
+  if self.lib.pocket_mbx_defer_text(self.handle,int(enabled)):raise ValueError('Text presentation switch rejected')
+  self.deferred_text=bool(enabled)
+  return changed
+ def text_cells(self):
+  data=(C.c_uint32*(self.size[0]*self.size[1]*2))()
+  self.lib.pocket_mbx_text_cells.argtypes=[C.c_void_p,C.c_void_p,C.c_size_t]
+  if self.lib.pocket_mbx_text_cells(self.handle,data,len(data)):raise ValueError('Text export rejected')
+  return data
  def finish(self):
   buffer=(C.c_ubyte*len(self.pixels)).from_buffer(self.pixels)
   if self.lib.pocket_mbx_render(self.handle,buffer):raise RuntimeError(self.lib.pocket_mbx_error().decode())

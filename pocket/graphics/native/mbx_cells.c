@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 struct cell {uint16_t fg,bg;unsigned char mask[16],valid,dirty;uint32_t code;};
-struct renderer {OSMesaContext gl;uint16_t image[160000];struct cell *cells;unsigned cols,rows;float positions[6144*3],colors[6144*4];unsigned rectangles,jobs;float glyph_depth;GLuint program;const uint32_t *coverage_codes;const unsigned char *coverage;unsigned coverage_count;};
+struct renderer {OSMesaContext gl;uint16_t image[160000];struct cell *cells;unsigned cols,rows;float positions[6144*3],colors[6144*4];unsigned rectangles,jobs;float glyph_depth;GLuint program;const uint32_t *coverage_codes;const unsigned char *coverage;unsigned coverage_count;int defer_text;};
 static const char *failure="MBX cell renderer rejected input";
 const char *pocket_mbx_error(void){return failure;}
 void *pocket_mbx_open(int require_gpu){
@@ -109,7 +109,7 @@ static void rectangle(struct renderer *r,unsigned x,unsigned y,unsigned w,unsign
 /* Merge identical glyph spans on consecutive rows, exactly as the accepted
  * native glyph encoder. Counting and emission use the same bounded traversal. */
 static unsigned glyph(struct renderer *r,const struct cell *c,unsigned x,unsigned y,int emit){
- if(c->fg==c->bg)return 0;
+ if(c->fg==c->bg||(r->defer_text&&c->code>=32&&c->code<127))return 0;
  int aa=find_glyph(r->coverage_codes,r->coverage_count,c->code);
  if(aa>=0){
   const unsigned char *coverage=r->coverage+128*(unsigned)aa;unsigned count=0;
@@ -210,3 +210,15 @@ int pocket_mbx_text(void *ptr,unsigned x,unsigned y,const uint32_t *text,unsigne
 }
 
 void pocket_mbx_blank(void *ptr){struct renderer *r=ptr;if(!r)return;memset(r->cells,0,(size_t)r->cols*r->rows*sizeof(*r->cells));for(unsigned i=0;i<r->cols*r->rows;++i)r->cells[i].valid=r->cells[i].dirty=1;}
+
+/* Presentation-only switch: cell descriptions and Nokia geometry are unchanged. */
+int pocket_mbx_defer_text(void *ptr,int enabled){
+ struct renderer *r=ptr;if(!r)return -1;enabled=!!enabled;
+ if(r->defer_text!=enabled){r->defer_text=enabled;for(unsigned i=0;i<r->cols*r->rows;i++)r->cells[i].dirty=1;}
+ return 0;
+}
+int pocket_mbx_text_cells(void *ptr,uint32_t *out,size_t count){
+ struct renderer *r=ptr;if(!r||!out||count!=(size_t)r->cols*r->rows*2)return -1;
+ for(unsigned i=0;i<r->cols*r->rows;i++){out[i*2]=r->cells[i].code;out[i*2+1]=r->cells[i].fg;}
+ return 0;
+}
