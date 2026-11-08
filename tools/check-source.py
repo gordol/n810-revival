@@ -25,6 +25,11 @@ results=[]
 with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
  for result in pool.map(run,files):
   results.append(result);print(result,flush=True);(out/'results.json').write_text(json.dumps(results,indent=2)+'\n')
+  if result['code']:
+   log=out/(Path(result['path']).stem+'.log')
+   print('--- Failure output: '+result['path']+' ---',flush=True)
+   print(log.read_text(errors='replace')[-32768:],flush=True)
+   print('--- End failure output ---',flush=True)
 print('Passed',sum(x['code']==0 for x in results),'/',len(results))
 
 raise SystemExit(any(row['code'] for row in results))
