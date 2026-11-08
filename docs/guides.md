@@ -17,6 +17,7 @@ The [laptop window-controls tour](tutorials/laptop-tour.md) demonstrates the sam
 ## How-to guides
 
 - [Use Pocket over SSH](how-to/ssh.md).
+- [Prepare a fresh N810 SD card](how-to/prepare-fresh-n810.md).
 - [Build the N810 kernel and modules](how-to/build-kernel.md).
 - [Build the HTIT firmware](how-to/build-htit.md).
 - [Rebuild and inspect map data](how-to/build-map-data.md).
