@@ -53,12 +53,12 @@ def segments(engine,view):
 
 class View:
  input_role='map'
- def __init__(self,host,owner,library,font):
+ def __init__(self,host,owner,library,font,*,presentation_text=False):
   self.host=host;self.owner=owner;self.base=owner.base;self.name='Station Map';self.font=font;self.lib=C.CDLL(str(library))
   self.lib.pocket_map_base.argtypes=[C.c_void_p,C.c_size_t,C.c_void_p,C.c_uint,C.c_uint]
   self.lib.pocket_map_lines.argtypes=[C.c_void_p,C.c_size_t,C.c_uint,C.c_uint,C.c_void_p,C.c_uint,C.c_uint]
   self.lib.pocket_map_marks.argtypes=[C.c_void_p,C.c_size_t,C.c_uint,C.c_uint,C.c_void_p,C.c_uint,C.c_void_p]
-  self.pending=None;self.ready=None;self.ready_layer=None;self.key=None;self.failed=None;self.pixel_frames=0;self.pixel_jobs=0;self.error=''
+  self.presentation_text=presentation_text;self.native_text=False;self.pending=None;self.ready=None;self.ready_layer=None;self.key=None;self.failed=None;self.pixel_frames=0;self.pixel_jobs=0;self.error=''
  def plan(self):
   if self.owner.dialog or self.owner.terrain_active or self.base.filter_open:return None
   layer=self.owner.layer();image=getattr(self.base,'_shown_image',None) or getattr(self.base,'_display_image',None)
@@ -94,9 +94,15 @@ class View:
   marks=(Mark*len(overlay))();bits=bytearray()
   for n,(index,(ch,ink)) in enumerate(sorted(overlay.items())):
    marks[n]=Mark(index,ord(ch),ink);bits.extend(self.font.glyph(ch))
+  deferred=(C.c_uint16*capacity).from_buffer_copy(pixels) if self.presentation_text else None
   glyphs=(C.c_ubyte*len(bits)).from_buffer(bits)
   if self.lib.pocket_map_marks(pixels,capacity,w,h,marks,len(marks),glyphs):raise ValueError('Map annotations rejected')
-  return pixels
+  if self.presentation_text:
+   for n,mark in enumerate(marks):
+    if 32<=mark.ch<127:bits[n*16:n*16+16]=bytes(16)
+   if self.lib.pocket_map_marks(deferred,capacity,w,h,marks,len(marks),glyphs):raise ValueError('Deferred map annotations rejected')
+  else:deferred=pixels
+  return pixels,deferred,marks
  def wake(self,future):
   callback=self.base.renderer.completion_wakeup
   if callback:
@@ -116,4 +122,9 @@ class View:
     future=pool.submit(self.build,layer,projection);self.pending=key,future,layer;future.add_done_callback(self.wake)
   if self.key!=key:return None
   x,y,w,h=layer[:4];wx,wy,_,_=self.host.bounds(self.host.window(self.name));ox,oy=self.host.origin
-  return self.ready,(wx+ox+1+x)*8,(wy+oy+1+y)*16,w*8,h*16
+  return self.ready[int(self.native_text)],(wx+ox+1+x)*8,(wy+oy+1+y)*16,w*8,h*16
+
+ def presentation_marks(self):
+  if self.ready is None or self.plan() is None or self.key!=self.plan()[0]:return None
+  x,y,w,h=self.ready_layer[:4];wx,wy,_,_=self.host.bounds(self.host.window(self.name));ox,oy=self.host.origin
+  return self.ready[2],wx+ox+1+x,wy+oy+1+y,w,h

@@ -138,3 +138,35 @@ change display modes or take a VT from another application. VT keyboard input,
 touch, services and completions use the desktop's existing selector; idle has no
 SDL pump or periodic frame poll. Display/service lifecycle belongs to the device
 session owner. Build success alone is not physical-device acceptance.
+
+### Mac native-density UI text
+
+The default Mac `smooth` mode now draws ordinary ASCII UI text from a cached
+CoreText Menlo atlas at the SDL window's actual backing density. A Retina
+window uses freshly rasterized 16×32 glyphs in the same logical 8×16 cells;
+it does not enlarge the old 8×16 glyph bitmap. The panel, window text and map
+semantic labels use this path. App models, layouts, pointer coordinates, Nokia
+console glyphs and direct game/terrain image resolution remain unchanged.
+The atlas is generated in process from the Mac's system font and is never
+bundled or redistributed. Changing display density rebuilds it; odd window
+sizes and letterboxing do not change the chosen backing density.
+
+This is a bounded presentation path. The existing cell compositor resolves
+ordinary window opacity and transparent cells before text is presented. One
+frontmost direct pixel app can retain its image while its surrounding UI uses
+the atlas. If any higher visible window (even a non-overlapping one), launcher, drag
+outline, multiple pixel apps or
+experimental GPU layer composition makes image/text ownership ambiguous, the
+entire frame uses the previous complete renderer. This preserves translucent
+windows, holes, shadows and scene order without missing or doubled text. The
+report's `native_text` field identifies this fallback. Non-ASCII graphics,
+box drawing, symbols and terrain block glyphs retain the existing bitmap path.
+Raw `--output` RGB565 captures deliberately use complete bitmap text because
+that format cannot contain the final high-density SDL overlay. Headless runs
+also keep the complete renderer. `--font-mode console`/`crisp` retain their
+previous behavior. Fonts in a real terminal (`make tui`) remain controlled by
+that terminal's font/profile settings, independently of this GUI presenter.
+
+`tests/test_native_presentation_text.py` checks native 1×/2× rasterization,
+odd-size density selection, bounds and clipping, unsupported overlap fallback,
+and the single-buffer/single-marks-pass map path when the capability is off.

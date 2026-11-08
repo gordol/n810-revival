@@ -6,6 +6,9 @@
 #undef pocket_window_open
 #undef pocket_window_present
 #undef pocket_window_event
+#ifdef __APPLE__
+#include "native_text.h"
+#endif
 static struct window *input_window;
 static unsigned canvas_width=800,canvas_height=480;
 static int dynamic_canvas;
@@ -39,6 +42,9 @@ int pocket_window_draw(void *ptr,const void *pixels){
 }
 int pocket_window_present(void *ptr,const void *pixels){
  if(pocket_window_draw(ptr,pixels))return -1;
+#ifdef __APPLE__
+ if(pocket_native_text_draw(((struct window*)ptr)->renderer,canvas_width,canvas_height))return -1;
+#endif
  SDL_RenderPresent(((struct window*)ptr)->renderer);return 0;
 }
 int pocket_window_fullscreen(void *ptr,int enabled){

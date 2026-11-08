@@ -78,6 +78,7 @@ class Compositor:
   self.metrics={'gpu_composed_layers':len(handles),'layer_cpu_ns':0,'image_cpu_ns':0};self.frames+=1
   return True
  def compose(self,canvas,apps):
+  self.image_rects=[]
   cols,rows=self.renderer.size;count=cols*8*rows*16
   if len(canvas)!=count*2:raise ValueError('Canvas dimensions mismatch')
   if self.lib.pocket_pixel_canvas_size(cols*8,rows*16):raise ValueError('Native canvas size rejected')
@@ -101,7 +102,7 @@ class Compositor:
    if app is not None:
     result=app.render_image()
     if result:
-     image,px,py,pw,ph=result;start=time.process_time_ns()
+     image,px,py,pw,ph=result;self.image_rects.append((px,py,pw,ph));start=time.process_time_ns()
      if self.lib.pocket_pixel_image(dst,self.coverage,image,px,py,pw,ph):raise ValueError('Native image composition rejected')
      self.metrics['image_cpu_ns']+=time.process_time_ns()-start;covered=True
   if covered and h.launcher_lines:
