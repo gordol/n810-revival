@@ -14,6 +14,9 @@ class Engine(engine_module.DoomApp):
   except AttributeError:raise ValueError('Doom pixel adapter is outdated; run make doom from pocket/') from None
   convert.argtypes=[C.c_void_p,C.c_void_p,C.c_size_t]+[C.c_uint]*6
   convert.restype=C.c_int
+  try:protocol=self.lib.input_protocol()
+  except AttributeError:protocol=0
+  if protocol!=2:raise ValueError('Doom mouse adapter is outdated; run make doom from pocket/')
  def update(self):
   start=time.perf_counter();ok=self.lib.snapshot(C.byref(self.shared),C.byref(self.frame));self.stats['snapshot_seconds']+=time.perf_counter()-start
   if not ok or not self.frame.number or self.frame.number==self.serial:return None
@@ -26,7 +29,17 @@ class View:
   self.host=host;self.owner=owner;self.name=owner.name;self.size=None;self.image=None;self.last_serial=0
   self.pixel_frames=0;self.pixel_jobs=0
   owner.engine_factory=lambda h,state:Engine(h,state,name=owner.name,resource_root=owner.root)
- def _active(self):return self.owner._active()
+ def _active(self):return bool(self.owner.engine and not self.owner.error and self.owner._active())
+ def pointer_motion(self,dx,dy):
+  if self._active():self.owner.engine.mouse(dx*4,0,self.owner.engine.mouse_buttons)
+ def pointer_button(self,button,released):
+  bit={0:1,2:2,1:4}.get(button,0)
+  if self._active():
+   buttons=self.owner.engine.mouse_buttons
+   self.owner.engine.mouse(0,0,buttons&~bit if released else buttons|bit)
+ def release_pointer(self):
+  if self.owner.engine:self.owner.engine.mouse()
+
  @property
  def pixel_dirty(self):
   engine=self.owner.engine
