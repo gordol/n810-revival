@@ -44,7 +44,12 @@ class RuntimeProfileTests(unittest.TestCase):
         if not frontend.exists():self.skipTest('run make graphics-native first')
         with tempfile.TemporaryDirectory(prefix='pocket-release-',dir='/tmp') as d:
             target=Path(d)/'runtime'
-            files=stage(target,frontend=frontend)
+            config=json.loads(frontend.read_text())
+            config['effect_library']=str(Path(d)/'not-built-on-this-target.so')
+            original_read=Path.read_text
+            from unittest.mock import patch
+            with patch.object(Path,'read_text',autospec=True,side_effect=lambda p,*a,**k:json.dumps(config) if p==frontend else original_read(p,*a,**k)):
+                files=stage(target,frontend=frontend)
             self.assertNotIn('graphics/launch.py',files)
             self.assertNotIn('graphics/desktop.py',files)
             self.assertNotIn('build/graphics/reference.so',files)

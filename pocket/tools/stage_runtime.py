@@ -41,6 +41,9 @@ def stage(destination, profile='release', frontend=None):
             elif key.endswith('_library') or key == 'font':
                 source = Path(value)
                 if not source.is_absolute():source = frontend.parent / source
+                if key == 'effect_library' and not source.is_file():
+                    del config[key]  # Optional macOS effects are not built on Linux.
+                    continue
                 name = 'build/graphics/' + source.name
                 files[name] = source.read_bytes()
                 if key == 'native_library' and (source.parent/'provenance.json').is_file():
