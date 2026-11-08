@@ -24,10 +24,10 @@ migration in a `BREAKING CHANGE:` footer. A breaking-change footer on its own
 is also valid Conventional Commits syntax. Preserve that footer in the final
 commit message.
 
-The Review workflow checks PR titles, including title edits. Squash-merge PRs
-using the checked title and a body that preserves any breaking-change details.
-For a rebase merge, every retained commit must follow this convention. Historical
-commits retain their original messages.
+The Review workflow checks PR titles (including edits) and every commit introduced
+by the PR. Use rebase merges to retain individual commit messages and their
+breaking-change footers. GitHub allows rebase merging for this repository.
+Historical commits retain their original messages.
 
 We use [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 `pocket/VERSION` is the version for the integrated project; upstream kernel,

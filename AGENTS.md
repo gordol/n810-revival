@@ -22,8 +22,8 @@ review source diffs when reconciling an older snapshot.
 - Treat a request for discussion or review as that scope. Publishing, pushing,
   merging, deployment, and release creation require authorization for that action.
 - Follow the Conventional Commits and SemVer policy in CONTRIBUTING.md for new
-  commits, PR titles, and version changes. Preserve breaking-change footers when
-  squash-merging. Release tags and publication require explicit authorization.
+  commits, PR titles, and version changes. Use rebase merges to preserve individual
+  commit messages and breaking-change footers. Release tags and publication require explicit authorization.
 - Use topic branches and pull requests for shared changes. Review the exact staged
   diff before committing. Never infer remote branch protection from local files.
 - The publication tree contains frozen checkpoints. Import reviewed snapshots
