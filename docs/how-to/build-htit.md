@@ -18,7 +18,7 @@ flowchart LR
 Use Python 3.11–3.13 and a C/C++ compiler for host tests. From the repository root:
 
 ```sh
-python3.13 -m venv .venv-htit
+python3 -m venv .venv-htit
 .venv-htit/bin/pip install -r hardware/htit/requirements-build.txt
 ```
 
@@ -38,6 +38,8 @@ The executor wrapper creates `source/HTITPrivate.h` inside the private build dir
 The firmware images are under `source/.pio/build/<environment>/`. Device installation requires the matching partition layout, bootloader and a recovery plan. The build command ends after compilation.
 
 ## Run the host checks
+
+The [7 November walkthrough](../reference/component-build-verification.md#failures-exposed-by-the-reader-commands) found a GCC signedness error in the wire-protocol test. That failure remains open; the independent RSN checks passed.
 
 ```sh
 .venv-htit/bin/pip install -r hardware/htit/rfcomm-ble-hub/host/requirements.txt     -r pocket/requirements-meshcore.txt     -r hardware/htit/experiments/ibss-rsn/requirements-test.txt

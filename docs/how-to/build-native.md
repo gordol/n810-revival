@@ -4,7 +4,7 @@ Install a C compiler and development headers matching the Python interpreter use
 
 ```sh
 make -C pocket native
-make -C pocket n810 INSTANCE=native-check
+make -C pocket
 ```
 
 The build helper places artifacts in the Pocket native cache under `$XDG_CACHE_HOME`, or the user's default cache directory. Source hashes, platform identity, and interpreter identity select the matching build. The launcher can use the portable renderer when compilation is unavailable.

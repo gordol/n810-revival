@@ -6,6 +6,8 @@ Pocket began with cells sent to a terminal. The [console RGB work](2026-10-16-16
 
 The first Mac experiment drew recorded block cells through OpenGL. It understood spaces and full or half blocks, with a separate color for each half. Its independent pixel check was useful, but it covered only that small vocabulary. Ordinary text, input, application state, and window lifetime needed the rest of the desktop.
 
+The [Surface Room recording](2026-11-07-surface-room.md) shows the native window in use, with movement, aiming, firing, and target resets at normal speed.
+
 ## First carry the terminal, then attach to the model
 
 A compatibility launcher ran the real desktop through a pseudo-terminal (PTY), parsed its ANSI output in C, and drew glyphs in a native window. That exercised the existing app catalogue and input handlers. Synchronized-output markers delayed presentation until a coherent terminal update was available.
