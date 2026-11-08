@@ -103,6 +103,23 @@ kernel. A first-boot run on a second N810 is still needed before this can be
 called a complete tablet installer. An ordinary reboot returns to the stored
 boot image.
 
+If the N810 shows `usb0` with `192.168.10.1`, connect its USB cable to the
+Linux host and find the new host interface with `ip -br link`. Give that
+interface the other address on the USB link (replace the placeholder with the
+interface you identified):
+
+```sh
+sudo ip address add 192.168.10.2/24 dev <HOST_USB_INTERFACE>
+sudo ip link set <HOST_USB_INTERFACE> up
+ping -c 3 192.168.10.1
+```
+
+Before the first SSH connection, read the tablet's new host-key fingerprint
+at its console with `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`. Compare
+it with the fingerprint SSH shows on the Linux host. Do not accept a different
+key or bypass the host-key check. The SSH service creates this key on first
+boot; if it has not started, check `systemctl status ssh` on the tablet.
+
 The base system does not include Pocket's device supervisor or private radio
 identities. Once USB networking and SSH work, copy a clean repository checkout
 from the Linux host and run the portable Pocket desktop on the tablet:
