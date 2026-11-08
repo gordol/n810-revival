@@ -68,9 +68,9 @@ loop index with `9 + f->len`, and its `-Werror` build rejects the signed/unsigne
 comparison. Converting the length operand to `size_t` fixes the comparison.
 The corrected wire protocol passed all six host tests, and the hub firmware rebuilt.
 
-The follow-up container run passed all 202 Pocket and bundled radio test files,
+The follow-up container run passed all 203 Pocket and bundled radio test files,
 including the previously timed-out station terrain suite. The run used a normal
-user and disabled network access during tests. All 28 Python RSN tests passed.
+user and disabled network access during tests. All 28 Python RSN tests passed. The added test file covers the published game mouse-capture fix.
 The compiled RSN gate requires its checksum-pinned WPA source archive during
 dependency preparation, so its subsequent test execution can also run offline.
 

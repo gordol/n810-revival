@@ -58,7 +58,7 @@ RUN useradd --create-home source-tester && install -d -o source-tester -g source
 RUN --network=none runuser -u source-tester -- /opt/source-tests/bin/python tools/check-source.py --work /verification/source-tests/run --jobs 2
 RUN --network=none runuser -u source-tester -- env POCKET_SOURCE=/src/pocket /opt/source-tests/bin/python -m unittest discover -s hardware/htit/rfcomm-ble-hub/tests -q
 RUN --network=none runuser -u source-tester -- /opt/source-tests/bin/python -m unittest discover -s hardware/htit/experiments/ibss-rsn -p 'test_*.py' -q
-RUN --network=none runuser -u source-tester -- env HTIT_RSN_WORK=/tmp/htit-rsn-ci /opt/source-tests/bin/python -m unittest discover -s hardware/htit/experiments/ibss-rsn/rsn-port -p test_rsn.py -q
+RUN --network=none runuser -u source-tester -- env HTIT_RSN_WORK=/tmp/htit-rsn-ci python3 -m unittest discover -s hardware/htit/experiments/ibss-rsn/rsn-port -p test_rsn.py -q
 RUN chown -R root:root /src
 
 # A fresh source-only build exercises the portable GUI with an explicit Mesa
