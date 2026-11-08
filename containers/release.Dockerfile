@@ -26,6 +26,7 @@ RUN python3 -m venv /opt/docs && /opt/docs/bin/pip install -r /tmp/requirements-
 COPY . .
 RUN git init -q && git add . && python3 tools/check-journal.py --tracked && python3 tools/check-publication.py
 RUN make pocket-smoke && make -C pocket native
+RUN python3 -B platform/bootstrap/test_build_sd.py -q
 RUN python3 -m unittest discover -s tools -p test_package_source.py -v
 RUN /opt/docs/bin/python -m mkdocs build --strict
 
