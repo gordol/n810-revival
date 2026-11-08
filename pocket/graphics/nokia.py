@@ -54,7 +54,12 @@ def main():
     platform=NokiaPlatform(a.font,a.renderer_library,display,output=a.output,
         actions=json.loads(a.actions.read_text()) if a.actions else (),seconds=a.seconds,font_mode=a.font_mode)
     previous={};old=termios.tcgetattr(sys.stdin)
-    def stop(*unused):platform.closed=True
+    def stop(signum,frame):
+        platform.closed=True
+        # The desktop installs a TERM handler that writes its selector wakeup.
+        # Delegate INT to it too; a flag alone cannot stop a blocked selector.
+        wake=signal.getsignal(signal.SIGTERM)
+        if callable(wake) and wake is not stop:wake(signum,frame)
     for sig in (signal.SIGTERM,signal.SIGINT):previous[sig]=signal.signal(sig,stop)
     try:
         tty.setraw(sys.stdin,when=termios.TCSANOW)
