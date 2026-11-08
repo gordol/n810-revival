@@ -21,3 +21,54 @@ The kernel builder records the selected compiler, configuration, source hashes a
 The full Pocket and bundled radio suites use isolated temporary home directories. Packet fixtures contain synthetic traffic. Geography tests use public reference data and landmarks. The HTIT tests cover C/Python framing, an emulated radio engine, the official MeshCore client over local pseudo-terminals, CCMP validation and in-memory RSN peers. See the [validation guide](../how-to/validate.md) for the repeatable commands.
 
 [HTIT build](../how-to/build-htit.md) · [Map build](../how-to/build-map-data.md)
+
+## Fresh-checkout walkthrough, 7 November
+
+This walkthrough cloned public revision `4b1262a` into an isolated Linux ARM64
+Docker container. It followed the reader commands with fresh build directories.
+The container had no host checkout, USB devices, or radio services mounted.
+Native display checks used Xvfb and Mesa llvmpipe.
+
+The first-session walkthrough launched with `make`, opened Help and Calendar,
+searched Help for “pairing,” switched windows with F6 and Shift-F6, quit with
+Ctrl-] then q, and restored all three windows on the next launch. The native
+compositor built, and the graphical frontend passed its input, frame-border,
+resize, and direct Room checks. `make gui` also launched under Xvfb as a normal
+user. Map configuration, planning, and fictional elevation/geography pipeline
+tests passed; this walkthrough did not download a regional map.
+
+The manual Mesa command initially failed during configuration because the
+selected Python/Meson environment lacked required compatibility dependencies.
+The [corrected guide](../how-to/build-graphics.md) creates the same pinned virtual
+environment used by the container build. With that environment, the frozen
+30 FPS and earlier Mesa sources compiled successfully. All fifteen offline
+checkpoint suites passed. Both frozen MBX modules compiled against the newly
+built kernel, with 65 checked symbol versions for the 30 FPS module and 63 for
+the earlier module.
+
+The kernel build completed with 199 modules and 35 clock-module symbol checks.
+Its combined image was 2,090,132 bytes, below the 2,095,104-byte limit. This is a
+new compiler-run result; the earlier image sizes above remain historical results.
+The executor and hub firmware both built, and the RSN checks passed 28 Python tests and
+11 compiled-host tests.
+
+### Failures exposed by the reader commands
+
+The normal-user source run completed 198 test files: 178 passed, 19 failed, and
+one (`test_station_terrain_tools.py`) exceeded the runner’s 240-second limit.
+These are test-file counts, rather than individual test-case counts.
+
+The broad source runner still reaches legacy regional-data tests. They expect
+files such as `tahoma-3dep.json`, `walk-layers.n8w`, and `lakewood-relief.json.gz`
+in historical paths that the source release does not populate. The new
+area-selected map pipeline has its own passing fixture tests. Completing that
+migration requires changes to the legacy tests and packaging inputs.
+
+The HTIT wire-protocol host test fails with GCC 12: `wire.c` compares a `size_t`
+loop index with `9 + f->len`, and its `-Werror` build rejects the signed/unsigned
+comparison. The independent RSN checks pass. The host-test failure remains open.
+
+Run the source suite as a normal user. Nokia session checks deliberately reject
+root. Linux radio-proxy tests also need D-Bus and GLib bindings for the Python
+interpreter actually running the suite; installing Debian bindings for a
+different Python version leaves those imports unavailable.
