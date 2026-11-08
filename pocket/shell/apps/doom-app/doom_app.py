@@ -97,12 +97,23 @@ class DoomApp:
         self._init_input()
         self.stats=dict(sampled=0,skipped=0,conversion_seconds=0,damage_seconds=0,snapshot_seconds=0)
     def _init_input(self):
-        self.held={};self.edge_keys={};self.input_count=0;self.pending={};self.latencies=deque(maxlen=4096)
+        self.mouse_buttons=0;self.held={};self.edge_keys={};self.input_count=0;self.pending={};self.latencies=deque(maxlen=4096)
     def send(self,key,pressed):
         try:os.write(self.child.stdin.fileno(),bytes((pressed,key)))
         except (BlockingIOError,BrokenPipeError):return False
         if pressed:self.input_count+=1;self.pending[self.input_count]=time.monotonic()
         if len(self.pending)>256:del self.pending[next(iter(self.pending))]
+        return True
+    def mouse(self,dx=0,dy=0,buttons=0):
+        """One atomic, bounded input message; the engine owns Doom mouse semantics."""
+        import struct
+        dx=max(-32768,min(32767,int(dx)));dy=max(-32768,min(32767,int(dy)))
+        try:os.write(self.child.stdin.fileno(),struct.pack('<BBhh',2,buttons&7,dx,dy))
+        except (BlockingIOError,BrokenPipeError):return False
+        self.mouse_buttons=buttons&7
+        if dx or dy or buttons:
+            self.input_count+=1;self.pending[self.input_count]=time.monotonic()
+            if len(self.pending)>256:del self.pending[next(iter(self.pending))]
         return True
     @staticmethod
     def key_code(key):
@@ -129,7 +140,9 @@ class DoomApp:
                 if self.send(code,0):del self.held[code]
         return True
     def release(self,now,all_keys=False):
-        if all_keys:self.edge_keys.clear()
+        if all_keys:
+            self.edge_keys.clear()
+            if self.mouse_buttons:self.mouse()
         for key,due in tuple(self.held.items()):
             if all_keys or due is not None and now>=due:
                 if self.send(key,0):del self.held[key]
