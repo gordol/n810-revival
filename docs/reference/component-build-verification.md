@@ -78,3 +78,30 @@ Run the source suite as a normal user. Nokia session checks deliberately reject
 root. Linux radio-proxy tests also need D-Bus and GLib bindings for the Python
 interpreter actually running the suite; installing Debian bindings for a
 different Python version leaves those imports unavailable.
+
+## GitHub container build, 7 November
+
+[Container build 42434184966](https://github.com/gordol/n810-revival/actions/runs/42434184966)
+completed successfully for [source revision b331ac7](https://github.com/gordol/n810-revival/tree/b331ac73fc6d2b5040566ba680443045d86a8a76).
+The hosted run passed all **205 source test files**, six HTIT wire-protocol
+host tests, 28 Python RSN tests and 11 compiled RSN tests. Source tests ran
+as a normal user with networking disabled. Fictional map and terrain packs
+supplied the test inputs.
+
+The release build also completed the kernel, frozen graphics, HTIT firmware,
+native frontend and software-OpenGL checks. Docker reused matching cached
+build stages. The workflow uploaded separate `n810-source` and
+`n810-documentation` archives. Readers compile native programs and firmware
+from the source archive using the component guides.
+
+An earlier hosted run exposed a timing race in the launcher test: the child
+process could exit between the helper's predicate check and its process-status
+check. The helper now checks its final condition before reporting failure.
+The corrected test passed 60 consecutive single-CPU Docker runs before the
+successful hosted build. The [test change](https://github.com/gordol/n810-revival/commit/b331ac73fc6d2b5040566ba680443045d86a8a76)
+retains the assertion that the launcher exits successfully.
+
+These results establish compilation and automated checks in containers.
+The first-session interaction walkthrough above records the separate manual
+exercise. Physical installation, radio behavior and N810 GPU performance
+remain tied to their dated device observations.

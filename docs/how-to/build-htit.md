@@ -39,7 +39,7 @@ The firmware images are under `source/.pio/build/<environment>/`. Device install
 
 ## Run the host checks
 
-The [7 November walkthrough](../reference/component-build-verification.md#failures-exposed-by-the-reader-commands) found a GCC signedness error in the wire-protocol test. That failure remains open; the independent RSN checks passed.
+The [7 November walkthrough](../reference/component-build-verification.md#failures-exposed-by-the-reader-commands) found a GCC signedness error in the wire-protocol test. The length comparison now uses `size_t`. The [verified container run](../reference/component-build-verification.md#github-container-build-7-november) passed all six wire-protocol host tests, 28 Python RSN tests and 11 compiled RSN tests, and built both firmware projects.
 
 ```sh
 .venv-htit/bin/pip install -r hardware/htit/rfcomm-ble-hub/host/requirements.txt     -r pocket/requirements-meshcore.txt     -r hardware/htit/experiments/ibss-rsn/requirements-test.txt
