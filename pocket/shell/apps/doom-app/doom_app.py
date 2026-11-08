@@ -73,6 +73,10 @@ class Frame(C.Structure):
 
 class DoomApp:
     """One owner, one native child, one overwritten latest frame; no frame queue."""
+    def configure_bridge(self):
+        """Validate optional presentation ABI before creating any owned resources."""
+        pass
+
     def __init__(self,host,state,name='Doom / Freedoom',resource_root=None):
         self.host=host;self.state=state;self.name=name;self.previous=();self.dimensions=None;self.last=0
         self.resource_root=Path(resource_root) if resource_root is not None else HERE
@@ -81,6 +85,7 @@ class DoomApp:
         if self.lib.frame_size()!=C.sizeof(Frame):raise ValueError("Doom frame ABI mismatch; rebuild the adapter")
         self.lib.snapshot.argtypes=[C.POINTER(Frame),C.POINTER(Frame)]
         self.lib.convert.argtypes=[C.POINTER(Frame),C.POINTER(C.c_uint64),C.c_int,C.c_int]
+        self.configure_bridge()
         self.file=open(state/'frame','w+b');self.file.truncate(C.sizeof(Frame))
         self.mapping=mmap.mmap(self.file.fileno(),C.sizeof(Frame));self.shared=Frame.from_buffer(self.mapping);self.frame=Frame()
         self.log=open(state/'engine.log','wb')

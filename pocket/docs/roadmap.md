@@ -18,9 +18,10 @@ this file; Git and the relevant technical documents retain that evidence.
    crypto initialization separately. Remove repeated model work, hidden-view polling
    and subscription amplification without delaying input or independent services.
    Investigate console/kernel output costs if they remain significant.
-5. **Finish runtime integration.** Verify Nokia native layer/overlay composition and
-   input/event-host behavior on screen; integrate Map Library with proper cancellation/lifetimes.
-   Audit remaining optional startup imports and runtime dependencies.
+5. **Finish runtime integration.** Complete the persistent Nokia graphics launch
+   path and physical keyboard/stylus checks. Move Rainier Walk, wildlife and terrain
+   backgrounds to direct pixels using their existing scene models. Verify native
+   layer composition and Map Library cancellation/lifetimes; audit optional imports.
 6. **Finish maintenance gaps.** Show the source revision instead of UNKNOWN.
    Add release-capacity preflight, idle-owner quiescing and repeatable clean-machine
    acceptance to the existing update workflow.

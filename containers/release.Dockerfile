@@ -11,7 +11,7 @@ FROM kernel AS graphics
 COPY graphics/mbx/ graphics/mbx/
 RUN python3 graphics/mbx/build.py module --work /build/module --kernel-source /build/kernel/linux-5.15.224 --kernel-build /build/kernel/build
 RUN python3 -m venv /opt/mesa-tools && /opt/mesa-tools/bin/pip install meson==1.5.2 Mako==1.3.5 packaging==24.1 PyYAML==6.0.2 setuptools==75.1.0
-RUN PATH=/opt/mesa-tools/bin:$PATH python3 graphics/mbx/build.py mesa --work /build/mesa --jobs 4 || { cat /build/mesa/logs/*.log; exit 1; }
+RUN --mount=type=cache,id=n810-mesa-inputs,target=/cache/mesa-inputs,sharing=locked PATH=/opt/mesa-tools/bin:$PATH python3 graphics/mbx/build.py mesa --work /build/mesa --jobs 4 --osmesa --download-cache /cache/mesa-inputs || { cat /build/mesa/logs/*.log; exit 1; }
 
 FROM toolchain AS htit
 COPY hardware/htit/requirements-build.txt /tmp/requirements-build.txt
@@ -41,8 +41,11 @@ RUN --network=none /opt/maps/bin/python -m unittest discover -s pocket/tests -p 
 # software context, plus ARM cross-builds. It does not establish hardware speed.
 FROM map-check AS gui-check
 RUN apt-get update && apt-get install -y --no-install-recommends libsdl2-dev libgl1-mesa-dev libgl1-mesa-dri xvfb xauth && rm -rf /var/lib/apt/lists/*
-RUN make -C pocket graphics-native && python3 pocket/graphics/build_nokia.py
+COPY --from=graphics /build/mesa/package /opt/arm-mesa
+RUN make -C pocket graphics-native && python3 pocket/graphics/build_nokia.py --mesa-include /opt/arm-mesa/include --mesa-library /opt/arm-mesa/libOSMesa.so.8
 RUN python3 -m unittest discover -s pocket/tests -p 'test_graphical_frontend.py' -v && python3 -m unittest discover -s pocket/tests -p 'test_*pixel*.py' -v && python3 -m unittest discover -s pocket/tests -p test_surface_native_backend.py -v
+RUN python3 -m unittest discover -s pocket/tests -p test_nokia_graphics.py -v && python3 -m unittest discover -s pocket/tests -p test_smooth_font.py -v
+RUN --network=none python3 pocket/shell/apps/doom-app/build.py --engine-only
 RUN xvfb-run -a python3 pocket/graphics/check.py --allow-software
 
 # Build evidence stays inside the image. No binary release is exported.

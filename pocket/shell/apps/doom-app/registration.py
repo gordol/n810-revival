@@ -13,7 +13,7 @@ HELP=(
                          'Keypress-only input retains inferred releases.')),
     ('Install',('DoomGeneric is the engine; Freedoom is the game data.',
                 'Missing components are checked only when opening Doom.',
-                'Build locally with apps/doom-app/build.py.',
+                'Run make doom from pocket/ to build and prepare free game data.',
                 'R retries a failed launch. Audio is disabled.')),
 )
 

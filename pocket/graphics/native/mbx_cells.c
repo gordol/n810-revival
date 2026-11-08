@@ -12,8 +12,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-struct cell {uint16_t fg,bg;unsigned char mask[16],valid,dirty;};
-struct renderer {OSMesaContext gl;uint16_t image[160000];struct cell *cells;unsigned cols,rows;float positions[6144*3],colors[6144*4];unsigned rectangles,jobs;GLuint program;};
+struct cell {uint16_t fg,bg;unsigned char mask[16],valid,dirty;uint32_t code;};
+struct renderer {OSMesaContext gl;uint16_t image[160000];struct cell *cells;unsigned cols,rows;float positions[6144*3],colors[6144*4];unsigned rectangles,jobs;float glyph_depth;GLuint program;const uint32_t *coverage_codes;const unsigned char *coverage;unsigned coverage_count;};
 static const char *failure="MBX cell renderer rejected input";
 const char *pocket_mbx_error(void){return failure;}
 void *pocket_mbx_open(int require_gpu){
@@ -61,6 +61,20 @@ static int find_glyph(const uint32_t *codes,unsigned count,uint32_t ch){
  unsigned lo=0,hi=count;while(lo<hi){unsigned m=lo+(hi-lo)/2;if(codes[m]<ch)lo=m+1;else hi=m;}
  return lo<count&&codes[lo]==ch?(int)lo:-1;
 }
+/* Immutable font coverage belongs to the renderer's Python font object. */
+int pocket_mbx_font_coverage(void *ptr,const uint32_t *codes,const unsigned char *coverage,unsigned count){
+ struct renderer *r=ptr;if(!r||count>1024||(count&&(!codes||!coverage)))return -1;
+ for(unsigned i=0;i<count;++i)if(codes[i]<32||codes[i]>126||(i&&codes[i]<=codes[i-1]))return -1;
+ r->coverage_codes=codes;r->coverage=coverage;r->coverage_count=count;
+ for(unsigned i=0;i<r->cols*r->rows;++i)r->cells[i].dirty=1;
+ return 0;
+}
+static uint16_t glyph_color(unsigned fg,unsigned bg,unsigned a){
+ unsigned red=(((fg>>11)*a+(bg>>11)*(255-a)+127)/255);
+ unsigned green=((((fg>>5)&63)*a+((bg>>5)&63)*(255-a)+127)/255);
+ unsigned blue=(((fg&31)*a+(bg&31)*(255-a)+127)/255);
+ return (uint16_t)((red<<11)|(green<<5)|blue);
+}
 static uint16_t rgb565(uint64_t v){return ((v>>8)&0xf800)|((v>>5)&0x7e0)|((v>>3)&31);}
 int pocket_mbx_stage_batch(void *ptr,const void *data,size_t bytes,const uint32_t *codes,
  const unsigned char *glyphs,unsigned count,const uint32_t *palette,unsigned palettes,unsigned fallback){
@@ -79,8 +93,8 @@ int pocket_mbx_stage_batch(void *ptr,const void *data,size_t bytes,const uint32_
   else if(ink>=(UINT64_C(1)<<24))colors=rgb565(ink)|((uint32_t)fallback<<16);
   else colors=palette[ink];
   const unsigned char *mask=glyphs+16*(unsigned)find_glyph(codes,count,ch);struct cell *c=r->cells+index;
-  if(!c->valid||c->fg!=(colors&65535)||c->bg!=(colors>>16)||memcmp(c->mask,mask,16)){
-   pocket_mbx_stage(r,index,mask,colors&65535,colors>>16);++changed;
+  if(!c->valid||c->code!=ch||c->fg!=(colors&65535)||c->bg!=(colors>>16)||memcmp(c->mask,mask,16)){
+   pocket_mbx_stage(r,index,mask,colors&65535,colors>>16);c->code=ch;c->dirty=1;++changed;
   }
  }
  return (int)changed;
@@ -89,14 +103,27 @@ static void rectangle(struct renderer *r,unsigned x,unsigned y,unsigned w,unsign
  const unsigned dx[6]={0,1,0,1,1,0},dy[6]={0,0,1,0,1,1};
  unsigned red=color>>11,green=(color>>5)&63,blue=color&31;
  float rgb[4]={((red<<3)|(red>>2))/255.f,((green<<2)|(green>>4))/255.f,((blue<<3)|(blue>>2))/255.f,1};
- for(unsigned k=0;k<6;++k){unsigned i=r->rectangles*6+k;r->positions[i*3]=x+w*dx[k];r->positions[i*3+1]=y+h*dy[k];r->positions[i*3+2]=0;memcpy(r->colors+i*4,rgb,16);}
+ for(unsigned k=0;k<6;++k){unsigned i=r->rectangles*6+k;r->positions[i*3]=x+w*dx[k];r->positions[i*3+1]=y+h*dy[k];r->positions[i*3+2]=r->glyph_depth;memcpy(r->colors+i*4,rgb,16);}
  ++r->rectangles;
 }
 /* Merge identical glyph spans on consecutive rows, exactly as the accepted
  * native glyph encoder. Counting and emission use the same bounded traversal. */
 static unsigned glyph(struct renderer *r,const struct cell *c,unsigned x,unsigned y,int emit){
- unsigned boxes[64][4],count=0;int previous[64],current[64];
  if(c->fg==c->bg)return 0;
+ int aa=find_glyph(r->coverage_codes,r->coverage_count,c->code);
+ if(aa>=0){
+  const unsigned char *coverage=r->coverage+128*(unsigned)aa;unsigned count=0;
+  for(unsigned row=0;row<16;++row)for(unsigned col=0;col<8;){
+   unsigned a=coverage[row*8+col],start=col++;
+   while(col<8&&coverage[row*8+col]==a)++col;
+   if(!a)continue;
+   unsigned color=glyph_color(c->fg,c->bg,a);if(color==c->bg)continue;
+   if(emit)rectangle(r,x+start,y+row,col-start,1,color);
+   ++count;
+  }
+  return count;
+ }
+ unsigned boxes[64][4],count=0;int previous[64],current[64];
  for(unsigned i=0;i<64;++i)previous[i]=-1;
  for(unsigned row=0;row<16;++row){
   for(unsigned i=0;i<64;++i)current[i]=-1;
@@ -122,7 +149,7 @@ static int tile(struct renderer *r,uint16_t *canvas,unsigned x,unsigned y,unsign
   if(h>1){unsigned n=h/2;return tile(r,canvas,x,y,w,n)||tile(r,canvas,x,y+n,w,h-n)?-1:0;}
   return -1;
  }
- r->rectangles=0;
+ r->rectangles=0;r->glyph_depth=0;
  /* Adjacent opaque backgrounds share one rectangle. Glyphs remain exact
   * and cannot cross their cell bounds, so drawing them afterward is equivalent. */
  for(unsigned j=0;j<h;++j)for(unsigned i=0;i<w;){
@@ -130,10 +157,18 @@ static int tile(struct renderer *r,uint16_t *canvas,unsigned x,unsigned y,unsign
   while(i<w&&r->cells[(y+j)*r->cols+x+i].bg==color)++i;
   rectangle(r,first*8,j*16,(i-first)*8,16,color);
  }
+ r->glyph_depth=.5f;
  for(unsigned j=0;j<h;++j)for(unsigned i=0;i<w;++i){const struct cell *c=r->cells+(y+j)*r->cols+x+i;glyph(r,c,i*8,j*16,1);}
  glEnable(GL_VERTEX_PROGRAM_ARB);glBindProgramARB(GL_VERTEX_PROGRAM_ARB,r->program);
  glViewport(0,0,400,400);glMatrixMode(GL_PROJECTION);glLoadIdentity();glOrtho(0,400,400,0,-1,1);glMatrixMode(GL_MODELVIEW);glLoadIdentity();
- glDisable(GL_LIGHTING);glDisable(GL_TEXTURE_2D);glDisable(GL_CULL_FACE);glDisable(GL_DITHER);glDisable(GL_BLEND);glDisable(GL_DEPTH_TEST);glDepthMask(GL_TRUE);
+ glDisable(GL_LIGHTING);glDisable(GL_TEXTURE_2D);glDisable(GL_CULL_FACE);glDisable(GL_DITHER);glDisable(GL_BLEND);glDepthMask(GL_TRUE);
+#ifdef POCKET_DESKTOP_GL
+ glDisable(GL_DEPTH_TEST);
+#else
+ /* The pinned Nokia backend supports LESS with writes. Put glyphs in front
+  * of their opaque background instead of requiring a newer 2D driver state. */
+ glEnable(GL_DEPTH_TEST);glDepthFunc(GL_LESS);
+#endif
  glShadeModel(GL_SMOOTH);glClearColor(0,0,0,0);glClearDepth(1);glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
  glEnableClientState(GL_VERTEX_ARRAY);glEnableClientState(GL_COLOR_ARRAY);glDisableClientState(GL_NORMAL_ARRAY);glDisableClientState(GL_TEXTURE_COORD_ARRAY);
  glVertexPointer(3,GL_FLOAT,0,r->positions);glColorPointer(4,GL_FLOAT,0,r->colors);
@@ -166,7 +201,11 @@ int pocket_mbx_text(void *ptr,unsigned x,unsigned y,const uint32_t *text,unsigne
  struct renderer *r=ptr;
  if(!r||x>=r->cols||y>=r->rows||length>r->cols-x||!text||!codes||!glyphs||!count||fg>65535||bg>65535)return -1;
  for(unsigned i=0;i<length;++i)if(find_glyph(codes,count,text[i])<0)return -1;
- for(unsigned i=0;i<length;++i)pocket_mbx_stage(ptr,y*r->cols+x+i,glyphs+16*find_glyph(codes,count,text[i]),fg,bg);
+ for(unsigned i=0;i<length;++i){
+  unsigned index=y*r->cols+x+i;pocket_mbx_stage(ptr,index,glyphs+16*find_glyph(codes,count,text[i]),fg,bg);
+  if(r->cells[index].code!=text[i])r->cells[index].dirty=1;
+  r->cells[index].code=text[i];
+ }
  return 0;
 }
 
