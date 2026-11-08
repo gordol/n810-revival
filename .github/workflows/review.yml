@@ -24,22 +24,33 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.13'
-      - name: Check Conventional Commit PR title
+      - name: Check Conventional Commit PR title and commits
         if: github.event_name == 'pull_request'
         run: |
           python3 - <<'PYCODE'
           import json
           import os
           import re
+          import subprocess
           from pathlib import Path
 
-          title = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())["pull_request"]["title"]
+          pr = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())["pull_request"]
+          title = pr["title"]
           pattern = r"(?:feat|fix|build|chore|ci|docs|perf|refactor|revert|style|test)(?:\([a-zA-Z0-9_./-]+\))?!?: \S[^\r\n]*"
           if not re.fullmatch(pattern, title):
               raise SystemExit("Use a Conventional Commit PR title, such as fix(launcher): handle process exit. See CONTRIBUTING.md.")
+          commits = subprocess.check_output(
+              ["git", "rev-list", f"{pr['base']['sha']}..{pr['head']['sha']}"], text=True
+          ).splitlines()
+          for commit in commits:
+              subject = subprocess.check_output(["git", "show", "-s", "--format=%s", commit], text=True).rstrip("\n")
+              if not re.fullmatch(pattern, subject):
+                  raise SystemExit(f"Commit {commit[:12]} needs a Conventional Commit subject. See CONTRIBUTING.md.")
+          print(f"Checked PR title and {len(commits)} commit subjects.")
           PYCODE
       - name: Install pinned documentation dependencies outside the checkout
         run: make docs-install DOCS_ENV="$RUNNER_TEMP/n810-docs-env"
