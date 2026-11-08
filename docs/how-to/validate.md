@@ -8,13 +8,20 @@ make pocket-smoke
 
 `pocket-smoke` checks the codec, navigation, touch worker, launcher, lazy startup, and panel tray.
 
-For the full Pocket and bundled radio suites, run:
+For the full Pocket and bundled radio suites, use a normal user account and install the test dependencies into the Python environment you will use:
 
 ```sh
+python3 -m pip install -r requirements-maps.txt
 python3 tools/check-source.py --work /tmp/n810-source-check --jobs 2
 ```
 
-The runner gives each test process a private temporary home and records its result and log. Use Python 3.11 or newer with NumPy and Pillow; `requirements-maps.txt` supplies a tested conversion environment. Synthetic fixtures are included in the checkout. Regional map data is downloaded and built separately; it is not distributed in Git. See the map build guide and `pocket/docs/testing.md` for the reference-data integration suite. On Linux, the proxy test also needs `python3-dbus` and `python3-gi`. On other hosts the runner identifies that Linux-only suite explicitly.
+The runner gives each test process a private temporary home and records its result and log. Use Python 3.11 or newer with NumPy and Pillow; `requirements-maps.txt` supplies a tested conversion environment. The work directory must be new. Nokia session checks enforce normal-user execution.
+
+Regional map data is downloaded and built separately. The [map build guide](build-map-data.md) describes regional acquisition and the independent fixture checks.
+
+On Linux, the proxy test also needs D-Bus and GLib bindings available to the selected Python interpreter. Debian’s `python3-dbus` and `python3-gi` packages supply them for Debian’s `/usr/bin/python3`; a virtual environment made from that interpreter with `--system-site-packages` can use them. A separately installed Python needs its own matching bindings. On other hosts the runner identifies that Linux-only suite explicitly.
+
+The 7 November fresh-checkout run exposed legacy regional-data dependencies in the full suite. The [current build verification](../reference/component-build-verification.md#fresh-checkout-walkthrough-7-november) records the failures. The standalone elevation and map-pipeline suites use included fictional fixtures.
 
 The [HTIT guide](build-htit.md) supplies firmware and host-protocol checks. The [map guide](build-map-data.md) supplies real-data rebuilds and format-conversion tests.
 
@@ -32,3 +39,13 @@ isolated state. It reports the OpenGL renderer used. The release container also
 builds this path and runs it under explicit Mesa software GL; that checks
 portability, not Nokia GPU performance. Its ARM framebuffer cross-build likewise
 does not establish device installation or physical display acceptance.
+
+On a Linux builder without a display, install Xvfb, `xauth`, and Mesa software
+OpenGL along with the graphical build dependencies, then run from `pocket/`:
+
+```sh
+xvfb-run -a make graphics-check EXTRA=--allow-software
+```
+
+The explicit software option permits this container test to use llvmpipe.
+The result reports its renderer and checks input, resizing, and Room output.
