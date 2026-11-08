@@ -27,7 +27,7 @@ size_t hub_encode(const hub_frame *f, uint8_t *out, size_t cap) {
     put16(raw + 7 + f->len, hub_crc(raw, 7 + f->len));
     size_t used = 0;
     out[used++] = 0x7e;
-    for (size_t i = 0; i < 9 + f->len; i++) {
+    for (size_t i = 0; i < (size_t)f->len + 9; i++) {
         uint8_t b = raw[i];
         size_t need = (b == 0x7e || b == 0x7d) ? 2 : 1;
         if (used + need + 1 > cap)
