@@ -63,14 +63,19 @@ def stage(destination, profile='release', frontend=None):
             if source.is_symlink() and target in files:aliases[name]=Path(target).name
             else:files[name]=source.read_bytes()
         files['build/graphics/frontend.json'] = (json.dumps(config, indent=2) + '\n').encode()
+    revision=subprocess.run(['git','rev-parse','HEAD'],cwd=ROOT,capture_output=True,text=True)
+    commit=revision.stdout.strip() if revision.returncode==0 else None
+    content_hash=hashlib.sha256(b''.join(name.encode()+hashlib.sha256(raw).digest() for name,raw in sorted(files.items()))).hexdigest()
+    files['shell/build-info.json']=(json.dumps(dict(schema_version=1,release_id=commit[:12] if commit else 'UNKNOWN',
+        framework_commit=commit,domain_commit=commit,build_profile=profile,platform='native-gui',backend='native pixels',
+        artifact_sha256=content_hash,touch_acquisition_default='process',product_version=(ROOT/'VERSION').read_text().strip()),indent=2)+'\n').encode()
     destination.mkdir(parents=True)
     for name, raw in files.items():
         path = destination / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(raw)
     for name, target in aliases.items():(destination/name).symlink_to(target)
-    revision=subprocess.run(['git','rev-parse','HEAD'],cwd=ROOT,capture_output=True,text=True)
-    manifest={'profile':profile,'source_commit':revision.stdout.strip() if revision.returncode==0 else None,
+    manifest={'profile':profile,'source_commit':commit,
               'files':{name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(files.items())},'aliases':aliases}
     (destination / 'runtime-profile.json').write_text(json.dumps(manifest,indent=2)+'\n')
     return files

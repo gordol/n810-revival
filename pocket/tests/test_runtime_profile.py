@@ -50,6 +50,7 @@ class RuntimeProfileTests(unittest.TestCase):
             from unittest.mock import patch
             with patch.object(Path,'read_text',autospec=True,side_effect=lambda p,*a,**k:json.dumps(config) if p==frontend else original_read(p,*a,**k)):
                 files=stage(target,frontend=frontend)
+            self.assertEqual(json.loads(files['shell/build-info.json'])['build_profile'],'release')
             self.assertNotIn('graphics/launch.py',files)
             self.assertNotIn('graphics/desktop.py',files)
             self.assertNotIn('build/graphics/reference.so',files)
