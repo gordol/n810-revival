@@ -7,7 +7,7 @@ from cells import style
 from font_supplement import load as load_font
 from paint import foreground,background
 class Renderer:
- def __init__(self,host,font,library,require_gpu=True,font_mode="console",**unused):
+ def __init__(self,host,font,library,require_gpu=True,font_mode="console",cell_renderer="gpu",**unused):
   self.deferred_text=False
   self.host=host;self.font=load_font(font,font_mode);self.pixels=bytearray(768000);self.lib=C.CDLL(str(library));self.bulk_batches=0;self.cells_drawn=0
   if not (0<host.width<=512 and 0<host.height<=256 and (self.font.width,self.font.height)==(8,16)):raise ValueError('MBX frontend requires unchanged800x480/8x16layout')
@@ -18,9 +18,14 @@ class Renderer:
   self.lib.pocket_mbx_render.argtypes=[C.c_void_p,C.c_void_p]
   self.lib.pocket_mbx_jobs.argtypes=[C.c_void_p];self.lib.pocket_mbx_jobs.restype=C.c_uint
   self.lib.pocket_mbx_close.argtypes=[C.c_void_p]
-  self.handle=self.lib.pocket_mbx_open(int(require_gpu))
+  if cell_renderer not in ('cpu','gpu'):raise ValueError('Unknown cell renderer')
+  if cell_renderer=='cpu':
+   self.lib.pocket_mbx_open_cells.argtypes=[C.c_int,C.c_int];self.lib.pocket_mbx_open_cells.restype=C.c_void_p
+   self.handle=self.lib.pocket_mbx_open_cells(0,1)
+  else:self.handle=self.lib.pocket_mbx_open(int(require_gpu))
   if not self.handle:raise RuntimeError(self.lib.pocket_mbx_error().decode())
-  self.renderer_name=self.lib.pocket_mac_renderer().decode() if hasattr(self.lib,'pocket_mac_renderer') else 'Nokia MBX GPU transform'
+  self.renderer_name=('Native CPU cells; no GL context' if cell_renderer=='cpu' else
+      self.lib.pocket_mac_renderer().decode() if hasattr(self.lib,'pocket_mac_renderer') else 'Nokia MBX GPU transform')
   self.font.add_desktop_glyphs()
   coverage=getattr(self.font,'coverage',{})
   ordered_coverage=sorted(coverage)

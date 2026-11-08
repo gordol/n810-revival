@@ -10,7 +10,8 @@ from mbx import Renderer
 from cells import style
 from window import Window
 class Platform:
- def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console"):
+ def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console",cell_renderer="gpu"):
+  self.cell_renderer=cell_renderer
   self.require_gpu=require_gpu;self.font_mode=font_mode
   from presentation_text import create
   self.presentation_text=create(display,font_mode)
@@ -39,7 +40,7 @@ class Platform:
  def geometry(self):return Geometry(*self.size)
  def attach(self,host,panel,registry):
   self.host=host;self.panel=panel;self.registry=registry
-  self.renderer=Renderer(host,self.font,self.library,require_gpu=self.require_gpu,font_mode=self.font_mode)
+  self.renderer=Renderer(host,self.font,self.library,require_gpu=self.require_gpu,font_mode=self.font_mode,cell_renderer=self.cell_renderer)
   if self.renderer.size!=self.size:self.renderer.resize(*self.size)
   if self.display and hasattr(self.display,'dynamic'):
    self.display.dynamic(True);width,height=self.display.size();self.resize(width//8,height//16)

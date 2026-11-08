@@ -1,6 +1,6 @@
 /* SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
  * SPDX-License-Identifier: GPL-2.0-or-later */
-/* Retained console-cell descriptions, rasterized by Mesa/MBX, never by CPU.
+/* Retained console-cell descriptions with explicit native CPU or Mesa/MBX raster.
  * Bounded subdivision respects the accepted400x400/2048-triangle service.
  * This first backend favors exact output; timings must be measured on device. */
 #define GL_GLEXT_PROTOTYPES
@@ -13,11 +13,17 @@
 #include <stdlib.h>
 #include <string.h>
 struct cell {uint16_t fg,bg;unsigned char mask[16],valid,dirty;uint32_t code;};
-struct renderer {OSMesaContext gl;uint16_t image[160000];struct cell *cells;unsigned cols,rows;float positions[6144*3],colors[6144*4];unsigned rectangles,jobs;float glyph_depth;GLuint program;const uint32_t *coverage_codes;const unsigned char *coverage;unsigned coverage_count;int defer_text;};
+struct renderer {OSMesaContext gl;uint16_t image[160000];struct cell *cells;unsigned cols,rows;float positions[6144*3],colors[6144*4];unsigned rectangles,jobs;float glyph_depth;GLuint program;const uint32_t *coverage_codes;const unsigned char *coverage;unsigned coverage_count;int defer_text,cpu_cells;};
 static const char *failure="MBX cell renderer rejected input";
 const char *pocket_mbx_error(void){return failure;}
-void *pocket_mbx_open(int require_gpu){
+void *pocket_mbx_open_cells(int require_gpu,int cpu_cells){
  struct renderer *r=calloc(1,sizeof(*r));if(!r)return NULL;
+ r->cpu_cells=!!cpu_cells;
+ if(r->cpu_cells){
+  r->cols=100;r->rows=30;r->cells=calloc(r->cols*r->rows,sizeof(*r->cells));
+  if(!r->cells){free(r);return NULL;}
+  return r;
+ }
  r->gl=OSMesaCreateContextExt(OSMESA_RGB_565,24,0,0,NULL);
  if(!r->gl||!OSMesaMakeCurrent(r->gl,r->image,GL_UNSIGNED_SHORT_5_6_5,400,400)){failure="OSMesa context unavailable";if(r->gl)OSMesaDestroyContext(r->gl);free(r);return NULL;}
  const char *name=(const char*)glGetString(GL_RENDERER);
@@ -44,6 +50,7 @@ void *pocket_mbx_open(int require_gpu){
  if(!r->cells){failure="Cell allocation failed";OSMesaDestroyContext(r->gl);free(r);return NULL;}
  OSMesaPixelStore(OSMESA_Y_UP,0);return r;
 }
+void *pocket_mbx_open(int require_gpu){return pocket_mbx_open_cells(require_gpu,0);}
 int pocket_mbx_resize(void *ptr,unsigned cols,unsigned rows){
  struct renderer *r=ptr;if(!r||!cols||!rows||cols>512||rows>256)return -1;
  if(cols==r->cols&&rows==r->rows)return 0;
@@ -180,6 +187,22 @@ static int tile(struct renderer *r,uint16_t *canvas,unsigned x,unsigned y,unsign
 int pocket_mbx_render(void *ptr,uint16_t *canvas){
  struct renderer *r=ptr;if(!r||!canvas)return -1;
  for(unsigned i=0;i<r->cols*r->rows;++i)if(!r->cells[i].valid){failure="Incomplete retained cell frame";return -1;}
+ /* Small opaque UI glyphs are cheaper as native pixel stores than hundreds
+  * of GPU rectangles. Retain the same staging, coverage and damage contract;
+  * direct image/3D applications keep their own presentation path. */
+ if(r->cpu_cells){
+  for(unsigned i=0;i<r->cols*r->rows;++i){
+   struct cell *c=r->cells+i;if(!c->dirty)continue;
+   int aa=find_glyph(r->coverage_codes,r->coverage_count,c->code);
+   int hidden=r->defer_text&&c->code>=32&&c->code<127;
+   for(unsigned y=0;y<16;++y)for(unsigned x=0;x<8;++x){
+    unsigned a=hidden?0:aa>=0?r->coverage[128*(unsigned)aa+y*8+x]:(c->mask[y]&(128>>x)?255:0);
+    canvas[((i/r->cols)*16+y)*r->cols*8+(i%r->cols)*8+x]=a==255?c->fg:a?glyph_color(c->fg,c->bg,a):c->bg;
+   }
+   c->dirty=0;
+  }
+  return 0;
+ }
  for(unsigned y=0;y<r->rows;y+=25)for(unsigned x=0;x<r->cols;x+=50){
   unsigned w=r->cols-x,h=r->rows-y;if(w>50)w=50;if(h>25)h=25;
   if(tile(r,canvas,x,y,w,h))return -1;
@@ -188,7 +211,7 @@ int pocket_mbx_render(void *ptr,uint16_t *canvas){
  return 0;
 }
 unsigned pocket_mbx_jobs(void *ptr){return ((struct renderer*)ptr)->jobs;}
-void pocket_mbx_close(void *ptr){struct renderer *r=ptr;if(r){OSMesaDestroyContext(r->gl);free(r->cells);free(r);}}
+void pocket_mbx_close(void *ptr){struct renderer *r=ptr;if(r){if(r->gl)OSMesaDestroyContext(r->gl);free(r->cells);free(r);}}
 /* Model viewport to physical desktop mapping, validated before staging. */
 int pocket_mbx_stage_region(void *ptr,const void *data,size_t bytes,const uint32_t *codes,const unsigned char *glyphs,unsigned count,const uint32_t *palette,unsigned palettes,unsigned fallback,unsigned width,unsigned height,unsigned x,unsigned y){
  struct renderer *r=ptr;
