@@ -17,6 +17,17 @@ class DesktopWindow(Window):
     def active_room(self):
         platform=getattr(self,'platform',None)
         return next((room for room in platform.pixel_apps if getattr(room,'input_role',None)=='first-person' and room._active()),None) if platform else None
+    def active_pointer(self):
+        platform=getattr(self,'platform',None)
+        return next((app for app in platform.pixel_apps if getattr(app,'input_role',None) in ('first-person','game') and app._active()),None) if platform else None
+    def release_capture(self):
+        target=getattr(self,'captured_target',None)
+        if target is not None:
+            release=getattr(target,'release_pointer',None)
+            if release:release()
+            if getattr(target,'input_role',None)=='first-person':self.controls_for(target).clear(time.monotonic())
+        if self.captured:self.capture(False)
+        self.captured_target=None
     def controls_for(self,room):
         if not hasattr(self,'controls'):self.controls={}
         if room not in self.controls:self.controls[room]=ExploreControls(time.monotonic())
@@ -28,26 +39,29 @@ class DesktopWindow(Window):
             1073741882:'help',1073741883:'f2',1073741884:'f3',1073741885:'f4',
             1073741886:'f5',1073741887:'f6',8:'\x7f',13:'\r',9:'\t',27:'\x1b'}
         from terminal_keys import legacy
+        if self.captured and getattr(self,'captured_target',None) is not self.active_pointer():self.release_capture()
         while self.lib.pocket_window_event(raw):
             kind,x,y,button,up,repeat=raw
-            room=self.active_room()
+            room=self.active_room();target=self.active_pointer()
+            if self.captured and getattr(self,'captured_target',None) is not target:self.release_capture()
             if kind==1:yield {'action':'quit'}
             elif kind==2:
                 if self.captured:
-                    if room and button==0 and not up:
+                    if target is not None and hasattr(target,'pointer_button'):target.pointer_button(button,bool(up))
+                    elif room and button==0 and not up:
                         room.lib.pocket_game_fire.argtypes=[C.c_float]*5
                         room.lib.pocket_game_fire(room.x,room.eye_height,room.z,room.yaw,room.pitch);room.pixel_dirty=True
-                elif room and button==0 and not up:
-                    wx,wy,ww,wh=self.platform.host.bounds(self.platform.host.window(room.name));ox,oy=self.platform.host.origin
-                    if (wx+ox+1)*8<=x<(wx+ox+ww-1)*8 and (wy+oy+1)*16<=y<(wy+oy+wh-1)*16:self.capture(True)
+                elif target is not None and button==0 and not up:
+                    wx,wy,ww,wh=self.platform.host.bounds(self.platform.host.window(target.name));ox,oy=self.platform.host.origin
+                    if (wx+ox+1)*8<=x<(wx+ox+ww-1)*8 and (wy+oy+1)*16<=y<(wy+oy+wh-1)*16:
+                        self.capture(True);self.captured_target=target
                     else:yield dict(action='pointer',x=x,y=y,button=button,released=False)
                 else:yield dict(action='pointer',x=x,y=y,button=button,released=bool(up))
             elif kind==3:
                 motion={1073742049:'shift-left',1073742053:'shift-right',32:'space',1073741904:'left',1073741903:'right',1073741906:'up',1073741905:'down'}
                 motion_key=motion.get(x,chr(x) if 32<=x<127 else '')
                 if x==27 and not up and self.captured:
-                    self.capture(False)
-                    if room:self.controls_for(room).clear(time.monotonic())
+                    self.release_capture()
                     continue
                 if room and x==ord('g') and not up and not repeat:
                     self.game_enabled=not getattr(self,'game_enabled',False);room.lib.pocket_game_enable(int(self.game_enabled));room.pixel_dirty=True;continue
@@ -63,9 +77,11 @@ class DesktopWindow(Window):
                     yield dict(action='key',key=legacy(key,mods),released=bool(up))
             elif kind==4:yield {'action':'redraw'}
             elif kind==5:
-                if room and self.captured:self.controls_for(room).look(x,y,room)
+                if target is not None and self.captured:
+                    if hasattr(target,'pointer_motion'):target.pointer_motion(x,y)
+                    elif room:self.controls_for(room).look(x,y,room)
             elif kind==6:
-                self.captured=False
+                self.release_capture()
                 for control in getattr(self,'controls',{}).values():control.clear(time.monotonic())
                 yield {'action':'cancel-input'}
             elif kind==8:yield dict(action='resize',width=x,height=y)

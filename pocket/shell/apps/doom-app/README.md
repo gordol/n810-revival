@@ -19,7 +19,10 @@ bridge, compiler arguments and selected data identities. Set `CC` or pass
 
 The same engine and input/lifecycle owner serve both frontends. In the terminal,
 the native bridge produces RGB half-block cells. In the GUI, it converts the
-latest complete engine frame directly to a bounded RGB565 image. The game
+latest complete engine frame directly to a bounded RGB565 image. Click inside the GUI game view to capture the pointer. Horizontal mouse motion
+turns, and the left button fires. Escape releases the pointer before a subsequent
+Escape opens the game menu. Switching away releases capture and held buttons.
+The game
 engine itself renders in software; pixel presentation does not imply GPU game
 rendering. Resizing preserves the intended 4:3 image. Losing focus releases held
 keys and pauses the child; closing and reopening the window resumes this desktop

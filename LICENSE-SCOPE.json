@@ -1652,7 +1652,7 @@
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md",
-      "sha256": "95d3b42730b8b35f7724e8182a3e14764145055306b28c4649a03028d08f2916"
+      "sha256": "c834ae9090f92bc4396641be3d4f31a37edffb2747e0ee012a4267484f01176f"
     },
     {
       "path": "pocket/graphics/effects/gpu_composition.c",
@@ -1963,7 +1963,7 @@
     },
     {
       "path": "pocket/graphics/run.py",
-      "sha256": "a59b9e18cd063074d7894762049cdd05b71d89774da3252ba37f4be2311115ed",
+      "sha256": "120b5628ee8fc52565c0b1344dde49b873d9a29e42ae66b64fc1770f3be2a614",
       "license": "MIT",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -2188,7 +2188,7 @@
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md",
-      "sha256": "691a37a19b9614bc8b74c2d5227892477b85e21aa25f30968608dd33884af907"
+      "sha256": "e6c0e84547fa66781e0605e059703ff71565f408798b463a78b0095a3d98d7c2"
     },
     {
       "path": "pocket/shell/apps/doom-app/build.py",
@@ -2202,14 +2202,14 @@
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md",
-      "sha256": "4e8bd7ebf915c4afa9a0620156aec69bd07b81eff9aa8e35574d3ea2360c4646"
+      "sha256": "f619fa1e548a0336db86face0268739dd2e181271c418c49575cc0db63318c45"
     },
     {
       "path": "pocket/shell/apps/doom-app/registration.py",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md",
-      "sha256": "816ca997d5f83a1c1acbea38a82c623cf36b7eda7298df74ebdc613cd4ddde30"
+      "sha256": "f93d1b4cc348350bb821c1e7b2138be72d6d1459e2a080c60617af3b84f44a7b"
     },
     {
       "path": "pocket/shell/apps/landscape-lab/eagle_art.py",
@@ -6398,7 +6398,7 @@
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md",
-      "sha256": "99781157770719e373e3d0fa31740601e6bea17d32064d2d3e7e347419f49601"
+      "sha256": "726fe0dae3a8fd84e6ef9e9788f7849e0ffb47ac1a53813224c31013da07b5a0"
     },
     {
       "path": "pocket/tests/test_drag_model_schedule.py",
@@ -6454,6 +6454,13 @@
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
+    },
+    {
+      "path": "pocket/tests/test_game_mouse.py",
+      "license": "GPL-2.0-or-later",
+      "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
+      "grant": "licenses/ORIGINAL-CODE-GPL.md",
+      "sha256": "eb94c5576ad4119477bb3f8eda3d3dfd72c5267dd7a3a33aa6a773873a481f16"
     },
     {
       "path": "pocket/tests/test_graphical_frontend.py",

@@ -14,15 +14,35 @@ struct frame { _Atomic uint32_t seq; uint32_t number; uint64_t ns; uint32_t inpu
 static uint64_t now_ns(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return (uint64_t)t.tv_sec*1000000000+t.tv_nsec;}
 #ifdef ENGINE
 #include "doomgeneric.h"
+#include "d_event.h"
 static struct frame *shared;static uint32_t inputs;
 void DG_Init(void){int fd=open(getenv("DOOM_FRAME"),O_RDWR);shared=mmap(0,sizeof(*shared),PROT_READ|PROT_WRITE,MAP_SHARED,fd,0);close(fd);if(shared==MAP_FAILED)exit(2);fcntl(0,F_SETFL,O_NONBLOCK);}
 void DG_DrawFrame(void){atomic_fetch_add_explicit(&shared->seq,1,memory_order_seq_cst);memcpy(shared->pixels,DG_ScreenBuffer,PIXELS*4);shared->number++;shared->ns=now_ns();shared->input=inputs;atomic_fetch_add_explicit(&shared->seq,1,memory_order_seq_cst);}
 void DG_SleepMs(uint32_t ms){struct timespec t={ms/1000,(ms%1000)*1000000};nanosleep(&t,0);}
 uint32_t DG_GetTicksMs(void){return now_ns()/1000000;}
-int DG_GetKey(int *pressed,unsigned char *key){unsigned char p[2];if(read(0,p,2)!=2)return 0;*pressed=p[0];*key=p[1];if(*pressed)inputs++;return 1;}
+int DG_GetKey(int *pressed,unsigned char *key){
+ static unsigned char p[6];static unsigned used;
+ event_t mouse={0};mouse.type=ev_mouse;int pending_mouse=0;
+ for(unsigned events=0;events<64;++events){
+  unsigned size=used>=2&&p[0]==2?6:2;
+  if(used<size){ssize_t n=read(0,p+used,size-used);if(n<=0){if(pending_mouse)D_PostEvent(&mouse);return 0;}used+=(unsigned)n;if(used<size){if(pending_mouse)D_PostEvent(&mouse);return 0;}}
+  if(p[0]==2){
+   if(used<6)continue;
+   int dx=(int16_t)((unsigned)p[2]|((unsigned)p[3]<<8));
+   int dy=(int16_t)((unsigned)p[4]|((unsigned)p[5]<<8));
+   mouse.data1=p[1]&7;mouse.data2+=dx;mouse.data3+=dy;pending_mouse=1;
+   if(mouse.data1||dx||dy)inputs++;
+   used=0;continue;
+  }
+  used=0;if(p[0]>1)continue;
+  *pressed=p[0];*key=p[1];if(*pressed)inputs++;if(pending_mouse)D_PostEvent(&mouse);return 1;
+ }
+ if(pending_mouse)D_PostEvent(&mouse);return 0;
+}
 void DG_SetWindowTitle(const char *s){(void)s;}
 int main(int argc,char **argv){doomgeneric_Create(argc,argv);for(;;)doomgeneric_Tick();}
 #else
+int input_protocol(void){return 2;}
 uint64_t bridge_now_ns(void){return now_ns();}
 int frame_size(void){return sizeof(struct frame);}
 int snapshot(struct frame *source,struct frame *dest){for(int i=0;i<5;i++){uint32_t s=atomic_load_explicit(&source->seq,memory_order_seq_cst);if(s&1)continue;memcpy(dest,source,sizeof(*dest));atomic_thread_fence(memory_order_seq_cst);if(s==atomic_load_explicit(&source->seq,memory_order_seq_cst))return 1;}return 0;}

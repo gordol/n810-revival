@@ -5,7 +5,7 @@ import importlib.util
 APP_ID='doom'
 WINDOW_NAME='Doom / Freedoom'
 HELP=(
-    ('Play',('Arrows: walk / turn','W/S: walk; A/D: strafe','Space: fire; E: use doors','1–7: weapons; Tab: automap','Escape: game menu')),
+    ('Play',('Arrows: walk / turn','W/S: walk; A/D: strafe','Space: fire; E: use doors','1–7: weapons; Tab: automap','Escape: release mouse, then game menu','GUI: click viewport to capture; mouse turns; left click fires')),
     ('Window and focus',('Use desktop window controls to move, resize, hide or close.',
                          'Leaving game focus pauses play and releases held keys.',
                          'Close and reopen resumes this desktop session.',
