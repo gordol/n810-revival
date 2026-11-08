@@ -6,7 +6,6 @@ These investigations concern future work. Each begins with evidence from the exi
 | --- | --- | --- |
 | Reduce window-movement cost | Retained cell planes and damage tracking in the host. | Measure which planes rebuild, how many cells are composed, and output bytes during a repeatable drag. Compare static and animated backgrounds. |
 | Preserve responsive interaction under load | Calibrated input, process acquisition, native buffering, and Touch lab. | Correlate event timestamps, desktop dispatch, and visible response. Record connection state and background workload with the capture. |
-| Render cells with the N810 GPU | Cell-based application interfaces and the separate MBX/Mesa checkpoint. | Demonstrate glyph/color drawing, clipping, overlapping windows, and presentation on the actual device; compare total cost with the console path. |
 | Extend direct pixel scenes | Integrated native frontend, direct Room pixels, and ordered window overlays. | Validate more apps, resource lifetime, and physical Nokia behavior while preserving terminal views. |
 | Reduce idle work | Shared owners, subscriptions, and change-driven rendering. | Attribute CPU use to the desktop and each owner with Local-only and connected configurations. |
 | Complete source lineage | Kernel locks, component import records, licenses, and Git history. | Record upstream path/revision, modifications, and supporting development records per component. Mark unresolved human/LLM attribution explicitly. |
@@ -73,6 +72,6 @@ The next work follows the remaining boundaries in those tests:
 - Resolve the application-view notification warning seen at the end of the combined GPU run, then verify session save and restore.
 - Compare CPU and GPU paths with identical scene inputs, dimensions, quality, warmup, and frame counts. Include preparation, precision repairs, readback, composition, and presentation in the accounting.
 - Reduce copies and GPU readback where the platform permits, with image comparisons and buffer-lifetime checks before changing the default.
-- Validate supported cells, direct scene pixels, transparency, and mixed graphics state on the physical N810. Mac shader and Metal results define host evidence; the MBX path needs its own device results.
+- Validate direct scene pixels, transparency, and mixed GPU state on the physical N810. Ordinary desktop text now uses native C cell rasterization, with calibrated process-owned touch; GPU scene acceptance remains separate from that desktop baseline.
 
 Moving projectiles would extend the current immediate ray-based target test with travel time and collision over simulation steps. That remains a possible scene extension, separate from the implemented hit/reset behavior.
