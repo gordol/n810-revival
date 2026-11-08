@@ -15,7 +15,7 @@ flowchart LR
 
 ## Install the builder
 
-Use Python 3.11–3.13 and a C/C++ compiler for host tests. From the repository root:
+Use Python 3.12 or 3.13 and a C/C++ compiler for these builds and host tests. The compiled RSN adapter uses Python’s filtered archive extraction. From the repository root:
 
 ```sh
 python3 -m venv .venv-htit

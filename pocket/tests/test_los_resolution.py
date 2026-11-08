@@ -1,3 +1,5 @@
+from reference_fixtures import activate
+activate()
 """Reproduce loss of local LOS when extending radius and using dense terminals."""
 import sys,unittest
 from pathlib import Path

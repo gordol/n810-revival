@@ -1,3 +1,5 @@
+from reference_fixtures import activate
+activate()
 import sys,unittest,time,threading
 from pathlib import Path
 from unittest.mock import patch

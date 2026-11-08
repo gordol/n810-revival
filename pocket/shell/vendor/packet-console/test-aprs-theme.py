@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]/'tests'))
+from reference_fixtures import maps
 """Readability constraints for the opt-in APRS TUI palette."""
 import importlib.util
 from pathlib import Path
@@ -51,8 +55,8 @@ class ThemeTests(unittest.TestCase):
         view = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(view)
         current, candidate = view.State(), view.State()
-        view.init_map(current, str(ROOT / 'maps'), 'next')
-        view.init_map(candidate, str(ROOT / 'maps'), 'next', 'color')
+        view.init_map(current, str(maps()), 'next')
+        view.init_map(candidate, str(maps()), 'next', 'color')
         self.assertIs(current.map_engine.palette, current.map_engine.rgb)
         self.assertEqual(candidate.map_engine.palette.WATER, theme.WATER)
         self.assertEqual(view.label_backplate(current), (14, 21, 18))

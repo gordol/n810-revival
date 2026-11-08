@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]/'tests'))
+from reference_fixtures import maps
 # SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Geometry, layer isolation and output invalidation for the opt-in engine."""
@@ -34,7 +38,7 @@ class Tests(unittest.TestCase):
     def test_rgb_overlay_retains_terrain_background(self):
         self.assertEqual(m.composite((('▀',(1,2,3),(4,5,6)),),{(0,0):('@',(9,9,9))},1,1),[('@',(9,9,9),(4,5,6))])
     def test_engine_cache_excludes_overlays_and_layer_changes(self):
-        e=m.Engine(ROOT/'maps','rgb');v=m.Viewport((5.5355,5.5655),2,80,20)
+        e=m.Engine(maps(),'rgb');v=m.Viewport((5.5355,5.5655),2,80,20)
         a,_=e.prepare(v,True,True);self.assertEqual(e.stats['cache'],'cold')
         b,_=e.prepare(v,True,True);self.assertIs(a,b);self.assertEqual(e.stats['cache'],'ram')
         flat,_=e.prepare(v,False,True);self.assertIsNot(flat,a)
@@ -42,15 +46,15 @@ class Tests(unittest.TestCase):
         for span in range(1,12):e.prepare(m.Viewport(v.center,span,80,20))
         self.assertEqual(len(e.cache),8)
     def test_no_roads_background_matches_accepted_close_rgb_heights(self):
-        e=m.Engine(ROOT/'maps','rgb');v=m.Viewport((5.5355,5.5655),1,100,23)
+        e=m.Engine(maps(),'rgb');v=m.Viewport((5.5355,5.5655),1,100,23)
         frame,_=e._rgb_terrain(v,True)
         old,_=e.rgb.background(e.atlas,v.center,v.span,v.width,v.height,False,True)
         self.assertEqual([c[2] for c in frame],[c[2] for c in old])
         stream_cells,_=e.atlas.road_cells(v.center,v.span,v.width,v.height,streams=True)
         self.assertTrue(all(c==old[i] for i,c in enumerate(frame) if (i%v.width,i//v.width) not in stream_cells))
     def test_default_palette_matches_explicit_default_and_cached_frame(self):
-        default=m.Engine(ROOT/'maps','rgb')
-        explicit=m.Engine(ROOT/'maps','rgb',palette=default.rgb)
+        default=m.Engine(maps(),'rgb')
+        explicit=m.Engine(maps(),'rgb',palette=default.rgb)
         self.assertIs(default.palette,default.rgb)
         for span,terrain in ((1,True),(24,True),(24,False)):
             view=m.Viewport((5.5355,5.5655),span,30,8)
@@ -59,13 +63,13 @@ class Tests(unittest.TestCase):
             cached,_=default.prepare(view,terrain,False)
             self.assertIs(cached,frame)
     def test_custom_background_palette_is_isolated_from_codec_features_and_other_engines(self):
-        default=m.Engine(ROOT/'maps','rgb')
+        default=m.Engine(maps(),'rgb')
         view=m.Viewport((5.5355,5.5655),2,30,8)
         original,_=default.prepare(view,True,True)
         palette=SimpleNamespace(LOW=(1,2,3),HIGH=(4,5,6),LAND=(7,8,9),WATER=(10,11,12),
                                 REGIONAL=tuple((i,i+1,i+2) for i in range(8)),
                                 blend=default.rgb.blend,band_color=lambda height,low,high:(13,14,15))
-        themed=m.Engine(ROOT/'maps','rgb',palette=palette)
+        themed=m.Engine(maps(),'rgb',palette=palette)
         frame,_=themed.prepare(view,True,True)
         self.assertNotEqual(frame,original)
         flat,_=themed._rgb_terrain(view,False)
@@ -76,23 +80,23 @@ class Tests(unittest.TestCase):
         self.assertIs(default.prepare(view,True,True)[0],original)
         with self.assertRaises(AttributeError):themed.palette=default.rgb
     def test_world_query_and_offline_coverage_are_bounded(self):
-        e=m.Engine(ROOT/'maps','rgb');frame,_=e.prepare(m.Viewport((47,-122),48000,100,23))
+        e=m.Engine(maps(),'rgb');frame,_=e.prepare(m.Viewport((47,-122),48000,100,23))
         self.assertEqual(len(frame),2300);self.assertEqual(e.stats['candidates'],0)
         _,legend=e.prepare(m.Viewport((0,0),1,100,23));self.assertEqual(e.stats['unknown'],4600)
         self.assertIn('No offline elevation coverage',legend)
     def test_ansi_palette_is_explicit_and_does_not_auto_enable_rgb(self):
         seen=[]
         def attr(kind,terrain):seen.append((kind,terrain));return 17 if terrain else 3
-        e=m.Engine(ROOT/'maps','ansi',attr);v=m.Viewport((5.5355,5.5655),2,30,10)
+        e=m.Engine(maps(),'ansi',attr);v=m.Viewport((5.5355,5.5655),2,30,10)
         frame,_=e.prepare(v,True,False);self.assertTrue(seen);self.assertTrue(all(len(c)==2 for c in frame))
         screen=Screen();e.draw({},win=screen);self.assertTrue(screen.calls)
     def test_new_terrain_does_not_call_legacy_viewport_renderer(self):
-        e=m.Engine(ROOT/'maps','ansi',lambda kind,terrain:0)
+        e=m.Engine(maps(),'ansi',lambda kind,terrain:0)
         with patch.object(e.legacy,'background',side_effect=AssertionError('legacy raster must not render next view')):
             e.prepare(m.Viewport((5.5355,5.5655),8,100,23),True,False)
         self.assertTrue(e.stats['height_levels'])
     def test_filtered_heights_retain_lowland_variation(self):
-        e=m.Engine(ROOT/'maps','rgb');view=m.Viewport((5.5355,5.5655),16,100,23)
+        e=m.Engine(maps(),'rgb');view=m.Viewport((5.5355,5.5655),16,100,23)
         heights,shades,levels=e.terrain.sample(view)
         lowland={v for row in heights for v in row if 0<=v<200}
         self.assertGreater(len(lowland),20);self.assertTrue(levels)
@@ -106,7 +110,7 @@ class Tests(unittest.TestCase):
         win=Input();self.assertEqual(trial.queued_keys(win,ord('+')),[ord('+'),ord('+'),ord('-'),ord('t')])
         self.assertEqual(win.getch(),ord('+'));self.assertEqual(win.timeouts,[0,250])
     def test_wide_filtered_height_and_coarse_class_share_color_anchors(self):
-        e=m.Engine(ROOT/'maps','rgb')
+        e=m.Engine(maps(),'rgb')
         for kind,height in enumerate((0,200,500,1000,1800,2800),1):
             self.assertEqual(m.wide_color(e.rgb,height),e.rgb.REGIONAL[kind])
         self.assertNotEqual(m.wide_color(e.rgb,50),m.wide_color(e.rgb,150))
@@ -120,12 +124,12 @@ class Tests(unittest.TestCase):
             self.assertEqual(result[0,0][2],(14,21,18))
     def test_ansi_coarse_fallback_uses_same_subdued_family_as_filtered(self):
         kinds=[]
-        e=m.Engine(ROOT/'maps','ansi',lambda kind,terrain:kinds.append(kind) or 0)
+        e=m.Engine(maps(),'ansi',lambda kind,terrain:kinds.append(kind) or 0)
         e.prepare(m.Viewport((5.5355,5.5655),640,100,23),True,False)
         self.assertTrue(any(k.startswith('relief') for k in kinds))
         self.assertFalse(any(k.startswith('tone') and k!='tone00' for k in kinds))
     def test_multiple_vector_segments_keep_projection_scale(self):
-        e=m.Engine(ROOT/'maps','rgb');view=m.Viewport((5.5555,5.5555),2,101,23)
+        e=m.Engine(maps(),'rgb');view=m.Viewport((5.5555,5.5555),2,101,23)
         segments=[(555050,555250,556050,555250),(555050,555850,556050,555850)]
         layer=dict(tile=100000,coords=array('i',[n for segment in segments for n in segment]),index={(-123,47):(0,1)})
         e.atlas.roads=[layer];e.layer_bounds[id(layer)]=(555050,555250,556050,555850)
@@ -133,7 +137,7 @@ class Tests(unittest.TestCase):
         expected={round(view.project(a/100000,b/100000)[1]) for a,b,_,_ in segments}
         self.assertEqual({y for x,y in cells},expected)
     def test_tinted_panel_preserves_halfcell_shapes_and_background(self):
-        e=m.Engine(ROOT/'maps','rgb');e.view=m.Viewport((47,-122),1,2,1)
+        e=m.Engine(maps(),'rgb');e.view=m.Viewport((47,-122),1,2,1)
         original=(('▀',(120,160,80),(40,80,30)),(' ',(80,90,70),(80,90,70)))
         e.frame=original
         panel=e.panel((-1,0,2,1),tint=(0,0,0),opacity=.5)
@@ -143,16 +147,16 @@ class Tests(unittest.TestCase):
         self.assertEqual(e.panel((0,0,1,1),tint=(0,0,0),opacity=.5,underlay=underlay)[0,0],('@',(100,100,100),(50,50,50)))
     def test_canonical_places_prefer_fine_source_without_merging_distinct_places(self):
         def pack(name,width,labels):return dict(name=name,bbox=(-124,46,-120,49),raster=dict(width=width,height=width),labels=labels)
-        city=dict(name='Seattle',kind='city',lat=47.6038321,lon=-122.330062)
-        coarse=dict(city,name='  SEATTLE ',lat=47.600423,lon=-122.315322)
+        city=dict(name='Harbor City',kind='city',lat=47.6038321,lon=-122.330062)
+        coarse=dict(city,name='  HARBOR CITY ',lat=47.600423,lon=-122.315322)
         far=dict(city,lat=48.8);peak=dict(city,kind='peak')
         labels=m.canonical_places([pack('coarse',100,[coarse,far,peak]),pack('fine',1000,[city])])
         close=[p for p in labels if p['kind']=='city' and p['lat']<48]
         self.assertEqual(len(close),1);self.assertEqual(close[0]['lon'],city['lon']);self.assertEqual(close[0]['sources'],('fine','coarse'))
         self.assertEqual(len(labels),3)
     def test_actual_unified_model_has_one_seattle(self):
-        e=m.Engine(ROOT/'maps','rgb')
-        labels=[p for p in e.places() if p['name'].casefold()=='seattle' and p['kind']=='city']
+        e=m.Engine(maps(),'rgb')
+        labels=[p for p in e.places() if p['name'].casefold()=='harbor city' and p['kind']=='city']
         self.assertEqual(len(labels),1);self.assertAlmostEqual(labels[0]['lon'],-122.330062)
         self.assertGreaterEqual(len(labels[0]['sources']),2)
         view=m.Viewport((47.6,-122.33),30,100,23);self.assertIn(labels[0],e.places(view))
@@ -172,11 +176,11 @@ class Tests(unittest.TestCase):
         pack=dict(name='fine',bbox=(-122.1,46.9,-121.9,47.1),raster=dict(width=1000,height=1000),labels=[a,b])
         self.assertEqual(len(m.canonical_places([pack])),2)
     def test_all_actual_overlapping_source_places_reconcile_and_distant_names_remain(self):
-        e=m.Engine(ROOT/'maps','rgb')
-        for name in ('Seattle','Tacoma','Everett','Bremerton','Olympia'):
+        e=m.Engine(maps(),'rgb')
+        for name in ('Harbor City','Teston','Northport','Westport','Southport'):
             places=[p for p in e.places() if p['name']==name and p['kind']=='city']
             self.assertEqual(len(places),1,name);self.assertGreaterEqual(len(places[0]['sources']),2)
-        self.assertEqual(len([p for p in e.places() if p['name']=='Vancouver']),2)
+        self.assertEqual(len([p for p in e.places() if p['name']=='Twin City']),2)
         identity=[(p['name'],p['lat'],p['lon']) for p in e.places()]
         e.prepare(m.Viewport((47.2,-122.4),2,100,23))
         self.assertEqual(identity,[(p['name'],p['lat'],p['lon']) for p in e.places()])
