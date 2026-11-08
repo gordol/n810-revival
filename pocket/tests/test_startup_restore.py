@@ -4,7 +4,23 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'shell'))
 from runtime_codec import frame as control_frame,unpack,HEADER
+
+def completed_records(path):
+ try:raw=path.read_bytes()
+ except FileNotFoundError:return []
+ # The child may be midway through one write. A newline commits a record;
+ # malformed complete records still fail rather than hiding broken fixtures.
+ return [json.loads(line) for line in raw.split(b'\n')[:-1] if line]
+
 class StartupRestoreTests(unittest.TestCase):
+ def test_live_reader_waits_for_complete_record(self):
+  with tempfile.TemporaryDirectory(dir='/tmp') as d:
+   path=Path(d)/'events';path.write_bytes(b'{"kind":"frame"}\n{"kind":"id')
+   self.assertEqual(completed_records(path),[{'kind':'frame'}])
+   with path.open('ab') as stream:stream.write(b'le"}\n')
+   self.assertEqual(completed_records(path),[{'kind':'frame'},{'kind':'idle'}])
+   path.write_bytes(b'broken\n')
+   with self.assertRaises(json.JSONDecodeError):completed_records(path)
  def test_pending_owner_keeps_saved_state_and_explicit_open_bypasses_queue(self):
   from types import SimpleNamespace
   sys.path.insert(0,str(ROOT/'shell'))
@@ -44,8 +60,7 @@ class StartupRestoreTests(unittest.TestCase):
    child=subprocess.Popen([sys.executable,str(ROOT/'tests/fixtures/startup_restore_fixture.py'),str(ROOT/'shell/desktop.py'),str(folder)]+(['empty'] if empty else []),stdin=slave,stdout=slave,stderr=slave,env={**os.environ,'TERM':'xterm-256color'})
    os.close(slave);raw=bytearray()
    def records():
-    try:return [json.loads(line) for line in (folder/'events').read_text().splitlines()]
-    except FileNotFoundError:return []
+    return completed_records(folder/'events')
    def pump():
     if select.select([master],[],[],.01)[0]:
      try:raw.extend(os.read(master,65536))
