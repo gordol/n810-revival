@@ -32,6 +32,10 @@ class DesktopWindow(Window):
         if not hasattr(self,'controls'):self.controls={}
         if room not in self.controls:self.controls[room]=ExploreControls(time.monotonic())
         return self.controls[room]
+    def forget_view(self,view):
+        if getattr(self,'captured_target',None) is view:self.release_capture()
+        control=getattr(self,'controls',{}).pop(view,None)
+        if control is not None:control.clear(time.monotonic())
     def events(self):
         raw=(C.c_int*6)()
         names={1073741904:'left',1073741903:'right',1073741906:'up',1073741905:'down',

@@ -88,6 +88,10 @@ loop. Native vectors improve line drawing, while terrain sample resolution still
 comes from the existing map renderer. Terrain tools and third-party map packs
 retain their existing presentation.
 
+Retrying a failed graphical app replaces its old pixel view and releases any
+pointer capture and held movement associated with that view. The window keeps
+one current image producer rather than drawing both old and replacement views.
+
 Doom / Freedoom also uses a direct RGB565 image in the GUI, with the same
 engine and lifecycle owner as the terminal app. Prepare it explicitly with
 `make doom`; see [the game build notes](../shell/apps/doom-app/README.md).

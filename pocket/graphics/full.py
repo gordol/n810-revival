@@ -21,14 +21,14 @@ class Platform:
   def room_factory(host,**options):
    sys.path.insert(0,str(HERE.parent/'shell/apps/surface-renderer'))
    from room_pixels import PixelRoom
-   room=PixelRoom(host,Path(self.library).resolve().parent/'room-pixels.so');self.pixel_apps.append(room);return room
+   room=PixelRoom(host,Path(self.library).resolve().parent/'room-pixels.so');self.register_pixel_view(room);return room
   entry=registry.entries['surface-room'];registry.entries['surface-room']=entry._replace(factory=room_factory)
   if 'doom' in registry.entries:
    entry=registry.entries['doom'];factory=entry.factory
    def doom_factory(host,**options):
     owner=factory(host,**options)
     from doom_pixels import View
-    self.pixel_apps.append(View(host,owner));return owner
+    self.register_pixel_view(View(host,owner));return owner
    registry.entries['doom']=entry._replace(factory=doom_factory)
   if 'station-map' in registry.entries:
    entry=registry.entries['station-map'];map_factory=entry.factory
@@ -36,8 +36,17 @@ class Platform:
     owner=map_factory(host,**options)
     from map_pixels import View
     from font_supplement import load
-    self.pixel_apps.append(View(host,owner,self.library,load(self.font,self.font_mode),presentation_text=bool(getattr(self,'presentation_text',None))));return owner
+    self.register_pixel_view(View(host,owner,self.library,load(self.font,self.font_mode),presentation_text=bool(getattr(self,'presentation_text',None))));return owner
    registry.entries['station-map']=entry._replace(factory=map_owner)
+ def register_pixel_view(self,view):
+  # A failed app can replace its lifetime owner on Retry. The registry closes
+  # that owner; presentation must replace its view too, not draw both by name.
+  forget=getattr(self.display,'forget_view',None)
+  if forget:
+   for app in self.pixel_apps:
+    if app.name==view.name:forget(app)
+  self.pixel_apps[:]=[app for app in self.pixel_apps if app.name!=view.name]
+  self.pixel_apps.append(view)
  def geometry(self):return Geometry(*self.size)
  def attach(self,host,panel,registry):
   self.host=host;self.panel=panel;self.registry=registry
