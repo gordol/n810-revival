@@ -31,6 +31,36 @@ class DoomPixels(unittest.TestCase):
   for dimensions in [(8,4,7,1,2,2),(8,4,2,3,4,2),(4097,4,0,0,1,1),(8,4,0,0,0,1)]:
    self.assertEqual(self.lib.convert_pixels(C.byref(frame),C.byref(output,8),32,*dimensions),-1)
    self.assertEqual(list(output),before)
+ def test_engine_input_stream_handles_partial_mouse_packets_and_keys(self):
+  source=ROOT/'shell/apps/doom-app';headers=source/'vendor/doomgeneric/doomgeneric'
+  directory=Path(self.temporary.name);obj=directory/'engine-input.o';test=directory/'input.c';binary=directory/'input-test'
+  test.write_text(r'''#include "doomgeneric.h"
+#include "d_event.h"
+#include <assert.h>
+#include <unistd.h>
+#include <fcntl.h>
+pixel_t *DG_ScreenBuffer;
+void doomgeneric_Create(int n,char **v){(void)n;(void)v;}
+void doomgeneric_Tick(void){}
+static event_t last;static int events;
+void D_PostEvent(event_t *e){last=*e;events++;}
+int main(void){
+ int f[2],pressed;unsigned char key;assert(!pipe(f));assert(dup2(f[0],0)==0);fcntl(0,F_SETFL,O_NONBLOCK);
+ const unsigned char head[]={2,1},tail[]={8,0,253,255};
+ assert(write(f[1],head,2)==2);assert(!DG_GetKey(&pressed,&key)&&events==0);
+ assert(write(f[1],tail,4)==4);assert(!DG_GetKey(&pressed,&key));
+ assert(events==1&&last.type==ev_mouse&&last.data1==1&&last.data2==8&&last.data3==-3);
+ const unsigned char drag_release[]={2,1,10,0,0,0,2,0,0,0,0,0};
+ assert(write(f[1],drag_release,sizeof(drag_release))==sizeof(drag_release));assert(!DG_GetKey(&pressed,&key));
+ assert(events==2&&last.data1==0&&last.data2==10);
+ const unsigned char keys[]={1,'w',0,'w'};assert(write(f[1],keys,4)==4);
+ assert(DG_GetKey(&pressed,&key)&&pressed==1&&key=='w');assert(DG_GetKey(&pressed,&key)&&pressed==0&&key=='w');
+ return 0;
+}
+''')
+  subprocess.run(['cc','-std=c11','-DENGINE','-Dmain=bridge_main','-I'+str(headers),'-c',str(source/'bridge.c'),'-o',str(obj)],check=True)
+  subprocess.run(['cc','-std=c11','-I'+str(headers),str(test),str(obj),'-o',str(binary)],check=True)
+  subprocess.run([str(binary)],check=True,timeout=5)
  def test_old_bridge_rejected_before_process_or_frame_allocation(self):
   class Symbol:
    def __call__(self):return C.sizeof(engine_module.Frame)
