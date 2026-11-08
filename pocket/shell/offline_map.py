@@ -12,7 +12,8 @@ from paint import ink,rgb
 
 _BUNDLED=Path(__file__).resolve().parent/'vendor/packet-console'
 ROOT=_BUNDLED
-PRESETS=(('Lakewood',(5.5355,5.5655),2.),('Puget Sound',(5.6155,5.8355),100.),('Tahoma',(5.2178,6.3252),50.))
+# Public regional viewpoints; the operator's saved QTH is separate.
+PRESETS=(('Lakewood',(47.17,-122.52),2.),('Puget Sound',(47.25,-122.25),100.),('Tahoma',(46.8523,-121.7603),50.))
 
 
 def raster_size(width,height):

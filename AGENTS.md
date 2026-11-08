@@ -80,6 +80,12 @@ review source diffs when reconciling an older snapshot.
 - Inspect text, media, metadata, fixtures, archives, and history for credentials,
   personal callsigns, device identities, messages, and precise personal locations.
   Keep private records local. Use documented fictional fixtures where appropriate.
+- Use `N0CALL` for demo identities and `5.5555, 5.5555` for fictional saved
+  locations. Use `55.555` for illustrative frequency values when a test does not
+  require a protocol-specific frequency. Keep real operating settings in private state.
+  Preserve public regional map views and place coordinates. A map viewport is
+  separate from the operator's saved QTH; privacy fixtures must not relocate
+  application defaults or geographic calculations.
 - Scanner success complements manual review. Review media visually and record
   its SHA-256 in `tools/release-assets.json`; keep the detailed review locally.
 - Preserve upstream copyright notices and license terms. Map licenses by

@@ -5,7 +5,7 @@ spec=importlib.util.spec_from_file_location('history',Path(__file__).with_name('
 class Tests(unittest.TestCase):
  def test_restore_groups_restart_but_not_transmission_state(self):
   with tempfile.TemporaryDirectory() as d:
-   root=Path(d);position={'lat':5.5655,'lon':5.5855,'time':1234,'accuracy':10}
+   root=Path(d);position={'lat':5.56555,'lon':5.58555,'time':1234,'accuracy':10}
    for tag,start in (('a','08:00:00'),('b','08:10:00')):
     stamp='2026-10-15T'+start+'-07:00'
     rows=[dict(type='session',time=stamp,callsign='N0CALL',tag=tag),dict(type='position',time=stamp,position=position),dict(type='armed',time=stamp),dict(type='submission',time=stamp,probe={'number':1,'position':position,'payload':'hello '+tag,'status':'Submitted'})]
@@ -22,7 +22,7 @@ class Tests(unittest.TestCase):
   spec=importlib.util.spec_from_file_location('walk',Path(__file__).with_name('n810-aprs-walk.py'));w=importlib.util.module_from_spec(spec);spec.loader.exec_module(w)
   import argparse
   with tempfile.TemporaryDirectory() as d:
-   root=Path(d);pos={'lat':5.5655,'lon':5.5855,'time':1234,'accuracy':10}
+   root=Path(d);pos={'lat':5.56555,'lon':5.58555,'time':1234,'accuracy':10}
    rows=[dict(type='session',callsign='N0CALL',time='2026-10-15T08:00:00-07:00'),dict(type='position',position=pos,time='2026-10-15T08:01:00-07:00'),dict(type='submission',probe={'number':1,'position':pos,'payload':'test'})]
    (root/'old.jsonl').write_text('\n'.join(json.dumps(r) for r in rows))
    app=w.Walk(argparse.Namespace(callsign='N0CALL',budget=20,logs=d))

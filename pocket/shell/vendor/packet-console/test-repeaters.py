@@ -10,11 +10,11 @@ class Tests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as folder:
    path=Path(folder)/'pack.zip'
    header='FC_RECORD_ID,OUTPUT_FREQ,INPUT_FREQ,CALL,CITY,LOCALE,FM_WIDE,LATITUDE,LONGITUDE,EXPIRATION_DATE,CTCSS_IN,CTCSS_OUT\n'
-   body='1,146.8,146.2,TEST,Tacoma,South,Y,5.5655,5.5855,2030-01-01,103.5,100\n2,146.9,146.3,OLD,Tacoma,South,Y,5.5655,5.5855,2020-01-01,,\n3,147,147.6,DIG,Tacoma,South,N,5.5655,5.5855,2030-01-01,,\n'
+   body='1,146.8,146.2,TEST,Tacoma,South,Y,5.56555,5.58555,2030-01-01,103.5,100\n2,146.9,146.3,OLD,Tacoma,South,Y,5.56555,5.58555,2020-01-01,,\n3,147,147.6,DIG,Tacoma,South,N,5.56555,5.58555,2030-01-01,,\n'
    with zipfile.ZipFile(path,'w') as z:
     z.writestr('WWARA-rptrlist-20261014.csv','DATA_SPEC_VERSION=2015.2.2\n'+header+body)
     z.writestr('copyright.txt','Test fixture notice')
-   data=r.import_wwara(path);rows=r.candidates(data,5.5355,5.5655,150,'2026-10-15')
+   data=r.import_wwara(path);rows=r.candidates(data,5.53555,5.56555,150,'2026-10-15')
    self.assertEqual([x['call'] for x in rows],['TEST'])
    self.assertEqual((rows[0]['tx_ctcss'],rows[0]['rx_ctcss']),(103.5,100))
    self.assertAlmostEqual(rows[0]['tx_mhz']-rows[0]['rx_mhz'],-.6)
@@ -46,7 +46,7 @@ class Tests(unittest.TestCase):
    def erase(self):pass
    def refresh(self):pass
    def addnstr(self,y,x,text,n,attr):assert 0<=y<39 and 0<=x<133 and n<=132-x
-  class Args:lat=5.5355;lon=5.5655;radius=150
+  class Args:lat=5.53555;lon=5.56555;radius=150
   r.draw(Window(),[],0,{},Args(),'','Packet',{})
  def test_distance(self):
   self.assertEqual(r.distance(47,-122,47,-122),0)

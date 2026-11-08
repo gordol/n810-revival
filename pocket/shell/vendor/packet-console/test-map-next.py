@@ -38,7 +38,7 @@ class Tests(unittest.TestCase):
     def test_rgb_overlay_retains_terrain_background(self):
         self.assertEqual(m.composite((('▀',(1,2,3),(4,5,6)),),{(0,0):('@',(9,9,9))},1,1),[('@',(9,9,9),(4,5,6))])
     def test_engine_cache_excludes_overlays_and_layer_changes(self):
-        e=m.Engine(maps(),'rgb');v=m.Viewport((5.5355,5.5655),2,80,20)
+        e=m.Engine(maps(),'rgb');v=m.Viewport((5.53555,5.56555),2,80,20)
         a,_=e.prepare(v,True,True);self.assertEqual(e.stats['cache'],'cold')
         b,_=e.prepare(v,True,True);self.assertIs(a,b);self.assertEqual(e.stats['cache'],'ram')
         flat,_=e.prepare(v,False,True);self.assertIsNot(flat,a)
@@ -46,7 +46,7 @@ class Tests(unittest.TestCase):
         for span in range(1,12):e.prepare(m.Viewport(v.center,span,80,20))
         self.assertEqual(len(e.cache),8)
     def test_no_roads_background_matches_accepted_close_rgb_heights(self):
-        e=m.Engine(maps(),'rgb');v=m.Viewport((5.5355,5.5655),1,100,23)
+        e=m.Engine(maps(),'rgb');v=m.Viewport((5.53555,5.56555),1,100,23)
         frame,_=e._rgb_terrain(v,True)
         old,_=e.rgb.background(e.atlas,v.center,v.span,v.width,v.height,False,True)
         self.assertEqual([c[2] for c in frame],[c[2] for c in old])
@@ -57,14 +57,14 @@ class Tests(unittest.TestCase):
         explicit=m.Engine(maps(),'rgb',palette=default.rgb)
         self.assertIs(default.palette,default.rgb)
         for span,terrain in ((1,True),(24,True),(24,False)):
-            view=m.Viewport((5.5355,5.5655),span,30,8)
+            view=m.Viewport((5.53555,5.56555),span,30,8)
             frame,legend=default.prepare(view,terrain,False)
             self.assertEqual(explicit.prepare(view,terrain,False),(frame,legend))
             cached,_=default.prepare(view,terrain,False)
             self.assertIs(cached,frame)
     def test_custom_background_palette_is_isolated_from_codec_features_and_other_engines(self):
         default=m.Engine(maps(),'rgb')
-        view=m.Viewport((5.5355,5.5655),2,30,8)
+        view=m.Viewport((5.53555,5.56555),2,30,8)
         original,_=default.prepare(view,True,True)
         palette=SimpleNamespace(LOW=(1,2,3),HIGH=(4,5,6),LAND=(7,8,9),WATER=(10,11,12),
                                 REGIONAL=tuple((i,i+1,i+2) for i in range(8)),
@@ -87,16 +87,16 @@ class Tests(unittest.TestCase):
     def test_ansi_palette_is_explicit_and_does_not_auto_enable_rgb(self):
         seen=[]
         def attr(kind,terrain):seen.append((kind,terrain));return 17 if terrain else 3
-        e=m.Engine(maps(),'ansi',attr);v=m.Viewport((5.5355,5.5655),2,30,10)
+        e=m.Engine(maps(),'ansi',attr);v=m.Viewport((5.53555,5.56555),2,30,10)
         frame,_=e.prepare(v,True,False);self.assertTrue(seen);self.assertTrue(all(len(c)==2 for c in frame))
         screen=Screen();e.draw({},win=screen);self.assertTrue(screen.calls)
     def test_new_terrain_does_not_call_legacy_viewport_renderer(self):
         e=m.Engine(maps(),'ansi',lambda kind,terrain:0)
         with patch.object(e.legacy,'background',side_effect=AssertionError('legacy raster must not render next view')):
-            e.prepare(m.Viewport((5.5355,5.5655),8,100,23),True,False)
+            e.prepare(m.Viewport((5.53555,5.56555),8,100,23),True,False)
         self.assertTrue(e.stats['height_levels'])
     def test_filtered_heights_retain_lowland_variation(self):
-        e=m.Engine(maps(),'rgb');view=m.Viewport((5.5355,5.5655),16,100,23)
+        e=m.Engine(maps(),'rgb');view=m.Viewport((5.53555,5.56555),16,100,23)
         heights,shades,levels=e.terrain.sample(view)
         lowland={v for row in heights for v in row if 0<=v<200}
         self.assertGreater(len(lowland),20);self.assertTrue(levels)
@@ -125,13 +125,13 @@ class Tests(unittest.TestCase):
     def test_ansi_coarse_fallback_uses_same_subdued_family_as_filtered(self):
         kinds=[]
         e=m.Engine(maps(),'ansi',lambda kind,terrain:kinds.append(kind) or 0)
-        e.prepare(m.Viewport((5.5355,5.5655),640,100,23),True,False)
+        e.prepare(m.Viewport((5.53555,5.56555),640,100,23),True,False)
         self.assertTrue(any(k.startswith('relief') for k in kinds))
         self.assertFalse(any(k.startswith('tone') and k!='tone00' for k in kinds))
     def test_multiple_vector_segments_keep_projection_scale(self):
         e=m.Engine(maps(),'rgb');view=m.Viewport((5.5555,5.5555),2,101,23)
         segments=[(555050,555250,556050,555250),(555050,555850,556050,555850)]
-        layer=dict(tile=100000,coords=array('i',[n for segment in segments for n in segment]),index={(-123,47):(0,1)})
+        layer=dict(tile=100000,coords=array('i',[n for segment in segments for n in segment]),index={(5,5):(0,1)})
         e.atlas.roads=[layer];e.layer_bounds[id(layer)]=(555050,555250,556050,555850)
         cells,_=e._lines(view)
         expected={round(view.project(a/100000,b/100000)[1]) for a,b,_,_ in segments}
@@ -182,7 +182,7 @@ class Tests(unittest.TestCase):
             self.assertEqual(len(places),1,name);self.assertGreaterEqual(len(places[0]['sources']),2)
         self.assertEqual(len([p for p in e.places() if p['name']=='Twin City']),2)
         identity=[(p['name'],p['lat'],p['lon']) for p in e.places()]
-        e.prepare(m.Viewport((47.2,-122.4),2,100,23))
+        e.prepare(m.Viewport((5.5655,-122.4),2,100,23))
         self.assertEqual(identity,[(p['name'],p['lat'],p['lon']) for p in e.places()])
 
 if __name__=='__main__':unittest.main()

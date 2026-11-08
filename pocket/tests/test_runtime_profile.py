@@ -39,6 +39,26 @@ class RuntimeProfileTests(unittest.TestCase):
         self.assertNotIn('record_frame', {n.name for n in ast.walk(gui) if isinstance(n,ast.FunctionDef)})
         self.assertNotIn('history', {n.value for n in ast.walk(gui) if isinstance(n,ast.Constant) and isinstance(n.value,str)})
 
+    def test_release_routes_keys_without_recording_events(self):
+        from types import SimpleNamespace
+        namespace={}
+        raw=release_source((ROOT/'shell/keyboard_runtime.py').read_bytes(),'keyboard_runtime.py')
+        self.assertNotIn(b'self.history',raw)
+        exec(compile(raw,'release-keyboard','exec'),namespace)
+        sys.path.insert(0,str(ROOT/'shell'))
+        source=SimpleNamespace(device={'motion_codes':[]})
+        seen=[]
+        target=SimpleNamespace(key_event=lambda *args:seen.append(args),cancel_keys=lambda now:seen.append(('cancel',now)))
+        router=namespace['KeyboardRouter'](source,clock=lambda:1.,foreground=lambda:True)
+        router.select(target)
+        router.event(('key_event','up','press'))
+        router.event(('key_event','up','release'))
+        self.assertEqual([event[:2] for event in seen],[('up','press'),('up','release')])
+        self.assertFalse(hasattr(router,'history'))
+        self.assertEqual(router.status()['events'],[])
+        router.cancel()
+        self.assertEqual(seen[-1],('cancel',1.))
+
     def test_generated_release_starts_without_development_modules(self):
         frontend = ROOT/'build/graphics/frontend.json'
         if not frontend.exists():self.skipTest('run make graphics-native first')

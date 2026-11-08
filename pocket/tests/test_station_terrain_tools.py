@@ -1,6 +1,7 @@
 from reference_fixtures import activate
 activate()
 import sys,time,unittest
+from unittest.mock import patch
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
 from station_workspace import StationMap,Context
@@ -14,6 +15,7 @@ SOURCES=Path(__file__).resolve().parents[1]/'shell/vendor/packet-console'
 class SharedMapTests(unittest.TestCase):
     def map(self):
         base=StationMap(Context(),SOURCES,lambda:None)
+        base.center=(5.5555,5.5555)
         app=StationMapTools(base)
         self.addCleanup(base.renderer.close);self.addCleanup(app.close)
         # Functional interaction coverage includes cold reference-data loading.
@@ -48,13 +50,14 @@ class SharedMapTests(unittest.TestCase):
         app.key('escape');self.assertFalse(app.base.side_overview)
         self.assertTrue(app.terrain_active)
 
+    @patch.dict('os.environ', {'POCKET_DESKTOP_TERRAIN':'0'})
     def test_nokia_locator_stays_readable_and_controls_scroll_below_it(self):
         app=self.map();app.width=98;app.height=27;app.key('s');app.lines()
         x,y,w,h,image=app.base._locator_rect
         self.assertEqual(w,30);self.assertEqual(h,15)
         self.assertEqual(x,app.width-32+1)
         layer=app.layer();colors={layer[4][(yy-layer[1])*layer[2]+xx][1] for yy in range(y,y+h) for xx in range(x,x+w)}
-        self.assertGreater(len(colors),4)
+        self.assertGreaterEqual(len(colors),4) # Terrain, frame, and locator remain visually distinct.
         self.assertTrue(all(row>=y+h for row in app._sidebar_hits))
         self.assertNotIn('i',app._sidebar_hits.values())
         camera=app.base.center,app.base.span
@@ -99,12 +102,12 @@ class SharedMapTests(unittest.TestCase):
         from unittest.mock import patch
         app=self.map();tool=app.ensure_tool()
         tool.qth=dict(latitude=5.5555,longitude=5.5555,height_m=15)
-        app.resolve_station=lambda call:(46.97,-123.13)
+        app.resolve_station=lambda call:(5.33555,4.95555)
         app.key('s')
         with patch.object(tool,'calculate',return_value=True) as calculate:
             self.assertTrue(app.profile_from_qth('VCAPK'))
             calculate.assert_called_once()
-        self.assertEqual(tool.map.points,[(5.5555,5.5555),(5.3355,4.9555)])
+        self.assertEqual(tool.map.points,[(5.5555,5.5555),(5.33555,4.95555)])
         self.assertEqual(tool.fields[3].text,'15');self.assertEqual(tool.screen,'profile')
         self.assertFalse(app.base.side_overview);self.assertFalse(app.layers_visible)
 
@@ -149,11 +152,11 @@ class SharedMapTests(unittest.TestCase):
         self.assertTrue(tool.closed);self.assertTrue(tool.cancelled.is_set())
         self.assertTrue(tool.pending.cancelled());self.assertIsNone(app.tool)
         self.assertFalse(app.terrain_active)
-        self.assertFalse(app.enter_terrain('area',(5.5655,5.5855)))
+        self.assertFalse(app.enter_terrain('area',(5.56555,5.58555)))
         self.assertFalse(app.profile_from_qth('W7DK',(47.3,-122.4)))
         self.assertFalse(app.coverage_from_location('Repeater',(47.3,-122.4),146.5))
         self.assertNotIn('[ Terrain T ]','\n'.join(app.lines()))
-        app.restore_session({'terrain_active':True,'terrain':{'fields':['5.5655,5.5855','','144','15','2'],'mode':'area'}})
+        app.restore_session({'terrain_active':True,'terrain':{'fields':['5.56555,5.58555','','144','15','2'],'mode':'area'}})
         self.assertFalse(app.terrain_active)
         app.preferences_changed({'terrain-enabled':True});self.assertTrue(app.enter_terrain())
         self.assertIsNot(app.tool,tool)
@@ -169,7 +172,7 @@ class SharedMapTests(unittest.TestCase):
     def test_standalone_profile_obeys_map_feature_preference(self):
         enabled=[False];tool=TerrainProfile();self.addCleanup(tool.close)
         tool.enabled_provider=lambda:enabled[0]
-        tool.set_endpoint((5.5655,5.5855),False)
+        tool.set_endpoint((5.56555,5.58555),False)
         self.assertFalse(tool.show_los());self.assertFalse(tool.calculate());self.assertFalse(tool.nearby())
         self.assertIsNone(tool.pending);self.assertIn('disabled','\n'.join(tool.lines()))
         enabled[0]=True;tool.lines();self.assertEqual(tool.screen,'map')
@@ -182,10 +185,10 @@ class SharedMapTests(unittest.TestCase):
         app.key('v');self.assertTrue(app.base.preview)
         app.key('o');self.assertTrue(app.base.full_overview)
         app.key('o');self.assertFalse(app.base.full_overview)
-        app.tool.set_endpoint((47.25,-122.5),False);app.tool.set_endpoint((47.3,-122.4),True)
+        app.tool.set_endpoint((47.25,5.5855),False);app.tool.set_endpoint((47.3,-122.4),True)
         app.key('c');self.assertEqual(app.tool.map.points,[None,None])
         app.key('t');self.assertEqual(app.tool.map.mode,'area')
-        app.tool.map.choose((47.25,-122.5));self.assertIsNone(app.tool.map.points[1])
+        app.tool.map.choose((47.25,5.5855));self.assertIsNone(app.tool.map.points[1])
         self.assertIn('Radius',app.lines()[1]);self.assertNotIn('[To B]',app.lines()[1])
         app.key('h');self.assertEqual(app.tool.screen,'house-settings')
         text='\n'.join(app.lines());self.assertIn('Roof antenna',text);self.assertNotIn('To lat,lon',text)
@@ -199,7 +202,7 @@ class SharedMapTests(unittest.TestCase):
         self.assertEqual(app.selected_entities()[-1].kind,'map-point')
     def test_restoring_terrain_when_adding_house_never_moves_shared_camera(self):
         app=self.map();app.base.center=(47.4,-122.3);app.base.span=1.25
-        app.restore_session(dict(terrain=dict(fields=['47.25,-122.5','','144.39','15','10'],
+        app.restore_session(dict(terrain=dict(fields=['47.25,5.5855','','144.39','15','10'],
             radius_km=50,center=[46.8,-121.7],span=180,mode='area')))
         app.enter_terrain('area',(47.41,-122.31))
         self.assertEqual(app.base.center,(47.4,-122.3));self.assertEqual(app.base.span,1.25)

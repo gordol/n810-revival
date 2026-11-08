@@ -29,7 +29,7 @@ def queued_keys(win,first):
     return keys
 
 def fitted(track,w,h):
-    if not track:return (5.5355,5.5655),2
+    if not track:return (47.17,-122.52),2
     south=min(p['lat'] for p in track);north=max(p['lat'] for p in track)
     west=min(p['lon'] for p in track);east=max(p['lon'] for p in track)
     center=((south+north)/2,(west+east)/2)
@@ -61,7 +61,7 @@ def benchmark(args,walk):
         def addnstr(self,y,x,text,length,attr):self.bytes+=len(text.encode())+16
     records=[]
     for span in (524,262,131,65.5,32.8,16.4,8.19,4.09,2.05,1.02,.51):
-        view=model.Viewport((5.5355,5.5655),span,100,23)
+        view=model.Viewport((47.17,-122.52),span,100,23)
         start=time.monotonic();engine.prepare(view);cold=time.monotonic()-start
         start=time.monotonic();engine.prepare(view);cached=time.monotonic()-start
         overlays=marks(engine,view,walk,args.variant);sink=Sink();buffer=io.StringIO();engine.invalidate()

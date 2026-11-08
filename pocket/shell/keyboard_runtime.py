@@ -1,4 +1,5 @@
 """Focus ownership for an optional explicit hardware motion-key source."""
+DEVELOPMENT = True  # Build-time diagnostics; release export removes the ring.
 import time
 
 
@@ -32,8 +33,10 @@ class KeyboardRouter:
     def __init__(self,source,clock=time.monotonic,foreground=lambda:True):
         from evdev_keys import MOTION_KEYS
         self.source=source;self.clock=clock;self.target=None;self.foreground=foreground
-        from collections import deque
-        self.history=deque(maxlen=128);self.last_foreground=False;self.held=set()
+        if DEVELOPMENT:
+            from collections import deque
+            self.history=deque(maxlen=128)
+        self.last_foreground=False;self.held=set()
         self.keys={MOTION_KEYS[code] for code in source.device['motion_codes'] if code in MOTION_KEYS}
 
     def select(self,form):
@@ -65,7 +68,8 @@ class KeyboardRouter:
         if target is not None and callable(getattr(decoder,'cancel_motion',None)):
             decoder.cancel_motion()
         if target is not None:
-            target.cancel_keys(self.clock());self.history.append(dict(time=self.clock(),kind='cancel'))
+            target.cancel_keys(self.clock())
+            if DEVELOPMENT:self.history.append(dict(time=self.clock(),kind='cancel'))
 
     def event(self,event):
         if event[0]=='key_cancel':self.cancel();return True
@@ -78,7 +82,7 @@ class KeyboardRouter:
             elif phase=='release':self.held.discard(key)
             if phase!='repeat' or key in self.held:
                 self.target.key_event(key,phase,self.clock());routed=True
-        self.history.append(dict(time=self.clock(),key=event[1],kind=event[2],routed=routed))
+        if DEVELOPMENT:self.history.append(dict(time=self.clock(),key=event[1],kind=event[2],routed=routed))
         return True
 
     def suppress_tty(self,key):
@@ -94,7 +98,7 @@ class KeyboardRouter:
             return sorted(str(v) for v in values)
         return dict(foreground=self.last_foreground,target=type(self.target).__name__ if self.target is not None else None,
                     device=getattr(self.source,'device',None),down=keys('down'),suppressed=keys('suppressed'),
-                    modifiers=keys('modifiers'),events=list(self.history))
+                    modifiers=keys('modifiers'),events=list(self.history) if DEVELOPMENT else [])
 
     def close(self):
         self.cancel()

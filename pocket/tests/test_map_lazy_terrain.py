@@ -16,7 +16,7 @@ class LazyTerrainTests(unittest.TestCase):
    with self.subTest(span=span,terrain=terrain):
     engine=m.Engine(maps(),style='rgb')
     with patch.object(m,'Terrain',side_effect=AssertionError('unneeded terrain decode')):
-     cells,legend=engine.prepare(m.Viewport((5.5355,5.5855),span,30,12),terrain=terrain)
+     cells,legend=engine.prepare(m.Viewport((5.53555,5.58555),span,30,12),terrain=terrain)
     self.assertEqual(len(cells),360);self.assertFalse(engine._terrain_loaded)
  def test_filtered_pack_is_loaded_once_when_requested(self):
   engine=m.Engine(maps(),style='rgb')

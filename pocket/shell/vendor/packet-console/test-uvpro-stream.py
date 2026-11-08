@@ -46,7 +46,7 @@ class Tests(unittest.TestCase):
   obs.feed(b'\xc0\0\xdb\1\xc0'+b.encode(FRAME))
   self.assertEqual(events,[(FRAME,'kiss',[])])
  def test_native_bss_preserves_vendor_wire_without_fake_ax25(self):
-  packet=bytes.fromhex('0107204e3043414c4c0121052450494e47')
+  packet=b'\x01\x07 N0CALL\x01\x21\x05$PING'
   wire=fragments(packet);events=[];packets=[]
   obs=s.Observer(frame=lambda *x:events.append(x),packet=packets.append)
   obs.feed(b''.join(wire))

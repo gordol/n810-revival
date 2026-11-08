@@ -65,10 +65,10 @@ class OverlayTests(unittest.TestCase):
     def state(self, kind='road'):
         state = view.State()
         state.atlas = Atlas(kind)
-        state.center = [5.5355, 5.5655]
+        state.center = [5.53555, 5.56555]
         state.roads = True
         state.selected = 0
-        state.add('17:35:23 BALDI>APRS ctl=03 pid=f0 !4713.13N/12150.61W_test')
+        state.add('17:35:23 BALDI>APRS ctl=03 pid=f0 !0535.06N/00614.52E_test')
         return state
 
     def test_selected_marker_and_label_cover_every_background(self):
@@ -85,7 +85,7 @@ class OverlayTests(unittest.TestCase):
 
     def test_selected_station_wins_shared_cell_over_own_station(self):
         state = self.state()
-        state.stations['N0CALL'] = dict(call='N0CALL', lat=5.5355, lon=5.5655)
+        state.stations['N0CALL'] = dict(call='N0CALL', lat=5.53555, lon=5.56555)
         win = Window()
         view.map_panel(win, state, 40, 0, 0, 55, 18)
         self.assertEqual(win.cells[12, 5][0], '@')
@@ -93,7 +93,7 @@ class OverlayTests(unittest.TestCase):
     def test_overlay_change_reuses_base_and_resize_invalidates_it(self):
         state = self.state()
         view.map_panel(Window(), state, 40, 0, 0, 55, 18)
-        state.add('17:36:23 SECOND>APRS ctl=03 pid=f0 !4720.00N/12220.00W_test')
+        state.add('17:36:23 SECOND>APRS ctl=03 pid=f0 !0541.93N/00545.13E_test')
         view.map_panel(Window(), state, 40, 0, 0, 55, 18)
         self.assertEqual(len(state.atlas.requests), 1)
         view.map_panel(Window(), state, 40, 0, 0, 60, 18)
@@ -230,7 +230,7 @@ class OverlayTests(unittest.TestCase):
 
     def test_full_map_preserves_view_selection_and_has_ascii_controls(self):
         state = self.trial_state()
-        state.center = [5.5355, 5.5655]
+        state.center = [5.53555, 5.56555]
         center = list(state.center)
         selected = state.selected
         normal = view.map_dimensions(state, 100, 30)
@@ -353,8 +353,8 @@ class OverlayTests(unittest.TestCase):
         frames = self.run_queued_trial([view.curses.KEY_RIGHT, view.curses.KEY_RIGHT,
                                         view.curses.KEY_LEFT, -1, ord('q')])
         self.assertEqual(len(frames), 1)
-        self.assertGreater(frames[0][0][1], -122.52)
-        self.assertAlmostEqual(frames[0][0][0], 47.38)
+        self.assertGreater(frames[0][0][1], view.REGIONAL_CENTER[1])
+        self.assertAlmostEqual(frames[0][0][0], view.REGIONAL_CENTER[0])
 
     def test_queued_panel_actions_keep_order_without_intermediate_render(self):
         frames = self.run_queued_trial([ord('p'), ord('x'), -1, ord('q')])
@@ -364,7 +364,7 @@ class OverlayTests(unittest.TestCase):
     def test_next_labels_and_autofit_consume_canonical_engine_places(self):
         state=self.state()
         state.map_engine_name='next'
-        canonical=(dict(name='Test Peak',lat=46.85,lon=-121.75,kind='peak'),)
+        canonical=(dict(name='Test Peak',lat=5.21555,lon=6.33555,kind='peak'),)
         state.atlas.places=MagicMock(return_value=canonical)
         # Raw pack labels must not be traversed by the next consumer.
         class RawPacks:
@@ -380,7 +380,7 @@ class OverlayTests(unittest.TestCase):
 
     def test_legacy_labels_keep_raw_source_behavior(self):
         state=self.state()
-        label=dict(name='Harbor City',lat=47.6,lon=-122.3,kind='city')
+        label=dict(name='Harbor City',lat=5.96555,lon=5.78555,kind='city')
         state.atlas.packs=[dict(labels=[label]),dict(labels=[label])]
         self.assertEqual(view.place_labels(state),(label,label))
 

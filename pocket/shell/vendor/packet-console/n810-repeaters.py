@@ -251,7 +251,7 @@ def run(win,data,args):
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--data',type=Path,default=DATA)
     p.add_argument('--import-wwara',type=Path);p.add_argument('--json',action='store_true')
-    p.add_argument('--lat',type=float,default=5.5355);p.add_argument('--lon',type=float,default=5.5655)
+    p.add_argument('--lat',type=float,default=47.17);p.add_argument('--lon',type=float,default=-122.52)
     p.add_argument('--radius',type=float,default=150)
     p.add_argument('--services',type=Path,default=Path('~/.local/share/n810-radio/data-services.json').expanduser())
     p.add_argument('--heard-db',default='~/.local/state/n810-aprs/directory.sqlite3')

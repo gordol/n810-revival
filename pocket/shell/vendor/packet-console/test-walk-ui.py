@@ -35,7 +35,7 @@ class Atlas:
 
 class Tests(unittest.TestCase):
  def app(self,root):
-  a=w.Walk(argparse.Namespace(callsign='N0CALL',budget=20,logs=root));a.atlas=Atlas();a.center=(5.5655,5.5855);a.span=40;a.fit_requested=False
+  a=w.Walk(argparse.Namespace(callsign='N0CALL',budget=20,logs=root));a.atlas=Atlas();a.center=(5.56555,5.58555);a.span=40;a.fit_requested=False
   return a
  def test_burst_clamps_order_and_does_not_change_terrain(self):
   with tempfile.TemporaryDirectory() as root:
@@ -93,7 +93,7 @@ class Tests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as root,patch.object(w.curses,'newpad',side_effect=lambda *args:Pad()) as pads:
    app=self.app(root);screen=Screen();app.draw(screen)
    calls=len(app.atlas.calls);writes=screen.map_writes;layers=pads.call_count
-   app.received+=1;app.notice='New packet';app.position={'lat':5.5655,'lon':5.5855,'accuracy':12}
+   app.received+=1;app.notice='New packet';app.position={'lat':5.56555,'lon':5.58555,'accuracy':12}
    app.view_history=True;app.archives=[{'start':'2026-10-15T15:25','track':[],'probes':[]}]
    app.draw(screen);writes=screen.map_writes
    app.position['accuracy']=20;app.received+=1;app.draw(screen)

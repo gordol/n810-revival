@@ -61,13 +61,13 @@ class StreamingTests(unittest.TestCase):
             calls[0]+=1
             return (None if calls[0]==3 else 0),metadata
         with patch('terrain_elevation.sample_elevation',side_effect=sample):
-            result=classify_path('5.5555,5.5555','5.5605,5.5555',tx_height_m=100,rx_height_m=100)
+            result=classify_path('5.5555,5.5555','5.56055,5.5555',tx_height_m=100,rx_height_m=100)
         self.assertEqual(result['los'],'unknown')
         self.assertGreater(result['unknown_samples'],0)
 
     def test_fast_classifier_agrees_when_its_samples_have_coverage(self):
         start='5.5555,5.5555'
-        for end in ('5.5605,5.5555','5.5555,5.5655','5.5655,5.5755','5.6155,5.5855','5.6655,5.6855'):
+        for end in ('5.56055,5.5555','5.5555,5.56555','5.56555,5.57555','5.61555,5.58555','5.66555,5.68555'):
             fast=classify_path(start,end,frequency_mhz=144.39,tx_height_m=15,rx_height_m=10)
             full=calculate(start,end,frequency_mhz=144.39,tx_height_m=15,rx_height_m=10,count=4097)
             if fast['los']=='unknown':

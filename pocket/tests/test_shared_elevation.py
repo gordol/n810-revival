@@ -29,20 +29,20 @@ class SharedElevationTests(unittest.TestCase):
  def test_preview_apply_accepts_cropped_projection(self):
   from station_workspace import StationMap,Context
   form=StationMap(Context(),Path(__file__).resolve().parents[1]/'shell/vendor/packet-console',lambda:None)
-  form.width=120;form.height=42;form.center=(47.1,-122.78);form.span=35
+  form.width=120;form.height=42;form.center=(5.4655,5.3055);form.span=35
   try:
-   form.target_box.choose((47.08,-122.80),30);form.apply_target()
+   form.target_box.choose((5.4455,5.2855),30);form.apply_target()
    until=time.monotonic()+10
    while form._detail_request is not None and time.monotonic()<until:form.lines();time.sleep(.01)
    self.assertIsNone(form._detail_request,form.renderer.error)
-   self.assertEqual(form.center,(47.08,-122.80));self.assertEqual(form.span,30)
-   self.assertEqual(tuple(form._image.projection.center),(47.08,-122.80))
+   self.assertEqual(form.center,(5.4455,5.2855));self.assertEqual(form.span,30)
+   self.assertEqual(tuple(form._image.projection.center),(5.4455,5.2855))
   finally:form.close();form.renderer.close()
  def test_both_zoom_directions_keep_visible_preview_box_while_rendering(self):
   from station_workspace import StationMap,Context
   from unittest.mock import patch
   form=StationMap(Context(),Path(__file__).resolve().parents[1]/'shell/vendor/packet-console',lambda:None)
-  form.width=120;form.height=42;form.center=(47.1,-122.78);form.span=35
+  form.width=120;form.height=42;form.center=(5.4655,5.3055);form.span=35
   try:
    until=time.monotonic()+10
    while time.monotonic()<until:
@@ -91,7 +91,7 @@ class SharedElevationTests(unittest.TestCase):
  def test_preview_refines_without_applying_selected_camera(self):
   from station_workspace import StationMap,Context
   form=StationMap(Context(),Path(__file__).resolve().parents[1]/'shell/vendor/packet-console',lambda:None)
-  form.width=240;form.height=90;form.center=(5.5555,5.5455);form.span=8.8
+  form.width=240;form.height=90;form.center=(5.5555,5.54555);form.span=8.8
   try:
    until=time.monotonic()+10
    while time.monotonic()<until:

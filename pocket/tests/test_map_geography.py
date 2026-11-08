@@ -20,7 +20,7 @@ class GeographyTests(unittest.TestCase):
   r=Renderer();install(self,r);key=('map',(5.5555,5.5555),35.,120,42,True,True);r._wanted=key
   try:
    r._render(key);marks=grid(r.module.Viewport((5.5555,5.5555),35,120,42))
-   self.assertTrue(marks);self.assertIn('C',''.join(v[0] for v in marks.values()))
+   self.assertTrue(marks);self.assertIn('JJ25',''.join(v[0] for v in marks.values()))
   finally:r.close()
  @unittest.skipUnless(regional_data_available(), "Regional integration test: run make maps-download maps first")
  def test_real_arterial_and_named_lakes_retained(self):

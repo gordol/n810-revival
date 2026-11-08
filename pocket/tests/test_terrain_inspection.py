@@ -48,7 +48,7 @@ class InspectionTests(unittest.TestCase):
         self.assertTrue(all(max(abs(a[i]-b[i]) for i in (0,1))<=1 for a,b in zip(points,points[1:])))
     def test_map_obstruction_key_calculates_without_moving_camera(self):
         app=TerrainProfile();self.addCleanup(app.close)
-        app.set_endpoint((5.5555,5.5555),False);app.set_endpoint((5.3386667,4.9473333))
+        app.set_endpoint((5.5555,5.5555),False);app.set_endpoint((5.3387167,4.9473833))
         camera=app.map.center,app.map.span
         app.key('x');self.wait(app)
         self.assertEqual(app.screen,'map')
@@ -59,7 +59,7 @@ class InspectionTests(unittest.TestCase):
             path=Path(folder)/'qth.msgpack';QTH(path).save(5.5555,5.5555,height_m=15)
             app=TerrainProfile(qth_path=path);self.addCleanup(app.close)
             old=Future();app.pending=old;app.job='coverage'
-            self.assertTrue(app.profile_to_location('VCAPK',(46.9731667,-123.1381667)))
+            self.assertTrue(app.profile_to_location('VCAPK',(5.3387167,4.9473833)))
             old.set_result(None);app.poll();self.wait(app)
             self.assertEqual(app.job,'profile');self.assertEqual(app.target_label,'VCAPK')
     def wait(self,app):
@@ -68,7 +68,7 @@ class InspectionTests(unittest.TestCase):
         self.assertIsNotNone(app.result,app.error)
     def test_profile_and_map_share_exact_selected_sample(self):
         app=TerrainProfile();self.addCleanup(app.close)
-        app.set_endpoint((5.5555,5.5555),False);app.set_endpoint((5.3386667,4.9473333))
+        app.set_endpoint((5.5555,5.5555),False);app.set_endpoint((5.3387167,4.9473833))
         app.screen='profile';app.calculate();self.wait(app)
         point=app.result['bottleneck'];self.assertIn('coordinate',point)
         app.key('i');self.assertLessEqual(app.profile_zoom[1]-app.profile_zoom[0],500)
@@ -84,7 +84,7 @@ class InspectionTests(unittest.TestCase):
             next_app=TerrainProfile(qth_path=path);self.addCleanup(next_app.close)
             self.assertEqual(next_app.map.qth,(5.5555,5.5555))
             self.assertEqual(next_app.fields[3].text,'15')
-            next_app.resolve_station=lambda call:(46.9731667,-123.1381667) if call=='VCAPK' else None
+            next_app.resolve_station=lambda call:(5.3387167,4.9473833) if call=='VCAPK' else None
             next_app.open_call()
             for char in 'VCAPK':next_app.key(char)
             next_app.key('\r');self.wait(next_app)
@@ -92,14 +92,14 @@ class InspectionTests(unittest.TestCase):
             self.assertEqual(next_app.target_label,'VCAPK')
     def test_near_qth_view_keeps_full_path_ray_geometry(self):
         app=TerrainProfile();self.addCleanup(app.close)
-        app.set_endpoint((5.5555,5.5555),False);app.set_endpoint((5.3386667,4.9473333))
+        app.set_endpoint((5.5555,5.5555),False);app.set_endpoint((5.3387167,4.9473833))
         app.screen='profile';app.calculate();self.wait(app);original=app.result
         app.key('z');self.assertEqual(app.profile_zoom,(0,1000));self.assertIs(app.result,original)
         self.assertLessEqual(app.selected_sample['distance_m'],1000)
     def test_graph_cursor_never_moves_fixed_obstruction(self):
         app=TerrainProfile();self.addCleanup(app.close)
         app.width=120;app.height=42
-        app.set_endpoint((5.5555,5.5555),False);app.set_endpoint((5.3386667,4.9473333))
+        app.set_endpoint((5.5555,5.5555),False);app.set_endpoint((5.3387167,4.9473833))
         app.screen='profile';app.calculate();self.wait(app)
         obstruction=dict(app.result['bottleneck']);app.lines()
         app.pointer(75,20,120)

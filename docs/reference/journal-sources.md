@@ -444,7 +444,7 @@ These driver candidates extend the published MBX/Mesa foundation. Their physical
 
 [Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-native-desktop)
 
-Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results.
+Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results.
 
 <a id="2026-11-07-surface-room"></a>
 
@@ -460,7 +460,7 @@ Source integration: [476423b](https://github.com/gordol/n810-revival/commit/4764
 
 [Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-surface-room)
 
-Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The earlier standalone hit/reset acceptance sequence has yet to join the integrated test runner.
+Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The earlier standalone hit/reset acceptance sequence has yet to join the integrated test runner.
 
 <a id="2026-11-07-gpu-effects"></a>
 
@@ -476,4 +476,4 @@ Source integration: [476423b](https://github.com/gordol/n810-revival/commit/4764
 
 [Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-gpu-effects)
 
-Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check.
+Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check.

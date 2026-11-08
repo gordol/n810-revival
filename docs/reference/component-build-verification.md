@@ -24,7 +24,7 @@ The full Pocket and bundled radio suites use isolated temporary home directories
 
 ## Fresh-checkout walkthrough, 7 November
 
-This walkthrough cloned public revision `4b1262a` into an isolated Linux ARM64
+This walkthrough cloned public revision `dc97355` into an isolated Linux ARM64
 Docker container. It followed the reader commands with fresh build directories.
 The container had no host checkout, USB devices, or radio services mounted.
 Native display checks used Xvfb and Mesa llvmpipe.
@@ -82,7 +82,7 @@ different Python version leaves those imports unavailable.
 ## GitHub container build, 7 November
 
 [Container build 42434184966](https://github.com/gordol/n810-revival/actions/runs/42434184966)
-completed successfully for [source revision b331ac7](https://github.com/gordol/n810-revival/tree/b331ac73fc6d2b5040566ba680443045d86a8a76).
+completed successfully for [source revision bcd177a](https://github.com/gordol/n810-revival/tree/bcd177a2e6ce66a6edce8fe9df11a6194b7f3631).
 The hosted run passed all **205 source test files**, six HTIT wire-protocol
 host tests, 28 Python RSN tests and 11 compiled RSN tests. Source tests ran
 as a normal user with networking disabled. Fictional map and terrain packs
@@ -98,7 +98,7 @@ An earlier hosted run exposed a timing race in the launcher test: the child
 process could exit between the helper's predicate check and its process-status
 check. The helper now checks its final condition before reporting failure.
 The corrected test passed 60 consecutive single-CPU Docker runs before the
-successful hosted build. The [test change](https://github.com/gordol/n810-revival/commit/b331ac73fc6d2b5040566ba680443045d86a8a76)
+successful hosted build. The [test change](https://github.com/gordol/n810-revival/commit/bcd177a2e6ce66a6edce8fe9df11a6194b7f3631)
 retains the assertion that the launcher exits successfully.
 
 These results establish compilation and automated checks in containers.

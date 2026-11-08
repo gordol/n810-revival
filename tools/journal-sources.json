@@ -1284,7 +1284,7 @@
       ],
       "guide": "pocket/graphics.md",
       "source_heading": "Code, tests and build inputs",
-      "note": "Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results."
+      "note": "Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results."
     },
     {
       "post": "docs/posts/2026-11-07-surface-room.md",
@@ -1337,7 +1337,7 @@
       ],
       "guide": "pocket/graphics.md",
       "source_heading": "Code, tests and build inputs",
-      "note": "Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The earlier standalone hit/reset acceptance sequence has yet to join the integrated test runner."
+      "note": "Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The earlier standalone hit/reset acceptance sequence has yet to join the integrated test runner."
     },
     {
       "post": "docs/posts/2026-11-07-gpu-effects.md",
@@ -1406,7 +1406,7 @@
       ],
       "guide": "pocket/graphics.md",
       "source_heading": "Code, tests and build inputs",
-      "note": "Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check."
+      "note": "Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check."
     }
   ]
 }

@@ -41,7 +41,7 @@ class Tests(unittest.TestCase):
   for accuracy in (0,101,65535,float('nan')):
    state['position']['accuracy']=accuracy;self.assertIsNone(w.fresh_position(state,105))
  def test_beacon_roundtrip_and_local_echo_not_return(self):
-  pos={'lat':5.5655,'lon':5.5855};payload=w.beacon_payload(pos,'123456',1)
+  pos={'lat':5.56555,'lon':5.58555};payload=w.beacon_payload(pos,'123456',1)
   self.assertEqual(payload,b'!0533.93N/00535.13E[Walk 123456 001')
   self.assertEqual(w.coordinate(47.999999,True),'4800.00N')
   frame=w.beacon_frame('N0CALL',pos,'123456',1)
@@ -88,15 +88,15 @@ class Tests(unittest.TestCase):
    import argparse
    app=w.Walk(argparse.Namespace(callsign='N0CALL',budget=20,logs=root))
    app.recent.append('bad\0station\x1b[31m');app.notice='bad\0status'
-   app.center=(5.5573,5.5565);app.position={'lat':5.5573,'lon':5.5565,'accuracy':10}
+   app.center=(5.55735,5.55655);app.position={'lat':5.55735,'lon':5.55655,'accuracy':10}
    app.track.append(app.position)
    with patch.object(w.curses,'newpad'):
     app.draw(Win());app.key(ord('m'));app.draw(Win())
     app.key(ord('t'));app.key(ord('r'));app.draw(Win())
    app.log.close()
  def test_position_wire_decoding(self):
-  raw=int(5.5655*30000).to_bytes(3,'big',signed=True)+int(5.5855*30000).to_bytes(3,'big',signed=True)+bytes(6)+(1234567890).to_bytes(4,'big')+(12).to_bytes(2,'big')
-  p=w.live.parse_position(raw);self.assertAlmostEqual(p['lon'],-122.5);self.assertEqual(p['accuracy'],12)
+  raw=int(5.56555*30000).to_bytes(3,'big',signed=True)+int(5.58555*30000).to_bytes(3,'big',signed=True)+bytes(6)+(1234567890).to_bytes(4,'big')+(12).to_bytes(2,'big')
+  p=w.live.parse_position(raw);self.assertAlmostEqual(p['lon'],int(5.58555*30000)/30000);self.assertEqual(p['accuracy'],12)
   self.assertIsNone(w.live.parse_position(bytes(18)))
 
 if __name__=='__main__':unittest.main()

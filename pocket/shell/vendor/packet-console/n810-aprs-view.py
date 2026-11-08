@@ -36,6 +36,10 @@ map_style=importlib.util.module_from_spec(_map_style_spec);_map_style_spec.loade
 _ui_spec=importlib.util.spec_from_file_location('ui_state',os.path.join(os.path.dirname(__file__),'n810-ui-state.py'))
 ui_state=importlib.util.module_from_spec(_ui_spec);_ui_spec.loader.exec_module(ui_state)
 
+# Public map reference and regional viewport, independent of saved operator QTH.
+LAKEWOOD_REFERENCE = (47.17, -122.52)
+REGIONAL_CENTER = (47.38, -122.52)
+
 LINE = re.compile(r'^(\d\d:\d\d:\d\d) (\S+)>(\S+) ctl=([0-9a-f]+) pid=f0 (.*)$')
 POSITION = re.compile(r'(\d{2})(\d{2}\.\d{2})([NS])(.)(\d{3})(\d{2}\.\d{2})([EW])')
 
@@ -112,8 +116,8 @@ def ink(n):
 def summary(payload,decoded=None):
     loc=decoded.get('position') if decoded is not None else position(payload)
     if loc:
-        east=(loc[1]+122.52)*111.32*math.cos(math.radians(47.17))
-        north=(loc[0]-47.17)*111.32
+        east=(loc[1]-LAKEWOOD_REFERENCE[1])*111.32*math.cos(math.radians(LAKEWOOD_REFERENCE[0]))
+        north=(loc[0]-LAKEWOOD_REFERENCE[0])*111.32
         direction=['N','NE','E','SE','S','SW','W','NW'][round(math.degrees(math.atan2(east,north))/45)%8]
         return 'Pos %dkm %s' % (round(math.hypot(east,north)),direction)
     if payload.startswith(':'):return 'Message  '+payload[1:]
@@ -260,15 +264,15 @@ def mapped_packet(state):
 
 def fitted_span(state,width,height,span):
     if not state.auto_fit:return span
-    points=[(5.5355,5.5655)]+[(p['lat'],p['lon']) for p in state.stations.values() if not state.call_filter or p['call']==state.call_filter]
+    points=[LAKEWOOD_REFERENCE]+[(p['lat'],p['lon']) for p in state.stations.values() if not state.call_filter or p['call']==state.call_filter]
     target=external_target(state)
     if getattr(state,'map_engine_name','legacy')=='next' and target and 'position' in target:points.append(target['position'])
     # Keep nearby named mountains in the regional overview, not just RF stations.
     for label in place_labels(state):
-        if label.get('kind')=='peak' and abs(label['lat']-47.17)<2 and abs(label['lon']+122.52)<3:
+        if label.get('kind')=='peak' and abs(label['lat']-LAKEWOOD_REFERENCE[0])<2 and abs(label['lon']-LAKEWOOD_REFERENCE[1])<3:
             points.append((label['lat'],label['lon']))
     if len(points)==1:
-        state.center=[47.38,-122.52]
+        state.center=list(REGIONAL_CENTER)
         return 160.0
     south=min(p[0] for p in points);north=max(p[0] for p in points)
     west=min(p[1] for p in points);east=max(p[1] for p in points)
@@ -538,13 +542,13 @@ def map_overlays(state,span,width,height,viewport=None):
                 emit(yy,start,text,width-start,attr)
                 occupied.update((xx,yy) for xx in range(max(0,start-1),min(width,start+len(text)+1)))
                 return
-    ref=pixel(5.5655,5.5355)
+    ref=pixel(LAKEWOOD_REFERENCE[1],LAKEWOOD_REFERENCE[0])
     # A coarse reference is unnecessary when it crowds a received station.
     show_ref=0<=ref[0]<width and 0<=ref[1]<height and not any(abs(ref[0]-x)<=2 and abs(ref[1]-y)<=1 for x,y in markers)
     if show_ref:
         occupied.add(ref)
         emit(ref[1],ref[0],'+',1,ink(1))
-        label(5.5655,5.5355,'Lakewood ref',ink(1))
+        label(LAKEWOOD_REFERENCE[1],LAKEWOOD_REFERENCE[0],'Lakewood ref',ink(1))
     labeled=[];ordinary=0
     limit=6 if span>=240 else 12 if span>=120 else 1000
     for p in stations:
@@ -884,7 +888,7 @@ def run(win, args):
     put(win,0,0,'APRS / Loading offline geography...',win.getmaxyx()[1])
     win.refresh()
     init_map(state,args.maps,args.map_engine,getattr(args,'tui_theme','current'))
-    state.center = [47.38,-122.52]
+    state.center = list(REGIONAL_CENTER)
     state.selected = 0
     state.debug = False
     state.focus = 'list'
@@ -1111,7 +1115,7 @@ def run(win, args):
                 elif key in (ord('0'),ord('f')):
                     state.tracks.pause()
                     state.auto_fit = True
-                    state.center = [47.38,-122.52]
+                    state.center = list(REGIONAL_CENTER)
                     span = 160.0
                     dirty = True
                 elif key in (10, 13, curses.KEY_ENTER):

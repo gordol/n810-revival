@@ -17,8 +17,8 @@ def main():
              'lakewood-lod':(CENTER,SPAN,(192,384,800),'lakewood-lod-pack'),
              'puget':((47.5,-122.5),400.,(192,800),'puget-pack'),
              'puget-lod':((47.5,-122.5),400.,(192,384,800),'puget-lod-pack'),
-             'lakewood-fine':((5.5355,5.5655),8.,(800,),'lakewood-fine-pack'),
-             'lakewood-fine-lod':((5.5355,5.5655),8.,(384,800),'lakewood-fine-lod-pack'),
+             'lakewood-fine':((47.17,-122.52),8.,(800,),'lakewood-fine-pack'),
+             'lakewood-fine-lod':((47.17,-122.52),8.,(384,800),'lakewood-fine-lod-pack'),
              'rainier':((46.8523,-121.7603),40.,(384,),'rainier-pack'),
              'rainier-lod':((46.8523,-121.7603),40.,(192,384),'rainier-lod-pack')}
     parser.add_argument('--region',choices=tuple(regions),default='lakewood');args=parser.parse_args()

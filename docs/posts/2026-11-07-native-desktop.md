@@ -29,7 +29,7 @@ flowchart TB
 
 The normal Terminal application still owns a PTY for its child process. That is a separate relationship from the desktop-to-renderer interface. A terminal inside the graphical desktop remains a terminal application.
 
-The [integrated frontend source](https://github.com/gordol/n810-revival/tree/476423b1a9e12ac5029927084c6cafd46af78d0c/pocket/graphics) records this boundary. Its [full desktop adapter](https://github.com/gordol/n810-revival/blob/476423b1a9e12ac5029927084c6cafd46af78d0c/pocket/graphics/full.py) and [pixel interface](../pocket/graphics.md) describe the integrated boundary. The [graphical frontend guide](../pocket/graphics.md) gives the dependencies, Makefile commands, and test path.
+The [integrated frontend source](https://github.com/gordol/n810-revival/tree/d7cbc64d8324e4f948426b37fc91c46fe32d73ff/pocket/graphics) records this boundary. Its [full desktop adapter](https://github.com/gordol/n810-revival/blob/d7cbc64d8324e4f948426b37fc91c46fe32d73ff/pocket/graphics/full.py) and [pixel interface](../pocket/graphics.md) describe the integrated boundary. The [graphical frontend guide](../pocket/graphics.md) gives the dependencies, Makefile commands, and test path.
 
 ## Let a scene use its actual window resolution
 
@@ -72,7 +72,7 @@ From `pocket/`, `make gui` checks the native build and opens the graphical deskt
 
 [Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-native-desktop)
 
-Source integration: [476423b](https://github.com/gordol/n810-revival/commit/476423b1a9e12ac5029927084c6cafd46af78d0c). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results.
+Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results.
 <!-- journal-sources:end -->
 
 [Journal](../journal.md)

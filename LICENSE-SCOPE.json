@@ -10,7 +10,7 @@
     },
     {
       "path": "containers/release.Dockerfile",
-      "sha256": "be77b71b77c1b37aaef6a2f34b4c82eebd7e852a35d1f647775dac4d2c418033",
+      "sha256": "e3897681ef2ebf25b4a8074399085da2d82a3df5ebfae3e6a10179d3ed0eb95f",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
@@ -1609,7 +1609,7 @@
     },
     {
       "path": "pocket/graphics/README.md",
-      "sha256": "ca781a3ea5a39a3232f0a731c5dfb3350feb1ad5788bf3addc4e724e5e34641b",
+      "sha256": "9726bd8c438e64ec6c7ca1e809821b71877b3184f331df88c0a6a133d59fe094",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
@@ -1640,7 +1640,7 @@
     },
     {
       "path": "pocket/graphics/check.py",
-      "sha256": "9a35755faeebf51ebda142967dbddc5f5612b11728cf4a6a0c68c13e9701857e",
+      "sha256": "c83cace70220f5cb1370640be2621aca4f09fdd66cb3c9cce7ddf312edc67161",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -1735,7 +1735,7 @@
     },
     {
       "path": "pocket/graphics/font_supplement.py",
-      "sha256": "3c298fa9bd1518be087df8c1fbd1c89d2c18d2ce46ecdb6a86d4c02e2951bb24",
+      "sha256": "a9c887320579623653a24fdba8706c9de1a0bde5c778945ab42b6aed4b0d0eae",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -1743,7 +1743,7 @@
     },
     {
       "path": "pocket/graphics/full.py",
-      "sha256": "4709da16bb2762742abc725d8db397f87eff31a4c7d618b5326258c4930907ba",
+      "sha256": "7207523b679fc269e164ffa24ea50858deea30c10aaab5f41e465fa3bb815138",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -1782,7 +1782,7 @@
     },
     {
       "path": "pocket/graphics/mbx.py",
-      "sha256": "f10e2e940d274dba0895fd1a4b360067b05a24cc6959e4f4a6f8348b82b08bde",
+      "sha256": "2fa6dcb41bbc7f9704df408be015f42cf58d77694e44407211bc1a673c9e6d0d",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -1845,7 +1845,7 @@
     },
     {
       "path": "pocket/graphics/native/mbx_cells.c",
-      "sha256": "179aefb06be2bd8e0bb0b73a29ffa213a4c9c00939a5a99568d5d751921c1960",
+      "sha256": "ba9c3e55f275a8aba94c33b625df304254f1b05acf9cd5f6f17a083c9b846d0d",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -1929,7 +1929,7 @@
     },
     {
       "path": "pocket/graphics/native/test_native_text.c",
-      "sha256": "22717832b83b6150efc05cc360be5d522a4272b54cbc489a08949931cb7ba7f4",
+      "sha256": "3f7134c9825ff2bb67fa0b4951c655abcc5b8cde85dff27d734da2b16f3637fc",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
@@ -1952,7 +1952,7 @@
     },
     {
       "path": "pocket/graphics/nokia.py",
-      "sha256": "0c6b01ccb4cc86f703ae0f8c56330d07a13592d4bdd338f129c1f01bfd72e61d",
+      "sha256": "8f87c36b7151f5b3467243ee121713997a79bc9c039be4c430019d4a327cfad2",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
@@ -1998,7 +1998,7 @@
     },
     {
       "path": "pocket/graphics/run.py",
-      "sha256": "120b5628ee8fc52565c0b1344dde49b873d9a29e42ae66b64fc1770f3be2a614",
+      "sha256": "21c0fb3843a9a6159e2f187b088d418f886d8077c5e03f700fe30ce5b2ec5918",
       "license": "MIT",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -2496,7 +2496,7 @@
     },
     {
       "path": "pocket/shell/bench.py",
-      "sha256": "22eae2631c863f4ecaa618bc40cfdaa3135cb9ab08ef78ad2dd2287d3ec1320c",
+      "sha256": "04a2d4c62fe75512896bad6270e258a2fd5f65392008987967ddf3451dcf52ec",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -2600,7 +2600,7 @@
     },
     {
       "path": "pocket/shell/console_source.py",
-      "sha256": "3c3b75cb2feb49e84607970689d9065170e675e24fe9093c32f5a14808623830",
+      "sha256": "4f4b42ff0488be3038ffd43216957bc91543465ab7c1e2436608555e0bb2399c",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -2648,7 +2648,7 @@
     },
     {
       "path": "pocket/shell/desktop.py",
-      "sha256": "8eb714b8b11ad2d038d4e2ebcd5cb1fb5922373874fe3388a49479f71ccdd4d1",
+      "sha256": "92c32da698842021cef89631d0b64ea37ee412728631dd493043501175ec5eac",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -2728,7 +2728,7 @@
     },
     {
       "path": "pocket/shell/device_retained.py",
-      "sha256": "0d9775a83eb25e52b1613983a61948c5fbe672be2bcc94f1e15c14d5efabd5be",
+      "sha256": "6acd3131c8591811f9b000d3c7180aee13575d5f066023d59049b2684739f1f4",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -2752,7 +2752,7 @@
     },
     {
       "path": "pocket/shell/directory_preferences.py",
-      "sha256": "accd63d14bf82949ec733e205506c0927a3881b4a8075c53add79871074e6768",
+      "sha256": "add2b1af6c629ad5255a55f70095c308251d2aa2b1658e66b7428b378af67255",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -2998,7 +2998,7 @@
     },
     {
       "path": "pocket/shell/keyboard_runtime.py",
-      "sha256": "a5ad26e51c4c92919ed508e23a912b54d6330929b9405245ecbb0bcbfb54d192",
+      "sha256": "2b8a6c026261c02af248d87dca6b1918d8943d0893a84930047f144f45af0930",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -3078,7 +3078,7 @@
     },
     {
       "path": "pocket/shell/legacy_workspace.py",
-      "sha256": "e2be409cef91342b7db2acf174e2e0776923da549a834f64818ceefeef7428bf",
+      "sha256": "d5de629a336dab8cc5790c19d9bd21072193a0e8980db538511f1b6cd7afffef",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -3459,7 +3459,7 @@
     },
     {
       "path": "pocket/shell/native_services.py",
-      "sha256": "651f2922cadfc374bfb30aa5290860c0db17ad774c0aa67f9612a4839c3a5994",
+      "sha256": "e3612a15df63be22fac7380b188cd7a0cd15b2fab43b212744ca20e3676853bb",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -3515,7 +3515,7 @@
     },
     {
       "path": "pocket/shell/offline_map.py",
-      "sha256": "5e7d364a086eda53b4b77df0e0922ff3095aecbab300081d374a85b005c7bbf5",
+      "sha256": "97a027ebea30f489ef13318669c7e0570aca85502d09818eb12dcdc3d53e16e3",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -3579,7 +3579,7 @@
     },
     {
       "path": "pocket/shell/owner-service/n810-aprs-directory.py",
-      "sha256": "e63ee2db014ffc169320d9e9e3627689d663a899fe61a901b30f00301f7d6f78",
+      "sha256": "0d79dd55bc905fc83a26463b6b4d295048613a9d56102931bb5633250532b540",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -3603,7 +3603,7 @@
     },
     {
       "path": "pocket/shell/owner-service/n810-radio-bandwidth.py",
-      "sha256": "24b2b768c6c2a8a806d814907c1e4cdd32d3a3606e2a3aa8a2db547126b9638a",
+      "sha256": "e4eec596c1b72eda1782acee83cd649d97e130389677e954a610c4b92c0ab748",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -3971,7 +3971,7 @@
     },
     {
       "path": "pocket/shell/settings_help.py",
-      "sha256": "0a62f98f2048369d9764f54cfc45dff1971a78cf3e921e015eb8cd283b2709c0",
+      "sha256": "a06dcb8b480535c32fea859a44588bd36c995d748faa64cba75bfcddffdf784c",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4019,7 +4019,7 @@
     },
     {
       "path": "pocket/shell/terminal_host.py",
-      "sha256": "4efb04bdc8cef52b7bdf0435efdbf147e99aee13143f47d2819f8d6591abd604",
+      "sha256": "4c6b9a28a9a9d3378ba4ae06ff05273e64619861384c047f0a43b52fa36a88d0",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4235,7 +4235,7 @@
     },
     {
       "path": "pocket/shell/vendor/apps/cw-reference/test_decode.py",
-      "sha256": "c8912a978786805a90eb500ecc9e066e7767af9465c0c2591a30e1d82b6e1b15",
+      "sha256": "b07f4fe7324463c4967d000dabb363788ce6ebdaf435806441e02fee30f82773",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4243,7 +4243,7 @@
     },
     {
       "path": "pocket/shell/vendor/apps/cw-reference/test_pcm_input.py",
-      "sha256": "b715a8980ed78e84153ec8fffc792741ee267aa5f5736652d9b5d2efe0354fde",
+      "sha256": "a91bb01ca8bc016774b00a7867cd270c307e4f676ca142be1d6727ce7520a150",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4259,7 +4259,7 @@
     },
     {
       "path": "pocket/shell/vendor/apps/cw-reference/test_stream_cw.py",
-      "sha256": "d6acdfd9a5f927bb31f726bc6843ebc6db76763eab8ca3c9ebf27d7f114f702d",
+      "sha256": "4e91fab280123df738f3c1a6ffa00c99d5f8615fb7e04ae4feab30926b2b442d",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4775,7 +4775,7 @@
     },
     {
       "path": "pocket/shell/vendor/map-library-resources/explorations/current-world/offline_map.py",
-      "sha256": "2847116529e83927ee427423f8c2cb21dafe19dc3de7a68c42ad7b1bfc6e467d",
+      "sha256": "43a59a7ba3d2b09469a2c2524737b1b8f40efe82ccb2af9818294f5ba4b22877",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4871,7 +4871,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/dev-env.py",
-      "sha256": "4cbe8342ac4b3ec7b79b84925e0b256370b6adf711edfe4787e69f81b31a47eb",
+      "sha256": "630644dd8f21bfd1668e02db74503d4cae6930157fad75f17f6840685f0eb2f8",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4879,7 +4879,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/n810-aprs-directory.py",
-      "sha256": "e02b5a4bd757b4e1e2c0fd4271f11aab1f29df920d0760a741cc1b898f0a6232",
+      "sha256": "ab4337fb2571ac9984c3d883ac76a6616af80442f09ec3a980b21c2e1308693f",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4895,7 +4895,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/n810-aprs-messages.py",
-      "sha256": "7713f18abfb5a494775c094f337493f7d4fed528a2c59aaec3fd65a74d4b8a51",
+      "sha256": "879399727523e2e1a239b4a645dce568309379bad4208118267acbb8fee2b2bb",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4911,7 +4911,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/n810-aprs-services.py",
-      "sha256": "360d6dbc3f907df93b2576795b6c8a0010e10a898b80b89d9645c5dcf2733383",
+      "sha256": "1195cdd9388d4831c5d5fdb4951f5e5eafea6247b9e0896984bb470f334861f4",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4935,7 +4935,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/n810-aprs-view.py",
-      "sha256": "100f5e7e24f98a8a6fd8819d03f4d51ccae3c2435d7c176712514bff2dfccfcc",
+      "sha256": "f9b86870871ea2cab68cfdbc9d0be828c42145b9ad2d91244f03478876ac3f49",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4943,7 +4943,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/n810-aprs-walk.py",
-      "sha256": "63dae891bc5c6617831d83ddd138ea6554e60771ff67c275a257c8b1b534203d",
+      "sha256": "bb50bc2f0b00cbce88ad17f82891b8c3689bc11f6f3e1f1921ceb6d88cdf6f39",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4967,7 +4967,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/n810-directory-model.py",
-      "sha256": "b16a6e86035ae085dacfac2449d8664d777ef4aa31a97224f9ca44256f9d94fa",
+      "sha256": "a67f7ccde7ff2c6ffed6842aa92f41f2b9fe6399bb26572c5f1b880a2e3ab4b5",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -4975,7 +4975,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/n810-directory-projection.py",
-      "sha256": "54383ba85e9b73b143721232b751ed15cc27ce29c73f5ddae17e2d5054eb9019",
+      "sha256": "4ad99a12091705c873acf926e85adf89e691588675ff572ee0ba1bcd4ceb8596",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5031,7 +5031,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/n810-map-trial.py",
-      "sha256": "ed70a23d5f77cfa2be6f2012f98b18cddeaef622acdf60e704210a35e159e293",
+      "sha256": "f332df55e0a1fbac5d808130013a5d625365cc6cbdf37542007491b5445c33c4",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5103,7 +5103,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/n810-radio-bandwidth.py",
-      "sha256": "24b2b768c6c2a8a806d814907c1e4cdd32d3a3606e2a3aa8a2db547126b9638a",
+      "sha256": "e4eec596c1b72eda1782acee83cd649d97e130389677e954a610c4b92c0ab748",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5279,7 +5279,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/n810-ui-window.py",
-      "sha256": "c944eb45a1d1e05acc579f2013dcac3bd21bc2a3fd9059e405f3607aa4118907",
+      "sha256": "ffe4574008002a09fe76710118ded46ec6828ebda9651f94fba4216e43b9d76a",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5319,7 +5319,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/prepare-walk-views.py",
-      "sha256": "c2642ff7638f8aa80c4695cbdebfe835a34c9a1df95eba1dfc8072e6c4f2e1de",
+      "sha256": "1aa5b8d76d99b16564afbfe8c8a03a2bfa11b3be10f16b52479b2cf9b3663ca1",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5343,7 +5343,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-aprs-decode.py",
-      "sha256": "28e8622a2e0b527b9ff527206f3b9afea789a1ee97b3a71cd826ac23e97eacdd",
+      "sha256": "bf17a73df5fc75a9e8475128c3f7b7d8eca0eb65e970ac896facbf21d89a18ea",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5351,7 +5351,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-aprs-directory.py",
-      "sha256": "b8be405c8aaa8e18f64bd22643b49149db9b6743d54661d0e3bc3a82980178ee",
+      "sha256": "88d12b1ade6694dec5ff83eb5bf28dcb34c59b265036b0556c07d66e9d3961a3",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5359,7 +5359,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-aprs-messages.py",
-      "sha256": "0902807725adc40535c24d782549a799dde2cc9deffea1e898015c6ed5dcf16d",
+      "sha256": "6e7758b5b0d035bf6ce074d901a31e089c03a401021332d8d8e05e7788c64b59",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5383,7 +5383,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-aprs-walk.py",
-      "sha256": "4f3a9482416f4a4e4b328811f67c864db3cb3339cb53729332446bd3c48b8ebb",
+      "sha256": "f629b5c0c5d8c41d572f0e973c73ca16e6ab617ae85f3a51389cef81d6d650a9",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5407,7 +5407,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-bss-receive.py",
-      "sha256": "4b8e6342f50df68fbb0d922c6ea36c0d60385a75982f9f154de5a01dd2e7de47",
+      "sha256": "87afe338a3edbbeedd70f4f4c5dc17f1c1413e73e5295f35dff06c413b8d5e3d",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5415,7 +5415,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-capture-time-compat.py",
-      "sha256": "a1ab4a4d5b39a9f761dbcfdd1fc09037f23b9d8dc71eba582d7927b352809874",
+      "sha256": "62835703a6de8d4ee5a46923b803fd457fa873fe787439ab8615ed5f4262e289",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5431,7 +5431,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-directory-activity.py",
-      "sha256": "319e55f18c817b1fe2e0b37df230866847e5d836de0fc7abc18e3bca026ad0cd",
+      "sha256": "9ec34a3fad9c6557e3ed553552f381dd4713be5f189c7d9542484b84a2481672",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5479,7 +5479,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-directory-symbols.py",
-      "sha256": "4febb67194d0120d60e03ee5a8e605ddb40f46a310d08b880a5adb6ac650f494",
+      "sha256": "2329fd523f81ddcb36b92b4e64b07c794a2270a1335934f4bd7775f7eb1457f7",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5487,7 +5487,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-frame-history.py",
-      "sha256": "7c2f1db9d9ecab54e5fce9fc311e9ad4c147f8cc99ce76298eef3b680cdfb9b9",
+      "sha256": "23151b87b1449716892e60ed66d0e60f8ccb90bfa4d0545cdf079ca8edc22c92",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5503,7 +5503,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-map-next.py",
-      "sha256": "3fef850ca23f48b6d70a95bea0f3431ec65ffeef83f100402e4fb7d1e2418e03",
+      "sha256": "d73bca3c833b1a81c71000d14a08b09b4d366f7b5a5291cf09a706e2097e6e16",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5519,7 +5519,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-map-relief.py",
-      "sha256": "4e751e8f19ca0afc23913f69f5289f4b84e499889170c3235572ffdc66debdd5",
+      "sha256": "08213b948f6fb2fb173c9147ab25d8dfa641ce4d15bb1f18ae1f6c27c5970225",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5527,7 +5527,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-map-rgb.py",
-      "sha256": "a3f623be00dc55b1c9f443b0f108fc2d79905d838ffd1f53bc1eaba68b1b1b58",
+      "sha256": "753f9580d722e4078ae34c0158b57aff463289c8002376ef0ecf61f38182e1d5",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5535,7 +5535,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-messages-model.py",
-      "sha256": "9c72776555ea30ce983e73eeb8a0f8a83afa72489b2d4d981953ab92b282aa74",
+      "sha256": "ec3cd9531cb431cc04ca1dffc0f0268d70fe9e4ddab89cdd160459f9bb36bb98",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5543,7 +5543,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-messages-owner.py",
-      "sha256": "39cf68aed8923bd9e4e17411afb991dac57139e812e171d0abe0def291479527",
+      "sha256": "7a1a5ae25deb9d07a234a17f3191fb31c00e630284bea5fabf07b512443009e6",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5551,7 +5551,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-messages-presentation.py",
-      "sha256": "51a59c8869400ab3345b9be8446956f0f9b9eb737820b77b7a62369e1dcc1fb4",
+      "sha256": "b20ed9677f98551dc2b98fcfaa8bd070372a81ed92b5d2dba7dae0f33a629805",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5583,7 +5583,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-packet-path.py",
-      "sha256": "c0f6cb60b336e7a2439c03e29557feebad2a4a0e698b09d318e6d8a1a0ac7555",
+      "sha256": "64416eaa2de87af6b31840eae62172447581d9295e0e2e2d30bf1523491a7d60",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5591,7 +5591,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-packet-workspace-tui.py",
-      "sha256": "c89b9e055951a22d2534e30cd306481ea7e801d1d108b38d837fa61faae13eda",
+      "sha256": "965f6b9e40933e0ccb96f5165da6edebea26e0c24c5dde47e3920b3416a5c9e2",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5615,7 +5615,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-radio-bandwidth.py",
-      "sha256": "5ac9e63401d31136360a5eb6140367bd6352de6d2d60e818d8bd7634de6d09ac",
+      "sha256": "59a5b8506561018ce1106f0544ed844a6b6ffc3654dd4182d0d772d68efa8d9d",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5631,7 +5631,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-radio-beacon-stop-owner.py",
-      "sha256": "6a08965e59cc994a89270a7f47f50f83c9d50632dd0bab9a02d1e245f3a1539d",
+      "sha256": "14191bb37098823af0f561aad39550d84d1e4279cfb4951537edcceb94ca7e3b",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5639,7 +5639,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-radio-beacon-stop.py",
-      "sha256": "669b341c40a947abdafcf9d6dc7e8eea4c00e0cf38e2902a335443bbb4b504b5",
+      "sha256": "beeb3c82d620be362d90a4d47b2b51b3c72ef23279c1550f28ca30fdac34c06d",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5719,7 +5719,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-radio-readback.py",
-      "sha256": "994d8edbb974b753796b18c1ee20557f0db0e7ea9a893eff306b300eebff1af3",
+      "sha256": "e62c8253cdce926073cd78b2e39d0c573f0898f12657eee7300d81373a3c2030",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5751,7 +5751,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-repeaters.py",
-      "sha256": "fca53c34178bcb2f441d9758190316675be64efc4948226b1bddfc9ae1058b51",
+      "sha256": "70341ec9a8d4db10c541aadfd42fb4a9494d0e193578aa8bb0b419cf7693bea5",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5759,7 +5759,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-replay-status.py",
-      "sha256": "6e0d942fcb0e561319ac3ca432d511922665e380df3b233a349b9e7675dfb78e",
+      "sha256": "12187c20598cd32a32347bb114eca32564d66b4b8b1f4c9da7563384a14ffdfe",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5775,7 +5775,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-services-model.py",
-      "sha256": "00c2410fe6820e8ab2d4e642ecef8ddc29297ee91896eb1b1ac6f49cb81d7bf1",
+      "sha256": "a920370ac3dae9a9d0c6e372b58a54bbfed5f923b149e3c356425a81ddead9fb",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5783,7 +5783,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-station-tracks.py",
-      "sha256": "57b8b3ab6f154803e5c0c818c1df4ab7e403d0b5c90cf6358e435641f833760e",
+      "sha256": "a9e6335e64f14a2d978e298c9adae045e55fae3686b79495f1a7bb46a6e8fa05",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5799,7 +5799,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-uvpro-stream.py",
-      "sha256": "2cdad50eebd9107a632f38c19c007a6c7da68afb122bbfed486ec0facf99b393",
+      "sha256": "7f9335ca018865bfff364b1ed4ef5c40c1e81118b63695e3b948686c89f00cb6",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5807,7 +5807,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-view-follow.py",
-      "sha256": "a76bf70949dfad83511d611ecd7a9ff01de0e97475c3d52d7a0b1bc96cf170cd",
+      "sha256": "38f5e4589af11dea37c77d9304be3faa244db1f70bb2f6af4b8470ca85a832cd",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5815,7 +5815,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-view-map.py",
-      "sha256": "668ae7f8e1b8460282b05a5a8dbd637fea586c5665204053c5805ee99293d10a",
+      "sha256": "81d742ce967bb09eacd5d8a1c25fa428e1d8d1ea38f465bc3bc1988ae6488ab1",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5823,7 +5823,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-view-overlays.py",
-      "sha256": "6f98d110c13eef6c6304a22faa3ff2f84a03c6f151311c7c5fee9756f2200d7d",
+      "sha256": "5983b7224bab51c855a1fe380dd9b2ef2e5b780e04389bdcb5be54d22dc4d3a2",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5831,7 +5831,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-view-snapshot.py",
-      "sha256": "fb6f651c8d3c47fb92a6703eb5629b759a8b337774263170d9af665d94543d6a",
+      "sha256": "afe99b8b5a7906fb7346699736d5dcd74296ec5b4736113084157126381911b9",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5839,7 +5839,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-walk-history.py",
-      "sha256": "c62a266dd209b7bff653751968aa0838cf25cf78d7255349ee324f9c82c6d4b5",
+      "sha256": "27d77818f67da8678a14b8fd1e069cb6e2a346e4601b3c002aa749724e82d2ee",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5855,7 +5855,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-walk-map.py",
-      "sha256": "28b6362101370b6b7db19c18f287dcdd53b13699c14e5ab5c0548a18ba1e0cd5",
+      "sha256": "c95a0a8fbaa0cd5642f35bb212e034716bad088f60228d049fc8b59f9eaf8fe1",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5863,7 +5863,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/test-walk-ui.py",
-      "sha256": "fc1e82ede14a00b15b19662572e32a21b7ceeaef120cffb87ebbcdda827962a3",
+      "sha256": "06ae855e7beab2a69b8397be4e54e086a3c529939d03e34a5c39f1f936543b58",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -5959,7 +5959,7 @@
     },
     {
       "path": "pocket/shell/vendor/packet-console/web-console/read-state.py",
-      "sha256": "2a5cb27942b51687cdd4752e785317ae50ee070d75a04760354a2c3d1f991250",
+      "sha256": "31b4eeaff8701a881238d5ea4137e3fcfd051b7da47785e19d99e90f2638fb7c",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6063,7 +6063,7 @@
     },
     {
       "path": "pocket/tests/fixtures/drag_baseline.py",
-      "sha256": "858b52e32b5fcce26453346603acd306d01564c3ed7c9dfcca17054de156ecb5",
+      "sha256": "c5b81aa3ad14bd7f7c5c38981dae7abcc0a239304428da50fc43b09b8b1c3205",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6254,14 +6254,14 @@
     },
     {
       "path": "pocket/tests/reference_fixtures.py",
-      "sha256": "93811089973c2611ea55e0fb1a505ced550e746b0666bb364f88bdd666dc9129",
+      "sha256": "30d74b70f4c111d6f8916a14e77d9d03098acfa4280a98813e2a65a596539872",
       "license": "GPL-2.0-or-later",
       "scope": "Original synthetic test fixture generator; contains no downloaded geography.",
       "grant": "licenses/ORIGINAL-CODE-GPL.md"
     },
     {
       "path": "pocket/tests/test_app_focus_consistency.py",
-      "sha256": "ca237b872dbfea29af6de7284798cbb9df257537c590f5623522b35eb8f9e89d",
+      "sha256": "499264476fc9a4f60f788ae325bc120c3a755c9311ef58a3455e5e8c657d367b",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6285,7 +6285,7 @@
     },
     {
       "path": "pocket/tests/test_aprs_internet.py",
-      "sha256": "11ca7da9f3b1c269366a0618412b9d4c2d57be168b5a1f91a74ee12278d11d22",
+      "sha256": "ee6b5d8ad617356b26371e7c2e76a5f8469627144f6a19a40f84425026702af7",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6341,7 +6341,7 @@
     },
     {
       "path": "pocket/tests/test_chat.py",
-      "sha256": "b8547ccee06634266b5eac4575c70f99ed3984d61706ae126fd2f2aca42fa1d6",
+      "sha256": "f9e35c3025a78bb4078ac7fb72196e824f3e895590be935eb2fd4006c43fab85",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6349,7 +6349,7 @@
     },
     {
       "path": "pocket/tests/test_combined_readiness.py",
-      "sha256": "30a5befea6d2bd60551cecab2e4419efa5d667fd2d0209e7aa5e2960a55a2bc7",
+      "sha256": "7c623923d963a9f77b19b08e775c27a0d54364c3a2c571acdc387fa49c07bfaa",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Grant covers eligible original test expression. It does not relicense imported modules, fixtures, protocols, or a combined dependency distribution.",
@@ -6405,7 +6405,7 @@
     },
     {
       "path": "pocket/tests/test_device_peer.py",
-      "sha256": "4b68d554b5d64932f8fcc8d1c458cce043ff11e63b85703039d86fcdf06b76c9",
+      "sha256": "4fade44e54f4db1ac5dc9bc9ba3e986116a4d807ae4e5a034a6410f42be9a439",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6452,7 +6452,7 @@
     },
     {
       "path": "pocket/tests/test_draw_lifecycle.py",
-      "sha256": "0af82773b2a4733230eac8f4cd2680ead7525ae9ea790dc0739709cd9696678a",
+      "sha256": "37da9e33f90479b7b592a4bf557dfc8cd6fd81a1bb2dd2ed68984065a4f89f4a",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Grant covers eligible original test expression. It does not relicense imported modules, fixtures, protocols, or a combined dependency distribution.",
@@ -6506,7 +6506,7 @@
     },
     {
       "path": "pocket/tests/test_graphical_frontend.py",
-      "sha256": "575f4461cc4d3a24435f791a86ae16098b07ae003c14b62e795bf18310656080",
+      "sha256": "f9df4dae8231b7d84e30047f8293b79cdf96e7986d8612300f7ecb7e78b68fb0",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6617,7 +6617,7 @@
     },
     {
       "path": "pocket/tests/test_los_resolution.py",
-      "sha256": "661c0c90b83d6ba5a0a9b94ea6fe10e0986cf4f4a1cb398a405a647e88f271ad",
+      "sha256": "5c3e54532057e2479436ee30a92064d4a93ff6d7c2a849dbe86753a4c5d789e1",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6625,7 +6625,7 @@
     },
     {
       "path": "pocket/tests/test_los_streaming.py",
-      "sha256": "faac3f89f321aa029df6e53cbaa9991f29860c1aff32e3b2c4a7b3264ac74df6",
+      "sha256": "11792cfec553ab7d0e27b0a1704946a112360536bdb1f3d7b16594cee8a32075",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6647,7 +6647,7 @@
     },
     {
       "path": "pocket/tests/test_map_geography.py",
-      "sha256": "4f1ee19db709da32ba707838e462c23aba3752fca7d3e8632aaedb4dfc79f799",
+      "sha256": "fbb9e658a0d699c5bd18b0f96c9241aecd317a168e499a0261b647b68690ef65",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6695,7 +6695,7 @@
     },
     {
       "path": "pocket/tests/test_map_lazy_terrain.py",
-      "sha256": "676eb2f5d0954be25715b54e795f5b922192ef940e0860b265e50e438a3bf545",
+      "sha256": "2bf0fd70fc2b7a198af5074e056433db7af53b7210f1f33ecbb45cde9bd82f86",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6710,7 +6710,7 @@
     },
     {
       "path": "pocket/tests/test_map_preview_stations.py",
-      "sha256": "33a3fcd809a0578ede346c0109247cfd8a8b494e9708be52c56c3582560f6518",
+      "sha256": "4b15846f6d5d9fee0646150987009ad4416b6d32ffd79e45b620923f4ac21cf8",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6798,7 +6798,7 @@
     },
     {
       "path": "pocket/tests/test_native_navigation.py",
-      "sha256": "26bd931dd894b898efeacf5b0611444e349c742a37e41883fb65ca4233684cef",
+      "sha256": "649faf166c225f625df18bc29b81238f4d7dd00b6ba2005e7d9742be285e6f2a",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6869,7 +6869,7 @@
     },
     {
       "path": "pocket/tests/test_navigation_audit.py",
-      "sha256": "fc621a6a6038d00c8c4c575f9a9169a432a7b3916d99c9922f63a5dc608bdb51",
+      "sha256": "a32eca9d17ff9276913be02720995a94e879407fec8b2945cc171eafeb4e1873",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -6892,7 +6892,7 @@
     },
     {
       "path": "pocket/tests/test_nokia_install.py",
-      "sha256": "eaf33a1d027606475ca3d2076f6b621b434353aa6219efb8bc91ca44f34f3d37",
+      "sha256": "11aef3b8a72988eb71773ee9a897ed188e93c7516bdbdeb208ffd33e0bd7e06b",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Grant covers eligible original test expression. It does not relicense imported modules, fixtures, protocols, or a combined dependency distribution.",
@@ -7124,7 +7124,7 @@
     },
     {
       "path": "pocket/tests/test_shared_elevation.py",
-      "sha256": "7113f0a779497afc9659714565d16ca343578ca3fc7c4fcf506f98f298dbdf6d",
+      "sha256": "d9344f4aa0d260df9efe80aa546d94ecfdac25403d52f98c40a9d0f8b5e75fb7",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -7171,7 +7171,7 @@
     },
     {
       "path": "pocket/tests/test_startup_restore.py",
-      "sha256": "0d3fd876a20907a8724f0adfecaf1e9c97ab13a4c399628939bb2389ba5e5ec9",
+      "sha256": "fe9f52fb266cedca32b7bf5b973fd4b60622c0e53282d41926deea710d404b4d",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Grant covers eligible original test expression. It does not relicense imported modules, fixtures, protocols, or a combined dependency distribution.",
@@ -7179,7 +7179,7 @@
     },
     {
       "path": "pocket/tests/test_station_terrain_tools.py",
-      "sha256": "398dbe84879211eaf8938b5b6bad412dfc56c551cddf2b7956f5d95b737f00ec",
+      "sha256": "189aafa004e5007f738f5f5083450f42b85f5f9f4a050c2e14fa4d2f35c9bdae",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -7203,7 +7203,7 @@
     },
     {
       "path": "pocket/tests/test_system_sampling.py",
-      "sha256": "e2ac59f6ba05241f183ff62841b7e49329e01ea24b6f0fda12010e8f9849ee03",
+      "sha256": "a99af449fd8f1ef8c631a3d1fce599ca94d7168f72cec029c51f1a2ac0bf96ca",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Grant covers eligible original test expression. It does not relicense imported modules, fixtures, protocols, or a combined dependency distribution.",
@@ -7219,7 +7219,7 @@
     },
     {
       "path": "pocket/tests/test_terrain_inspection.py",
-      "sha256": "a367b38e45bf33e7037655dbfb35d11b5c7a2066daf417d3972f5c605e76b3e6",
+      "sha256": "f69c0ea98e6c276c4755ace58cde01eafeaa33d2c4571aca99cca7ff7e380e47",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -7283,7 +7283,7 @@
     },
     {
       "path": "pocket/tests/test_uls_profile.py",
-      "sha256": "3ae1d33db4b8c4afd6ccd8824a03834762f28ec9796ea99fdf166fdf80981752",
+      "sha256": "ceb5d034066309b854d75a67c81c3cd879a582dd274db26b9caddc626d1176b4",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -7291,7 +7291,7 @@
     },
     {
       "path": "pocket/tests/test_uls_profile_launch.py",
-      "sha256": "feb401715df6b84b03e3e8db0351afec7429d09612f600ae714a9bb79c9c5d8c",
+      "sha256": "9797cf6e780279236714d9b41d991206e5d63b2be871926d628d303acb21756a",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
@@ -7472,7 +7472,7 @@
     },
     {
       "path": "pocket/tools/package_nokia.py",
-      "sha256": "45cdc771e204b750b1f2f43ab329e603e1e7448998da3beef9a63cd268488ece",
+      "sha256": "ae6c426204027a4e0e0febaa457fc251d5d09a2f0d996b2e6bc52fedfaf54050",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",

@@ -114,7 +114,7 @@ class MapView(View):
         super().__init__(app,host);self.selection=SelectList(tuple(i.name for i in app.items))
         self.focus=0;self.pan_x=self.pan_y=0.;self.zoom=1.;self.packets=True;self.inspector=False
         self.walk=app.name=='Walk Test'
-        self.map_center=(5.5355,5.5655);self.map_renderer=None;self.map_image=None;self.map_preset=0;self.terrain=True;self.roads=True;self._layer=None;self._pan_drag=None
+        self.map_center=(47.17,-122.52);self.map_renderer=None;self.map_image=None;self.map_preset=0;self.terrain=True;self.roads=True;self._layer=None;self._pan_drag=None
     def lines(self):
         if self.map_renderer:
             from offline_map import PRESETS
@@ -232,7 +232,7 @@ class MapView(View):
             px=2+round((.18+i*.25-self.pan_x)/self.zoom*max(1,w-4))
             py=3+round((.16+i*.20-self.pan_y)/self.zoom*max(1,mh-3))
             if self.map_renderer:
-                lat,lon=5.5355+(i-1)*.005,5.5655+(i-1)*.008
+                lat,lon=47.17+(i-1)*.005,-122.52+(i-1)*.008
                 cy,cx=self.map_center;scale=(w-1)/(span*self.zoom)
                 px=1+round((w-1)/2+(lon-cx)*111.32*math.cos(math.radians(cy))*scale)
                 py=2+round((mh-1)/2-(lat-cy)*111.32*scale/2)

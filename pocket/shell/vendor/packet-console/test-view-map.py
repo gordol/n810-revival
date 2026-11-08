@@ -4,6 +4,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]/'tests'))
 from reference_fixtures import maps
 """Offline geography, rendering and replay-state checks; no radio or network."""
 import importlib.util, pathlib, tempfile, gzip, json, unittest, re
+from unittest.mock import patch
 ROOT=pathlib.Path(__file__).resolve().parent
 
 def load(name,file):
@@ -18,8 +19,8 @@ class MapTests(unittest.TestCase):
   self.assertIsNone(m.clipped_segment((-2,-2),(-1,-1),10,10))
  def test_pack(self):
   a=m.Atlas(str(maps()));self.assertTrue(a.packs);self.assertFalse(a.errors)
-  water,_=a.background([47.38,-122.52],160,55,18,False)
-  roads,_=a.background([47.38,-122.52],160,55,18,True)
+  water,_=a.background([5.74555,5.56555],160,55,18,False)
+  roads,_=a.background([5.74555,5.56555],160,55,18,True)
   self.assertTrue(water);self.assertFalse(any(kind=='road' for _,kind in roads.values()))
   self.assertEqual(water,roads)
   self.assertTrue(all(0<=x<55 and 0<=y<18 for x,y in roads))
@@ -38,20 +39,20 @@ class MapTests(unittest.TestCase):
   self.assertEqual(wet(*position(3)),1)
   self.assertEqual(wet(*position(10)),2)
   with tempfile.TemporaryDirectory() as d:
-   a=m.Atlas(str(maps()),d);first=a.background([47.38,-122.52],160,55,18,False)
+   a=m.Atlas(str(maps()),d);first=a.background([5.74555,5.56555],160,55,18,False)
    self.assertTrue(any(kind=='tone00' for _,kind in first[0].values()))
    b=m.Atlas(str(maps()),d)
    b.raster_base=lambda *args: self.fail('Cached base was recalculated')
-   self.assertEqual(b.background([47.38,-122.52],160,55,18,False),first)
+   self.assertEqual(b.background([5.74555,5.56555],160,55,18,False),first)
  def test_terrain_and_lake_reduction(self):
   a=m.Atlas(str(maps()));p=next(p for p in a.packs if p['name']=='Fictional regional relief')
   self.assertIn('terrain',p)
   self.assertTrue(any(label['name']=='Test Peak' for label in p['labels']))
-  cells,_=a.background([47.60,-122.26],240,41,15,False)
+  cells,_=a.background([5.96555,5.82555],240,41,15,False)
   self.assertNotEqual(cells[20,7][1],'tone00') # Inland lake suppressed at wide zoom
-  cells,_=a.background([47.25,-122.45],40,55,20,False)
+  cells,_=a.background([5.61555,5.63555],40,55,20,False)
   self.assertFalse(any(kind=='road' for _,kind in cells.values()))
-  cells,_=a.background([47.25,-122.45],40,55,20,True)
+  cells,_=a.background([5.61555,5.63555],40,55,20,True)
   self.assertTrue(any(kind=='road' for _,kind in cells.values()))
  def test_reference_cannot_cover_own_station(self):
   v.curses.has_colors=lambda:False
@@ -64,32 +65,38 @@ class MapTests(unittest.TestCase):
    def getmaxyx(self):return 20,60
    def addnstr(self,y,x,text,n,attr):
     for i,c in enumerate(text[:n]):self.grid[x+i,y]=c
-  state=v.State();state.atlas=Atlas();state.center=[5.5355,5.5655];state.roads=False
-  state.stations={'N0CALL':dict(call='N0CALL',lon=5.5655,lat=5.5355)}
+  state=v.State();state.atlas=Atlas();state.center=[5.53555,5.56555];state.roads=False
+  state.stations={'N0CALL':dict(call='N0CALL',lon=5.56555,lat=5.53555)}
   w=Win();v.map_panel(w,state,120,0,0,55,15)
   self.assertEqual(w.grid[12,5],'*')
   self.assertNotIn('+',w.grid.values())
   row=''.join(w.grid.get((x,5),' ') for x in range(55))
   self.assertIn('N0CALL',row)
   self.assertNotIn('(you)',row)
+ def test_public_reference_and_empty_startup(self):
+  self.assertEqual(v.LAKEWOOD_REFERENCE,(47.17,-122.52))
+  self.assertEqual(v.summary('',{'position':v.LAKEWOOD_REFERENCE}),'Pos 0km N')
+  state=v.State();state.auto_fit=True;state.atlas=type('Atlas',(),{'packs':[]})()
+  self.assertEqual(v.fitted_span(state,55,15,2),160.)
+  self.assertEqual(state.center,[47.38,-122.52])
  def test_auto_fit(self):
   s=v.State();s.auto_fit=True;s.center=[0,0]
-  s.stations={'BALDI':{'lat':47.22,'lon':-121.84}}
+  s.stations={'N0CALL':{'lat':47.22,'lon':-121.84}}
   span=v.fitted_span(s,55,15,160)
-  for lat,lon in [(5.5355,5.5655),(5.5855,6.2455)]:
+  for lat,lon in [v.LAKEWOOD_REFERENCE,(47.22,-121.84)]:
    x,y=m.Atlas.project(lon,lat,s.center,span,55,15)
    self.assertTrue(0<x<54 and 0<y<14)
  def test_selection_unknown_and_fit(self):
-  state=v.State();state.auto_fit=False;state.center=[5.5355,5.5655];state.selected=0
+  state=v.State();state.auto_fit=False;state.center=[5.53555,5.56555];state.selected=0
   state.add('17:35:23 UNKNOWN>APRS,RELAY* ctl=03 pid=f0 :TARGET   :hello')
   self.assertEqual(v.include_selection(state,40,70,25),40)
   self.assertIn('location unknown',v.selection_caption(state))
   state.stations['RELAY']={'lat':48,'lon':-122}
   self.assertIn('relays: RELAY',v.selection_caption(state))
-  state.add('17:36:23 FAR>APRS ctl=03 pid=f0 !4800.00N/12100.00W_test')
+  state.add('17:36:23 FAR>APRS ctl=03 pid=f0 !0621.93N/00705.13E_test')
   old_center=list(state.center);span=v.include_selection(state,40,70,25)
   self.assertGreater(span,40)
-  for lat,lon in [(48,-121),(old_center[0],old_center[1])]:
+  for lat,lon in [(6.36555,7.08555),(old_center[0],old_center[1])]:
    x,y=m.Atlas.project(lon,lat,state.center,span,70,25)
    self.assertTrue(0<=x<70 and 0<=y<25)
  def test_regional_coverage_and_priority(self):
@@ -97,7 +104,7 @@ class MapTests(unittest.TestCase):
   rasters=[p for p in atlas.packs if 'raster' in p]
   self.assertEqual(rasters[0]['name'],'Fictional regional relief')
   self.assertEqual(next(p for p in reversed(rasters) if not p.get('fast_samples'))['name'],'Fictional regional relief')
-  for center in ([49.2,-123.1],[45.5,-122.7],[50.5,-125]):
+  for center in ([7.56555,4.98555],[3.86555,5.38555],[8.86555,3.08555]):
    cells,names=atlas.background(center,80,55,18,False)
    self.assertGreater(len(cells),900)
    self.assertIn('Fictional regional relief',names)
@@ -108,6 +115,7 @@ class MapTests(unittest.TestCase):
  def test_simplify(self):
   self.assertEqual(b.simplify([[0,0],[.5,0],[1,0]],.1),[[0,0],[1,0]])
   self.assertEqual(len(b.simplify([[0,0],[.5,.5],[1,0]],.1)),3)
+ @patch.object(v,'LAKEWOOD_REFERENCE',(5.53555,5.56555))
  def test_draw_sizes(self):
   v.curses.has_colors=lambda:False
   class W:
@@ -119,13 +127,13 @@ class MapTests(unittest.TestCase):
     assert n<=self.size[1]-x-1
     self.text.append(text[:n])
     for offset,char in enumerate(text[:n]):self.cells[x+offset,y]=char
-  state=v.State();state.atlas=m.Atlas(str(maps()));state.center=[47.38,-122.52]
+  state=v.State();state.atlas=m.Atlas(str(maps()));state.center=[5.74555,5.56555]
   state.roads=True;state.help=False;state.auto_fit=True;state.selected=0;state.map_dir='maps'
-  state.add('17:35:23 BALDI>APOT21 ctl=03 pid=f0 !4713.13N/12150.61W_test')
+  state.add('17:35:23 BALDI>APOT21 ctl=03 pid=f0 !0535.06N/00614.52E_test')
   for h,w in ((30,100),(24,80),(16,64),(10,40)):
    win=W(h,w);v.draw(win,state,160);self.assertTrue(win.text)
-  state.add('17:36:23 RELAY>APRS ctl=03 pid=f0 !4720.00N/12220.00W_test')
-  state.add('17:37:23 BALDI>APOT21,RELAY* ctl=03 pid=f0 !4713.13N/12150.61W_test')
+  state.add('17:36:23 RELAY>APRS ctl=03 pid=f0 !0541.93N/00545.13E_test')
+  state.add('17:37:23 BALDI>APOT21,RELAY* ctl=03 pid=f0 !0535.06N/00614.52E_test')
   win=W(30,100);v.draw(win,state,160)
   self.assertIn('@',win.text);self.assertIn('·',win.text)
   state.packets[0]['route']='APOT21,UNKNOWN*,RELAY*'
@@ -140,8 +148,8 @@ class MapTests(unittest.TestCase):
   state.stations={}
   for i in range(32):
    call='S%02d'%i
-   state.stations[call]=dict(call=call,lat=46.8+(i//8)*.5,lon=-124+(i%8)*.45)
-  state.stations['BALDI']=dict(call='BALDI',lat=47.22,lon=-121.84)
+   state.stations[call]=dict(call=call,lat=5.16555+(i//8)*.5,lon=4.0855+(i%8)*.45)
+  state.stations['BALDI']=dict(call='BALDI',lat=5.58555,lon=6.24555)
   win=W(30,100);v.map_panel(win,state,540,0,0,78,25)
   rendered='\n'.join(''.join(win.cells.get((x,y),' ') for x in range(100)) for y in range(30))
   self.assertLessEqual(len(re.findall(r'S[0-9]{2}',rendered)),6)

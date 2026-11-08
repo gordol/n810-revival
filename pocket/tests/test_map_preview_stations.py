@@ -11,7 +11,7 @@ class PreviewStationsTests(unittest.TestCase):
   f.width=120;f.height=42
   tool=PointMap(lambda *a,**k:None,lambda:None,base=f)
   try:
-   f.target_box.choose((5.5555,5.5455),8.8);f.key('\r')
+   f.target_box.choose((5.5555,5.54555),8.8);f.key('\r')
    with patch.object(f.renderer,'frame',return_value=None):
     lines=tool.lines()
     self.assertIn('Zoom accepted',lines[0]);self.assertIn('Loading 8.8 km',lines[0])
@@ -21,10 +21,10 @@ class PreviewStationsTests(unittest.TestCase):
     self.assertNotIn('Zoom accepted','\n'.join(lines));self.assertIsNone(f._detail_request)
   finally:f.close();f.renderer.close()
  def test_stations_stay_projected_in_preview_overview_and_after_cancel(self):
-  c=Context();c.catalog(dict(revision=1,has_more=False,rows=[dict(call='NEAR',position=dict(lat=5.5555,lon=5.5455),categories=[],symbol=None),dict(call='FAR',position=dict(lat=5.6155,lon=5.4955),categories=[],symbol=None)]))
+  c=Context();c.catalog(dict(revision=1,has_more=False,rows=[dict(call='NEAR',position=dict(lat=5.5555,lon=5.54555),categories=[],symbol=None),dict(call='FAR',position=dict(lat=5.61555,lon=5.49555),categories=[],symbol=None)]))
   f=StationMap(c,Path(__file__).resolve().parents[1]/'shell/vendor/packet-console',lambda:None)
   install(self,f.renderer)
-  f.width=160;f.height=55;f.center=(5.5555,5.5455);f.span=8.8
+  f.width=160;f.height=55;f.center=(5.5555,5.54555);f.span=8.8
   def ready():
    until=time.monotonic()+12
    while time.monotonic()<until:
