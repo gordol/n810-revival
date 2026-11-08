@@ -416,7 +416,7 @@
     },
     {
       "path": "hardware/htit/rfcomm-ble-hub/main/wire.c",
-      "sha256": "3ee2fb7f61d40a4205f04f4f134fe268472dbe74393bdec437c9d3cac5a8b99e",
+      "sha256": "b04ad62b45218284a527867eaabe557eaaae84c29e267597f3b1ea1ed1f9b624",
       "license": "GPL-2.0-or-later",
       "scope": "Eligible original contributions of Thomas Gordon Lowrey IV only; existing third-party rights preserved.",
       "limits": "Scope designation is not a certification of exclusive authorship, copyrightability, or combined-work license compatibility.",
