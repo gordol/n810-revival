@@ -248,7 +248,6 @@ def main(platform=None,argv=None):
     if demo_apps is not None:windows.extend(demo_apps.windows(width,height))
     from app_registry import discover as discover_apps,saved_reticulum_selection
     registered_apps=discover_apps()
-    if platform:platform.configure_registry(registered_apps)
     app_state=args.app_state or Path.home()/'.local/state/current-world'
     connections = None
     if args.shell:
@@ -493,6 +492,7 @@ def main(platform=None,argv=None):
     inbox = Inbox()
     shared_controls=scene_controls(host)
     host.app_forms=demo_apps.forms(host,shared_controls) if demo_apps is not None else {}
+    if platform:platform.configure_registry(registered_apps)
     registered_apps.bind(host)
     if app_gallery is not None:host.app_forms.update(app_gallery.forms(host))
     radio=None;system_state=None;map_open=None
@@ -666,7 +666,7 @@ def main(platform=None,argv=None):
     app_readiness=AppReadiness(selector)
     from child_exit_wakeup import ChildExitWake
     child_exit_wakeup=ChildExitWake(inbox)
-    if platform is None:selector.register(sys.stdin,selectors.EVENT_READ)
+    if platform is None or getattr(platform,'terminal_input',False):selector.register(sys.stdin,selectors.EVENT_READ)
     selector.register(inbox.readable,selectors.EVENT_READ)
     from renderer_wakeup import bind_completion_wakeup,FutureWakeups
     future_wakeups=FutureWakeups(inbox)

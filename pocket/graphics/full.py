@@ -10,8 +10,8 @@ from mbx import Renderer
 from cells import style
 from window import Window
 class Platform:
- def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True):
-  self.require_gpu=require_gpu
+ def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console"):
+  self.require_gpu=require_gpu;self.font_mode=font_mode
   self.font=font;self.library=library;self.display=display;self.limit=frames;self.output=output;self.actions=list(actions);self.closed=False;self.frames=0;self.dirty=True;self.renderer=None;self.size=(100,30);self.report={};self.pixel_apps=[];self.compositor=None;self.resized=False;self.action_frame=-1
  def configure_registry(self,registry):
   def room_factory(host,**options):
@@ -19,10 +19,25 @@ class Platform:
    from room_pixels import PixelRoom
    room=PixelRoom(host,Path(self.library).resolve().parent/'room-pixels.so');self.pixel_apps.append(room);return room
   entry=registry.entries['surface-room'];registry.entries['surface-room']=entry._replace(factory=room_factory)
+  if 'doom' in registry.entries:
+   entry=registry.entries['doom'];factory=entry.factory
+   def doom_factory(host,**options):
+    owner=factory(host,**options)
+    from doom_pixels import View
+    self.pixel_apps.append(View(host,owner));return owner
+   registry.entries['doom']=entry._replace(factory=doom_factory)
+  if 'station-map' in registry.entries:
+   entry=registry.entries['station-map'];map_factory=entry.factory
+   def map_owner(host,**options):
+    owner=map_factory(host,**options)
+    from map_pixels import View
+    from font_supplement import load
+    self.pixel_apps.append(View(host,owner,self.library,load(self.font,self.font_mode)));return owner
+   registry.entries['station-map']=entry._replace(factory=map_owner)
  def geometry(self):return Geometry(*self.size)
  def attach(self,host,panel,registry):
   self.host=host;self.panel=panel;self.registry=registry
-  self.renderer=Renderer(host,self.font,self.library,require_gpu=self.require_gpu)
+  self.renderer=Renderer(host,self.font,self.library,require_gpu=self.require_gpu,font_mode=self.font_mode)
   if self.renderer.size!=self.size:self.renderer.resize(*self.size)
   if self.display and hasattr(self.display,'dynamic'):
    self.display.dynamic(True);width,height=self.display.size();self.resize(width//8,height//16)
@@ -77,7 +92,7 @@ class Platform:
    frame=bytearray(frame);self.compositor.compose(frame,visible)
   if self.display:self.display.present(frame)
   if self.output:Path(self.output).write_bytes(frame)
-  self.report['pixel_apps']={app.name:dict(frames=app.pixel_frames,jobs=app.pixel_jobs,cell_layer=self.host.window(app.name).layer is not None) for app in self.pixel_apps}
+  self.report['pixel_apps']={app.name:dict(frames=app.pixel_frames,jobs=app.pixel_jobs,error=getattr(app,'error',''),cell_layer=self.host.window(app.name).layer is not None) for app in self.pixel_apps}
   self.report.setdefault('history',[]).append(dict(frame=self.frames,focus=self.host.focus,menu=bool(self.host.launcher_lines),size=self.size,errors={name:form.error for name,form in self.registry.forms.items() if form.error}))
   self.report.update(frames=self.frames,focus=self.host.focus,opened=[w.name for w in self.host.windows if w.opened],native=True,desktop_ansi=False)
   if self.limit and self.frames>=self.limit:self.closed=True
