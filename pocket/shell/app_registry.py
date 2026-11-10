@@ -10,7 +10,8 @@ import re
 import stat
 import sys
 
-BUILTINS=(('apps/doom-app/registration.py','descriptor'),
+BUILTINS=(('apps/symbian/registration.py','descriptor'),
+          ('apps/doom-app/registration.py','descriptor'),
           ('apps/surface-renderer/registration.py','descriptor'),
           ('apps/surface-renderer/registration.py','outdoor_descriptor'),
           ('apps/landscape-lab/wildlife_registration.py','descriptor'),

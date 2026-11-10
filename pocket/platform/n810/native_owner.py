@@ -43,7 +43,7 @@ for f in Path('/proc').glob('[0-9]*/stat'):
  try:assert int(f.read_text().rsplit(')',1)[1].split()[4])!=os.makedev(4,vt)
  except FileNotFoundError:pass
 tty=os.open('/dev/tty'+str(vt),os.O_RDWR|os.O_NOCTTY|os.O_CLOEXEC);kd=bytearray(4);fcntl.ioctl(tty,0x4b3b,kd);old_kd=struct.unpack('i',kd)[0]
-fb=os.open('/dev/fb0',os.O_RDWR|os.O_CLOEXEC);switched=False;child=None
+fb=os.open('/dev/fb0',os.O_RDWR|os.O_CLOEXEC);switched=False;child=None;stopping=False
 fcntl.ioctl(fb,0x4f25);saved_frame=os.pread(fb,768000,0);assert len(saved_frame)==768000
 report=dict(original_vt=original,test_vt=vt,boot_before=boot)
 env={k:v for k,v in os.environ.items() if not k.startswith('N810_MBX_')}
@@ -73,9 +73,37 @@ try:
   child=subprocess.Popen(command,env=env,cwd=root,stdin=tty,stdout=log,stderr=subprocess.STDOUT,pass_fds=(fb,render_fd),preexec_fn=child_tty)
   (runtime/'active.json').write_text(json.dumps(dict(owner_pid=os.getpid(),child_pid=child.pid,release=str(release),log=str(root/('visible-'+suffix+'.log')))))
   def stop(signum,frame):
+   global stopping
+   stopping=True
    if child.poll() is None:child.send_signal(signal.SIGTERM)
   signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
-  report['returncode']=child.wait()
+  sys.path.insert(0,'/usr/local/lib/n810-pocket')
+  from symbian_session import Session,command as symbian_command,run as run_symbian,keyboard_device
+  launches=Session(runtime,account.pw_uid,account.pw_gid)
+  def ready(app):
+   symbian_command(app,account.pw_dir)
+   keyboard_device()
+  try:
+   while True:
+    application=launches.wait(child,ready)
+    if application is None:
+     report['returncode']=child.wait();break
+    child.send_signal(signal.SIGTERM)
+    child.wait(timeout=30)
+    # Closing the desktop finishes its GL work before another context starts.
+    for key in ('gpu_service_failed','resident_fault','gpu_error'):
+     if (base/key).read_text().strip()!='0':raise RuntimeError('GPU session is faulted; launch refused')
+    def track_symbian(process):
+     global child
+     child=process
+    try:run_symbian(application,account,fb,render_fd,env,tty,child_tty,track_symbian)
+    except OSError as error:print('Symbian launch failed:',error,file=log,flush=True)
+    if stopping:
+     report['returncode']=child.returncode;break
+    for key in ('gpu_service_failed','resident_fault','gpu_error'):
+     if (base/key).read_text().strip()!='0':raise RuntimeError('GPU session faulted during Symbian execution')
+    child=subprocess.Popen(command,env=env,cwd=root,stdin=tty,stdout=log,stderr=subprocess.STDOUT,pass_fds=(fb,render_fd),preexec_fn=child_tty)
+  finally:launches.close()
  report['status']='VISIBLE_COMPARISON_FINISHED' if child.returncode==0 else 'VISIBLE_COMPARISON_FAILED'
 finally:
  if child is None or child.poll() is not None:

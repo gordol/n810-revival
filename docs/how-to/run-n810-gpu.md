@@ -28,8 +28,9 @@ The saved value `gpu` selects the graphical desktop. Graphics releases live unde
 
 ## Startup after boot
 
-The platform's console init service runs the Pocket boot hook. That hook uses
-the same supervisor and saved renderer selection. Check the installed entry:
+The enabled `rc.local` service runs `/etc/boot.d/90-n810-pocket`, which starts
+the supervisor with the saved renderer selection. This chain was inspected on
+the N810 without rebooting. Check the installed entry:
 
 ```sh
 sudo cat /etc/boot.d/90-n810-pocket
