@@ -21,3 +21,9 @@ Users must supply their own compatible firmware, system libraries and applicatio
 installers in private storage. No ROMs, DLLs, installers, application captures or
 compiled binaries are included. The working graphics stack is a separate
 component and this snapshot does not change it.
+
+Host-build scripts preserve the experimental Linux VM overlay. Set absolute
+SYMBIAN_HOST_BUILD_ROOT and SYMBIAN_NATIVE_BUILD_ROOT paths. The native build
+root and extracted dependency packages must already exist; these scripts do not
+constitute a fresh-checkout dependency bootstrap. Host software rendering is
+explicitly selected and does not alter the Nokia source or installed stack.
