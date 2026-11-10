@@ -8,8 +8,9 @@ from offline_map import Renderer
 from map_fixtures import install, regional_data_available
 
 class DesktopElevationTests(unittest.TestCase):
- @unittest.skipUnless(regional_data_available() and dem.sources(), "Regional elevation integration test: build maps and elevation first")
  def test_normal_map_preserves_bays_with_relief_on_or_off(self):
+  if not regional_data_available() or not dem.sources():
+   self.skipTest("Regional elevation integration test: build maps and elevation first")
   r=Renderer();key=('map',(47.25,-122.56),.1,41,15,True,True);r._wanted=key
   try:
    r._render(key)
@@ -23,8 +24,9 @@ class DesktopElevationTests(unittest.TestCase):
   finally:r.close()
  def test_nokia_keeps_prepared_renderer(self):
   with patch('platform.machine',return_value='armv7l'):self.assertFalse(dem.enabled())
- @unittest.skipUnless(regional_data_available() and dem.sources(), "Regional elevation integration test: build maps and elevation first")
  def test_regional_heights_are_sampled_outside_lakewood(self):
+  if not regional_data_available() or not dem.sources():
+   self.skipTest("Regional elevation integration test: build maps and elevation first")
   r=Renderer()
   try:
    r._wanted=('map',(47.02,-122.9),4.,70,25,True,True)
@@ -44,8 +46,9 @@ class DesktopElevationTests(unittest.TestCase):
     second=r._render(key)
     self.assertEqual(first.cells,second.cells);self.assertEqual(first.legend,second.legend);self.assertEqual(r.engine.stats['cache'],'prepared')
    finally:r.close()
- @unittest.skipUnless(regional_data_available() and dem.sources(), "Regional elevation integration test: build maps and elevation first")
  def test_actual_station_map_uses_desktop_dem_not_prepared_terrain(self):
+  if not regional_data_available() or not dem.sources():
+   self.skipTest("Regional elevation integration test: build maps and elevation first")
   from station_workspace import StationMap,Context
   form=StationMap(Context(),Path(__file__).resolve().parents[1]/'shell/vendor/packet-console',lambda:None)
   form.width=120;form.height=42;form.center=(47.1,-122.78);form.span=35
