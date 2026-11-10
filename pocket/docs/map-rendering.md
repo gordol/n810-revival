@@ -56,8 +56,9 @@ quality on either the laptop terminal or Nokia.
 Run `python3 -m unittest discover -s tests -p test_map_interaction_regressions.py`,
 `python3 -m unittest discover -s tests -p test_map_pixel_handoff.py`, and
 `python3 graphics/check_map.py` for the interaction and native Metal checks.
-The native check requires a working desktop graphics environment. It asserts a
-pixel locator, dense terrain, scene rebuilds and zero map readbacks.
+The native check uses the generated fictional map fixture and requires a
+working desktop graphics environment. It asserts a pixel locator, dense terrain,
+scene rebuilds and zero map readbacks.
 
 # Map data preparation
 

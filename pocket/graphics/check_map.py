@@ -3,6 +3,9 @@
 """Exercise semantic map handoff through the native desktop event dispatcher."""
 from pathlib import Path
 import json,os,sys,tempfile,time
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tests'))
+from reference_fixtures import activate
+activate()
 import run
 from scenes import MapScene
 
