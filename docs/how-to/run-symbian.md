@@ -15,6 +15,10 @@ Open **Symbian** in the application menu. Press Enter for ChessGenius or S for
 Snakes. The application takes the display; exiting it returns to the saved
 Pocket desktop.
 
+Use the arrow keys to move and Enter to select. Menu/F1 is the left softkey;
+Esc/F2 is the right softkey. In ChessGenius, return to the main menu and choose
+its **Exit** softkey to close the application.
+
 ## From Make
 
 With Pocket running, open an SSH session to the N810. From the repository:
