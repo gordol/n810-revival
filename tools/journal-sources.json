@@ -1407,6 +1407,35 @@
       "guide": "pocket/graphics.md",
       "source_heading": "Code, tests and build inputs",
       "note": "Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check."
+    },
+    {
+      "post": "docs/posts/2026-11-09-symbian-runtime.md",
+      "id": "2026-11-09-symbian-runtime",
+      "implementation": [
+        {
+          "label": "Native runtime",
+          "path": "platform/symbian/runtime/runtime_main.cpp"
+        },
+        {
+          "label": "GPU desktop owner",
+          "path": "pocket/platform/n810/native_owner.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Address layout test",
+          "path": "platform/symbian/runtime/test_native_address_layout.cpp"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Upstream revision",
+          "path": "platform/symbian/PROVENANCE.json"
+        }
+      ],
+      "guide": "how-to/run-n810-gpu.md",
+      "source_heading": "Code, tests and build inputs",
+      "note": "Launch handoff and physical boot-chain verification remain incomplete."
     }
   ]
 }
