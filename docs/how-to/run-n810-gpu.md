@@ -1,30 +1,38 @@
-# Run the GPU desktop on the N810
+# Start the GPU desktop on the N810
 
-The installed N810 uses a managed framebuffer session. `make gui` starts the
-laptop frontend; it does not install the N810 kernel, GPU module or supervisor.
+Use an N810 with the project's Debian platform, matching kernel and graphics
+release, and Pocket supervisor installed. For a new tablet, begin with
+[Set up an N810](../start.md).
 
-On an already provisioned N810, with no other desktop or graphics test running:
+## Start Pocket
+
+With the console free, run on the N810:
 
 ```sh
 sudo /usr/local/sbin/n810-pocket-console run
 ```
 
-The supervisor selects the release at `/usr/local/lib/n810-graphics/current`,
-checks its files and kernel compatibility, loads the GPU service and starts
-Pocket. On exit it restores the previous console and releases the GPU service.
+The supervisor checks the selected graphics release, starts the GPU service and
+opens Pocket on the display. Exit Pocket through its desktop menu to return to
+the previous console.
 
-Check the saved selection without starting the desktop:
+## Check the selected renderer
 
 ```sh
 cat /usr/local/lib/n810-pocket/renderer
 sudo /usr/local/sbin/n810-pocket-console status
 ```
 
-`gpu` selects the pixel desktop. The console init service and Pocket boot hook
-must invoke the same managed launcher for automatic startup. The renderer
-selection has been checked on the physical N810; the protected boot hook still
-needs inspection under the shared device reservation. No reboot test has been run.
+The saved value `gpu` selects the graphical desktop. Graphics releases live under
+`/usr/local/lib/n810-graphics/`; `current` selects the active version.
 
-Symbian runtime sources are included, but a supported Pocket launch handoff is
-not installed yet. Do not start a diagnostic harness alongside the GPU desktop:
-both would attempt to own rendering and presentation resources.
+## Startup after boot
+
+The platform's console init service runs the Pocket boot hook. That hook uses
+the same supervisor and saved renderer selection. Check the installed entry:
+
+```sh
+sudo cat /etc/boot.d/90-n810-pocket
+```
+
+For building the driver, use [Build MBX and Mesa](build-graphics.md).

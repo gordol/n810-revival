@@ -1,43 +1,37 @@
-# Bringing the native Symbian runtime into the N810 tree
+# Symbian applications on the N810
 
 *9 November 2026.*
 
-The native Symbian runtime and the GPU desktop now share an integration branch.
-The runtime executes ARM application code on the N810 and uses the MBX graphics
-path. Firmware, system libraries and application installers remain private inputs.
+The [GPU desktop work](2026-11-09-gpu-desktop.md) provides the rendering path for
+another use: running Symbian applications on the N810's ARM processor.
 
-A matched ChessGenius menu test used eleven controls, with logging, tracing and
-sampling disabled. The repeated three-Down pass averaged 1.20 seconds to the first
-changed framebuffer pixel. The runtime used 0.893 CPU seconds per action and its
-native workers used another 0.090 seconds. Runtime RSS was 40.36 MiB. That pass
-had no major page faults. Settings and final images matched all 76,800 application
-pixels against the reference. These measurements do not establish gameplay FPS.
+The compatibility layer uses EKA2L1's application loader and system services,
+with a native ARM execution path and adapters for our MBX driver. It loads the
+application, resolves its library imports, handles requests and sends drawing
+operations to the GPU.
 
-Input left the control queue in 14.9 milliseconds. Most of the delay therefore
-remains after delivery, in runtime and drawing work. The next performance test
-must measure that work rather than add input polling or reduce image quality.
+ChessGenius reaches its menus and board on the tablet. The current menu test
+averages about 1.2 seconds for a visible response and uses about 40 MiB of runtime
+memory. Input reaches the queue in about 15 milliseconds, so reducing redraw and
+runtime work remains the priority. The application needs faster responses before
+this is comfortable for everyday use.
 
-The repository now keeps one runtime source directory under `platform/symbian`.
-The Mac experiment and checkpoint reports have been removed from this integration.
-The EKA2L1 patch records changes against its pinned upstream revision; it is a
-build input, not a second runtime driver. A portable build and managed Pocket
-launch handoff still require implementation and physical acceptance.
+Users supply compatible Symbian system libraries and application installers in
+private storage. The runtime source is under `platform/symbian/`.
 
-The GPU module and framebuffer driver have different jobs. MBX submits rendering
-work. OMAP framebuffer/DSS drives the LCD through RFBI. The partial-update kernel
-change modifies that existing display path; it does not add a second framebuffer
-owner. Its activation and acceptance must be reported separately from MBX tests.
+The next integration step is a Pocket launcher that hands graphics ownership to
+the runtime and returns it when the application closes. Once that handoff is
+ready, the same launch command will serve the desktop menu and Make.
+
+For the tablet setup and graphical desktop, follow [N810 setup](../start.md) and
+[the GPU run guide](../how-to/run-n810-gpu.md).
 
 <!-- journal-sources:start -->
 ## Code, tests and build inputs
 
 | Material | Repository files |
 |---|---|
-| Implementation | [Native runtime](../assets/source/journal/platform/symbian/runtime/runtime_main.cpp.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/symbian/runtime/runtime_main.cpp))<br>[GPU desktop owner](../assets/source/journal/pocket/platform/n810/native_owner.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/platform/n810/native_owner.py)) |
-| Checks and fixtures | [Address layout test](../assets/source/journal/platform/symbian/runtime/test_native_address_layout.cpp.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/symbian/runtime/test_native_address_layout.cpp)) |
-| Build inputs | [Upstream revision](../assets/source/journal/platform/symbian/PROVENANCE.json.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/symbian/PROVENANCE.json)) |
+| Implementation | [Native runtime](../assets/source/journal/platform/symbian/runtime/runtime_main.cpp.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/symbian/runtime/runtime_main.cpp)) |
 
 [Build and test instructions](../how-to/run-n810-gpu.md) · [Chronological source index](../reference/journal-sources.md#2026-11-09-symbian-runtime)
-
-Launch handoff and physical boot-chain verification remain incomplete.
 <!-- journal-sources:end -->

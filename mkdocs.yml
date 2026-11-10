@@ -90,6 +90,8 @@ nav:
   - Running the Pocket desktop in a native Mac window: posts/2026-11-07-native-desktop.md
   - Adding movement, aiming, and targets to Surface Room: posts/2026-11-07-surface-room.md
   - Moving desktop effects and terrain work onto the Mac GPU: posts/2026-11-07-gpu-effects.md
+  - The N810 GPU runs the desktop: posts/2026-11-09-gpu-desktop.md
+  - Symbian applications on the N810: posts/2026-11-09-symbian-runtime.md
 - Get started: start.md
 - Guides: guides.md
 - Roadmap: roadmap.md
@@ -111,7 +113,8 @@ nav:
   - Build the N810 kernel: how-to/build-kernel.md
   - Build the HTIT firmware: how-to/build-htit.md
   - Build map data: how-to/build-map-data.md
-  - Build the graphics checkpoint: how-to/build-graphics.md
+  - Start the N810 GPU desktop: how-to/run-n810-gpu.md
+  - Build the graphics driver: how-to/build-graphics.md
   - Build and test the 30 FPS driver: how-to/build-gpu-30fps.md
   - Test the journal checkpoints: how-to/test-journal-checkpoints.md
   - Run the Pocket tests: how-to/validate.md

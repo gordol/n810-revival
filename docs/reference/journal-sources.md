@@ -477,3 +477,27 @@ Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cb
 [Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-gpu-effects)
 
 Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check.
+
+<a id="2026-11-09-gpu-desktop"></a>
+
+## The N810 GPU runs the desktop
+
+[Read the journal entry](../posts/2026-11-09-gpu-desktop.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Desktop rendering](../assets/source/journal/pocket/graphics/gpu_scene.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/gpu_scene.py)) |
+
+[Build and test instructions](../how-to/run-n810-gpu.md) · [Chronological source index](../reference/journal-sources.md#2026-11-09-gpu-desktop)
+
+<a id="2026-11-09-symbian-runtime"></a>
+
+## Symbian applications on the N810
+
+[Read the journal entry](../posts/2026-11-09-symbian-runtime.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Native runtime](../assets/source/journal/platform/symbian/runtime/runtime_main.cpp.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/symbian/runtime/runtime_main.cpp)) |
+
+[Build and test instructions](../how-to/run-n810-gpu.md) · [Chronological source index](../reference/journal-sources.md#2026-11-09-symbian-runtime)
