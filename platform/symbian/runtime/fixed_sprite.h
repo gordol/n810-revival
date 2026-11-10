@@ -15,11 +15,10 @@ int sg_sprite_outer_clip(int *clip);
 void sg_sprite_batch_mode(int enabled);
 /* Same ordered draws with shared setup; boxes are x,y,width,height. */
 int sg_sprite_draw_regions(const struct sg_sprite *,const int *boxes,unsigned count);
-unsigned sg_mask_texture(unsigned source,unsigned mask,unsigned flags);
 struct sg_mask_source { unsigned long long lifetime,generation; unsigned name,width,height,tracked; };
-/* Borrowed hit only; zero retains the caller's flush-before-create path. */
-unsigned sg_mask_texture_try_cached(const struct sg_mask_source *,const struct sg_mask_source *,unsigned flags);
-unsigned sg_mask_texture_cached(const struct sg_mask_source *,const struct sg_mask_source *,unsigned flags,int *borrowed);
+/* Same affine sprite and clipping callback; large masks stream bounded tiles. */
+int sg_mask_sprite_draw(const struct sg_sprite *,const struct sg_mask_source *,const struct sg_mask_source *,unsigned flags,
+ int (*draw)(const struct sg_sprite *,void *),void *opaque);
 void sg_mask_source_retire(unsigned long long lifetime);
 void sg_mask_cache_close(void);
 #ifdef __cplusplus

@@ -194,7 +194,6 @@ extern "C" int sg_sprite_draw_regions(const sg_sprite *s,const int *clips,unsign
 }
 #ifndef SG_SPRITE_TEST
 #include "gpu_mask_texture.h"
-extern "C" unsigned sg_mask_texture(unsigned source,unsigned mask,unsigned flags){return sg_gpu_mask_texture(source,mask,flags);}
 
 #include "mask_cache_runtime.h"
 

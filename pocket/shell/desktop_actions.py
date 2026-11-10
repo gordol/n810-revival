@@ -36,6 +36,23 @@ def radio_summary(state,accepted):
 def dispatch(host,launch,identity,request):
     if not isinstance(request,dict):raise ValueError('Expected an object')
     command=request.get('command')
+    if command=='symbian-open':
+        if set(request)!={'command','application'} or not isinstance(request['application'],str):raise ValueError('Invalid Symbian application request')
+        from symbian_catalog import resolve
+        entry=resolve(request['application'])
+        if entry is None:raise ValueError('Unknown or uninstalled Symbian application')
+        if not callable(getattr(host,'symbian_window',None)):launch('window:Symbian')
+        opener=getattr(host,'symbian_window',None)
+        if not callable(opener):raise RuntimeError('GPU window broker is not enabled')
+        opener(entry);return dict(ok=True,application=entry['id'],title=entry['title'])
+    if command=='symbian-status':
+        if set(request)!={'command'}:raise ValueError('Unsupported command fields')
+        windows=[]
+        for name,form in host.app_forms.items():
+            if not getattr(form,'symbian_window',False):continue
+            window=host.window(name)
+            windows.append(dict(name=name,opened=window.opened,visible=host.shown(window),phase=form.phase,paused=form.paused,visible_frames=form.pixel_frames,error=form.error))
+        return dict(ok=True,windows=windows)
     if command=='system-status':
         if set(request)!={'command'}:raise ValueError('Unsupported command fields')
         form=host.app_forms.get('System')

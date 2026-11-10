@@ -1,5 +1,6 @@
 #include "runtime_debug.h"
 #pragma once
+#include "runtime_wakeup.h"
 #include "present_fb.h"
 #include <drivers/graphics/graphics.h>
 #include <drivers/itc.h>
@@ -20,6 +21,9 @@
 namespace n810_runtime {
 extern std::function<void(const std::uint8_t *, unsigned, unsigned)> present_rgba;
 const char *current_renderer();
+bool present_window(unsigned,unsigned,unsigned);
+void retire_window();
+void interrupt_window() noexcept;
 }
 class graphics_session {
     eka2l1::drivers::graphics_driver_ptr driver_;
@@ -41,6 +45,12 @@ class graphics_session {
     bool auto_rejected_ = false;
     double readback_ms_ = 0;
     bool async_present_ = false;
+    bool window_mode_ = false;
+    std::atomic<bool> window_pending_{false};
+    static void complete_window(void *opaque,unsigned texture,unsigned width,unsigned height) {
+        auto *self=static_cast<graphics_session *>(opaque);
+        if(n810_runtime::present_window(texture,width,height)){++self->frames;++self->displayed;}self->window_pending_=false;
+    }
     std::atomic<unsigned long> queued_presentations_{0},completed_presentations_{0};
     static void complete_async_read(void *opaque,int result) noexcept {
         auto *self=static_cast<graphics_session *>(opaque);
@@ -51,13 +61,15 @@ class graphics_session {
             n810_runtime::present_rgba(self->readback_.data(),240,320);
             ++self->completed_presentations_;
         } catch(const std::exception &e) {
-            std::fprintf(stderr,"graphics_failure=%s\n",e.what());self->failed_=true;
-        } catch(...) {self->failed_=true;}
+            std::fprintf(stderr,"graphics_failure=%s\n",e.what());self->failed_=true;n810_wake_runtime();
+        } catch(...) {self->failed_=true;n810_wake_runtime();}
     }
 
 public:
     std::atomic<unsigned long> frames{0}, displayed{0};
     explicit graphics_session(int inherited_fb) {
+        window_mode_=std::getenv("N810_SYMBIAN_WINDOW_FD")!=nullptr;
+        if(window_mode_ && inherited_fb>=0)throw std::runtime_error("Window client cannot own framebuffer");
         async_present_=std::getenv("N810_SYMBIAN_ASYNC_PRESENT")!=nullptr;
         if(async_present_) {
             const char *orientation=std::getenv("N810_SYMBIAN_DIRECT_PRESENT");
@@ -72,6 +84,7 @@ public:
             framebuffer_=std::make_unique<n810_framebuffer>(inherited_fb);
         }
         n810_runtime::present_rgba=[this](const std::uint8_t *rgba,unsigned w,unsigned h) {
+            if(window_mode_)throw std::runtime_error("CPU pixel presentation forbidden in GPU window mode");
             auto number=++frames;
             if(compare_pending_) {
                 unsigned changed=0,flipped=0;
@@ -146,7 +159,7 @@ public:
             } catch (...) {
                 try {throw;} catch (const std::exception &error) {std::fprintf(stderr,"graphics_failure=%s\n",error.what());}
                 catch (...) {std::fprintf(stderr,"graphics_failure=unknown\n");}
-                failed_=true;
+                failed_=true;n810_wake_runtime();
                 if(FILE *failure=std::fopen("graphics-failure","w")) {std::fputs("1\n",failure);std::fclose(failure);}
                 if (driver_) driver_->abort();
                 if (!initialized) {ready.set_exception(std::current_exception());driver_.reset();return;}
@@ -157,12 +170,14 @@ public:
             std::unique_lock<std::mutex> lock(teardown_mutex_);
             teardown_cv_.wait(lock,[this]{return destroy_requested_;});
             if(n810_runtime_debug()) std::fprintf(stderr,"runtime_teardown=graphics_owner_destroy\n");
+            n810_runtime::retire_window();
             driver_.reset();
             if(n810_runtime_debug()) std::fprintf(stderr,"runtime_teardown=graphics_owner_destroyed\n");
         });
         try {future.get();} catch (...) {worker_.join();n810_runtime::present_rgba={};throw;}
     }
     ~graphics_session() {
+        n810_runtime::interrupt_window();
         if(n810_runtime_debug()) std::fprintf(stderr,"runtime_teardown=graphics_join\n");
         {
             std::lock_guard<std::mutex> lock(teardown_mutex_);
@@ -179,6 +194,16 @@ public:
     bool failed() const {return failed_;}
     void redraw(eka2l1::epoc::screen *screen) {
         using namespace eka2l1;
+        if(window_mode_) {
+            if(driver_->aborted()||window_pending_.exchange(true))return;
+            const auto size=screen->current_mode().size;
+            drivers::command_list list(1);list.renew();list.size_=1;
+            auto &cmd=*list.base_;cmd.opcode_=0x4e810001;
+            cmd.data_[0]=screen->screen_texture;cmd.data_[1]=reinterpret_cast<std::uint64_t>(this);
+            cmd.data_[2]=reinterpret_cast<std::uint64_t>(&complete_window);
+            cmd.data_[3]=(std::uint64_t(size.y)<<32)|unsigned(size.x);
+            driver_->submit_command_list(list);return;
+        }
         if(async_present_) {
             if(driver_->aborted())return;
             const auto size=screen->current_mode().size;

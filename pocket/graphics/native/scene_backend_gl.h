@@ -12,7 +12,7 @@
 #include <sys/resource.h>
 #include "present.h"
 #include <dlfcn.h>
-#include "../../../graphics/mbx/common/mbx_owned_surface.h"
+#include "../driver/mbx/common/mbx_owned_surface.h"
 static int (*scene_surface_begin)(void),(*scene_surface_end)(struct mbx_owned_surface *),(*scene_surface_copy)(const struct mbx_surface_sink *),(*scene_surface_release)(void);
 static int (*scene_surface_dma_copy)(const struct mbx_surface_dma_sink *);
 int pocket_window_dma_fd(void *);

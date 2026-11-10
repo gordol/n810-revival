@@ -36,7 +36,7 @@ namespace n810_runtime {void drain_frontend_callbacks();}
 namespace eka2l1::drivers {void report_sync_command_timing();}
 extern "C" bool n810_frontend_event_input_ready(){return n810_event_input_active.load(std::memory_order_acquire);}
 static volatile std::sig_atomic_t interrupted = 0;
-static void stop(int) { interrupted = 1; }
+static void stop(int) { interrupted = 1;n810_runtime::interrupt_window();n810_wake_runtime(); }
 
 static void trace_host_heap() {
     if(!std::getenv("N810_SYMBIAN_TRACE_ATLAS"))return;
@@ -76,11 +76,12 @@ static int run(int argc, char **argv) {
     // Import tracing is opt-in; never force it in normal execution.
     setenv("GALLIUM_DRIVER", "softpipe", 1);
     const char *fb_env=std::getenv("N810_SYMBIAN_FB_FD");
+    std::signal(SIGINT, stop);
+    std::signal(SIGTERM, stop);
     phase("graphics_create");
     graphics_session graphics(fb_env ? std::stoi(fb_env) : -1);
     phase("graphics_ready");
-    std::signal(SIGINT, stop);
-    std::signal(SIGTERM, stop);
+    if(interrupted)return 130;
     rlimit cpu_limit{static_cast<rlim_t>(seconds + 10), static_cast<rlim_t>(seconds + 15)};
     setrlimit(RLIMIT_CPU, &cpu_limit);
     eka2l1::config::state conf;
@@ -158,6 +159,7 @@ static int run(int argc, char **argv) {
     // GUI applications need AppArc's registered launch path, including its
     // application stack sizing and process logon, not the bare EXE loader.
     auto *kernel=runtime.get_kernel_system();
+    n810_runtime_wakeup signal_wakeup([kernel]{kernel->stop_cores_idling();});
     runtime_diagnostics diagnostics(kernel);
     // Real Symbian boots ECom before GUI applications. Starting it on demand
     // inside CDL construction can exhaust CDL's shutdown timer on a slow host.
@@ -188,6 +190,20 @@ static int run(int argc, char **argv) {
     phase("ecom_rendezvous_complete");
     auto *applist=reinterpret_cast<eka2l1::applist_server *>(kernel->get_by_name<eka2l1::service::server>(
         eka2l1::get_app_list_server_name_by_epocver(runtime.get_symbian_version_use())));
+    if (!applist) throw std::runtime_error("Application registry unavailable");
+    // Reuse AppArc's resolved names and paths; publish only installed user apps.
+    if (FILE *catalog=std::fopen("apps.tsv.next","w")) {
+        for (auto &reg : applist->get_registerations()) {
+            if (reg.caps.is_hidden || reg.land_drive == drive_z) continue;
+            auto path=eka2l1::common::ucs2_to_utf8(reg.mandatory_info.app_path.to_std_string(nullptr));
+            auto title=eka2l1::common::ucs2_to_utf8(reg.mandatory_info.long_caption.to_std_string(nullptr));
+            if(path.find_first_of("\t\r\n")!=std::string::npos)continue;
+            for(char &c:title)if(c=='\t'||c=='\r'||c=='\n')c=' ';
+            std::fprintf(catalog,"%08x\t%s\t%s\n",reg.mandatory_info.uid,path.c_str(),title.c_str());
+        }
+        if(std::fclose(catalog)==0)std::filesystem::rename("apps.tsv.next","apps.tsv");
+    }
+    if (std::strcmp(argv[2],"--catalog")==0) return 0;
     auto guest_file=runtime.get_io_system()->open_file(eka2l1::common::utf8_to_ucs2(argv[2]),READ_MODE|BIN_MODE);
     std::uint32_t app_uid=0;
     if (!applist || !guest_file || guest_file->read_file(8,&app_uid,1,4)!=4) throw std::runtime_error("Cannot read application UID");

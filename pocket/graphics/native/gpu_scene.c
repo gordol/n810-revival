@@ -5,6 +5,7 @@
 #include <string.h>
 #ifdef POCKET_SCENE_GL
 #include "scene_backend_gl.h"
+#include "../driver/mbx/common/mbx_window_export.h"
 #else
 #include "scene_backend_sdl.h"
 #endif
@@ -22,6 +23,7 @@ struct gpu_scene {
  int (*room_draw)(float,float,float,float,float,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,unsigned,int);
  Scene_RoomRegion room_region;
  int (*room_eye)(float);
+ unsigned window_budget;int window_budget_ready;
 #endif
 };
 static Scene_Color scene_rgb(uint32_t v){return (Scene_Color){(v>>16)&255,(v>>8)&255,v&255,255};}
@@ -156,6 +158,19 @@ int pocket_scene_batch_abort(void *ptr){
 #endif
 }
 #ifdef POCKET_SCENE_GL
+static unsigned scene_window_budget(struct gpu_scene *s){
+ if(s->window_budget_ready)return s->window_budget;
+ s->window_budget_ready=1;
+ int (*layout_query)(struct mbx_window_layout *)=(int (*)(struct mbx_window_layout *))dlsym(RTLD_DEFAULT,"n810_mbx_window_get_layout");
+ struct mbx_window_layout layout;
+ if(!layout_query||layout_query(&layout)||!mbx_window_layout_valid(&layout))return 0;
+ const char *f=getenv("N810_MBX_WINDOW_FIRST"),*n=getenv("N810_MBX_WINDOW_COUNT");
+ unsigned first=f?(unsigned)strtoul(f,NULL,10):0,count=n?(unsigned)strtoul(n,NULL,10):14;
+ if(!mbx_window_range_valid(first,count))return 0;
+ for(unsigned i=first;i<first+count;i++)
+  if((layout.client_mask&(1U<<i))&&!(layout.native_mask&(1U<<i)))++s->window_budget;
+ return s->window_budget;
+}
 static void scene_window_image_admit(struct gpu_scene *s,struct scene_texture *image){
  if(image->image_cache||!image->texture->recorded_scene||image->texture->refs!=1)return;
  const char *warm=getenv("POCKET_SCENE_WINDOW_WARMUP");unsigned threshold=warm?(unsigned)strtoul(warm,NULL,10):8;
@@ -170,7 +185,7 @@ static void scene_window_image_admit(struct gpu_scene *s,struct scene_texture *i
   /* Small window images only. Large/background batches retain geometry;
    * leave the two driver scratch images outside this budget. */
   const char *wide=getenv("POCKET_SCENE_WIDE_CACHE");unsigned max_pages=wide&&!strcmp(wide,"1")?8:4;
-  if(eligible&&pages&&pages<=max_pages&&s->device->window_pages+pages<=14){
+  if(eligible&&pages&&pages<=max_pages&&s->device->window_pages+pages<=scene_window_budget(s)){
    Scene_Texture *pixels=Scene_CreateTexture(s->device,Scene_PIXELFORMAT_ABGR8888,Scene_TEXTUREACCESS_TARGET,w,h);
    if(!pixels)return;
    pixels->commands=batch->commands;pixels->count=pixels->capacity=count;pixels->stream=batch->stream;pixels->vertices=pixels->vertex_capacity=n;
@@ -358,6 +373,93 @@ int pocket_scene_marks(void *ptr,void *target,const struct scene_mark *marks,uns
  for(unsigned i=0;i<count;i++){uint32_t ch=marks[i].glyph;if(ch==32||(defer&&ch>=32&&ch<127))continue;int at=scene_glyph(s,ch);if(at<0)return -1;scene_glyph_quad(s,s->vertices+n*6,at,(marks[i].index%cols)*8,(marks[i].index/cols)*16,scene_rgb((uint32_t)(marks[i].ink>>24)&0xffffff));n++;}
  return n?Scene_RenderGeometry(s->device,s->font,s->vertices,(int)(n*6),NULL,0):0;
 }
+/* Imported GPU images use ordinary scene placement/chrome, with no CPU pixels.
+ * The window transport validates the same bounds before calling this boundary. */
+struct scene_retained_image {uint32_t x,y,w,h,image[8];};
+int pocket_scene_retained_supported(void){
+#ifdef POCKET_SCENE_GL
+ return dlsym(RTLD_DEFAULT,"n810_mbx_window_import")&&dlsym(RTLD_DEFAULT,"n810_mbx_window_forget");
+#else
+ return 0;
+#endif
+}
+int pocket_scene_retained_forget(void *target){
+#ifdef POCKET_SCENE_GL
+ struct scene_texture *image=target;if(!image||!image->texture)return -1;
+ int (*forget)(unsigned)=(int (*)(unsigned))dlsym(RTLD_DEFAULT,"n810_mbx_window_forget");
+ if(!forget)return -1;
+ glFinish();
+ for(unsigned i=0;i<image->texture->n;i++)if(forget(image->texture->tiles[i].color))return -1;
+ return 0;
+#else
+ (void)target;return -1;
+#endif
+}
+int pocket_scene_retained_rebind(void *target,const struct scene_retained_image *images,unsigned count){
+#ifdef POCKET_SCENE_GL
+ struct scene_texture *image=target;
+ int (*bind)(unsigned,const void *)=(int (*)(unsigned,const void *))dlsym(RTLD_DEFAULT,"n810_mbx_window_import");
+ int (*forget)(unsigned)=(int (*)(unsigned))dlsym(RTLD_DEFAULT,"n810_mbx_window_forget");
+ if(!image||!images||!bind||!forget||count!=image->texture->n)return -1;
+ for(unsigned i=0;i<count;i++){
+  const struct scene_gl_tile *q=image->texture->tiles+i;const struct scene_retained_image *p=images+i;
+  if(q->x!=p->x||q->y!=p->y||q->w!=p->w||q->h!=p->h||q->pw!=p->image[1]||q->ph!=p->image[2])return -1;
+ }
+ glFinish();
+ for(unsigned i=0;i<count;i++)if(bind(image->texture->tiles[i].color,images[i].image)){
+  for(unsigned j=0;j<i;j++)forget(image->texture->tiles[j].color);
+  return -1;
+ }
+ ++image->texture->revision;return 0;
+#else
+ (void)target;(void)images;(void)count;return -1;
+#endif
+}
+void *pocket_scene_retained(void *ptr,unsigned width,unsigned height,const struct scene_retained_image *images,unsigned count){
+#ifdef POCKET_SCENE_GL
+ struct gpu_scene *s=ptr;unsigned area=0,slots=0;
+ int (*import_image)(unsigned,const void *)=(int (*)(unsigned,const void *))dlsym(RTLD_DEFAULT,"n810_mbx_window_import");
+ int (*forget)(unsigned)=(int (*)(unsigned))dlsym(RTLD_DEFAULT,"n810_mbx_window_forget");
+ if(!s||scene_gl_owner(s->device)||!import_image||!forget||!images||!count||count>14||!width||!height||width>800||height>480)return NULL;
+ for(unsigned i=0;i<count;i++){
+  const struct scene_retained_image *p=images+i;const uint32_t *d=p->image;
+  if(!p->w||!p->h||p->x>width||p->y>height||p->w>width-p->x||p->h>height-p->y||!d[0]||d[1]<p->w||d[2]<p->h||d[1]>800||d[2]>480||d[3]!=1||!d[4]||!d[5]||d[6]>=14||(slots&(1U<<d[6])))return NULL;
+  if(d[0]==1){if(d[1]!=128||d[2]!=128||d[7])return NULL;}
+  else if(d[0]==2){if(d[7]!=d[1]*4U||(d[6]<2?(d[1]!=240||d[2]!=320):(d[1]!=128||d[2]!=128)))return NULL;}
+  else return NULL;
+  slots|=1U<<d[6];area+=p->w*p->h;
+  for(unsigned j=0;j<i;j++){const struct scene_retained_image *q=images+j;if(p->x<q->x+q->w&&q->x<p->x+p->w&&p->y<q->y+q->h&&q->y<p->y+p->h)return NULL;}
+ }
+ if(area!=width*height)return NULL;
+ struct scene_texture *result=calloc(1,sizeof(*result));Scene_Texture *t=calloc(1,sizeof(*t));
+ if(!result||!t){free(result);free(t);return NULL;}
+ t->w=width;t->h=height;t->refs=1;t->n=count;t->format=Scene_PIXELFORMAT_ABGR8888;t->blend=Scene_BLENDMODE_NONE;
+ t->tiles=calloc(count,sizeof(*t->tiles));if(!t->tiles){free(t);free(result);return NULL;}
+ GLint old_fbo,old_texture;glGetIntegerv(GL_FRAMEBUFFER_BINDING,&old_fbo);glGetIntegerv(GL_TEXTURE_BINDING_2D,&old_texture);glFinish();unsigned imported=0;
+ for(unsigned i=0;i<count;i++){
+  const struct scene_retained_image *p=images+i;struct scene_gl_tile *q=t->tiles+i;
+  q->x=p->x;q->y=p->y;q->w=p->w;q->h=p->h;q->pw=p->image[1];q->ph=p->image[2];
+  glGenTextures(1,&q->color);glBindTexture(GL_TEXTURE_2D,q->color);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+  glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,q->pw,q->ph,0,GL_RGBA,GL_UNSIGNED_BYTE,NULL);
+  glGenFramebuffers(1,&q->fbo);glBindFramebuffer(GL_FRAMEBUFFER,q->fbo);glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,q->color,0);
+  if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE||glGetError()!=GL_NO_ERROR||import_image(q->color,p->image))goto fail;
+  ++imported;
+  /* Symbian's screen bitmap stores logical top row at texture row zero.
+   * Keep the normal uploaded-image orientation in the scene sampler; the FBO
+   * above only established importable storage and is never a drawing target. */
+  glDeleteFramebuffers(1,&q->fbo);q->fbo=0;
+ }
+ glBindFramebuffer(GL_FRAMEBUFFER,old_fbo);glBindTexture(GL_TEXTURE_2D,old_texture);
+ result->texture=t;result->width=width;result->height=height;return result;
+fail:
+ for(unsigned i=0;i<imported;i++)forget(t->tiles[i].color);
+ Scene_DestroyTexture(t);free(result);glBindFramebuffer(GL_FRAMEBUFFER,old_fbo);glBindTexture(GL_TEXTURE_2D,old_texture);return NULL;
+#else
+ (void)ptr;(void)width;(void)height;(void)images;(void)count;return NULL;
+#endif
+}
 int pocket_scene_image(void *ptr,void *target,int x,int y){struct gpu_scene *s=ptr;struct scene_texture *image=target;if(!s||!image||scene_target(s,s->canvas))return -1;Scene_Rect r={x,y,(int)image->width,(int)image->height};return Scene_RenderCopy(s->device,image->texture,NULL,&r);}
 void *pocket_scene_upload(void *ptr,const void *pixels,unsigned width,unsigned height,int alpha){
  struct gpu_scene *s=ptr;if(!s||!pixels||!width||!height||width>4096||height>4096)return NULL;struct scene_texture *image=calloc(1,sizeof(*image));if(!image)return NULL;image->width=width;image->height=height;
@@ -393,6 +495,15 @@ int pocket_scene_capture(void *ptr,void *out,size_t size){struct gpu_scene *s=pt
 #endif
  return Scene_RenderReadPixels(s->device,NULL,Scene_PIXELFORMAT_RGB565,out,s->width*2);}
 int pocket_scene_stats(void *ptr,uint64_t out[5]){struct gpu_scene *s=ptr;if(!s||!out)return -1;out[0]=s->frames;out[1]=s->map_builds;out[2]=s->line_segments;out[3]=s->readbacks;out[4]=s->uploads;return 0;}
+int pocket_scene_retained_draw(void *ptr,void *target,int x,int y,int width,int height){
+ struct gpu_scene *s=ptr;struct scene_texture *image=target;
+ if(!s||!image||width<=0||height<=0||scene_target(s,s->canvas))return -1;
+ Scene_Rect clip={x,y,width,height};if(Scene_RenderSetClipRect(s->device,&clip))return -1;
+ Scene_Rect rect={x+(width>(int)image->width?(width-(int)image->width)/2:0),y+(height>(int)image->height?(height-(int)image->height)/2:0),(int)image->width,(int)image->height};
+ int result=Scene_RenderCopy(s->device,image->texture,NULL,&rect);
+ if(Scene_RenderSetClipRect(s->device,NULL))return -1;
+ return result;
+}
 void pocket_scene_texture_free(void *ptr){struct scene_texture *image=ptr;if(image){Scene_DestroyTexture(image->texture);free(image);}}
 void pocket_scene_close(void *ptr){struct gpu_scene *s=ptr;if(!s)return;
  if(s->base)Scene_DestroyTexture(s->base);

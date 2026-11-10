@@ -4,7 +4,7 @@ from functools import lru_cache
 import hashlib
 import json
 import math
-from pathlib import Path
+from data_paths import data_root
 import sys
 import zlib
 from path_profile import profile,EARTH_M
@@ -12,9 +12,7 @@ from path_profile import profile,EARTH_M
 
 @lru_cache(maxsize=1)
 def grid():
-    from data_paths import data_root
     directory=data_root()
-    if not (directory/'tahoma-3dep.json').is_file():directory=Path(__file__).with_name('data')
     metadata=json.loads((directory/'tahoma-3dep.json').read_text())
     raw=(directory/'tahoma-3dep.i16.zlib').read_bytes()
     if len(raw)>1024*1024 or hashlib.sha256(raw).hexdigest()!=metadata['sha256']:
@@ -43,9 +41,7 @@ def elevation(latitude,longitude):
 
 @lru_cache(maxsize=1)
 def regional_grid():
-    from data_paths import data_root
     directory=data_root()
-    if not (directory/'pnw-etopo1.json').is_file():directory=Path(__file__).with_name('data')
     metadata=json.loads((directory/'pnw-etopo1.json').read_text())
     raw=(directory/'pnw-etopo1.i16.zlib').read_bytes()
     if hashlib.sha256(raw).hexdigest()!=metadata['sha256']:raise ValueError('Regional elevation grid integrity check failed')
@@ -61,7 +57,7 @@ def regional_grid():
 @lru_cache(maxsize=2)
 def tiled_index(pack='elevation-western-wa'):
     if pack not in ('elevation-western-wa','elevation-lakewood'):raise ValueError('Unknown elevation pack')
-    path=Path(__file__).with_name('data')/pack/'index.json'
+    path=data_root()/pack/'index.json'
     if not path.is_file():return None
     with path.open('rb') as source:raw=source.read(1024*1024+1)
     if len(raw)>1024*1024:raise ValueError('Elevation tile index exceeds bounds')

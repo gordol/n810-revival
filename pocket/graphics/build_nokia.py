@@ -11,21 +11,26 @@ def main():
     parser.add_argument('--output',type=Path,default=HERE.parent/'build/graphics-nokia')
     parser.add_argument('--mesa-include',type=Path,help='verified ARM Mesa include directory, containing GL/osmesa.h')
     parser.add_argument('--mesa-library',type=Path,help='verified ARM libOSMesa.so.8 used by the device GPU service')
+    parser.add_argument('--scene-gl',action='store_true',help='experimental shared tiled GL scene backend; driver residency is not implied')
     args=parser.parse_args();cc=shlex.split(args.cross_compile+'gcc')
     if not shutil.which(cc[0]):parser.error('Install the ARM soft-float cross compiler or set CROSS_COMPILE.')
     out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
     native=HERE/'native';flags=['-O2','-std=c99','-Wall','-Wextra','-Werror','-fPIC','-shared','-mcpu=arm1136jf-s','-marm','-mfloat-abi=soft']
     for target,sources in (('cells.so',['cells.c']),('window.so',['nokia.c','present.c'])):
-        subprocess.run([*cc,*flags,*[str(native/n) for n in sources],'-o',str(out/target)],check=True)
+        scene=[]
+        if target=='window.so' and args.scene_gl:
+            if not args.mesa_include or not args.mesa_library:parser.error('--scene-gl requires Mesa headers/library')
+            scene=['-DPOCKET_SCENE_GL','-I'+str(args.mesa_include.resolve()),str(args.mesa_library.resolve()),'-lm','-Wl,-rpath,$ORIGIN']
+        subprocess.run([*cc,*flags,*[str(native/n) for n in sources],*scene,'-o',str(out/target)],check=True)
     if bool(args.mesa_include)!=bool(args.mesa_library):parser.error('Supply both --mesa-include and --mesa-library for the GPU renderer.')
     if args.mesa_include:
         include=args.mesa_include.resolve();library=args.mesa_library.resolve()
         if not (include/'GL/osmesa.h').is_file() or not library.is_file():parser.error('Mesa headers/library missing.')
         subprocess.run([os.environ.get('PYTHON','python3'),str(HERE/'generate_room.py'),str(out)],check=True)
         combined='\n'.join((native/name).read_text() for name in ('mbx_cells.c','terminal.c','game.c','room_pixels.c','map_pixels.c'))
-        combined=combined.replace('  glFinish();','  game_draw(age,width,height,tx,ty,tw,th);glFinish();')
+        # Native scenes share explicit target completion; no source-text draw injection.
         (out/'renderer.c').write_text(combined)
-        subprocess.run([*cc,*flags,'-ffp-contract=off','-fno-fast-math','-I'+str(native),'-I'+str(out),'-I'+str(include),str(out/'renderer.c'),str(library),'-lm','-Wl,-rpath,$ORIGIN','-o',str(out/'renderer.so')],check=True)
+        subprocess.run([*cc,*flags,'-ffp-contract=off','-fno-fast-math','-DPOCKET_NATIVE_GAME','-I'+str(native),'-I'+str(out),'-I'+str(include),str(out/'renderer.c'),str(library),'-lm','-Wl,-rpath,$ORIGIN','-o',str(out/'renderer.so')],check=True)
         room=out/'room-pixels.so'
         if room.exists() or room.is_symlink():room.unlink()
         room.symlink_to('renderer.so')
@@ -33,7 +38,8 @@ def main():
         sys.path.insert(0,str(HERE.parent/'shell'));sys.path.insert(0,str(HERE))
         from extend_font import extend
         extend(HERE.parent/'shell/vendor/fonts/choices/console-8x16.psf',out/'console-font.psf')
-    inputs=['present.c' ,'present.h','cells.c','cells.h','nokia.c']+(['mbx_cells.c','terminal.c','game.c','room_pixels.c','map_pixels.c'] if args.mesa_include else [])
-    (out/'BUILD.json').write_text(json.dumps({'mesa_sha256':hashlib.sha256(args.mesa_library.read_bytes()).hexdigest() if args.mesa_library else None,'gpu_renderer':bool(args.mesa_include),'status':'CROSS_BUILT_NOT_DEVICE_TESTED','sources':{n:hashlib.sha256((native/n).read_bytes()).hexdigest() for n in inputs},'artifacts':{n:hashlib.sha256((out/n).read_bytes()).hexdigest() for n in (('cells.so','window.so','renderer.so') if args.mesa_include else ('cells.so','window.so'))}},indent=2)+'\n')
+    inputs=['present.c' ,'present.h','cells.c','cells.h','nokia.c']+(['mbx_cells.c','pixel_target.h','pixel_target_impl.h','room_draw.h','terminal.c','game.c','room_pixels.c','map_pixels.c'] if args.mesa_include else [])
+    if args.scene_gl:inputs+=['gpu_scene.c','scene_backend_gl.h']
+    (out/'BUILD.json').write_text(json.dumps({'scene_gl':args.scene_gl,'mesa_sha256':hashlib.sha256(args.mesa_library.read_bytes()).hexdigest() if args.mesa_library else None,'gpu_renderer':bool(args.mesa_include),'status':'CROSS_BUILT_NOT_DEVICE_TESTED','sources':{n:hashlib.sha256((native/n).read_bytes()).hexdigest() for n in inputs},'artifacts':{n:hashlib.sha256((out/n).read_bytes()).hexdigest() for n in (('cells.so','window.so','renderer.so') if args.mesa_include else ('cells.so','window.so'))}},indent=2)+'\n')
     print('Cross-built framebuffer frontend libraries; no device access.')
 if __name__=='__main__':main()

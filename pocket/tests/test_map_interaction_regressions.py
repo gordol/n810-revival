@@ -32,6 +32,35 @@ class InteractionTests(unittest.TestCase):
   x,y=f._shown_image.projection.project(old[1],old[0])
   self.assertAlmostEqual(x,59.5+6,delta=.01);self.assertAlmostEqual(y,19.5+6,delta=.01)
   self.assertIsNone(f.target_box.view)
+ def test_forest_toggle_rebuilds_display_image_even_if_frame_identity_repeats(self):
+  f=self.form();image=f._image
+  f._display_key=(id(image),f.width,f.height-3)
+  f.key('z')
+  self.assertIsNone(f._display_image)
+  with patch.object(f.renderer,'frame',return_value=image),patch('repeater_catalog.load',return_value=()):
+   f.lines()
+  self.assertIsNotNone(f._display_image)
+
+ def test_repeated_forest_key_survives_pending_and_reused_frames_in_terrain_map(self):
+  from station_map_tools import StationMapTools
+  f=self.form();image=f._image;owner=StationMapTools(f)
+  owner.terrain_active=True;owner.ensure_tool();owner.tool.screen='map'
+  calls=[0]
+  def frame(*args):
+   calls[0]+=1
+   return image if calls[0]%3==0 else None
+  with patch.object(f.renderer,'frame',side_effect=frame),patch('repeater_catalog.load',return_value=()):
+   for _ in range(39):owner.key('z');owner.lines()
+  self.assertEqual(calls[0],39)
+  self.assertIsNotNone(f._display_image)
+
+ def test_auto_grid_stays_clear_at_wide_zoom_but_manual_grid_remains_available(self):
+  f=self.form();plain=f._display_layer
+  f._shown_image=Image(120,40,plain[4].base,'',(),0.,engine.Viewport(f.center,52.,120,40))
+  self.assertIs(f.layer(),plain)
+  f.maidenhead_grid='on'
+  self.assertIsNot(f.layer(),plain)
+
  def test_explicit_overview_camera_stays_fixed_during_box_zoom_and_drag(self):
   f=self.form();f.key('o');camera=f._overview_camera
   view=engine.Viewport(*camera,120,40)

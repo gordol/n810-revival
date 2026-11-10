@@ -248,17 +248,18 @@ def _prepare_effect(width,height,ascii,name,step,weather,seed,age,strands,sway,s
 
 
 class Window:
-    __slots__=('name','x','y','w','h','visible','lines','version','builds','rolled','pinned','desktop','opened','layer','spans','styles','_opaque_cache','_opaque_plane_cache')
+    __slots__=('name','x','y','w','h','visible','lines','version','builds','rolled','pinned','desktop','opened','layer','layer_generation','spans','styles','_opaque_cache','_opaque_plane_cache')
     def __init__(self,name,x,y,w,h,visible=True,lines=(),version=None,builds=0,rolled=False,pinned=False,desktop=0,opened=True,layer=None,spans=(),styles=None):
         self.name,self.x,self.y,self.w,self.h=name,x,y,w,h
         self.visible,self.lines,self.version,self.builds=visible,lines,version,builds
         self.rolled,self.pinned,self.desktop,self.opened=rolled,pinned,desktop,opened
         self.layer,self.spans,self.styles=layer,spans,{} if styles is None else styles
+        self.layer_generation=0
         self._opaque_cache=None;self._opaque_plane_cache=None
     def __eq__(self,other):
         if self is other:return True
         if not isinstance(other,Window):return NotImplemented
-        return all(getattr(self,k)==getattr(other,k) for k in self.__slots__ if k not in ('_opaque_cache','_opaque_plane_cache'))
+        return all(getattr(self,k)==getattr(other,k) for k in self.__slots__ if k not in ('_opaque_cache','_opaque_plane_cache','layer_generation'))
 
     @property
     def rect(self):
@@ -293,6 +294,7 @@ class Host:
         if move_mode not in ('outline', 'live') or resize_mode not in ('outline', 'live'):
             raise ValueError('drag mode must be outline or live')
         self.animate = animate
+        self.window_animations = False
         self.move_mode, self.resize_mode = move_mode, resize_mode
         self.clock = clock
         self.effect_epoch = clock()
@@ -1065,7 +1067,7 @@ class Host:
     def transition(self, w, start, end):
         self.invalidate(start)
         self.invalidate(end)
-        if self.animate and start != end:
+        if self.animate and self.window_animations and start != end:
             self.visual[w.name] = start
             self.animations[w.name] = (start, end, self.clock())
         else:
@@ -1124,6 +1126,11 @@ class Host:
                 self._tick_motion();return
             if step != self.background_step or ready:
                 self.background_step = step
+                native_background=getattr(getattr(self,'render_context',None),'update_background',None)
+                if native_background and native_background(self,step):
+                    self.effect_generation+=1;self.effect_frame_id=(self.effect_generation,self.effect,step)
+                    self._flux_started=self.clock();self._flux_generation_cpu=0.;self._flux_paint_cpu=0.
+                    self._tick_motion();return
                 if self.effect != 'matrix':
                     self.particles.clear()
                     if self.effect == 'terrain':
@@ -1402,6 +1409,7 @@ class Host:
         lines=tuple(lines);styles={}
         for row,start,length,role in spans:styles.setdefault(row,[]).append((start,start+length,role))
         w.layer,w.spans,w.styles,w.version,w.lines=layer,spans,styles,version,lines
+        w.layer_generation+=1
         w.builds+=1
         if not self.shown(w) or w.rolled:return
         if layer is not old_layer:
@@ -1420,7 +1428,7 @@ class Host:
         w=self.window(name)
         x,y,width,height,cells=layer
         if x<0 or y<0 or width<1 or height<1 or len(cells)!=width*height:raise ValueError('invalid layer')
-        old=w.layer;w.layer=layer
+        old=w.layer;w.layer=layer;w.layer_generation+=1
         if not self.shown(w) or w.rolled:return
         if indices is None or old is None or old[:4]!=layer[:4]:
             for rect in ((old[:4],layer[:4]) if old is not None else (layer[:4],)):

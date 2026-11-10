@@ -27,7 +27,7 @@ struct key {
  * before upload/subimage/copy/blit, before framebuffer attachment, before
  * destruction, and whenever tracked state becomes unknown. No API can detect
  * a stale caller-supplied key. A miss MUST retain existing synchronization.
- * Only insert after GPU completion and successful result upload. On false,
+ * Only insert after GPU completion and successful resident result creation. On false,
  * retain temporary ownership and delete after draw using the old path.
  * Allocation charge is supplied by the runtime; use verified allocation size
  * or a conservative upper bound, never width*height alone if layout is padded.
@@ -40,6 +40,7 @@ class cache {
  cache(uint64_t context,uint64_t bytes,size_t entries):context_(context),budget_(bytes),limit_(std::min<size_t>(entries,256)){entries_.reserve(limit_);}
  cache(const cache&)=delete;cache& operator=(const cache&)=delete;
  bool accepts(const key& k)const{return context_&&k.context==context_&&eligible(k.image)&&eligible(k.mask)&&k.image.width==k.mask.width&&k.image.height==k.mask.height&&(k.flags&~12U)==0;}
+ bool references(uint64_t lifetime)const{for(const auto& e:entries_)if(e.k.image.lifetime==lifetime||e.k.mask.lifetime==lifetime)return true;return false;}
  uint64_t bytes()const{return used_;}size_t size()const{return entries_.size();}
  uint32_t find(const key& k){if(!accepts(k))return 0;for(size_t i=0;i<entries_.size();++i)if(entries_[i].k==k){auto e=entries_[i];entries_.erase(entries_.begin()+i);entries_.push_back(e);return e.result;}return 0;}
  /* charge is actual retained allocation accounting, including padding/mips.
@@ -56,6 +57,7 @@ class cache {
  template<class Release> void invalidate(uint64_t lifetime,Release release){
   for(size_t i=0;i<entries_.size();)if(entries_[i].k.image.lifetime==lifetime||entries_[i].k.mask.lifetime==lifetime){auto e=entries_[i];entries_.erase(entries_.begin()+i);used_-=e.bytes;release(e.result);}else ++i;
  }
+ template<class Release> bool evict_oldest(Release release){if(entries_.empty())return false;auto e=entries_.front();entries_.erase(entries_.begin());used_-=e.bytes;release(e.result);return true;}
  template<class Release> void clear(Release release){for(const auto& e:entries_)release(e.result);entries_.clear();used_=0;}
  /* Teardown is explicit: GL deletes cannot safely run from a C++ destructor
   * after context destruction. This closes the policy permanently. */

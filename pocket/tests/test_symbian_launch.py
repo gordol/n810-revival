@@ -29,6 +29,8 @@ class SymbianLaunchTest(unittest.TestCase):
             fd=os.open('/dev/null',os.O_RDONLY);seen=[]
             def popen(argv,**options):
                 self.assertEqual(argv[0],str(binary))
+                self.assertEqual(options['stdout'].name,options['stdout'].fileno())
+                self.assertEqual(options['stderr'],subprocess.STDOUT)
                 env=options['env'];self.assertEqual(env['N810_SYMBIAN_FIXED_FUNCTION'],'gpu')
                 self.assertEqual(env['N810_SYMBIAN_CPU'],'native')
                 self.assertNotIn('N810_SYMBIAN_TRACE_ATLAS',env)
@@ -42,8 +44,9 @@ class SymbianLaunchTest(unittest.TestCase):
                 return SimpleNamespace(wait=lambda:0)
             try:
                 with patch.object(session,'keyboard_device',return_value='/dev/null'),patch.object(session.subprocess,'Popen',side_effect=popen):
-                    self.assertEqual(session.run('chess',SimpleNamespace(pw_dir=home),fd,fd,{'N810_SYMBIAN_TRACE_ATLAS':'1','N810_MBX_DESKTOP_TARGET':'1'},fd,lambda:None,seen.append),0)
+                    self.assertEqual(session.run('chess',SimpleNamespace(pw_dir=home,pw_uid=os.getuid(),pw_gid=os.getgid()),fd,fd,{'N810_SYMBIAN_TRACE_ATLAS':'1','N810_MBX_DESKTOP_TARGET':'1'},fd,lambda:None,seen.append),0)
                 self.assertEqual(len(seen),1)
+                self.assertEqual((root/'runtime/session.log').read_text(),'launcher_exit_status=0\n')
                 os.fstat(fd)
             finally:os.close(fd)
 

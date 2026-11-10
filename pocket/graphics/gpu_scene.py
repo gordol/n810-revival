@@ -26,7 +26,7 @@ class Context:
         self.platform=platform;self.display=platform.display;self.hidden=None
         self.lib=self.display.lib if self.display is not None and hasattr(self.display.lib,'pocket_scene_open') else C.CDLL(str(Path(platform.library).resolve().parent/'window.so'))
         self.native_room=all(hasattr(self.lib,n) for n in ('pocket_scene_room','pocket_scene_room_create','pocket_scene_room_source'))
-        self.room_binding=None
+        self.room_binding=None;self.retained_handles=set();self.retained_idle={}
         declarations={
             'pocket_scene_open':([C.c_void_p,C.c_int],C.c_void_p),
             'pocket_scene_backend':([C.c_void_p],C.c_char_p),
@@ -67,7 +67,53 @@ class Context:
             self.lib.pocket_window_error.restype=C.c_char_p
             raise RuntimeError(self.lib.pocket_window_error().decode())
     def release(self,handle):
+        if handle in self.retained_handles:
+            self.check(self.lib.pocket_scene_retained_forget(handle))
+            self.retained_handles.remove(handle)
         if handle:self.lib.pocket_scene_texture_free(handle)
+    def retire_retained(self,name,keep=False):
+        previous=self.images.get(name)
+        if previous and previous[1] in self.retained_handles:
+            if keep:
+                self.check(self.lib.pocket_scene_retained_forget(previous[1]));self.retained_handles.remove(previous[1])
+                self.retained_idle[name]=previous
+            else:self.release(previous[1])
+            del self.images[name]
+        if not keep and name in self.retained_idle:self.release(self.retained_idle.pop(name)[1])
+    def retained_scene(self,app):
+        result=app.render_retained()
+        if result is None:return ()
+        frame,x,y,cw,ch=result
+        for name in ('pocket_scene_retained_supported','pocket_scene_retained','pocket_scene_retained_forget','pocket_scene_retained_rebind','pocket_scene_retained_draw'):
+            if not hasattr(self.lib,name):raise RuntimeError('Retained GPU window interface unavailable')
+        self.lib.pocket_scene_retained_supported.restype=C.c_int
+        if not self.lib.pocket_scene_retained_supported():raise RuntimeError('Mesa retained GPU window interface unavailable')
+        create=self.lib.pocket_scene_retained
+        create.argtypes=[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,C.c_uint];create.restype=C.c_void_p
+        forget=self.lib.pocket_scene_retained_forget;forget.argtypes=[C.c_void_p];forget.restype=C.c_int
+        previous=self.images.get(app.name)
+        if previous and previous[0] is frame:target=previous[1]
+        else:
+            if previous:raise RuntimeError('Previous GPU window image was not retired')
+            values=(C.c_uint32*(12*len(frame.images)))(*(value for image in frame.images for value in image))
+            idle=self.retained_idle.pop(app.name,None)
+            shape=lambda image:tuple(image[:8])+tuple(image[11:])
+            compatible=idle and (idle[0].width,idle[0].height)==(frame.width,frame.height) and tuple(map(shape,idle[0].images))==tuple(map(shape,frame.images))
+            if compatible:
+                target=idle[1];bind=self.lib.pocket_scene_retained_rebind
+                bind.argtypes=[C.c_void_p,C.c_void_p,C.c_uint];bind.restype=C.c_int
+                try:self.check(bind(target,values,len(frame.images)))
+                except BaseException:self.release(target);raise
+            else:
+                if idle:self.release(idle[1])
+                target=create(self.handle,frame.width,frame.height,values,len(frame.images))
+            if not target:raise RuntimeError('Retained GPU window image rejected')
+            self.images[app.name]=(frame,target);self.retained_handles.add(target)
+        draw=self.lib.pocket_scene_retained_draw
+        draw.argtypes=[C.c_void_p,C.c_void_p]+[C.c_int]*4;draw.restype=C.c_int
+        self.check(draw(self.handle,target,x,y,cw,ch))
+        return x+max(0,(cw-frame.width)//2),y+max(0,(ch-frame.height)//2),min(cw,frame.width),min(ch,frame.height)
+
     def texture(self,source,defer):
         if len(source.terrain)!=source.sample_width*source.sample_height:raise ValueError('Semantic terrain sample dimensions differ')
         key=(id(source),bool(defer));cached=self.maps.get(key)
@@ -130,6 +176,7 @@ class Context:
         A missing sink keeps the established image path. A failed admitted
         command propagates; it must never silently rasterize through the CPU.
         """
+        if callable(getattr(app,'render_retained',None)):return self.retained_scene(app)
         draw=self.lib.pocket_scene_room if self.native_room else None
         producer=getattr(app,'render_scene',None)
         if draw is None or producer is None:return None
@@ -207,7 +254,9 @@ class Context:
             for prior in covered:pieces=[part for piece in pieces for part in subtract(piece,prior)]
             covered.extend(pieces)
         for cache,active in ((self.layers,active_layers),(self.images,active_images),(self.maps,active_maps)):
-            for key in set(cache)-active:self.release(cache.pop(key)[1])
+            for key in set(cache)-active:
+                if cache is self.images and cache[key][1] in self.retained_handles:self.retire_retained(key,keep=True)
+                else:self.release(cache.pop(key)[1])
         overlays=[]
         if (covered or getattr(self,'native_pixels',False)) and h.launcher_lines and 'launcher' in h._native.overlays:
             cols,rows,plane,_=h._native.overlays['launcher'];x,y,_,_=h.launcher_bounds()
@@ -239,6 +288,8 @@ class Context:
             result['driver_materialization']='requires separate Mesa/kernel counters'
         return result
     def close(self):
+        for _,handle in self.retained_idle.values():self.release(handle)
+        self.retained_idle.clear()
         for _,handle in self.maps.values():self.release(handle)
         for cache in (self.layers,self.images):
             for _,handle in cache.values():self.release(handle)

@@ -45,3 +45,7 @@ APP ?= chess
 .PHONY: symbian
 symbian:
 	$(PYTHON) shell/symbian_launch.py "$(APP)"
+
+.PHONY: symbian-install
+symbian-install:
+	$(PYTHON) shell/symbian_install.py "$(PACKAGE)"

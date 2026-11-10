@@ -21,6 +21,9 @@ inline void drain_n810_keyboard(eka2l1::window_server *server) {
         if (size<0 && (errno==EAGAIN || errno==EWOULDBLOCK)) return;
         if (size!=sizeof(input)) return;
         if (input.type!=EV_KEY || input.value<0 || input.value>2) continue;
+        // Symbian WSERV schedules repeats from the physical press/release.
+        // Linux repeat events would arm additional timers in that server.
+        if (input.value==2) continue;
         using namespace eka2l1::epoc;
         int key=-1;
         switch(input.code) {

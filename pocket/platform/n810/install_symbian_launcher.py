@@ -19,12 +19,17 @@ def install():
         expected_owner='2a96cda6083372313d7d5b72747a12d36e8955406fbaca595ec8d8201d2586fd'
         current_owner=hashlib.sha256((base/'native_owner.py').read_bytes()).hexdigest()
         incoming_owner=hashlib.sha256(Path(__file__).with_name('native_owner.py').read_bytes()).hexdigest()
-        if current_owner not in (expected_owner,incoming_owner,'642ebb57d42f00b12cef7206d596d54295c2fe36126f80618b0d7dbf2f1778d2'):
+        if current_owner not in (expected_owner,incoming_owner,'642ebb57d42f00b12cef7206d596d54295c2fe36126f80618b0d7dbf2f1778d2','f0a62469d79a8ab14ddc6870d72547070ebb9fbc1554c51b49c97c0e097396f7'):
             raise RuntimeError('Installed graphics owner changed; reconcile it before installing')
         here=Path(__file__).resolve().parent
         pocket=here.parents[1]
         files={base/'native_owner.py':here/'native_owner.py',base/'symbian_session.py':here/'symbian_session.py',
+               base/'symbian_windows.py':here/'symbian_windows.py',
+               source/'shell/symbian_window_wire.py':pocket/'shell/symbian_window_wire.py',
                source/'shell/symbian_launch.py':pocket/'shell/symbian_launch.py',
+               source/'shell/symbian_install.py':pocket/'shell/symbian_install.py',
+               base/'symbian_catalog.py':pocket/'shell/symbian_catalog.py',
+               source/'shell/symbian_catalog.py':pocket/'shell/symbian_catalog.py',
                source/'shell/apps/symbian/registration.py':pocket/'shell/apps/symbian/registration.py'}
         registry=source/'shell/app_registry.py'
         text=registry.read_text()

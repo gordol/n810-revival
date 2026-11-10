@@ -35,9 +35,9 @@ def main():
     subprocess.run([*cc,*flags,str(HERE/'native/cells.c'),'-o',str(OUT/'reference.so')],check=True)
     # One GL owner/context is shared by cells, direct Room pixels and overlays.
     combined='\n'.join((HERE/'native'/name).read_text() for name in ('mbx_cells.c','terminal.c','game.c','room_pixels.c','map_pixels.c'))
-    combined=combined.replace('  glFinish();','  game_draw(age,width,height,tx,ty,tw,th);glFinish();')
+    # Native scenes share explicit target completion; no source-text draw injection.
     (OUT/'renderer.c').write_text(combined)
-    subprocess.run([*cc,*flags,'-DPOCKET_DESKTOP_GL','-I'+str(HERE/'native'),'-I'+str(OUT),str(OUT/'renderer.c'),*sdl,*gl,'-lm','-o',str(OUT/'renderer.so')],check=True)
+    subprocess.run([*cc,*flags,'-DPOCKET_DESKTOP_GL','-DPOCKET_NATIVE_GAME','-I'+str(HERE/'native'),'-I'+str(OUT),str(OUT/'renderer.c'),*sdl,*gl,'-lm','-o',str(OUT/'renderer.so')],check=True)
     subprocess.run([*cc,*flags,'-I'+str(HERE/'native'),str(HERE/'native/desktop_input.c'),*([str(HERE/'native/native_text.m'),'-framework','CoreText','-framework','CoreGraphics','-framework','CoreFoundation'] if mac else []),*sdl,'-o',str(OUT/'window.so')],check=True)
     for name in ('input','borders'):
         subprocess.run([*cc,'-O2','-std=c99','-Wall','-Wextra','-Werror',str(HERE/f'native/test_desktop_{name}.c'),str(OUT/'window.so'),*sdl,'-o',str(OUT/f'test-desktop-{name}')],check=True)
