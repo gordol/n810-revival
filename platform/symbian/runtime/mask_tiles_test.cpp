@@ -15,6 +15,10 @@ int main(){
   float uv[]={0,1,a,d,1,0,b,c,0,0,a,c,1,1,b,d};std::copy(uv,uv+16,original.xyuv);
   std::vector<sg::mask_tile> tiles;sg::mask_tiles(original,size.first,size.second,[&](const auto&t){tiles.push_back(t);});assert(!tiles.empty()&&tiles.size()<=64);
   for(auto&t:tiles){assert(!std::memcmp(t.sprite.model,original.model,sizeof original.model));assert(!std::memcmp(t.sprite.color,original.color,sizeof original.color));}
+  for(auto&t:tiles)for(unsigned i=0;i<4;i++){
+   assert(t.sprite.xyuv[4*i+2]>=0&&t.sprite.xyuv[4*i+2]<=float(t.width)/128);
+   assert(t.sprite.xyuv[4*i+3]>=0&&t.sprite.xyuv[4*i+3]<=float(t.height)/128);
+  }
   for(unsigned iy=0;iy<29;iy++)for(unsigned ix=0;ix<31;ix++){
    double x=(ix+.5)/31,y=(iy+.5)/29;unsigned hits=0;
    for(auto&t:tiles){const float*v=t.sprite.xyuv;double x0=v[8],x1=v[4],y0=v[9],y1=v[1];if(x<x0||x>=x1||y<y0||y>=y1)continue;
@@ -24,6 +28,18 @@ int main(){
    }
    assert(hits==1);
   }++cases;
+ }
+ // Fractional source crops expose the float destination round-trip error.
+ for(unsigned i=1;i<=20000;i++){
+  unsigned w=129+(i*47)%896,h=129+(i*71)%896;
+  float a=float((i*13)%997)/1000,b=float(998-(i*17)%997)/1000;
+  float c=float((i*19)%991)/1000,d=float(994-(i*23)%991)/1000;
+  if(a==b||c==d)continue;
+  sg_sprite sprite{};float uv[]={0,1,a,d,1,0,b,c,0,0,a,c,1,1,b,d};std::copy(uv,uv+16,sprite.xyuv);
+  sg::mask_tiles(sprite,w,h,[&](const auto&t){for(unsigned v=0;v<4;v++){
+   assert(t.sprite.xyuv[v*4+2]>=0&&t.sprite.xyuv[v*4+2]<=float(t.width)/128);
+   assert(t.sprite.xyuv[v*4+3]>=0&&t.sprite.xyuv[v*4+3]<=float(t.height)/128);
+  }});
  }
  sg_sprite invalid{};unsigned emitted=0;try{sg::mask_tiles(invalid,2048,1,[&](auto){++emitted;});assert(false);}catch(const std::runtime_error&){}assert(!emitted);
  mbx_mask::source src;src.tracked=true;src.lifetime=1;src.generation=1;src.name=1;src.width=src.height=8;

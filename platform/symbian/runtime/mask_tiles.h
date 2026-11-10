@@ -30,8 +30,10 @@ template<class Emit> void mask_tiles(const sg_sprite &source,unsigned width,unsi
   if(left>=right||top>=bottom)continue;
   float x0=(float)((a<b?left-a:right-a)/(b-a)),x1=(float)((a<b?right-a:left-a)/(b-a));
   float y0=(float)((c<d?top-c:bottom-c)/(d-c)),y1=(float)((c<d?bottom-c:top-c)/(d-c));
-  float tu0=float((a+(b-a)*x0-x)/128),tu1=float((a+(b-a)*x1-x)/128);
-  float tv0=float((c+(d-c)*y0-y)/128),tv1=float((c+(d-c)*y1-y)/128);
+  // Use exact clipped source endpoints, not rounded destination coordinates.
+  // A destination round trip can put a boundary UV just outside its storage.
+  float tu0=float(((a<b?left:right)-x)/128),tu1=float(((a<b?right:left)-x)/128);
+  float tv0=float(((c<d?top:bottom)-y)/128),tv1=float(((c<d?bottom:top)-y)/128);
   mask_tile tile{x,y,w,h,source};
   const float xyuv[]={x0,y1,tu0,tv1,x1,y0,tu1,tv0,x0,y0,tu0,tv0,x1,y1,tu1,tv1};
   std::copy(xyuv,xyuv+16,tile.sprite.xyuv);emit(tile);
