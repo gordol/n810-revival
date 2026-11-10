@@ -176,7 +176,8 @@ static void test_desktop_damage(void){
   free(tile);
  }
  gs->device->sink_forward=0;assert(!memcmp(reference,guard+32,N*2));
- puts("forward_output exact_pixels=384000 glyphs=equal padding_rows=excluded");
+ uint32_t forward_hash=2166136261u;for(unsigned k=0;k<N;k++){forward_hash^=guard[k+32];forward_hash*=16777619u;}
+ printf("forward_output exact_pixels=384000 glyphs=equal padding_rows=excluded rgb565_hash=%08x\n",forward_hash);
  pocket_scene_close(s);free(reference);free(guard);OSMesaDestroyContext(gl);
  puts("desktop_damage exact_pixels=384000 retained_tiles=3 redrawn_tiles=1 guards=clean changed_destination=full_redraw");
 }
@@ -204,7 +205,7 @@ static void test_page_groups(void){
  uint32_t codes[260];unsigned char bits[260*16];for(unsigned i=0;i<260;i++){codes[i]=32+i;for(unsigned y=0;y<16;y++)bits[i*16+y]=(unsigned char)(i*13+y*17);}
  assert(!pocket_scene_font(s,codes,bits,260,NULL,NULL,0));
  uint16_t *reference=malloc(768000),*pixels=malloc(768000);assert(reference&&pixels);
- unsigned groups=0;uint64_t candidates[2]={0};
+ unsigned groups=0;uint64_t candidates[2]={0};uint32_t pixel_hash=2166136261u;
  for(unsigned mode=0;mode<3;mode++)for(unsigned pass=0;pass<2;pass++){
   setenv("POCKET_SCENE_PAGE_GROUPS",pass?"1":"0",1);
   assert(!pocket_scene_begin_pixels(s,0x101018));assert(!pocket_scene_rect(s,16,16,600,320,0x736b59ff));
@@ -234,9 +235,10 @@ static void test_page_groups(void){
   }
   pocket_scene_texture_free(batch);
   if(pass)assert(!memcmp(reference,pixels,768000));
+  else for(unsigned k=0;k<384000;k++){pixel_hash^=reference[k];pixel_hash*=16777619u;}
  }
  assert(groups>0&&candidates[1]<candidates[0]);free(reference);free(pixels);pocket_scene_close(s);OSMesaDestroyContext(gl);
- printf("atlas_page_groups cases=3 exact_pixels=1152000 stable_primitive_memberships=%u scratch_vertex_copies=0 page_candidates_before=%llu after=%llu\n",groups,(unsigned long long)candidates[0],(unsigned long long)candidates[1]);
+ printf("atlas_page_groups cases=3 exact_pixels=1152000 stable_primitive_memberships=%u scratch_vertex_copies=0 page_candidates_before=%llu after=%llu rgb565_hash=%08x\n",groups,(unsigned long long)candidates[0],(unsigned long long)candidates[1],pixel_hash);
 }
 int main(int argc,char **argv){
  test_opaque_coverage();

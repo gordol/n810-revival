@@ -222,6 +222,10 @@ class Context(SharedContext):
             fn=self.lib.pocket_window_present_stats;fn.argtypes=[C.c_void_p,C.c_void_p];fn.restype=C.c_int
             counts=(C.c_uint64*4)();self.check(fn(self.display.handle,counts))
             result.update(dict(zip(('rfbi_submissions','rfbi_requested_pixels','rfbi_partial_submissions','rfbi_partial_rejections'),counts)))
+        if self.display is not None and hasattr(self.lib,'pocket_window_timing_stats'):
+            fn=self.lib.pocket_window_timing_stats;fn.argtypes=[C.c_void_p,C.c_void_p];fn.restype=C.c_int
+            counts=(C.c_uint64*6)();self.check(fn(self.display.handle,counts))
+            result['presentation_timing']=dict(zip(('wait_calls','wait_cpu_ns','wait_wall_ns','submit_calls','submit_cpu_ns','submit_wall_ns'),counts))
         n=self.platform.host._native
         result.update(app_view_builds=n.cell_view_builds,app_view_export_bytes=n.cell_view_export_bytes,app_view_index_allocations=n.cell_view_index_allocations,app_cells_sampled=n.layer_cells_sampled)
         values=(C.c_uint64*3)();self.check(self.lib.pocket_scene_pixel_stats(self.handle,values))
