@@ -51,6 +51,24 @@ static int mbx_window_channels(unsigned source,unsigned mask,unsigned target,uns
  for(unsigned i=0;i<14;i++)if(c->window[i].resource==r[2]&&(c->window[i].imported||c->window[i].exported))return -EBUSY;
  int destination=mbx_window_available(c,r[2]);if(destination<0)return destination;
  struct mbx_window_token inputs[2]={{0}};unsigned char *packets[2]={NULL,NULL};unsigned lengths[2]={0};
+ const char *fused=getenv("N810_MBX_CHANNEL_UPLOAD_MERGE");
+ if(fused&&!strcmp(fused,"1")&&mbx_window_find(c,r[0])<0&&mbx_window_find(c,r[1])<0){
+  struct mbx_linear_source images[2];
+  for(unsigned i=0;i<2;i++){
+   struct softpipe_resource *s=softpipe_resource(r[i]);
+   if(s->mbx_content.external_only||!s->data||s->mbx_mapping_bytes||s->stride[0]<fullw*4U)return -ENOTSUP;
+   images[i]=(struct mbx_linear_source){(const unsigned char*)s->data+s->level_offset[0]+(size_t)y*s->stride[0]+(size_t)x*4U,(size_t)(h-1)*s->stride[0]+w*4U,s->stride[0],w,h,r[i]->format==PIPE_FORMAT_R8G8B8A8_UNORM,0,0};
+  }
+  unsigned capacity=80+sw*sh*8U;
+  packets[0]=malloc(capacity);if(!packets[0])return -ENOMEM;
+  error=mbx_window_channels_upload_pack(images,images+1,mode,packets[0],capacity,sw,sh,lengths);
+  if(error)goto done;
+  mbx_window_choose(c,r[2]);softpipe_resource(r[2])->mbx_content.external_only=1;c->vgp->textures.valid=0;
+  struct mbx_window_request request={.version=c->window_layout,.destination=(unsigned)destination};
+  if(ioctl(c->gpu_fd,MBX_WINDOW_BIND,&request)||write(c->gpu_fd,packets[0],lengths[0])!=(ssize_t)lengths[0]||
+     ioctl(c->gpu_fd,MBX_WINDOW_QUERY,&c->window[destination].token)){error=-EIO;goto done;}
+  goto complete;
+ }
  for(unsigned i=0;i<2;i++){
   int slot=mbx_window_find(c,r[i]);
   if(slot>=0){
@@ -74,6 +92,7 @@ static int mbx_window_channels(unsigned source,unsigned mask,unsigned target,uns
  struct mbx_window_request merge={.version=c->window_layout,.destination=(unsigned)destination,.source={inputs[0],inputs[1]}};
  unsigned packet[20]={0x3156474dU,10,80,0,sw,sh,0,0,0,0,0x3f800000U,0,1,0,0,0,11,0,0,8};
  if(ioctl(c->gpu_fd,MBX_WINDOW_BIND,&merge)||write(c->gpu_fd,packet,sizeof packet)!=sizeof packet||ioctl(c->gpu_fd,MBX_WINDOW_QUERY,&c->window[destination].token)){error=-EIO;goto done;}
+complete:;
  struct softpipe_resource *out=softpipe_resource(r[2]);++out->timestamp;mbx_content_clear(&out->mbx_content);mbx_content_complete(&out->mbx_content,out->timestamp);out->mbx_content.external_only=1;
  c->window[destination].timestamp=out->timestamp;++c->window_renders;
  *view=(struct mbx_window_view){w,h,sw,sh};error=0;

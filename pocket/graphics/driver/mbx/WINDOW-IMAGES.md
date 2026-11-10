@@ -215,3 +215,28 @@ configuration changed, and no reboot occurred.
 Raw evidence: project `outputs/vfp-native-20261110/BUILD.json`, `reports.json`,
 `summary.json`, `kernel-summary.json` and `order-proof.jsonl`. The normal release
 remains `20261109-6970068`.
+
+### Experimental single-job uploaded mask merge
+
+`N810_MBX_CHANNEL_UPLOAD_MERGE=1` selects the existing two-plane channel
+combiner for `n810_mbx_window_channels[_region]` when both inputs still have
+canonical CPU upload storage. It requires the matching module with validated
+resource-9 window-target admission. The default three-job path is unchanged;
+resident and mixed inputs retain their established paths.
+
+The candidate uploads separate source and mask planes and performs channel
+selection on the GPU directly into the retained output. It avoids two scratch
+renders, two scratch binds/queries and the intermediate window generations.
+It does not read pixels back or merge channels on the CPU. Red-to-alpha format
+conversion remains part of the initial upload, as in the existing path.
+
+One combine submits one job and `80 + storage_width * storage_height * 8`
+bytes. Dense padding can cost more upload bytes for a tiny logical rectangle
+than the old cropped, halo-padded inputs. Fewer submissions alone therefore do
+not establish a performance gain. Compare CPU, bytes and completed work before
+enabling this path in a normal release.
+
+Local sanitizer tests check both planes, padding, formats, binary-mask rejection
+and the actual service admission block. ARM Mesa tests check the exact one-job
+write size, preserved GL state, no readback and legacy/resident regressions.
+These tests use a fake service and do not establish physical GPU pixels or FPS.

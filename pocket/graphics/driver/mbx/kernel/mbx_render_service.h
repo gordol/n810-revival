@@ -666,8 +666,10 @@ static ssize_t gpu_service_write(struct file *file,const char __user *buf,size_t
     merge_job=resources.count&&resources.item[0].version==11;
     window_merge=merge_job&&gpu_window_bound;
     if(gpu_window_bound){
+        bool upload_merge=channel_mask>=0&&!mbx_window_channel_upload_validate(texture_job,&resources,channel_mask);
         if(!gpu_window_images||!gpu_memory.windows||update||gpu_resident_surfaces||gpu_prepared_commands||texture_job->version!=10||
-           (window_merge?texture_job->clear_buffers!=0:texture_job->clear_buffers!=5)){e=-EINVAL;goto out;}
+           (channel_mask>=0&&!window_merge&&!upload_merge)||
+           (window_merge||upload_merge?texture_job->clear_buffers!=0:texture_job->clear_buffers!=5)){e=-EINVAL;goto out;}
         struct mbx_window_state trial=gpu_windows;
         if(mbx_window_begin_sized(&trial,&gpu_window_binding,window_merge?2:0,texture_job->width,texture_job->height)){e=-EINVAL;goto out;}
     }

@@ -23,7 +23,9 @@ int main(int argc,char **argv){
  int (*combine)(unsigned,unsigned,unsigned,unsigned,struct mbx_window_view*)=dlsym(RTLD_DEFAULT,"n810_mbx_window_channels");
  int (*export_image)(unsigned,struct mbx_window_image*)=dlsym(RTLD_DEFAULT,"n810_mbx_window_export");int (*release)(unsigned,const struct mbx_window_image*)=dlsym(RTLD_DEFAULT,"n810_mbx_window_export_release");assert(combine&&export_image&&release);
  glFinish();GLint active,binding,after;glGetIntegerv(GL_ACTIVE_TEXTURE,&active);glGetIntegerv(GL_TEXTURE_BINDING_2D,&binding);
+ off_t submitted=lseek(gpu,0,SEEK_CUR);
  struct mbx_window_view view={0};assert(!combine(source,mask,out,MBX_WINDOW_BINARY_RED_ALPHA,&view));assert(view.width==w&&view.height==h&&view.storage_width==sw&&view.storage_height==sh);
+ if(getenv("N810_MBX_CHANNEL_UPLOAD_MERGE"))assert(lseek(gpu,0,SEEK_CUR)-submitted==80+sw*sh*8U);
  glGetIntegerv(GL_ACTIVE_TEXTURE,&after);assert(after==active);glGetIntegerv(GL_TEXTURE_BINDING_2D,&after);assert(after==binding);
  struct mbx_window_image image;assert(!export_image(out,&image)&&image.token.slot==(native?0U:2U));off_t held=lseek(gpu,0,SEEK_CUR);assert(combine(source,mask,out,0,&view)==-EBUSY&&lseek(gpu,0,SEEK_CUR)==held);assert(!release(out,&image));
  glBindTexture(GL_TEXTURE_2D,source);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);held=lseek(gpu,0,SEEK_CUR);assert(combine(source,mask,out,0,&view)==-ENOTSUP&&lseek(gpu,0,SEEK_CUR)==held);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);

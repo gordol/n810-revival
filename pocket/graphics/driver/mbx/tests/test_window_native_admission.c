@@ -6,6 +6,7 @@
 #include <string.h>
 #include "mbx_vgp_wire.h"
 #include "mbx_wire_resources.h"
+#include "channel_request.h"
 static struct mbx_window_state gpu_windows;
 static struct mbx_window_request gpu_window_binding;
 static struct mbx_vgp_wire_frame frame;
@@ -14,6 +15,7 @@ static struct mbx_wire_resources resources;
 static struct {void *windows;} gpu_memory={(void*)1};
 static bool gpu_window_bound,gpu_window_images=true,gpu_window_native=true,update,gpu_resident_surfaces,gpu_prepared_commands;
 static unsigned passed;
+static int channel_mask=-1;
 static int admit(void){
  int e=0;unsigned i;bool resident_job,merge_job,window_merge;
 #include "native_admission.inc"
@@ -45,6 +47,17 @@ int main(void){
  assert(!admit());unsigned saved=passed;resources.item[0].version=13;assert(admit()==-EINVAL&&passed==saved);
  resources.item[0].version=14;resources.item[0].bytes++;assert(admit()==-EINVAL&&passed==saved);resources.item[0].bytes--;
  gpu_window_native=false;assert(admit()==-EINVAL&&passed==saved);gpu_window_native=true;
+ /* Uploaded two-plane alpha merge: no source tokens, exact full dimensions,
+  * no clear/draws. Run the actual service gate, not a test-only replica. */
+ resources.item[0]=(struct mbx_wire_resource){9,240*320*8,0,8};resources.bytes=240*320*8;
+ frame.clear_buffers=0;channel_mask=8;assert(!admit());
+ gpu_window_binding.source[0]=source;assert(admit()==-EINVAL);gpu_window_binding.source[0]=(struct mbx_window_token){0};
+ resources.bytes--;assert(admit()==-EINVAL);resources.bytes++;
+ channel_mask=7;assert(admit()==-EINVAL);channel_mask=8;
+ frame.draws=1;assert(admit()==-EINVAL);frame.draws=0;
+ frame.clear_buffers=5;assert(admit()==-EINVAL);frame.clear_buffers=0;
+ frame.width=128;frame.height=128;resources.bytes=128*128*8;gpu_window_binding.destination=2;assert(!admit());
+ channel_mask=-1;resources.item[0]=(struct mbx_wire_resource){14,source.generation,source.slot,source.session};resources.bytes=0;
  gpu_window_bound=false;frame.version=9;frame.width=800;frame.height=480;assert(!admit());
  gpu_windows=(struct mbx_window_state){.session=8,.layout=1};gpu_window_native=false;source=render(1,128,128);
  resources.item[0]=(struct mbx_wire_resource){13,source.generation,source.slot,source.session};assert(!admit());

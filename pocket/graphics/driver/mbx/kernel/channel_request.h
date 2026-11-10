@@ -13,4 +13,11 @@ static inline int mbx_channel_request_validate(const struct mbx_vgp_wire_frame *
  if(r->item[0].version==7)return r->item[0].reserved==((f->width<<16)|(f->height*2U))?0:-22;
  return -22;
 }
+/* Uploaded channel pairs carry no external source tokens. Restrict this
+ * retained-window path to the exact complete planes and alpha-only merge. */
+static inline int mbx_window_channel_upload_validate(const struct mbx_vgp_wire_frame *f,
+ const struct mbx_wire_resources *r,unsigned mask){
+ return mbx_channel_request_validate(f,r,mask)||r->item[0].version!=9||mask!=8||
+  !((f->width==128&&f->height==128)||(f->width==240&&f->height==320))?-22:0;
+}
 #endif
