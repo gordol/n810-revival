@@ -24,6 +24,7 @@ class SymbianLaunchTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as home:
             root=Path(home)/'.local/share/symbian-private'
             binary=root/'code/symbian-runtime';binary.parent.mkdir(parents=True);binary.touch()
+            library=root/'code/lib/libOSMesa.so.8';library.parent.mkdir();library.touch()
             app=root/'runtime/data/drives/c/sys/bin/ChessGenius_20036D63.exe';app.parent.mkdir(parents=True);app.touch()
             fd=os.open('/dev/null',os.O_RDONLY);seen=[]
             def popen(argv,**options):
@@ -32,6 +33,10 @@ class SymbianLaunchTest(unittest.TestCase):
                 self.assertEqual(env['N810_SYMBIAN_CPU'],'native')
                 self.assertNotIn('N810_SYMBIAN_TRACE_ATLAS',env)
                 self.assertNotIn('N810_MBX_DESKTOP_TARGET',env)
+                self.assertNotIn('N810_MBX_EXCLUSIVE_SURFACE',env)
+                self.assertEqual(env['N810_SYMBIAN_GPU_MASK'],'1')
+                self.assertEqual(env['N810_SYMBIAN_MASK_CACHE'],'1')
+                self.assertTrue(env['LD_PRELOAD'].endswith('/code/lib/libOSMesa.so.8'))
                 for descriptor in options['pass_fds']:os.fstat(descriptor)
                 self.assertEqual(os.read(int(env['N810_SYMBIAN_DISPLAY_GRANT_FD']),1),b'G')
                 return SimpleNamespace(wait=lambda:0)
@@ -41,6 +46,19 @@ class SymbianLaunchTest(unittest.TestCase):
                 self.assertEqual(len(seen),1)
                 os.fstat(fd)
             finally:os.close(fd)
+
+    @unittest.skipUnless(sys.platform=="linux", "Linux terminal sessions")
+    def test_reopen_terminal_for_second_session(self):
+        import pty,fcntl
+        master,slave=pty.openpty();name=os.ttyname(slave)
+        def claim():os.setsid();fcntl.ioctl(0,0x540e,0)
+        try:
+            first=subprocess.Popen([sys.executable,'-c','pass'],stdin=slave,preexec_fn=claim)
+            self.assertEqual(first.wait(),0)
+            os.close(slave);slave=os.open(name,os.O_RDWR|os.O_NOCTTY)
+            second=subprocess.Popen([sys.executable,'-c','pass'],stdin=slave,preexec_fn=claim)
+            self.assertEqual(second.wait(),0)
+        finally:os.close(slave);os.close(master)
 
     def test_missing_app_refuses_handoff(self):
         with tempfile.TemporaryDirectory() as home:

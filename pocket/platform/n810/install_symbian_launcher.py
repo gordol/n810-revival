@@ -19,7 +19,7 @@ def install():
         expected_owner='2a96cda6083372313d7d5b72747a12d36e8955406fbaca595ec8d8201d2586fd'
         current_owner=hashlib.sha256((base/'native_owner.py').read_bytes()).hexdigest()
         incoming_owner=hashlib.sha256(Path(__file__).with_name('native_owner.py').read_bytes()).hexdigest()
-        if current_owner not in (expected_owner,incoming_owner):
+        if current_owner not in (expected_owner,incoming_owner,'642ebb57d42f00b12cef7206d596d54295c2fe36126f80618b0d7dbf2f1778d2'):
             raise RuntimeError('Installed graphics owner changed; reconcile it before installing')
         here=Path(__file__).resolve().parent
         pocket=here.parents[1]

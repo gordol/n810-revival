@@ -41,7 +41,7 @@ console=os.open('/dev/tty0',os.O_RDWR|os.O_NOCTTY|os.O_CLOEXEC);available=bytear
 assert 1<=vt<=63 and vt!=int(original[3:])
 for f in Path('/proc').glob('[0-9]*/stat'):
  try:assert int(f.read_text().rsplit(')',1)[1].split()[4])!=os.makedev(4,vt)
- except FileNotFoundError:pass
+ except (FileNotFoundError,ProcessLookupError):pass
 tty=os.open('/dev/tty'+str(vt),os.O_RDWR|os.O_NOCTTY|os.O_CLOEXEC);kd=bytearray(4);fcntl.ioctl(tty,0x4b3b,kd);old_kd=struct.unpack('i',kd)[0]
 fb=os.open('/dev/fb0',os.O_RDWR|os.O_CLOEXEC);switched=False;child=None;stopping=False
 fcntl.ioctl(fb,0x4f25);saved_frame=os.pread(fb,768000,0);assert len(saved_frame)==768000
@@ -59,7 +59,13 @@ env['POCKET_OWNED_SINK']='1'
 env['POCKET_DMA_SINK']='0'
 suffix='normal';env['POCKET_DATA_ROOT']='/home/nokia/.local/share/pocket'
 def child_tty():
- os.setsid();fcntl.ioctl(0,0x540e,0);os.initgroups(account.pw_name,account.pw_gid);os.setgid(account.pw_gid);os.setuid(account.pw_uid)
+ phase='setsid'
+ try:
+  os.setsid();phase='controlling-terminal';fcntl.ioctl(0,0x540e,0)
+  phase='groups';os.initgroups(account.pw_name,account.pw_gid)
+  phase='gid';os.setgid(account.pw_gid);phase='uid';os.setuid(account.pw_uid)
+ except BaseException as error:
+  os.write(2,('desktop_spawn_failure phase='+phase+' error='+str(error)+'\n').encode());raise
 
 try:
  mode.write_text('2\n');fcntl.ioctl(fb,0x4f25)
@@ -71,7 +77,9 @@ try:
   command=[sys.executable,'/usr/local/share/pocket-gui/managed-native/source/graphics/nokia.py','--framebuffer-fd',str(fb),'--font',str(assets/'console-font.psf'),'--renderer-library',str(assets/'renderer.so'),'--display-library',str(release/'window.so'),'--native-library',str(native_library),'--state','/home/nokia/.local/state/current-world','--touch-device','/dev/input/n810-touch','--touch-calibration','/home/nokia/.local/state/current-world/touch-calibration.json','--touch-display','800x480','--touch-rotation','0']
   render_fd=os.open(device,os.O_RDWR|os.O_CLOEXEC);env['N810_MBX_RENDER_FD']=str(render_fd)
   child=subprocess.Popen(command,env=env,cwd=root,stdin=tty,stdout=log,stderr=subprocess.STDOUT,pass_fds=(fb,render_fd),preexec_fn=child_tty)
-  (runtime/'active.json').write_text(json.dumps(dict(owner_pid=os.getpid(),child_pid=child.pid,release=str(release),log=str(root/('visible-'+suffix+'.log')))))
+  def record_child(application='pocket'):
+   (runtime/'active.json').write_text(json.dumps(dict(owner_pid=os.getpid(),child_pid=child.pid,application=application,release=str(release),log=str(root/('visible-'+suffix+'.log')))))
+  record_child()
   def stop(signum,frame):
    global stopping
    stopping=True
@@ -90,19 +98,25 @@ try:
      report['returncode']=child.wait();break
     child.send_signal(signal.SIGTERM)
     child.wait(timeout=30)
+    os.close(tty);tty=os.open('/dev/tty'+str(vt),os.O_RDWR|os.O_NOCTTY|os.O_CLOEXEC)
     # Closing the desktop finishes its GL work before another context starts.
     for key in ('gpu_service_failed','resident_fault','gpu_error'):
      if (base/key).read_text().strip()!='0':raise RuntimeError('GPU session is faulted; launch refused')
     def track_symbian(process):
      global child
      child=process
-    try:run_symbian(application,account,fb,render_fd,env,tty,child_tty,track_symbian)
-    except OSError as error:print('Symbian launch failed:',error,file=log,flush=True)
+     record_child(application)
+    def symbian_drop():
+     os.setsid();os.initgroups(account.pw_name,account.pw_gid);os.setgid(account.pw_gid);os.setuid(account.pw_uid)
+    try:run_symbian(application,account,fb,render_fd,env,tty,symbian_drop,track_symbian)
+    except (OSError,subprocess.SubprocessError) as error:print('Symbian launch failed:',error,file=log,flush=True)
     if stopping:
      report['returncode']=child.returncode;break
     for key in ('gpu_service_failed','resident_fault','gpu_error'):
      if (base/key).read_text().strip()!='0':raise RuntimeError('GPU session faulted during Symbian execution')
+    os.close(tty);tty=os.open('/dev/tty'+str(vt),os.O_RDWR|os.O_NOCTTY|os.O_CLOEXEC)
     child=subprocess.Popen(command,env=env,cwd=root,stdin=tty,stdout=log,stderr=subprocess.STDOUT,pass_fds=(fb,render_fd),preexec_fn=child_tty)
+    record_child()
   finally:launches.close()
  report['status']='VISIBLE_COMPARISON_FINISHED' if child.returncode==0 else 'VISIBLE_COMPARISON_FAILED'
 finally:

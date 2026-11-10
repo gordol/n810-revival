@@ -19,9 +19,9 @@ this is comfortable for everyday use.
 Users supply compatible Symbian system libraries and application installers in
 private storage. The runtime source is under `platform/symbian/`.
 
-The next integration step is a Pocket launcher that hands graphics ownership to
-the runtime and returns it when the application closes. Once that handoff is
-ready, the same launch command will serve the desktop menu and Make.
+The managed launcher now accepts requests from Pocket's menu and Make. It
+releases the desktop's rendering context, runs the application, then restores
+the saved desktop. See [Run Symbian applications](../how-to/run-symbian.md).
 
 For the tablet setup and graphical desktop, follow [N810 setup](../start.md) and
 [the GPU run guide](../how-to/run-n810-gpu.md).
