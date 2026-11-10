@@ -477,3 +477,19 @@ Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cb
 [Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-gpu-effects)
 
 Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check.
+
+<a id="2026-11-09-pocket-map-rendering"></a>
+
+## Restoring detail and steady movement in the Pocket map
+
+[Read the journal entry](../posts/2026-11-09-pocket-map-rendering.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Retained native map scene](../assets/source/journal/pocket/graphics/gpu_scene.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/gpu_scene.py))<br>[GPU map rasterizer](../assets/source/journal/pocket/graphics/native/gpu_scene.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/native/gpu_scene.c))<br>[Semantic map surface](../assets/source/journal/pocket/graphics/map_pixels.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/map_pixels.py))<br>[Geographic lines and labels](../assets/source/journal/pocket/shell/map_geography.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/map_geography.py))<br>[Local station identity](../assets/source/journal/pocket/shell/directory_preferences.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/directory_preferences.py)) |
+| Checks and fixtures | [Pixel handoff and interactions](../assets/source/journal/pocket/tests/test_map_pixel_handoff.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_map_pixel_handoff.py))<br>[Terrain density checks](../assets/source/journal/pocket/tests/test_gpu_map_terrain_detail.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_gpu_map_terrain_detail.py))<br>[Local identity checks](../assets/source/journal/pocket/tests/test_directory_preferences.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_directory_preferences.py))<br>[Native map check](../assets/source/journal/pocket/graphics/check_map.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/check_map.py)) |
+| Build inputs | [Native graphics build](../assets/source/journal/pocket/graphics/build.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/build.py))<br>[Pocket build targets](../assets/source/journal/pocket/Makefile.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/Makefile)) |
+
+[Build and test instructions](../how-to/validate.md) · [Chronological source index](../reference/journal-sources.md#2026-11-09-pocket-map-rendering)
+
+Host Mac and test-fixture results are recorded here. Physical N810 map performance and visual acceptance remain separate checks.

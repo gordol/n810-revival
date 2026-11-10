@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-07",
+  "date": "2026-11-09",
   "entries": [
     {
       "post": "docs/posts/beginnings.md",
@@ -1407,6 +1407,62 @@
       "guide": "pocket/graphics.md",
       "source_heading": "Code, tests and build inputs",
       "note": "Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check."
+    },
+    {
+      "post": "docs/posts/2026-11-09-pocket-map-rendering.md",
+      "id": "2026-11-09-pocket-map-rendering",
+      "implementation": [
+        {
+          "label": "Retained native map scene",
+          "path": "pocket/graphics/gpu_scene.py"
+        },
+        {
+          "label": "GPU map rasterizer",
+          "path": "pocket/graphics/native/gpu_scene.c"
+        },
+        {
+          "label": "Semantic map surface",
+          "path": "pocket/graphics/map_pixels.py"
+        },
+        {
+          "label": "Geographic lines and labels",
+          "path": "pocket/shell/map_geography.py"
+        },
+        {
+          "label": "Local station identity",
+          "path": "pocket/shell/directory_preferences.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Pixel handoff and interactions",
+          "path": "pocket/tests/test_map_pixel_handoff.py"
+        },
+        {
+          "label": "Terrain density checks",
+          "path": "pocket/tests/test_gpu_map_terrain_detail.py"
+        },
+        {
+          "label": "Local identity checks",
+          "path": "pocket/tests/test_directory_preferences.py"
+        },
+        {
+          "label": "Native map check",
+          "path": "pocket/graphics/check_map.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Native graphics build",
+          "path": "pocket/graphics/build.py"
+        },
+        {
+          "label": "Pocket build targets",
+          "path": "pocket/Makefile"
+        }
+      ],
+      "guide": "how-to/validate.md",
+      "note": "Host Mac and test-fixture results are recorded here. Physical N810 map performance and visual acceptance remain separate checks."
     }
   ]
 }

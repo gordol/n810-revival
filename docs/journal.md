@@ -1,6 +1,6 @@
 # Journal
 
-Read from the beginning. The entries follow the recorded sequence from Maemo research and recovery through the November GPU work. Several investigations overlapped; their headings give the covered period. The early entries were reconstructed on 4 November 2026 from retained notes. Entries for 5–7 November follow the UI and session fixes, map rendering, native Symbian execution, the Mac graphical desktop, and Surface Room interaction.
+Read from the beginning. The entries follow the recorded sequence from Maemo research and recovery through the November GPU work. Several investigations overlapped; their headings give the covered period. The early entries were reconstructed on 4 November 2026 from retained notes. Entries for 5–9 November follow the UI and session fixes, map rendering, native Symbian execution, the Mac graphical desktop, and Surface Room interaction.
 
 The visual record begins with the [sidebar desktop](posts/2026-10-05-sidebar-desktop.md), continues through the [APRS packet inspector](posts/2026-10-14-aprs.md) and [console color comparison](posts/2026-10-16-16-bit-console.md), and reaches the [first live MBX gears](posts/2026-11-03-mbx-rendering.md). Captions distinguish historical tablet captures from later laptop demonstrations.
 
@@ -38,6 +38,7 @@ The visual record begins with the [sidebar desktop](posts/2026-10-05-sidebar-des
 | 7 November 2026 | [Running the Pocket desktop in a native Mac window](posts/2026-11-07-native-desktop.md) |
 | 7 November 2026 | [Adding movement, aiming, and targets to Surface Room](posts/2026-11-07-surface-room.md) |
 | 7 November 2026 | [Moving desktop effects and terrain work onto the Mac GPU](posts/2026-11-07-gpu-effects.md) |
+| 9 November 2026 | [Restoring detail and steady movement in the Pocket map](posts/2026-11-09-pocket-map-rendering.md) |
 
 The guide and reference pages describe reusable procedures and the latest reconciled state. Dated posts preserve the observations available at each checkpoint.
 

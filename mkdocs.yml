@@ -90,6 +90,7 @@ nav:
   - Running the Pocket desktop in a native Mac window: posts/2026-11-07-native-desktop.md
   - Adding movement, aiming, and targets to Surface Room: posts/2026-11-07-surface-room.md
   - Moving desktop effects and terrain work onto the Mac GPU: posts/2026-11-07-gpu-effects.md
+  - Restoring detail and steady movement in the Pocket map: posts/2026-11-09-pocket-map-rendering.md
 - Get started: start.md
 - Guides: guides.md
 - Roadmap: roadmap.md
