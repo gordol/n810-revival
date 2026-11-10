@@ -26,6 +26,17 @@ the saved desktop. See [Run Symbian applications](../how-to/run-symbian.md).
 For the tablet setup and graphical desktop, follow [N810 setup](../start.md) and
 [the GPU run guide](../how-to/run-n810-gpu.md).
 
+## 10 November: resident GPU masks
+
+Masked images now stay in GPU storage through composition and drawing. Native-size
+images reuse bounded staging storage, and font atlases pack the same glyphs more
+compactly. Physical pixel checks matched exactly.
+
+The isolated ChessGenius comparison removed mask readbacks, but CPU time and input
+response remain roughly unchanged. Down/Up responses still take about 2–3 seconds
+to produce a completed GPU frame. More GPU submissions offset the smaller transfers;
+reducing that submission work is next.
+
 <!-- journal-sources:start -->
 ## Code, tests and build inputs
 
