@@ -1,0 +1,47 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* SDL implementation of the shared scene primitive backend. */
+#ifndef POCKET_SCENE_BACKEND_SDL_H
+#define POCKET_SCENE_BACKEND_SDL_H
+#define Scene_BLENDFACTOR_ONE SDL_BLENDFACTOR_ONE
+#define Scene_BLENDFACTOR_ONE_MINUS_SRC_ALPHA SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA
+#define Scene_BLENDMODE_BLEND SDL_BLENDMODE_BLEND
+#define Scene_BLENDMODE_NONE SDL_BLENDMODE_NONE
+#define Scene_BLENDOPERATION_ADD SDL_BLENDOPERATION_ADD
+#define Scene_BlendMode SDL_BlendMode
+#define Scene_Color SDL_Color
+#define Scene_ComposeCustomBlendMode SDL_ComposeCustomBlendMode
+#define Scene_CreateTexture SDL_CreateTexture
+#define Scene_DestroyTexture SDL_DestroyTexture
+#define Scene_FPoint SDL_FPoint
+#define Scene_GetRendererInfo SDL_GetRendererInfo
+#define Scene_PIXELFORMAT_ABGR8888 SDL_PIXELFORMAT_ABGR8888
+#define Scene_PIXELFORMAT_RGB565 SDL_PIXELFORMAT_RGB565
+#define Scene_RENDERER_ACCELERATED SDL_RENDERER_ACCELERATED
+#define Scene_Rect SDL_Rect
+#define Scene_RenderClear SDL_RenderClear
+#define Scene_RenderCopy SDL_RenderCopy
+#define Scene_RenderFillRect SDL_RenderFillRect
+#define Scene_RenderGeometry SDL_RenderGeometry
+#define Scene_RenderPresent SDL_RenderPresent
+#define Scene_RenderReadPixels SDL_RenderReadPixels
+#define Scene_RenderSetClipRect SDL_RenderSetClipRect
+#define Scene_RenderSetLogicalSize SDL_RenderSetLogicalSize
+#define Scene_RenderSetScale SDL_RenderSetScale
+#define Scene_RenderSetViewport SDL_RenderSetViewport
+#define Scene_RendererInfo SDL_RendererInfo
+#define Scene_ScaleModeNearest SDL_ScaleModeNearest
+#define Scene_SetError SDL_SetError
+#define Scene_SetRenderDrawBlendMode SDL_SetRenderDrawBlendMode
+#define Scene_SetRenderDrawColor SDL_SetRenderDrawColor
+#define Scene_SetRenderTarget SDL_SetRenderTarget
+#define Scene_SetTextureBlendMode SDL_SetTextureBlendMode
+#define Scene_SetTextureScaleMode SDL_SetTextureScaleMode
+#define Scene_TEXTUREACCESS_STATIC SDL_TEXTUREACCESS_STATIC
+#define Scene_TEXTUREACCESS_TARGET SDL_TEXTUREACCESS_TARGET
+#define Scene_Texture SDL_Texture
+#define Scene_UpdateTexture SDL_UpdateTexture
+#define Scene_Vertex SDL_Vertex
+typedef SDL_Renderer Scene_Renderer;
+static Scene_Renderer *scene_device(void *window){return ((struct window*)window)->renderer;}
+static void scene_device_close(Scene_Renderer *device){(void)device;}
+#endif

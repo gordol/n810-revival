@@ -50,6 +50,7 @@ class Compositor:
         self.cell=cell;self.front=None;self.planes={};self.style_cache=None
         self.outline_plane=None;self.outline_layer=None;self.blank_plane=None;self.blend_plane=None;self.mixed_plane=None;self.mixed_python_cells=0;self.mixed_cache_key=None;self.mixed_background=None;self.mixed_epoch=0
         self.row_builds=0;self.overlays={};self.background_plane=None;self.cell_planes={};self.layer_cells_set=0;self.layer_cells_sampled=0
+        self.cell_views={};self.cell_view_builds=0;self.cell_view_export_bytes=0;self.cell_view_index_allocations=0
         self.setup_calls=0;self.flush_calls=0;self.menu_calls=0
         self.mixed_content_plan=None;self.mixed_content_tokens=None
     def text_overlay(self,key,width,height,rows):
@@ -75,7 +76,7 @@ class Compositor:
                     and hasattr(cells,'__getitem__'))
         except (TypeError,ValueError,OverflowError):return False
 
-    def cell_plane(self,host,w,bounds,indices,inks,glyph_map=None):
+    def cell_plane(self,host,w,bounds,indices,inks,glyph_map=None,*,local=False):
         """Sample only this dirty batch; retain clipped RGB planes across revisions.
 
         Producer identity/revision controls Host damage, not a full-plane repack.
@@ -94,8 +95,8 @@ class Compositor:
         else:plane,seen=prior[1:3]
         self.cell_planes[w.name]=(key,plane,seen,cells)
         ox,oy=x+1+left,y+1+top
-        for i in indices:
-            xx,yy=i%host.width-ox,i//host.width-oy
+        for i in (range(cw*ch) if local else indices):
+            xx,yy=(i%cw,i//cw) if local else (i%host.width-ox,i//host.width-oy)
             if not (0<=xx<cw and 0<=yy<ch):continue
             char,color=cells[(yy+top-ly)*lw+xx+left-lx]
             self.layer_cells_sampled+=1
@@ -111,6 +112,35 @@ class Compositor:
                 seen[at]=value;self.layer_cells_set+=1
             inks.add(color)
         return plane.pointer,ox,oy
+
+    def cell_view(self,host,w,bounds):
+        """Retained immutable records for one producer view, independent of placement.
+
+        Host.content/layer_patch own generation changes, including hidden edits.
+        Palette, opacity and overlap are applied by the drawing backend. A local
+        sample includes offscreen cells, so moving into view cannot expose stale
+        data. Existing TUI dirty-batch sampling remains independent.
+        """
+        if not w.layer or w.rolled:
+            self.cell_views.pop(w.name,None);return None
+        x,y,width,height=bounds;lx,ly,lw,lh,cells=w.layer
+        left,top=max(0,lx),max(0,ly)
+        cw,ch=min(width-2,lx+lw)-left,min(height-2,ly+lh)-top
+        if cw<=0 or ch<=0:
+            self.cell_views.pop(w.name,None);return None
+        key=(w.layer_generation,id(w.layer),id(cells),lx,ly,lw,lh,cw,ch,host.ascii,host.glyphs.key)
+        prior=self.cell_views.get(w.name)
+        if prior is None or prior[0]!=key:
+            sampled=self.cell_plane(host,w,bounds,None,set(),{},local=True)
+            if sampled is None:return None
+            indices=array('I',range(cw*ch));self.cell_view_index_allocations+=1
+            records=self.lib.export_cells(sampled[0],indices)
+            # Retain the producer to prevent identity recycling; publish only
+            # after complete sampling/export succeeds.
+            self.cell_views[w.name]=(key,records,w.layer)
+            self.cell_view_builds+=1;self.cell_view_export_bytes+=len(records)
+        else:records=prior[1]
+        return records,cw,ch,x+1+left,y+1+top
 
     def mixed_regions(self,host,windows):
         """Only these intervals need portable alpha/shadow semantics."""
@@ -321,8 +351,18 @@ class Compositor:
         for w in reversed(windows):
             w._opaque_cache=None;w._opaque_plane_cache=None
             x,y,width,height=host.bounds(w);active.add(w.name)
-            window_styles=themes.window_styles(host.palette,w.styles,width,height)
-            signature=(width,height,host.focus==w.name,host.style,host.ascii,host.glyphs.key,host.palette,host.tinted,w.name,w.rolled,w.pinned,w.name in host.maximized,host.control_side(),tuple(w.lines),tuple((row,tuple(spans)) for row,spans in sorted(window_styles.items())))
+            # Placement is deliberately excluded. Snapshot mutable inputs so
+            # in-place line/style edits cannot leave stale prepared chrome.
+            inputs=(width,height,host.focus==w.name,host.style,host.ascii,host.glyphs.key,host.palette,host.tinted,w.name,w.rolled,w.pinned,w.name in host.maximized,host.control_side(),tuple(w.lines),tuple((row,tuple(spans)) for row,spans in sorted(w.styles.items())))
+            cache=getattr(self,'window_preparation_cache',None)
+            if cache is None:self.window_preparation_cache=cache={}
+            saved=cache.get(w.name)
+            if saved is not None and saved[0]==inputs:
+                window_styles,signature=saved[1:]
+            else:
+                window_styles=themes.window_styles(host.palette,w.styles,width,height)
+                signature=inputs[:14]+(tuple((row,tuple(spans)) for row,spans in sorted(window_styles.items())),)
+                cache[w.name]=(inputs,window_styles,signature)
             prior=self.planes.get(w.name)
             if hasattr(self.lib,'window_host'):
                 if prior is None or prior[0]!=signature:
@@ -365,8 +405,10 @@ class Compositor:
                 for _,color,spans in prior[2]:
                     inks.add(color);inks.update(ink for _,_,ink in spans)
             plans.append((w,(x,y,width,height),prior[1].pointer))
+        self.window_preparation_cache={name:value for name,value in getattr(self,'window_preparation_cache',{}).items() if name in active}
         self.planes={name:value for name,value in self.planes.items() if name in active}
         self.cell_planes={name:value for name,value in self.cell_planes.items() if name in active and host.window(name).layer}
+        self.cell_views={name:value for name,value in self.cell_views.items() if name in active and host.window(name).layer}
         menu=None
         if host.launcher_lines:
             x,y,width,height=host.launcher_bounds()

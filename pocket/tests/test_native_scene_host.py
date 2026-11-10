@@ -17,6 +17,25 @@ class NativeSceneTests(unittest.TestCase):
         if not path:raise unittest.SkipTest('native build unavailable')
         cls.lib=load(path)
         if not hasattr(cls.lib,'flux_surface'):raise unittest.SkipTest('native scenes unavailable')
+    def test_damage_bounds_match_mutations_without_consuming_indices(self):
+        self.assertTrue(hasattr(self.lib,'damage_bounds'))
+        rng=random.Random(2420)
+        for width,height in ((1,1),(7,9),(100,30)):
+            damage=Damage(self.lib,width*height);expected=set()
+            for step in range(160):
+                values={rng.randrange(width*height) for _ in range(rng.randrange(20))}
+                if step%3==0:
+                    damage.difference_update(values);expected.difference_update(values)
+                elif step%17==0:damage.clear();expected.clear()
+                else:damage.update(values);expected.update(values)
+                if expected:
+                    xs=[i%width for i in expected];ys=[i//width for i in expected]
+                    bounds=(min(xs),min(ys),max(xs)-min(xs)+1,max(ys)-min(ys)+1)
+                else:bounds=(0,0,0,0)
+                self.assertEqual(damage.bounds(width),bounds)
+                self.assertEqual(set(damage),expected)
+            for invalid in (0,width*height+1):
+                with self.assertRaises(ValueError):damage.bounds(invalid)
     def test_flux_matches_reference_base_overlay_and_order(self):
         for w,h in ((1,1),(40,15),(100,29)):
             for ascii,step,density,glow,arms in ((False,0,1.,.15,2),(True,7,.5,0.,0),(False,41,4.,1.,4)):

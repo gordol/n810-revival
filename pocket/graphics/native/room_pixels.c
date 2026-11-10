@@ -11,6 +11,8 @@
 #include <math.h>
 #include <string.h>
 #include "room_mesh.h"
+#include "pixel_target.h"
+#include "room_draw.h"
 /* Called on the GL owner thread before rendering a view. The caller retains
  * per-view camera state; this is only the current native draw setting. */
 static float room_eye_height=340.f;
@@ -32,11 +34,11 @@ int pocket_room_gpu_layers(void *const *layers,const int *xy,unsigned count){
  for(unsigned i=0;i<count;++i){room_overlays[i].layer=layers[i];room_overlays[i].x=xy[2*i];room_overlays[i].y=xy[2*i+1];}
  room_overlay_count=count;return 0;
 }
-/* Same scene, camera, lighting and moving-object transform as room_worker.c. */
-int pocket_room_pixels_into(float age,float x,float z,float yaw,float pitch,unsigned width,unsigned height,uint16_t *out,unsigned stride,size_t capacity,unsigned tile_limit){
- if(!out||!width||!height||width>4096||height>4096||stride<width||stride>4096||capacity<((size_t)(height-1)*stride+width)*2||!tile_limit||tile_limit>400||!isfinite(age)||!isfinite(x)||!isfinite(z)||!isfinite(yaw)||!isfinite(pitch)||fabsf(pitch)>1.1f||!OSMesaGetCurrentContext())return -1;
- GLint bw,bh,format;void *buffer;
- if(!OSMesaGetColorBuffer(OSMesaGetCurrentContext(),&bw,&bh,&format,&buffer)||bw!=400||bh!=400||format!=OSMESA_RGB_565)return -1;
+/* Draw into the caller-owned current GL target. No target switch, finish,
+ * readback, allocation or pixel upload. The scene backend owns completion.
+ * Tile offsets preserve the original full-view projection and rasterization. */
+static int room_draw_region(float age,float x,float z,float yaw,float pitch,unsigned width,unsigned height,int tx,int ty,unsigned tw,unsigned th,unsigned target_height,int with_game,int clear){
+ if(!width||!height||width>4096||height>4096||!tw||!th||tw>400||th>400||tx<=-4096||ty<=-4096||tx>=(int)width||ty>=(int)height||(clear&&(tx<0||ty<0||tw>width-(unsigned)tx||th>height-(unsigned)ty))||target_height<th||target_height>4096||!isfinite(age)||!isfinite(x)||!isfinite(z)||!isfinite(yaw)||!isfinite(pitch)||fabsf(pitch)>1.1f)return -1;
  const float eye=room_eye_height;
  float sy=sinf(yaw),cy=cosf(yaw),se=sinf(.05f+pitch),ce=cosf(.05f+pitch);
  float right[]={cy,0,-sy},up[]={-sy*se,-ce,-cy*se},forward[]={sy*ce,-se,cy*ce};
@@ -46,23 +48,49 @@ int pocket_room_pixels_into(float age,float x,float z,float yaw,float pitch,unsi
  glEnable(GL_DEPTH_TEST);glDepthFunc(GL_LESS);glDepthMask(GL_TRUE);glEnable(GL_LIGHTING);glEnable(GL_LIGHT0);glShadeModel(GL_SMOOTH);
  glEnableClientState(GL_VERTEX_ARRAY);glEnableClientState(GL_NORMAL_ARRAY);glDisableClientState(GL_COLOR_ARRAY);glDisableClientState(GL_TEXTURE_COORD_ARRAY);
  glLightModelfv(GL_LIGHT_MODEL_AMBIENT,ambient);glLightfv(GL_LIGHT0,GL_DIFFUSE,sunlight);glLightfv(GL_LIGHT0,GL_AMBIENT,zero);glLightfv(GL_LIGHT0,GL_SPECULAR,zero);glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,zero);glMaterialfv(GL_FRONT_AND_BACK,GL_EMISSION,zero);glClearColor(0,0,0,0);glClearDepth(1);
- unsigned jobs=0;double top=1085*.05,right_edge=top*width/height;
- for(unsigned ty=0;ty<height;ty+=tile_limit)for(unsigned tx=0;tx<width;tx+=tile_limit){
-  unsigned tw=width-tx,th=height-ty;if(tw>tile_limit)tw=tile_limit;if(th>tile_limit)th=tile_limit;
+ double top=1085*.05,right_edge=top*width/height;
   glEnable(GL_DEPTH_TEST);glDepthMask(GL_TRUE);glEnable(GL_LIGHTING);glEnableClientState(GL_NORMAL_ARRAY);
-  glViewport(-(int)tx,400-(int)height+(int)ty,width,height);glMatrixMode(GL_PROJECTION);glLoadIdentity();
+  glViewport(-(int)tx,(int)target_height-(int)height+(int)ty,width,height);glMatrixMode(GL_PROJECTION);glLoadIdentity();
   glFrustum(-right_edge,right_edge,-top,top,100,20000);
-  glMatrixMode(GL_MODELVIEW);glLoadMatrixf(view);glLightfv(GL_LIGHT0,GL_POSITION,sun);glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+  glMatrixMode(GL_MODELVIEW);glLoadMatrixf(view);glLightfv(GL_LIGHT0,GL_POSITION,sun);if(clear)glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
   for(unsigned d=0;d<sizeof(room_draws)/sizeof(room_draws[0]);++d){const struct room_draw *draw=room_draws+d;
    glPushMatrix();if(draw->moving){glTranslatef(sinf(age*.35f)*180,0,2050);glRotatef((.15+age*.4)*180/3.141592653589793,0,1,0);}
    glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE,draw->color);glVertexPointer(3,GL_FLOAT,6*sizeof(float),room_vertices[draw->first]);glNormalPointer(GL_FLOAT,6*sizeof(float),room_vertices[draw->first]+3);
    glDrawArrays(GL_TRIANGLES,0,draw->count);glPopMatrix();
   }
-  for(unsigned i=0;i<room_overlay_count;++i)if(pocket_pixel_layer_gpu(room_overlays[i].layer,room_overlays[i].x-(int)tx,room_overlays[i].y-(int)ty)<0)return -3;
-  glFinish();if(glGetError()!=GL_NO_ERROR)return -2;++jobs;
-  for(unsigned row=0;row<th;++row)memcpy(out+(ty+row)*stride+tx,(uint16_t*)buffer+row*400,tw*2);
+#ifdef POCKET_NATIVE_GAME
+ if(with_game)game_draw(age,width,height,tx,ty,tw,th);
+#else
+ (void)with_game;
+#endif
+ return 0;
+}
+int pocket_room_draw_tile(float age,float x,float z,float yaw,float pitch,unsigned width,unsigned height,unsigned tx,unsigned ty,unsigned tw,unsigned th,unsigned target_height,int with_game){
+ if(tx>4096||ty>4096)return -1;
+ return room_draw_region(age,x,z,yaw,pitch,width,height,(int)tx,(int)ty,tw,th,target_height,with_game,1);
+}
+/* Draw into an initialized composition target. Caller owns clipping and has
+ * cleared depth once for this frame. No intermediate image or clear occurs. */
+int pocket_room_draw_region(float age,float x,float z,float yaw,float pitch,unsigned width,unsigned height,int tx,int ty,unsigned tw,unsigned th,unsigned target_height,int with_game){
+ return room_draw_region(age,x,z,yaw,pitch,width,height,tx,ty,tw,th,target_height,with_game,0);
+}
+/* Pixel compatibility sink; only this entry materializes completed tiles. */
+int pocket_room_pixels_into(float age,float x,float z,float yaw,float pitch,unsigned width,unsigned height,uint16_t *out,unsigned stride,size_t capacity,unsigned tile_limit){
+ if(!out||!width||!height||width>4096||height>4096||stride<width||stride>4096||capacity<((size_t)(height-1)*stride+width)*2||!tile_limit||tile_limit>400||!isfinite(age)||!isfinite(x)||!isfinite(z)||!isfinite(yaw)||!isfinite(pitch)||fabsf(pitch)>1.1f||!OSMesaGetCurrentContext())return -1;
+ GLint bw,bh,format;void *buffer;
+ if(!OSMesaGetColorBuffer(OSMesaGetCurrentContext(),&bw,&bh,&format,&buffer)||bw!=400||bh!=400||format!=OSMESA_RGB_565)return -1;
+ if(pocket_target_begin())return -2;
+ unsigned jobs=0;
+ for(unsigned ty=0;ty<height;ty+=tile_limit)for(unsigned tx=0;tx<width;tx+=tile_limit){
+  unsigned tw=width-tx,th=height-ty;if(tw>tile_limit)tw=tile_limit;if(th>tile_limit)th=tile_limit;
+  if(pocket_room_draw_tile(age,x,z,yaw,pitch,width,height,tx,ty,tw,th,400,0)){pocket_target_end();return -2;}
+  for(unsigned i=0;i<room_overlay_count;++i)if(pocket_pixel_layer_gpu(room_overlays[i].layer,room_overlays[i].x-(int)tx,room_overlays[i].y-(int)ty)<0){pocket_target_end();return -3;}
+#ifdef POCKET_NATIVE_GAME
+  game_draw(age,width,height,tx,ty,tw,th);
+#endif
+  if(pocket_target_read(out+ty*stride+tx,capacity-((size_t)ty*stride+tx)*2,stride,tw,th)){pocket_target_end();return -2;}++jobs;
  }
- return (int)jobs;
+ pocket_target_end();return (int)jobs;
 }
 /* Compatibility entry retains a tightly packed image. The strided entry allows
  * the native presenter/compositor to receive final tiles directly in its canvas. */

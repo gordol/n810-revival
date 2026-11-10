@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "pixel_target_impl.h"
 struct cell {uint16_t fg,bg;unsigned char mask[16],valid,dirty;uint32_t code;};
 struct renderer {OSMesaContext gl;uint16_t image[160000];struct cell *cells;unsigned cols,rows;float positions[6144*3],colors[6144*4];unsigned rectangles,jobs;float glyph_depth;GLuint program;const uint32_t *coverage_codes;const unsigned char *coverage;unsigned coverage_count;int defer_text,cpu_cells;};
 static const char *failure="MBX cell renderer rejected input";
@@ -156,6 +157,7 @@ static int tile(struct renderer *r,uint16_t *canvas,unsigned x,unsigned y,unsign
   if(h>1){unsigned n=h/2;return tile(r,canvas,x,y,w,n)||tile(r,canvas,x,y+n,w,h-n)?-1:0;}
   return -1;
  }
+ if(pocket_target_begin())return -1;
  r->rectangles=0;r->glyph_depth=0;
  /* Adjacent opaque backgrounds share one rectangle. Glyphs remain exact
   * and cannot cross their cell bounds, so drawing them afterward is equivalent. */
@@ -180,8 +182,9 @@ static int tile(struct renderer *r,uint16_t *canvas,unsigned x,unsigned y,unsign
  glEnableClientState(GL_VERTEX_ARRAY);glEnableClientState(GL_COLOR_ARRAY);glDisableClientState(GL_NORMAL_ARRAY);glDisableClientState(GL_TEXTURE_COORD_ARRAY);
  glVertexPointer(3,GL_FLOAT,0,r->positions);glColorPointer(4,GL_FLOAT,0,r->colors);
  for(unsigned first=0;first<r->rectangles;first+=128){unsigned n=r->rectangles-first;if(n>128)n=128;glDrawArrays(GL_TRIANGLES,first*6,n*6);}
- glFinish();if(glGetError()!=GL_NO_ERROR){failure="MBX draw failed; no CPU fallback";return -1;}++r->jobs;
- for(unsigned row=0;row<h*16;++row)memcpy(canvas+(y*16+row)*(r->cols*8)+x*8,r->image+row*400,w*16);
+ int result=pocket_target_read(canvas+y*16*r->cols*8+x*8,((size_t)(h*16-1)*r->cols*8+w*8)*2,r->cols*8,w*8,h*16);
+ pocket_target_end();
+ if(result){failure="MBX draw/readback failed; no CPU fallback";return -1;}++r->jobs;
  return 0;
 }
 int pocket_mbx_render(void *ptr,uint16_t *canvas){
@@ -211,7 +214,7 @@ int pocket_mbx_render(void *ptr,uint16_t *canvas){
  return 0;
 }
 unsigned pocket_mbx_jobs(void *ptr){return ((struct renderer*)ptr)->jobs;}
-void pocket_mbx_close(void *ptr){struct renderer *r=ptr;if(r){if(r->gl)OSMesaDestroyContext(r->gl);free(r->cells);free(r);}}
+void pocket_mbx_close(void *ptr){struct renderer *r=ptr;if(r){if(r->gl){if(pocket_target.owner==r->gl)pocket_target_close();OSMesaDestroyContext(r->gl);}free(r->cells);free(r);}}
 /* Model viewport to physical desktop mapping, validated before staging. */
 int pocket_mbx_stage_region(void *ptr,const void *data,size_t bytes,const uint32_t *codes,const unsigned char *glyphs,unsigned count,const uint32_t *palette,unsigned palettes,unsigned fallback,unsigned width,unsigned height,unsigned x,unsigned y){
  struct renderer *r=ptr;
@@ -245,3 +248,5 @@ int pocket_mbx_text_cells(void *ptr,uint32_t *out,size_t count){
  for(unsigned i=0;i<r->cols*r->rows;i++){out[i*2]=r->cells[i].code;out[i*2+1]=r->cells[i].fg;}
  return 0;
 }
+
+int pocket_mbx_cell_colors(void *ptr,uint32_t *out,size_t count){struct renderer *r=ptr;if(!r||!out||count!=(size_t)r->cols*r->rows*2)return -1;for(size_t i=0;i<count/2;i++){out[i*2]=r->cells[i].code;out[i*2+1]=r->cells[i].fg|((uint32_t)r->cells[i].bg<<16);}return 0;}

@@ -749,6 +749,8 @@ def main(platform=None,argv=None):
         launcher.set_mode(mode)
     def toggle_animation(direction):
         host.settle();host.set_preference('animate',not host.animate)
+    def toggle_window_animation(direction):
+        host.settle();host.set_preference('window_animations',not host.window_animations)
     def toggle_backdrop(direction):
         host.set_background_enabled(not host.background_enabled)
     settings_items=[
@@ -757,6 +759,7 @@ def main(platform=None,argv=None):
         ('Background',lambda:host.effect,lambda d:cycle(EFFECTS,host.effect,host.set_effect,d)),
         ('Backdrop enabled',lambda:'on' if host.background_enabled else 'off',toggle_backdrop),
         ('Animation',lambda:'on' if host.animate else 'off',toggle_animation),
+        ('Window animations',lambda:'on' if host.window_animations else 'off',toggle_window_animation),
         ('Animation time',lambda:slider(round(host.animation_duration*1000)),lambda d:host.set_preference('animation_duration',max(.04,min(.32,round(host.animation_duration+d*.04,2))))),
         ('Move drawing',lambda:host.move_mode,lambda d:host.set_preference('move_mode','live' if host.move_mode=='outline' else 'outline')),
         ('Resize drawing',lambda:host.resize_mode,lambda d:host.set_preference('resize_mode','live' if host.resize_mode=='outline' else 'outline')),
@@ -802,7 +805,7 @@ def main(platform=None,argv=None):
             ('Style',[rows['Frame style'],title_controls,window_rows[0]]),
             ('Behavior',[rows['Focused click'],rows['Move drawing'],rows['Resize drawing'],('Resize borders',lambda:'on' if host.resize_edges else 'off',lambda d:host.set_preference('resize_edges',not host.resize_edges)),('Desktop wheel',lambda:'on' if host.desktop_scroll else 'off',lambda d:host.set_preference('desktop_scroll',not host.desktop_scroll))]),
             ('Compositor',[rows['Overview shade']]+[c.row() for c in shared_controls['shadows']]),
-            ('Motion',[rows['Animation'],rows['Animation time'],('Mouse trails',lambda:'on' if host.mouse_trails else 'off',lambda d:host.set_mouse_trails(not host.mouse_trails))]+[c.row() for c in shared_controls['arrival']])]),
+            ('Motion',[rows['Animation'],rows['Window animations'],rows['Animation time'],('Mouse trails',lambda:'on' if host.mouse_trails else 'off',lambda d:host.set_mouse_trails(not host.mouse_trails))]+[c.row() for c in shared_controls['arrival']])]),
         ('Desktop',('  /\\ ', ' /~~\\', '/\\/\\'),'Backgrounds and landscape',[
             ('Background',[rows['Background'],rows['Backdrop enabled']]),
             ('Scenery',scenery_rows(host,scenery_library)),
@@ -846,7 +849,7 @@ def main(platform=None,argv=None):
     def open_registered_settings(category):
         settings.category=category;host.activate('Settings')
     registered_apps.settings_opener=open_registered_settings
-    from app_registry import LazyApplication
+    from app_registry import LazyApplication,instantiated_forms
     def make_scenery(_host):
         from scenery_app import SceneryApp
         return SceneryApp(host,scenery_library,lambda:host.close('Scenery'))
@@ -1740,7 +1743,9 @@ def main(platform=None,argv=None):
             # controls/menu changes retain the ordinary urgent presentation.
             map_frame=host.focus=='Station Map' and (len(host.damage)>2048 or bool(presentation.buffer))
             static_ui=not host.background_enabled and not (host.drag or host.animations or host.slide or host.camera_motion or host.terrain_loading or host.terrain_arrival is not None)
-            output,changed,computed=host.flush(width*height if host._native is not None or static_ui or first_frame and args.minimal or host.terrain_loading or host.terrain_arrival is not None else 2048,max_seconds=None if static_ui or first_frame and args.minimal else .012,serialize=platform is None)
+            native_frame=platform.compose_model() if platform and hasattr(platform,'compose_model') else None
+            if native_frame is not None:output,changed,computed=native_frame
+            else:output,changed,computed=host.flush(width*height if host._native is not None or static_ui or first_frame and args.minimal or host.terrain_loading or host.terrain_arrival is not None else 2048,max_seconds=None if static_ui or first_frame and args.minimal else .012,serialize=platform is None)
             if platform:platform.consume(changed,computed)
             trace_composed=(time.monotonic_ns(),time.thread_time_ns()) if DEVELOPMENT and (trace_start is not None) else None
             if DEVELOPMENT and (metrics and host.terrain_renderer and host.terrain_renderer.completed and 'terrain_ready_seconds' not in startup):
@@ -1828,7 +1833,8 @@ def main(platform=None,argv=None):
                     if interval is not None:
                         timeout=interval if timeout is None else min(timeout,interval)
                         owner_delay('application:'+str(index),interval)
-                for name,form in host.app_forms.items():
+                lifecycle_forms=instantiated_forms(host.app_forms)
+                for name,form in lifecycle_forms:
                     interval=(metrics.model_call(name,'interval',form.poll_interval) if DEVELOPMENT and (metrics) else form.poll_interval()) if hasattr(form,'poll_interval') else None
                     window=host.window(name)
                     if host.shown(window) and not window.rolled and hasattr(form,'presentation_interval'):
@@ -1843,7 +1849,7 @@ def main(platform=None,argv=None):
                     if radio_delay is not None:
                         timeout=radio_delay if timeout is None else min(timeout,radio_delay)
                         owner_delay('sources',radio_delay)
-                for name,form in host.app_forms.items():
+                for name,form in lifecycle_forms:
                     future_wakeups.watch(form,'form:'+name)
             for renderer in (*getattr(host,'app_renderers',()),host.terrain_renderer):
                 if renderer is not None:future_wakeups.watch(renderer,'background' if renderer is host.terrain_renderer and host.effect=='flux' else 'all','pending')
@@ -1859,7 +1865,7 @@ def main(platform=None,argv=None):
                 timeout=clock_delay if timeout is None else min(timeout,clock_delay)
                 owner_delay('panel',clock_delay)
             if lifecycle_refresh:
-                for name,form in host.app_forms.items():
+                for name,form in lifecycle_forms:
                     if host.shown(host.window(name)) and (getattr(form,'spin',False) or getattr(form,'transition',None)):
                         timeout=.04 if timeout is None else min(timeout,.04);owner_delay('form:'+name,.04)
             delay=store.delay(now)
@@ -1884,7 +1890,7 @@ def main(platform=None,argv=None):
             if keyboard_delay is not None:timeout=keyboard_delay if timeout is None else min(timeout,keyboard_delay)
             if DEVELOPMENT:
                 pointer_trace.sample(host)
-            if lifecycle_refresh:app_readiness.sync((*host.app_forms.values(),*applications))
+            if lifecycle_refresh:app_readiness.sync(tuple(form for _,form in lifecycle_forms)+tuple(applications))
             else:app_readiness.rearm_integers()
             if host.drag and due_owners and not refresh_models and not launcher.active:
                 # Paint pending motion, then service overdue owners before

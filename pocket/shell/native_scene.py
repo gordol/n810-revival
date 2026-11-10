@@ -31,6 +31,14 @@ class Damage(MutableSet):
     def clear(self):self.lib.damage_rect(self.handle,self.size,0,0,self.size,1,False)
     def copy(self):return set(self)
     def mark(self,stride,x,y,width,height):self.lib.damage_rect(self.handle,stride,x,y,width,height)
+    def bounds(self,stride):
+        if hasattr(self.lib,'damage_bounds'):return self.lib.damage_bounds(self.handle,stride)
+        if not stride or self.size%stride:raise ValueError('invalid damage stride')
+        values=self.take(self.size)
+        if not values:return (0,0,0,0)
+        left=min(i%stride for i in values);right=max(i%stride for i in values)+1
+        top=min(values)//stride;bottom=max(values)//stride+1
+        return left,top,right-left,bottom-top
     def take(self,budget,priority=None):return indices(self.lib.damage_take(self.handle,budget,priority.handle if priority is not None else None))
     def intersects(self,values):return self.lib.damage_intersects(self.handle,values)
     @classmethod

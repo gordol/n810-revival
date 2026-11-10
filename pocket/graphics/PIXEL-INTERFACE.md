@@ -54,3 +54,56 @@ program; its fixed-function path remains guarded pending physical validation.
 uses full.Platform. `graphics/launch.py` remains an isolated fixture. `make gui`
 launches the full desktop through the repository SDL/OpenGL adapter; `make tui` remains terminal.
 All current full-desktop evidence is local. No Nokia access or deployment occurred.
+
+### Shared native GL target
+
+`native/pixel_target.h` defines the owner-thread completion and readback boundary
+for Room and GPU cells. Applications draw with standard GL between `begin` and
+`end`. The frontend owns the context; the presenter receives top-down RGB565
+pixels and handles display transfer. The target borrows the current context,
+rejects nesting, checks output spans, and restores framebuffer and pixel-pack
+state. Every successful `begin` requires `end`, including error paths.
+
+The default `POCKET_GL_TARGET=legacy` completes OSMesa rendering and copies rows
+from its client buffer. `POCKET_GL_TARGET=direct` reads the unchanged default
+framebuffer directly into the caller's strided output using
+`GL_MESA_pack_invert`. This removes the separate completion and intermediate row
+copy. GL readback still synchronizes and copies internally. The tile limit
+remains 400x400; larger views use the existing tiling.
+
+The direct path keeps the default framebuffer's orientation. An earlier extra
+FBO changed Mesa's viewport orientation and failed hardware Room parity. The
+accepted correction removes that FBO. GPU-resident surface reuse remains a
+separate driver capability.
+
+Build the renderer with the matching Mesa headers and library, then run the
+software-reference comparison from `pocket/`:
+
+```sh
+python3 graphics/test_target.py --build build/graphics-nokia \
+  --mesa-include /path/to/mesa/include --mesa-library /path/to/libOSMesa.so.8 \
+  --cc 'arm-linux-gnueabi-gcc --sysroot=/path/to/sysroot -mcpu=arm1136jf-s -mfloat-abi=soft' \
+  --runner 'qemu-arm -cpu arm1136 -L /path/to/sysroot'
+```
+
+The reference runner forces softpipe. It compares 177,313 pixels across cells,
+Room and tiled Room, checks padding and guards, restores hostile pack state,
+and verifies that direct readback leaves the 320,000-byte OSMesa client buffer
+untouched. See [the regression guide](REGRESSION.md) for the hardware procedure.
+
+A controlled Nokia comparison on 8 November 2026 matched all 177,313 pixels in
+both capture and timing phases. The client-buffer sentinel and legacy capture
+comparisons passed. Each mode used 80 measured iterations after ten warmups,
+with identical geometry, lighting, format, Mesa library and kernel module.
+
+| Offscreen workload | Legacy iterations/s | Direct iterations/s | CPU ms/iteration, legacy → direct |
+| --- | ---: | ---: | ---: |
+| 320x200 Room | 31.43 | 36.56 | 22.29 → 18.95 |
+| 417x257 tiled Room | 16.59 | 18.84 | 43.52 → 36.56 |
+| 64x48 cell pattern, final case | 20.71 | 22.49 | 35.46 → 31.41 |
+
+These are offscreen measurements with state-check overhead. Whole-desktop FPS
+and display transfers require a separate frontend measurement. All measured
+cases had zero major faults. The capture and timing phases completed 910 GPU
+jobs with normal cleanup. Legacy remains the default while combined frontend
+acceptance proceeds.
