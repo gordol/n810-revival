@@ -35,7 +35,13 @@ static int OSMesaMakeCurrent(OSMesaContext c,void *buffer,unsigned type,int w,in
 }
 static void OSMesaDestroyContext(OSMesaContext c){if(!c)return;if(mac_current==c)mac_current=NULL;SDL_GL_DeleteContext(c->context);SDL_DestroyWindow(c->window);free(c);}
 static void OSMesaPixelStore(int key,int value){(void)key;(void)value;}
-static OSMesaContext OSMesaGetCurrentContext(void){return mac_current;}
+/* SDL scene presentation can switch the actual GL context between Room frames.
+ * Rebind the producer's owner before callers issue GL commands or read pixels. */
+static OSMesaContext OSMesaGetCurrentContext(void){
+ if(mac_current && SDL_GL_GetCurrentContext()!=mac_current->context &&
+    SDL_GL_MakeCurrent(mac_current->window,mac_current->context))return NULL;
+ return mac_current;
+}
 static int OSMesaGetColorBuffer(OSMesaContext c,int *w,int *h,int *format,void **buffer){if(!c)return 0;*w=400;*h=400;*format=OSMESA_RGB_565;*buffer=c->buffer;return 1;}
 static void mac_finish(void){
  glFinish();if(!mac_current)return;

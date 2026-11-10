@@ -19,7 +19,7 @@ class Platform:
   self.require_gpu=require_gpu;self.font_mode=font_mode
   from presentation_text import create
   self.presentation_text=create(display,font_mode)
-  self.font=font;self.library=library;self.display=display;self.limit=frames;self.output=output;self.actions=list(actions) if DEVELOPMENT else [];self.closed=False;self.frames=0;self.dirty=True;self.renderer=None;self.size=(100,30);self.report={};self.pixel_apps=[];self.compositor=None;self.resized=False;self.action_frame=-1
+  self.font=font;self.library=library;self.display=display;self.limit=frames;self.output=output;self.actions=list(actions) if DEVELOPMENT else [];self.closed=False;self.frames=0;self.dirty=True;self.renderer=None;self.size=(100,30);self.report={};self.pixel_apps=[];self.compositor=None;self.gpu_context=None;self.resized=False;self.action_frame=-1
  def configure_registry(self,registry):
   def room_factory(host,**options):
    sys.path.insert(0,str(HERE.parent/'shell/apps/surface-renderer'))
@@ -33,14 +33,15 @@ class Platform:
     from doom_pixels import View
     self.register_pixel_view(View(host,owner));return owner
    registry.entries['doom']=entry._replace(factory=doom_factory)
-  if 'station-map' in registry.entries:
-   entry=registry.entries['station-map'];map_factory=entry.factory
-   def map_owner(host,**options):
-    owner=map_factory(host,**options)
-    from map_pixels import View
-    from font_supplement import load
-    self.register_pixel_view(View(host,owner,self.library,load(self.font,self.font_mode),presentation_text=bool(getattr(self,'presentation_text',None))));return owner
-   registry.entries['station-map']=entry._replace(factory=map_owner)
+  for identifier,entry in tuple(registry.entries.items()):
+   def source_owner(host,_factory=entry.factory,_title=entry.title,**options):
+    owner=_factory(host,**options)
+    if callable(getattr(owner,'map_surface',None)):
+     owner.set_map_presentation('semantic')
+     from map_pixels import View
+     self.register_pixel_view(View(host,owner,name=_title))
+    return owner
+   registry.entries[identifier]=entry._replace(factory=source_owner)
  def register_pixel_view(self,view):
   # A failed app can replace its lifetime owner on Retry. The registry closes
   # that owner; presentation must replace its view too, not draw both by name.
@@ -57,7 +58,10 @@ class Platform:
   if self.renderer.size!=self.size:self.renderer.resize(*self.size)
   if self.display and hasattr(self.display,'dynamic'):
    self.display.dynamic(True);width,height=self.display.size();self.resize(width//8,height//16)
-  self.report['renderer']=self.renderer.renderer_name
+  from display_context import create
+  self.gpu_context=create(self)
+  host.render_context=self.gpu_context
+  self.report['renderer']=self.gpu_context.renderer_description
   self.report['apps']=list(registry.entries);self.report['windows']=[w.name for w in host.windows]
  def resize(self,cols,rows):
   self.size=(max(40,min(512,cols)),max(14,min(256,rows)));self.renderer.resize(*self.size)
@@ -88,10 +92,17 @@ class Platform:
      self.resize(event.get('columns',event.get('width',800)//8),event.get('rows',event.get('height',480)//16))
     elif kind=='redraw':self.host.invalidate((0,0,self.host.width,self.host.height));self.dirty=True
   return result
+ def compose_model(self):
+  context=self.gpu_context
+  if not getattr(context,'native_pixels',False):return None
+  return context.prepare_model()
  def consume(self,changed,computed):
+  if getattr(self.gpu_context,'native_pixels',False):return
   _,_,drawn=self.renderer.consume_composed(changed,computed);self.dirty|=bool(drawn)
  def panel_text(self,x,y,text,foreground,background):
   r=self.renderer;fg,bg,_,_=style(foreground,'5;'+str(background))
+  if getattr(self.gpu_context,'native_pixels',False):
+   self.dirty|=self.gpu_context.panel_text(x,y,text,fg,bg);return
   # UTF32 is text transport; glyph lookup and all pixel work remain native.
   encoded=text.encode('utf-32-le');data=C.create_string_buffer(encoded)
   if r.lib.pocket_mbx_text(r.handle,x,y,data,len(encoded)//4,r.font_codes,r.font_bits,len(r.font_codes),fg,bg):raise RuntimeError('Native panel text rejected')
@@ -100,25 +111,27 @@ class Platform:
   visible=[app for app in self.pixel_apps if self.host.shown(self.host.window(app.name)) and not self.host.window(app.name).rolled]
   if not complete or not (self.dirty or any(app.pixel_dirty for app in visible)):return False
   from presentation_text import supported
-  text=self.presentation_text
+  text=None if getattr(self.gpu_context,'native_pixels',False) else self.presentation_text
   enabled=bool(text and supported(self.host,visible,raw_capture=self.output is not None))
-  if DEVELOPMENT and self.diagnostics:self.report['native_text']=dict(enabled=enabled,reason='native atlas' if enabled else 'complete bitmap fallback')
+  if DEVELOPMENT and self.diagnostics:self.report['native_text']=dict(enabled=enabled,reason='direct native glyph runs' if getattr(self.gpu_context,'native_pixels',False) else 'native atlas' if enabled else 'complete bitmap fallback')
   for app in visible:
    if hasattr(app,'native_text'):app.native_text=enabled
   if self.renderer.defer_text(enabled):self.dirty=True
-  if self.dirty:self.renderer.finish()
-  self.dirty=False;self.frames+=1;frame=self.renderer.pixels
-  if visible:
-   if self.compositor is None:
-    from pixel_compositor import Compositor
-    self.compositor=Compositor(self.host,self.renderer,Path(self.library).resolve().parent/'room-pixels.so')
-   frame=bytearray(frame);self.compositor.compose(frame,visible)
+  if getattr(self.gpu_context,'native_pixels',False):
+   # App surfaces currently report dirty as a whole; retain that conservative
+   # boundary until they provide their own pixel damage rectangles.
+   if any(app.pixel_dirty for app in visible):self.gpu_context.full_damage=True
+   self.gpu_context.begin_frame()
+  else:self.gpu_context.cells(enabled,self.dirty)
+  self.gpu_context.compose(visible,enabled)
   if text:
-   if enabled:text.stage(self.renderer,visible,self.compositor.image_rects if visible else ())
+   if enabled:text.stage(self.renderer,visible,self.gpu_context.image_rects)
    else:text.clear()
-  if self.display:self.display.present(frame)
-  if DEVELOPMENT and (self.output):Path(self.output).write_bytes(frame)
+  self.gpu_context.present(enabled)
+  self.dirty=False;self.frames+=1
+  if DEVELOPMENT and self.output:Path(self.output).write_bytes(self.gpu_context.capture())
   if DEVELOPMENT and self.diagnostics:
+   self.report[self.gpu_context.report_key]=self.gpu_context.status()
    self.report['pixel_apps']={app.name:dict(frames=app.pixel_frames,jobs=app.pixel_jobs,error=getattr(app,'error',''),cell_layer=self.host.window(app.name).layer is not None) for app in self.pixel_apps}
    self.record_frame()
    self.report.update(frames=self.frames,focus=self.host.focus,opened=[w.name for w in self.host.windows if w.opened],native=True,desktop_ansi=False)
@@ -139,8 +152,11 @@ class Platform:
     del history[0];self.report['history_dropped']=self.report.get('history_dropped',0)+1
  def wait_timeout(self,timeout):return .016 if timeout is None else min(timeout,.016)
  def close(self):
+  context=self.gpu_context
+  if context:context.close();self.gpu_context=None
   if self.compositor:self.compositor.close();self.compositor=None
   if self.renderer:self.renderer.close();self.renderer=None
+  if context:context.close_window()
   if self.display:self.display.close();self.display=None
  def run(self,argv):
   spec=importlib.util.spec_from_file_location('pocket_desktop_model',HERE.parent/'shell/desktop.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)

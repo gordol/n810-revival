@@ -22,13 +22,27 @@ class PixelRoom(SurfaceRoom):
   if not self._sync():return
   self._apply_motion(self.held_motion.advance(now),now)
   if force or now>=self.next_poll:self.pixel_dirty=True;self.next_poll=now+1/60
+ def render_scene(self):
+  """Offer native geometry to a capable scene backend, without rasterizing it."""
+  from scenes import RoomScene
+  w=self.host.window(self.name)
+  if not self.host.shown(w) or w.rolled:return None
+  x,y,width,height=self.host.bounds(w);ox,oy=getattr(self.host,"origin",(0,0))
+  width=(width-2)*8;height=(height-2)*16
+  if width<=0 or height<=0:return None
+  if width>4096 or height>4096:raise ValueError('Direct Room dimensions exceed native framebuffer')
+  scene=getattr(self,'_native_scene',None)
+  if self.pixel_dirty or scene is None or (scene.width,scene.height)!=(width,height):
+   scene=RoomScene(self.clock()-self.started-self.paused_total,self.x,self.z,self.yaw,self.pitch,self.eye_height,width,height)
+   self._native_scene=scene
+  return scene,(x+ox+1)*8,(y+oy+1)*16
  def render_image(self):
   w=self.host.window(self.name)
   if not self.host.shown(w) or w.rolled:return None
   x,y,width,height=self.host.bounds(w);ox,oy=getattr(self.host,"origin",(0,0));x=(x+ox+1)*8;y=(y+oy+1)*16;width=(width-2)*8;height=(height-2)*16
   if width<=0 or height<=0:return None
   if width>4096 or height>4096:raise ValueError('Direct Room dimensions exceed native framebuffer')
-  if self.size!=(width,height):self.image=(C.c_uint16*(width*height))();self.size=(width,height);self.pixel_dirty=True
+  if self.image is None or self.size!=(width,height):self.image=(C.c_uint16*(width*height))();self.size=(width,height);self.pixel_dirty=True
   if self.pixel_dirty:
    started=time.monotonic_ns();cpu=time.process_time_ns()
    if self.lib.pocket_room_set_eye_height(self.eye_height):raise RuntimeError('Native eye height rejected')

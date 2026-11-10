@@ -98,3 +98,5 @@ int pocket_window_event(int out[6]){
  }
  return 0;
 }
+
+#include "gpu_scene.c"

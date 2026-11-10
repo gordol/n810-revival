@@ -11,16 +11,36 @@ static int valid(const struct mbx_surface *s)
 }
 int mbx_present_drain(struct mbx_presenter *p)
 {
-    if (!p || p->faulted || !p->ops.wait) return -1;
+    if (!p || p->faulted || p->writing || !p->ops.wait) return -1;
     if (!p->pending) return 0;
     if (p->ops.wait(p->context)) { p->faulted = 1; return -1; }
     p->pending = 0; ++p->completed;
     return 0;
 }
+int mbx_present_acquire(struct mbx_presenter *p,struct mbx_surface *out)
+{
+    if(!p||!out||p->writing||p->faulted||!valid(&p->framebuffer)||!p->ops.submit)return -1;
+    if(mbx_present_drain(p))return -1;
+    *out=p->framebuffer;p->writing=1;return 0;
+}
+int mbx_present_cancel(struct mbx_presenter *p)
+{
+    if(!p||!p->writing||p->pending||p->faulted)return -1;
+    p->writing=0;return 0;
+}
+int mbx_present_submit(struct mbx_presenter *p,struct mbx_rect r)
+{
+    if(!p||!p->writing||p->pending||p->faulted||!p->ops.submit||!valid(&p->framebuffer)||
+       !r.width||!r.height||r.x>p->framebuffer.width||r.y>p->framebuffer.height||
+       r.width>p->framebuffer.width-r.x||r.height>p->framebuffer.height-r.y)return -1;
+    p->writing=0;p->submitted_region=r;p->pending=1;
+    if(p->ops.submit(p->context)){p->faulted=1;return -1;}
+    ++p->submitted;return 0;
+}
 int mbx_present_rgb565(struct mbx_presenter *p, const struct mbx_surface *s,
                       struct mbx_rect r, unsigned x, unsigned y)
 {
-    if (!p || p->faulted || !p->ops.wait || !p->ops.submit ||
+    if (!p || p->faulted || p->writing || !p->ops.wait || !p->ops.submit ||
         !valid(s) || !valid(&p->framebuffer)) return -1;
     struct mbx_surface *d = &p->framebuffer;
     if (!r.width || !r.height || r.x > s->width || r.y > s->height ||

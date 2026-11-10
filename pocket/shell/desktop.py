@@ -749,6 +749,8 @@ def main(platform=None,argv=None):
         launcher.set_mode(mode)
     def toggle_animation(direction):
         host.settle();host.set_preference('animate',not host.animate)
+    def toggle_window_animation(direction):
+        host.settle();host.set_preference('window_animations',not host.window_animations)
     def toggle_backdrop(direction):
         host.set_background_enabled(not host.background_enabled)
     settings_items=[
@@ -757,6 +759,7 @@ def main(platform=None,argv=None):
         ('Background',lambda:host.effect,lambda d:cycle(EFFECTS,host.effect,host.set_effect,d)),
         ('Backdrop enabled',lambda:'on' if host.background_enabled else 'off',toggle_backdrop),
         ('Animation',lambda:'on' if host.animate else 'off',toggle_animation),
+        ('Window animations',lambda:'on' if host.window_animations else 'off',toggle_window_animation),
         ('Animation time',lambda:slider(round(host.animation_duration*1000)),lambda d:host.set_preference('animation_duration',max(.04,min(.32,round(host.animation_duration+d*.04,2))))),
         ('Move drawing',lambda:host.move_mode,lambda d:host.set_preference('move_mode','live' if host.move_mode=='outline' else 'outline')),
         ('Resize drawing',lambda:host.resize_mode,lambda d:host.set_preference('resize_mode','live' if host.resize_mode=='outline' else 'outline')),
@@ -802,7 +805,7 @@ def main(platform=None,argv=None):
             ('Style',[rows['Frame style'],title_controls,window_rows[0]]),
             ('Behavior',[rows['Focused click'],rows['Move drawing'],rows['Resize drawing'],('Resize borders',lambda:'on' if host.resize_edges else 'off',lambda d:host.set_preference('resize_edges',not host.resize_edges)),('Desktop wheel',lambda:'on' if host.desktop_scroll else 'off',lambda d:host.set_preference('desktop_scroll',not host.desktop_scroll))]),
             ('Compositor',[rows['Overview shade']]+[c.row() for c in shared_controls['shadows']]),
-            ('Motion',[rows['Animation'],rows['Animation time'],('Mouse trails',lambda:'on' if host.mouse_trails else 'off',lambda d:host.set_mouse_trails(not host.mouse_trails))]+[c.row() for c in shared_controls['arrival']])]),
+            ('Motion',[rows['Animation'],rows['Window animations'],rows['Animation time'],('Mouse trails',lambda:'on' if host.mouse_trails else 'off',lambda d:host.set_mouse_trails(not host.mouse_trails))]+[c.row() for c in shared_controls['arrival']])]),
         ('Desktop',('  /\\ ', ' /~~\\', '/\\/\\'),'Backgrounds and landscape',[
             ('Background',[rows['Background'],rows['Backdrop enabled']]),
             ('Scenery',scenery_rows(host,scenery_library)),
@@ -1740,7 +1743,9 @@ def main(platform=None,argv=None):
             # controls/menu changes retain the ordinary urgent presentation.
             map_frame=host.focus=='Station Map' and (len(host.damage)>2048 or bool(presentation.buffer))
             static_ui=not host.background_enabled and not (host.drag or host.animations or host.slide or host.camera_motion or host.terrain_loading or host.terrain_arrival is not None)
-            output,changed,computed=host.flush(width*height if host._native is not None or static_ui or first_frame and args.minimal or host.terrain_loading or host.terrain_arrival is not None else 2048,max_seconds=None if static_ui or first_frame and args.minimal else .012,serialize=platform is None)
+            native_frame=platform.compose_model() if platform and hasattr(platform,'compose_model') else None
+            if native_frame is not None:output,changed,computed=native_frame
+            else:output,changed,computed=host.flush(width*height if host._native is not None or static_ui or first_frame and args.minimal or host.terrain_loading or host.terrain_arrival is not None else 2048,max_seconds=None if static_ui or first_frame and args.minimal else .012,serialize=platform is None)
             if platform:platform.consume(changed,computed)
             trace_composed=(time.monotonic_ns(),time.thread_time_ns()) if DEVELOPMENT and (trace_start is not None) else None
             if DEVELOPMENT and (metrics and host.terrain_renderer and host.terrain_renderer.completed and 'terrain_ready_seconds' not in startup):

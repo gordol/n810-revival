@@ -37,7 +37,8 @@ static void game_draw(float age,unsigned width,unsigned height,unsigned tx,unsig
   game_quad(t.x-90,t.y-90,180,180,t.z,1,.25f,.06f);
   game_quad(t.x-30,t.y-30,60,60,t.z-1,1,1,.5f);
  }
- glViewport(0,400-(int)th,tw,th);
+ GLint viewport[4];glGetIntegerv(GL_VIEWPORT,viewport);
+ glViewport(0,viewport[1]+(int)height-(int)ty-(int)th,tw,th);
  glDisable(GL_DEPTH_TEST);glMatrixMode(GL_PROJECTION);glPushMatrix();glLoadIdentity();
  glOrtho(tx,tx+tw,height-ty-th,height-ty,-1,1);glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
  float cx=width*.5f,cy=height*.5f;
