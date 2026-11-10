@@ -2,8 +2,8 @@
 """Install the managed launcher into an existing N810 GPU desktop."""
 from pathlib import Path
 import fcntl
+import hashlib
 import os
-import shutil
 import tempfile
 
 
@@ -16,6 +16,11 @@ def install():
     # The owner's persistent lock excludes an active desktop and GPU session.
     with open('/run/n810-pocket-native/owner.lock','a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        expected_owner='2a96cda6083372313d7d5b72747a12d36e8955406fbaca595ec8d8201d2586fd'
+        current_owner=hashlib.sha256((base/'native_owner.py').read_bytes()).hexdigest()
+        incoming_owner=hashlib.sha256(Path(__file__).with_name('native_owner.py').read_bytes()).hexdigest()
+        if current_owner not in (expected_owner,incoming_owner):
+            raise RuntimeError('Installed graphics owner changed; reconcile it before installing')
         here=Path(__file__).resolve().parent
         pocket=here.parents[1]
         files={base/'native_owner.py':here/'native_owner.py',base/'symbian_session.py':here/'symbian_session.py',

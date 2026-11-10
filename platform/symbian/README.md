@@ -1,21 +1,36 @@
 # Native Symbian runtime
 
-This snapshot preserves the N810 runtime adapters and changes against the
-EKA2L1 revision in PROVENANCE.json. Apply eka2l1.patch to that exact upstream
-revision and copy upstream-additions over its source tree. runtime/ contains
-the separate native frontend and platform adapters. Preserve upstream GPL terms;
-EKA2L1-LICENSE accompanies the derived source.
+The N810 runs application ARM code through a compatibility layer built from
+EKA2L1. `runtime/` supplies native execution, input and MBX rendering adapters.
 
-This is source preservation for review, not a reproducible release kit. Toolchain,
-dependency acquisition and device launch packaging still need a portable build
-recipe. Do not deploy this directory as an installed GPU replacement.
+## Launch an installed application
 
-The native path includes ARM execution, E32/import loading, request scheduling,
-physical controls, and GPU sprite/mask adapters. N810_SYMBIAN_BATCH_CACHE_HITS
-remains an experimental opt-in; its Nokia candidate comparison is outstanding.
-The measured Nokia control keeps that option off. The measured repeated Nokia menu response is 1.20 seconds; this is not a gameplay frame-rate result.
+The managed GPU desktop and Symbian launcher must be installed on the tablet.
+Open **Symbian** from Pocket's application menu, then press Enter for ChessGenius
+or S for Snakes. Closing the application returns to the saved Pocket desktop.
 
-Users must supply their own compatible firmware, system libraries and application
-installers in private storage. No ROMs, DLLs, installers, application captures or
-compiled binaries are included. The working graphics stack is a separate
-component and this snapshot does not change it.
+From a checkout on the N810:
+
+```sh
+cd pocket
+make symbian APP=chess
+make symbian APP=snakes
+```
+
+Both commands request the existing desktop owner. The owner serializes desktop
+and application execution and keeps the GPU and display session under its control.
+
+## Private inputs
+
+Place the compiled runtime at
+`~/.local/share/symbian-private/code/symbian-runtime`. The prepared system
+libraries and installed applications live under
+`~/.local/share/symbian-private/runtime/`.
+Users supply compatible system libraries and application installers privately.
+
+## Source
+
+`PROVENANCE.json` pins EKA2L1. Apply `eka2l1.patch` to that revision, copy
+`upstream-additions/` over its source tree, and add the `runtime/` adapters.
+A portable dependency/bootstrap build recipe remains to be completed.
+EKA2L1-derived source retains the accompanying GPL terms.
