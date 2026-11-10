@@ -46,7 +46,7 @@ def geography_lines(engine,view,streams=False):
     return ({},0) if covers(view) else engine._original_map_lines(view,streams)
 
 
-def sample(view,land_mask=None):
+def sample(view,land_mask=None,source_pixel_metres=None):
     import numpy as np
     import zlib
     h,w=view.height*2,view.width
@@ -55,7 +55,8 @@ def sample(view,land_mask=None):
     lon=view.center[1]+(np.arange(w)-(w-1)/2)*dx
     lat=view.center[0]-(np.arange(h)-(h-1)/2)*dy
     result=np.full((h,w),np.nan);spacing=np.full((h,w),np.inf)
-    pixel_metres=view.span*1000/max(1,w-1)*min(1,view.cell_aspect/2)
+    pixel_metres=(source_pixel_metres if source_pixel_metres is not None else
+                  view.span*1000/max(1,w-1)*min(1,view.cell_aspect/2))
     from local_elevation import display_sources
     paths=sources()
     if any('overviews' in metadata(p,p.stat().st_mtime_ns,p.stat().st_size) for p in paths):paths=display_sources(pixel_metres,paths)
@@ -100,6 +101,44 @@ def sample(view,land_mask=None):
         spacing[rows[rr[valid]],cols[cc[valid]]]=abs(m['latitude_step'])*111320
     return result,spacing
 
+
+def pixel_samples(engine,view,source_pixel_metres=None):
+    """Dense semantic pixels without building an intermediate glyph-cell frame."""
+    if not getattr(engine,'_desktop_dem_signature',None):return None
+    import numpy as np
+    from array import array
+    from desktop_shoreline import mask
+    from offline_map import _Q5,_Q6,map_rgb
+    water=mask(view)
+    heights,_=sample(view,land_mask=water!=0 if water is not None else None,
+                     source_pixel_metres=source_pixel_metres)
+    rows,_,_=engine.atlas.raster(view.center,view.span,view.width,view.height)
+    atlas=np.asarray(rows)
+    land=np.where(water>=0,water>0,atlas!=0) if water is not None else atlas!=0
+    known=np.isfinite(heights)
+    filled=np.where(known,heights,0)
+    metres=max(.1,view.ground_m_per_halfcell)
+    gy,gx=np.gradient(filled,metres,metres)
+    shade=np.clip((1-gx*.8+gy*.8)/np.sqrt(1+gx*gx+gy*gy),.4,1.3)
+    stops=np.array([-100,0,100,300,700,1500,3000,5000])
+    colors=np.array([[23,68,60],[35,88,51],[65,106,55],[106,121,66],[142,132,96],[163,151,130],[210,206,197],[245,245,245]])
+    rgb=np.stack([np.interp(filled,stops,colors[:,i]) for i in range(3)],axis=-1)
+    rgb=np.clip(rgb*shade[...,None],0,255).astype(np.uint8)
+    q5=np.asarray(_Q5,dtype=np.uint32);q6=np.asarray(_Q6,dtype=np.uint32)
+    packed=(q5[rgb[:,:,0]]<<16)|(q6[rgb[:,:,1]]<<8)|q5[rgb[:,:,2]]
+    unknown=land&~known
+    if np.any(unknown):
+        from offline_map import map_rgb
+        frame,_=engine._original_rgb_terrain(view,True)
+        fallback=np.empty((view.height*2,view.width),dtype=np.uint32)
+        for row in range(view.height):
+            cells=frame[row*view.width:(row+1)*view.width]
+            fallback[row*2]=[map_rgb(top) for _,top,_ in cells]
+            fallback[row*2+1]=[map_rgb(bottom) for _,_,bottom in cells]
+        packed[unknown]=fallback[unknown]
+    packed[~land]=map_rgb(engine.palette.WATER)
+    result=array('I');result.frombytes(np.ascontiguousarray(packed,dtype=np.uint32).tobytes())
+    return result,view.width,view.height*2
 
 def render(engine,view,terrain):
     frame,legend=engine._original_rgb_terrain(view,terrain)

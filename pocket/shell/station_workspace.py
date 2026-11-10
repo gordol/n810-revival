@@ -560,7 +560,7 @@ class StationMap:
             # Resample terrain before adding stations. Scaling the composed layer
             # repeats text glyphs and separates each cell's two terrain halves.
             display_key=(id(image),w,h)
-            if display_key!=self._display_key:
+            if display_key!=self._display_key or self._display_image is None:
                 self._display_key=display_key;self._display_image=image
                 if (image.width,image.height)!=(w,h):
                     projection=getattr(image,'projection',None)
@@ -667,7 +667,8 @@ class StationMap:
                     for i,char in enumerate(label[:image.width-x]):overlay[y*image.width+x+i]=(char,ink(120,235,190,background=(12,35,30)))
                     hits.append((x,y,min(len(label),image.width-x),internet_call))
             self._repeater_hits=annotate(image,view,overlay,occupied,getattr(self,'repeater_bands',__import__('repeater_catalog').BANDS),show_labels=getattr(self,'repeater_labels',False)) if getattr(self,'show_repeaters',True) else ()
-            self._station_hits=tuple(hits);self._layer=(0,2,image.width,image.height,Plane(image.cells,overlay));self._key=key
+            base=__import__('offline_map').BlankMapPlane(image.width*image.height) if self.renderer.presentation=='semantic' else image.cells
+            self._station_hits=tuple(hits);self._layer=(0,2,image.width,image.height,Plane(base,overlay));self._key=key
         return self._layer
     def selected_entities(self):
         from entity_actions import EntityRef

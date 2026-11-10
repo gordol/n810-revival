@@ -150,7 +150,7 @@ def restore_outbox(data):
 
 class State:
     def __init__(self,call,outbox=(),clock=None,identifier_factory=None):
-        self.call=callsign(call);self.received=collections.deque(maxlen=200);self.outbox=[]
+        self.call=callsign(call) if call else '';self.received=collections.deque(maxlen=200);self.outbox=[]
         self.seen=collections.OrderedDict();self.status='Connecting to feed';self.notice=''
         self.clock=clock or (lambda:datetime.datetime.now().strftime('%H:%M:%S'))
         self.identifier_factory=identifier_factory or (lambda:secrets.token_hex(2).upper())
@@ -248,14 +248,14 @@ def detail_lines(row,outgoing=False,source=None,path=()):
 
 def conversation_groups(call,received=(),outbox=(),traffic='mine',limit=200):
     """Detached endpoint-pair groups; preserve each input's order separately."""
-    call=callsign(call)
+    call=callsign(call) if call else ''
     if traffic not in ('mine','all'):raise ValueError('Traffic must be mine or all')
     limit=max(1,min(200,int(limit)));groups={}
     def group(row,outgoing,ordinal):
         protocol=row.get('protocol','aprs')
         source=row.get('source',call if outgoing else None);destination=row.get('to')
         # Native identities are not normalized into APRS callsigns.
-        mine=destination==call or source==call
+        mine=bool(call) and (destination==call or source==call)
         if traffic=='mine' and not mine:return
         if protocol=='aprs' and mine:
             peer=destination if source==call else source

@@ -293,6 +293,7 @@ class Host:
         if move_mode not in ('outline', 'live') or resize_mode not in ('outline', 'live'):
             raise ValueError('drag mode must be outline or live')
         self.animate = animate
+        self.window_animations = False
         self.move_mode, self.resize_mode = move_mode, resize_mode
         self.clock = clock
         self.effect_epoch = clock()
@@ -1065,7 +1066,7 @@ class Host:
     def transition(self, w, start, end):
         self.invalidate(start)
         self.invalidate(end)
-        if self.animate and start != end:
+        if self.animate and self.window_animations and start != end:
             self.visual[w.name] = start
             self.animations[w.name] = (start, end, self.clock())
         else:

@@ -26,7 +26,8 @@ class ReceiveMessages:
     def __init__(self,call,model=None):
         self.model=model or load_model();self.state=self.model.State(call)
         self.bss=self.model.State(call);self.bss_input=None
-        self.width=84;self.height=26;self.mode='inbox';self.selected=None
+        self.width=84;self.height=26;self.mode='inbox' if call else 'heard';self.selected=None
+        self.identity_editor=TextInput(limit=9) if not call else None;self.identity_error='';self.save_identity=None
         self.peers=();self.list=SelectList(());self.scroll=0;self.drafts={}
         self.layout=AdaptivePanels((PanelSpec('threads','Conversations',22,30),PanelSpec('chat','Conversation',32,60)))
         self.composing=False;self.notice='Receive only · draft text stays in this window';self._detail_length=0
@@ -37,7 +38,9 @@ class ReceiveMessages:
         Outbox restoration uses owner restart semantics (Submitted becomes
         Unconfirmed); no injected owner row is mutated or submitted.
         """
-        if call is not None and self.model.callsign(call)!=self.state.call:
+        if call is not None and (self.model.callsign(call) if call else '')!=self.state.call:
+            self.identity_editor=TextInput(limit=9) if not call else None
+            self.mode='heard' if not call else 'inbox'
             self.state=self.model.State(call);self.selected=None;self.scroll=0;self.drafts.clear();self.composing=False
             self.bss=self.model.State(call);self.bss_input=None
         before=(tuple(row['raw'] for row in self.state.received),self.model.outbox_document(self.state.outbox),tuple(self.bss.received))
@@ -81,7 +84,7 @@ class ReceiveMessages:
         if 'unknown_source' in group['key']:label+=' · observation '+str(group['key'][-1]+1)
         return label+' · '+group['protocol'].upper()
     def is_bss(self):return self.groups.get(self.selected,{}).get('protocol')=='bss'
-    def can_compose(self):return isinstance(self.selected,str) and self.groups.get(self.selected,{}).get('protocol')=='aprs' and self.groups[self.selected]['mine']
+    def can_compose(self):return bool(self.state.call) and isinstance(self.selected,str) and self.groups.get(self.selected,{}).get('protocol')=='aprs' and self.groups[self.selected]['mine']
     def selected_entities(self):
         from entity_actions import EntityRef
         if getattr(self,'protocol','aprs')!='aprs':return ()
@@ -119,6 +122,16 @@ class ReceiveMessages:
         if not self.can_compose():return None
         return self.drafts.setdefault(self.selected,TextInput(limit=67))
     def key(self,key):
+        if self.identity_editor is not None:
+            if key in ('\r','\n'):
+                try:
+                    call=self.model.callsign(self.identity_editor.text)
+                    if self.save_identity is not None:self.save_identity(call)
+                    self.update((),call=call)
+                    self.identity_error=''
+                except (ValueError,OSError) as error:self.identity_error=str(error)
+            else:self.identity_editor.key(key)
+            return True
         self.sync()
         if not self.composing and (self.layout.resizing or key=='\x12' and not self.list.searching) and self.layout.split_key(key,self.width):return True
         if not self.composing and self.layout.focus=='threads' and self.list.search_key(key):
@@ -145,6 +158,7 @@ class ReceiveMessages:
         else:return False
         return True
     def pointer(self,column,row,width,button=0,released=False):
+        if self.identity_editor is not None:return True
         if self.layout.split_pointer(column,row,width,button,released,top=1,bottom=self.height-2):return True
         if released or button&32:return False
         if button==0 and self._filter_hit and row==0 and self._filter_hit[0]<=column<self._filter_hit[1]:return self.key('f')
@@ -198,6 +212,13 @@ class ReceiveMessages:
                 lines.append('')
         return lines
     def lines(self):
+        if self.identity_editor is not None:
+            c=Canvas(self.width,self.height)
+            c.put(1,1,'Set your APRS callsign')
+            c.put(1,3,self.identity_editor.text+'|')
+            c.put(1,5,self.identity_error or 'Enter saves to local settings')
+            self._spans=((3,1,max(1,self.width-2),'input'),)
+            return c.lines()
         self.sync();c=Canvas(self.width,self.height);self._spans=[];self._tabs=[]
         heading='Conversations · '+self.state.call;label='[f Mine]' if self.traffic=='mine' else '[f All observed]'
         c.put(0,0,heading);x=min(len(heading)+2,max(0,self.width-len(label)));c.put(x,0,label);c.role(x,0,len(label),'control');self._filter_hit=(x,x+len(label))

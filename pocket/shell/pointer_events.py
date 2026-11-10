@@ -35,12 +35,13 @@ class TouchReport(tuple):
 
 
 class PointerEvent(tuple):
-    def __new__(cls, values, *, stamp=None, bounds=None):
+    def __new__(cls, values, *, stamp=None, bounds=None, pixel=None):
         if len(values) != 5 or values[0] != 'mouse':
             raise ValueError('expected existing five-field mouse tuple')
         value = super().__new__(cls, values)
         value.stamp = stamp
         value.bounds = bounds or (value[2], value[3], value[2], value[3])
+        value.pixel = pixel
         return value
 
     def at(self, x, y):
@@ -48,7 +49,7 @@ class PointerEvent(tuple):
         dx, dy = x-self[2], y-self[3]
         left, top, right, bottom = self.bounds
         return type(self)((self[0], self[1], x, y, self[4]), stamp=self.stamp,
-                          bounds=(left+dx, top+dy, right+dx, bottom+dy))
+                          bounds=(left+dx, top+dy, right+dx, bottom+dy),pixel=self.pixel)
 
 
 def coalesce_motion(previous, latest):
@@ -61,7 +62,7 @@ def coalesce_motion(previous, latest):
         return None
     a = getattr(previous, 'bounds', (previous[2], previous[3], previous[2], previous[3]))
     b = getattr(latest, 'bounds', (latest[2], latest[3], latest[2], latest[3]))
-    return PointerEvent(latest, stamp=b_time,
+    return PointerEvent(latest, stamp=b_time,pixel=getattr(latest,'pixel',None),
                         bounds=(min(a[0], b[0]), min(a[1], b[1]),
                                 max(a[2], b[2]), max(a[3], b[3])))
 

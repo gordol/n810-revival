@@ -56,6 +56,7 @@ def map_class(Base):
             self._zoom_context_view=None
             self._zoom_applied=None
             self._pan_display_source=None
+            self._gpu_pan_origin=None;self._gpu_pan_offset=None
             self.maidenhead_grid='auto'
             self._overview=Overview();self._shown_image=None;self._detail_lines=None
             self._local_overview=LocalOverview(self.renderer);self._overview_camera=None
@@ -131,6 +132,26 @@ def map_class(Base):
             self._zoom_context_image=None;self._zoom_context_view=None
             self._detail_request=None;self._loading_overview=None
             self.full_overview=True
+        def expand_overview_camera(self):
+            if not self.full_overview or self._overview_camera is None or self.target_box.view is None:return
+            from types import SimpleNamespace
+            from map_overview import contains,LocalOverview
+            from offline_map import Image,ReprojectedPlane
+            width,height=max(2,self.width),max(2,self.height-3)
+            center,span=self._overview_camera
+            target_center,target_span=self.target_box.view
+            view=self.renderer.module.Viewport(center,span,width,height)
+            shown=SimpleNamespace(width=width,height=height,projection=view)
+            if contains(shown,target_center,target_span,width,height):return
+            span=min(2000.,max(span*1.6,target_span*1.6))
+            center=tuple(target_center)
+            view=self.renderer.module.Viewport(center,span,width,height)
+            source=self._shown_image or self._image
+            if source is not None and source.projection is not None:
+                self._zoom_context_image=Image(width,height,ReprojectedPlane(source,view),
+                    'Expanding overview',(),0.,view,'overview-context')
+            self._overview_camera=center,span
+            self._local_overview=LocalOverview(self.renderer)
         def accept_overview(self):
             return self.apply_target()
         def key(self,key):
@@ -138,9 +159,10 @@ def map_class(Base):
             if key=='u':self.maidenhead_grid={'auto':'on','on':'off','off':'auto'}[self.maidenhead_grid];return True
             if key=='z':
                 self.renderer.forest_roads=not getattr(self.renderer,'forest_roads',False)
-                self.renderer.ready.clear();self.renderer.regions.ready.clear()
-                self._image=None;self._image_view=None;self._shown_image=None;self._display_image=None
-                self._zoom_context_image=None;self._local_overview=LocalOverview(self.renderer)
+                if self.renderer.presentation!='semantic':
+                    self.renderer.ready.clear();self.renderer.regions.ready.clear()
+                    self._image=None;self._image_view=None;self._shown_image=None;self._display_image=None
+                    self._zoom_context_image=None;self._local_overview=LocalOverview(self.renderer)
                 return True
             self.double_tap.reset()
             had_locator=self._locator_drag is not None
@@ -231,10 +253,12 @@ def map_class(Base):
             return True
         def end_target_drag(self):
             self._pan_drag=None;self._target_drag=None
+            self._gpu_pan_origin=None;self._gpu_pan_offset=None
             self.target_box.held=False
         @property
         def pointer_captured(self):return self._locator_drag is not None or self._target_drag is not None or super().pointer_captured
         def cancel_pointer(self):
+            self._gpu_pan_origin=None;self._gpu_pan_offset=None
             self._pan_display_source=None
             self._detail_request=None;self._loading_overview=None
             self._zoom_context_image=None
@@ -242,9 +266,32 @@ def map_class(Base):
             self.target_box.cancel();self._target_drag=None;self._locator_drag=None;self._locator_center=None;super().cancel_pointer()
         def pointer_event(self,event,width):
             _,button,x,y,released=event
+            pixel=getattr(event,'pixel',None)
+            if (pixel is not None and self._gpu_pan_origin is not None and
+                    (self._target_drag is not None or self._pan_drag is not None) and
+                    (released or button&32)):
+                px,py,start_x,start_y=self._gpu_pan_origin
+                dx,dy=pixel[0]-px,pixel[1]-py
+                moved=abs(dx)>2 or abs(dy)>2
+                if moved:
+                    self._gpu_pan_offset=(dx,dy)
+                    if self._target_drag is not None:self._target_drag.dragged=True
+                    else:self._pan_dragged=True
+                if not released:return True
+                self._gpu_pan_origin=None
+                if moved:
+                    self.pointer(start_x+dx/8,start_y+dy/16,width,button,True)
+                else:
+                    self._gpu_pan_offset=None
+                    self.pointer(x,y,width,button,True)
+                return True
             if self._locator_drag is not None or (self._target_drag is None and self._pan_drag is None and self.locator_hit(x,y)):return self.locator_pointer(x,y,button,released)
             if y==0 and button==0 and not released:return self.pointer(x,y,width,button,released)
-            if self.filter_open or (not self.preview and self._target_drag is None and not self.showing_overview()):return super().pointer_event(event,width)
+            if self.filter_open or (not self.preview and self._target_drag is None and not self.showing_overview()):
+                handled=super().pointer_event(event,width)
+                if pixel is not None and button==0 and not released and self._pan_drag is not None:
+                    self._gpu_pan_origin=(*pixel,x,y);self._gpu_pan_offset=None
+                return handled
             if self.full_overview:return self.pointer(x,y,width,button,released)
             context=(self._image_view or (self.center,self.span),width,self.height,id(self._image),self.filter_open)
             empty=0<=x<width and 2<=y<self.height-1 and not self.entities_at(x,y)
@@ -254,6 +301,8 @@ def map_class(Base):
                 left,top,right,bottom=getattr(event,'bounds',(x,y,x,y))
                 if max(abs(left-px),abs(right-px),abs(top-py),abs(bottom-py))>1:drag.dragged=True
             handled=self.pointer(x,y,width,button,released)
+            if pixel is not None and button==0 and not released and self._target_drag is not None:
+                self._gpu_pan_origin=(*pixel,x,y);self._gpu_pan_offset=None
             return self.zoom_at_pointer(x,y,width) if zoom else handled
         def pointer(self,column,row,width,button=0,released=False):
             if self.filter_open:return super().pointer(column,row,width,button,released)
@@ -352,20 +401,30 @@ def map_class(Base):
                 self._locator_drag=None;self._locator_center=None
             return True
         def locator_image(self,width,height):
-            image=self._locator_overview.image(self.renderer.module,width,height)
-            if image is not None:return image
+            from map_overview import LocalOverview,CropProjection,contains
+            semantic=self.renderer.presentation=='semantic'
+            image=None if semantic else self._locator_overview.image(self.renderer.module,width,height)
+            wanted_center,wanted_span=self.target_box.view or (self.center,self.span)
+            if image is not None and contains(image,wanted_center,wanted_span,self.width,max(1,self.height-3)):return image
             # Source-only installs do not ship the historical Puget preview.
             # Reuse current terrain immediately and refine through the same
             # bounded map worker, using the installed area instead of a fixed QTH.
             source=self._shown_image or self._image
             if source is None or self.renderer.module is None:return None
-            from map_overview import LocalOverview,CropProjection,contains
             from offline_map import Image,ReprojectedPlane
             camera=getattr(self,'_locator_camera',None)
             previous=getattr(self,'_live_locator_image',None)
-            if camera is None or previous is not None and not contains(previous,self.center,self.span,self.width,max(1,self.height-3)):
-                camera=(tuple(self.center),min(2000.,max(160.,self.span*4)))
+            if camera is None or previous is None or not contains(previous,wanted_center,wanted_span,self.width,max(1,self.height-3)):
+                camera=(tuple(wanted_center),min(2000.,max(160.,self.span*4,wanted_span*2)))
                 self._locator_camera=camera
+            if semantic:
+                key=(id(source),camera,width,height)
+                if key!=getattr(self,'_live_locator_key',None):
+                    view=self.renderer.module.Viewport(*camera,width,height)
+                    cells=ReprojectedPlane(source,view)
+                    self._live_locator_image=Image(width,height,cells,'Installed-area locator',(),0.,view,'semantic')
+                    self._live_locator_key=key
+                return self._live_locator_image
             if not hasattr(self,'_live_locator'):self._live_locator=LocalOverview(self.renderer)
             image=self._live_locator.image(self.renderer.module,width,height,*camera)
             key=(id(image or source),camera,width,height)
@@ -382,7 +441,9 @@ def map_class(Base):
             if width<72 or height<10:
                 lines[1]=('Locator needs a wider map · S hide')[:width].ljust(width);return tuple(lines)
             pane=min(32,width//3);left=width-pane;inner=pane-2
-            image=self.locator_image(192,96)
+            semantic=self.renderer.presentation=='semantic'
+            requested_height=min(max(4,self.height-12),max(2,round(inner/2)))
+            image=self.locator_image(inner,requested_height) if semantic else self.locator_image(192,96)
             if image is None:return tuple(lines)
             iw=inner;ih=max(1,round(iw*image.height/image.width))
             # Use the sidebar's full width. Very short windows crop the
@@ -437,7 +498,7 @@ def map_class(Base):
             self._locator_layer=None
             # Direct retains detail while loading. Preview zoom-out may explicitly
             # select full overview context; ordinary dragging does not switch it.
-            if self.full_overview or self._detail_request is not None or self.preview and self.target_box.view is not None:
+            if (self.full_overview or self._detail_request is not None or self.preview and self.target_box.view is not None) and self._image is not None:
                 lines=list(self._detail_lines) if not self.full_overview and self._detail_lines is not None and len(self._detail_lines)==self.height and all(len(row)==self.width for row in self._detail_lines) else [' '*self.width for _ in range(self.height)]
             else:
                 lines=list(super().lines());self._detail_lines=tuple(row[:self.width].ljust(self.width) for row in lines)
@@ -483,12 +544,14 @@ def map_class(Base):
                     self._zoom_base=(0,2,w,h,ContextPlane(image.cells,image.width,image.height,w,h));self._zoom_base_key=cache
                 base_layer=self._zoom_base;self._target_layer=base_layer;self._shown_image=image
             if self.full_overview:
+                self.expand_overview_camera()
                 image=self._zoom_context_image if pending is not None and self._detail_request is None else self._loading_overview if self._detail_request is not None else previous_shown if self._target_drag is not None and previous_shown is not None and previous_shown.source=='cached-overview' else None
-                if image is None and self._detail_request is None and self._overview_camera is not None:
+                if self._detail_request is None and self._overview_camera is not None:
                     engine=self.renderer.engine
                     vectors=engine if engine is not None and getattr(engine,'_atlas',None) is not None else None
-                    image=self._local_overview.image(self.renderer.module,w,h,*self._overview_camera,engine=vectors)
-                    if image is None and previous_shown is not None and previous_shown.source=='cached-overview':image=previous_shown
+                    refined=self._local_overview.image(self.renderer.module,w,h,*self._overview_camera,engine=vectors)
+                    if refined is not None:image=refined
+                    elif image is None and previous_shown is not None and previous_shown.source=='cached-overview':image=previous_shown
                 if image is None and self._detail_request is None:image=self._overview.image(self.renderer.module,w,h)
                 if image is not None:
                     cache=(id(image),w,h)
@@ -565,10 +628,10 @@ def map_class(Base):
             return patch if patch is not None and patch[0] is layer else None
         def layer(self):
             layer=self._locator_layer or self._target_layer or super().layer()
-            if self.maidenhead_grid=='off' or layer is None or self._shown_image is None:return layer
-            if self.maidenhead_grid=='auto' and self._shown_image.projection.span<30:return layer
-            from map_geography import grid
-            from offline_map import Plane
+            if layer is None or self._shown_image is None:return layer
+            from map_geography import grid,grid_enabled
+            if not grid_enabled(self.maidenhead_grid,self._shown_image.projection.span):return layer
+            from offline_map import GridPlane
             x,y,w,h,plane=layer
             key=(id(plane),id(self._shown_image),w,h,self.side_overview,self.full_overview)
             if getattr(self,'_grid_key',None)!=key:
@@ -580,6 +643,6 @@ def map_class(Base):
                 # Keep station labels, roads, zoom box and path ahead of the grid.
                 from paint import ink
                 marks={i:(char,ink(*tuple((style>>s)&255 for s in (40,32,24)),background=tuple((plane[i][1]>>s)&255 for s in (16,8,0)))) for i,(char,style) in marks.items() if plane[i][0] in (' ','▀','▄')}
-                self._grid_layer=(x,y,w,h,Plane(plane,marks));self._grid_key=key
+                self._grid_layer=(x,y,w,h,GridPlane(plane,marks));self._grid_key=key
             return self._grid_layer
     return StationMap

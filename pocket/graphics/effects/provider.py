@@ -60,18 +60,22 @@ class Provider:
             from pixel_gpu import PixelGPU
             import map_terrain,desktop_elevation,geometry_compute,geometry,scene_acceleration
             self.map_gpu=MapGPU();self.terrain_gpu=CoverageGPU();self.terrain_shader=ExactShader()
-            self.pixel_gpu=PixelGPU();self.restores.append(self.pixel_gpu.install(platform))
-            for module,name,value in ((map_terrain,'sample_terrain',self.map_gpu.sample),
-                                      (map_terrain,'draw_vectors',self.map_gpu.vectors),
-                                      (desktop_elevation,'render',self.map_gpu.render_dem),
-                                      (geometry_compute,'coverage_data',self.terrain_gpu.coverage),
-                                      (scene_acceleration,'_shader',self.terrain_shader)):
+            native_scene=getattr(platform,'gpu_context',None) is not None
+            if not native_scene:
+                self.pixel_gpu=PixelGPU();self.restores.append(self.pixel_gpu.install(platform))
+            replacements=[(geometry_compute,'coverage_data',self.terrain_gpu.coverage),
+                          (scene_acceleration,'_shader',self.terrain_shader)]
+            if not native_scene:
+                replacements.extend(((map_terrain,'sample_terrain',self.map_gpu.sample),
+                                     (map_terrain,'draw_vectors',self.map_gpu.vectors),
+                                     (desktop_elevation,'render',self.map_gpu.render_dem)))
+            for module,name,value in replacements:
                 prior=getattr(module,name);setattr(module,name,value)
                 self.restores.append(lambda module=module,name=name,prior=prior:setattr(module,name,prior))
             geometry.raster.cache_clear()
             if host._native is None:raise RuntimeError('GPU composition requires native cell planes')
             lib=host._native.lib
-            for name,index in (('compose',2),('blend_scene',3)):
+            for name,index in (() if native_scene else (('compose',2),('blend_scene',3))):
                 cpu=getattr(lib,name);gpu=getattr(self.gpu,name)
                 def submit(*args,_cpu=cpu,_gpu=gpu,_index=index):
                     changed,computed,repair=_gpu(*args)

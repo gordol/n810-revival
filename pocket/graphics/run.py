@@ -62,8 +62,10 @@ class DesktopWindow(Window):
                     wx,wy,ww,wh=self.platform.host.bounds(self.platform.host.window(target.name));ox,oy=self.platform.host.origin
                     if (wx+ox+1)*8<=x<(wx+ox+ww-1)*8 and (wy+oy+1)*16<=y<(wy+oy+wh-1)*16:
                         self.capture(True);self.captured_target=target
-                    else:yield dict(action='pointer',x=x,y=y,button=button,released=False)
-                else:yield dict(action='pointer',x=x,y=y,button=button,released=bool(up))
+                    else:yield dict(action='pointer',x=x,y=y,button=button,released=False,
+                                    stamp=repeat & 0xffffffff)
+                else:yield dict(action='pointer',x=x,y=y,button=button,released=bool(up),
+                                stamp=repeat & 0xffffffff)
             elif kind==3:
                 motion={1073742049:'shift-left',1073742053:'shift-right',32:'space',1073741904:'left',1073741903:'right',1073741906:'up',1073741905:'down'}
                 motion_key=motion.get(x,chr(x) if 32<=x<127 else '')
@@ -95,13 +97,12 @@ class DesktopWindow(Window):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
-    p.add_argument('--state',type=Path,default=Path.home()/'.local/state/current-world/graphics')
+    p.add_argument('--state',type=Path,help='GUI session state (defaults to ~/.local/state/current-world/graphics)')
+    p.add_argument('--station-db',type=Path,help='station directory database; defaults to the TUI default instance')
     p.add_argument('--seconds',type=float)
     if DEVELOPMENT:
         p.add_argument('--actions',type=Path)
-    if DEVELOPMENT:
         p.add_argument('--output',type=Path);p.add_argument('--report',type=Path)
-    if DEVELOPMENT:
         p.add_argument('--resize-check',action='store_true',help='exercise actual OS window-size events')
     p.add_argument('--font-mode',choices=('console','crisp','smooth'),default=os.environ.get('POCKET_GUI_FONT','smooth' if sys.platform=='darwin' else 'console'))
     p.add_argument('--effect-backend',choices=('gpu','cpu'),default='gpu' if sys.platform=='darwin' and __import__('platform').machine()=='arm64' else 'cpu')
@@ -109,7 +110,10 @@ def main():
     p.add_argument('--headless',action='store_true',help='GPU verification without the presentation window')
     p.set_defaults(actions=None,output=None,report=None,resize_check=False)
     args,extra=p.parse_known_args()
-    state=args.state;state.mkdir(parents=True,exist_ok=True)
+    state=args.state or Path.home()/'.local/state/current-world/graphics'
+    state.mkdir(parents=True,exist_ok=True)
+    station_db=args.station_db or (state/'directory.sqlite3' if args.state is not None else
+        Path(os.environ.get('XDG_STATE_HOME',Path.home()/'.local/state'))/'pocket/default/directory.sqlite3')
     window=None if args.headless else DesktopWindow(CONFIG['display_library'])
     actions=json.loads(args.actions.read_text()) if args.actions else ()
     platform=shared.Platform(CONFIG['font'],CONFIG['gpu_library'],window,output=args.output,actions=actions,require_gpu=not args.allow_software,font_mode=args.font_mode,diagnostics=args.report is not None)
@@ -141,7 +145,7 @@ def main():
     for sig in (signal.SIGTERM,signal.SIGINT):previous[sig]=signal.signal(sig,stop)
     try:
         platform.run(['--shell','--session',str(state/'desktop.json'),'--app-state',str(state),
-            '--station-db',str(state/'directory.sqlite3'),'--native',CONFIG['native_library'],
+            '--station-db',str(station_db),'--native',CONFIG['native_library'],
             '--no-local-services',*extra])
     finally:
         platform.report.update(renderer=platform.report.get('renderer'),software_allowed=args.allow_software,platform=sys.platform,desktop_pty=False,desktop_ansi=False,desktop_cells=platform.size)

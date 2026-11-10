@@ -3,7 +3,7 @@ import math
 from pathlib import Path
 from app_widgets import Canvas
 from station_workspace import StationMap,Context
-from offline_map import Plane
+from offline_map import Plane,PathPlane
 from paint import ink,terminal_background
 
 def visible_path(a,b,width,height):
@@ -131,7 +131,7 @@ class PointMap:
                 if self.inspect_point:lines[-1]=self._inspection_footer
                 self._layer=previous_layer;return tuple(lines)
             self._overlay_key=key
-            image=self.image;x0,y0,w,h,base=layer;overlay={}
+            image=self.image;x0,y0,w,h,base=layer;overlay={};path_overlay={}
             projection=image.projection or self.renderer.module.Viewport(*(self.image_view or (self.center,self.span)),image.width,image.height)
             # Project overlays into the displayed plane, including scaled overviews.
             class Projection:
@@ -167,7 +167,7 @@ class PointMap:
                 a,b=[view.project(point[1],point[0]) for point in self.points]
                 for x,y in visible_path(a,b,w,h):
                     if 0<=x<w and 0<=y<h:
-                        overlay[y*w+x]=('•',ink(255,240,110,background=(35,30,10)))
+                        path_overlay[y*w+x]=('•',ink(255,240,110,background=(35,30,10)))
             for i,candidate in enumerate(self.candidates[:9]):
                 x,y=map(round,view.project(candidate['position'][1],candidate['position'][0]))
                 if 0<=x<w and 0<=y<h:
@@ -208,7 +208,8 @@ class PointMap:
             if rect and self.base.side_overview and not self.base.full_overview:
                 left,top,width,height,_=rect
                 overlay={i:value for i,value in overlay.items() if not (left-1<=i%w<=left+width and top-1<=i//w+y0<=top+height)}
-            self._layer=(x0,y0,w,h,Plane(base,overlay))
+                path_overlay={i:value for i,value in path_overlay.items() if not (left-1<=i%w<=left+width and top-1<=i//w+y0<=top+height)}
+            self._layer=(x0,y0,w,h,Plane(PathPlane(base,path_overlay),overlay))
         if self.base._detail_request is not None:
             lines[-1]=self.base.zoom_feedback()[:self.width].ljust(self.width)
         return tuple(lines)

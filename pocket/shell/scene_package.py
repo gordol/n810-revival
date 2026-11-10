@@ -1,6 +1,7 @@
 """Versioned local scene packs: bounded JSON + packed cells, no executable data."""
 import json
 from pathlib import Path
+from data_paths import data_root
 import struct
 import zipfile
 
@@ -53,7 +54,7 @@ def prepare(path,width,height,preset='original',quality='compact',recipe=None):
     moon=appearance.get('moon_phase','auto');shadows=appearance.get('terrain_shadows',False)
     cells=base(width,height,False,tick,1,False,moon,.005,1.65,shadows,n)
     model=view(1,False,width/(height*2),.005,1.65,n)
-    return save(path,{'recipe':config._asdict(),'appearance':appearance,'nature':n._asdict(),'lighting_tick':tick,'moon_phase':moon,'camera':__import__('dataclasses').asdict(model.camera),'geographic_reference':reference(model.camera),'dem_sha256':json.loads(Path(__file__).with_name('data').joinpath('tahoma-3dep.json').read_text())['sha256'],'capabilities':'Prepared cells only: no camera movement, relighting, or procedural animation without recomputing.'},cells,width,height)
+    return save(path,{'recipe':config._asdict(),'appearance':appearance,'nature':n._asdict(),'lighting_tick':tick,'moon_phase':moon,'camera':__import__('dataclasses').asdict(model.camera),'geographic_reference':reference(model.camera),'dem_sha256':json.loads(data_root().joinpath('tahoma-3dep.json').read_text())['sha256'],'capabilities':'Prepared cells only: no camera movement, relighting, or procedural animation without recomputing.'},cells,width,height)
 
 
 def play(path):

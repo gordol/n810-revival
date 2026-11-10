@@ -36,28 +36,17 @@ class ScenePolicy(unittest.TestCase):
 
 
 class MapTextCapability(unittest.TestCase):
- def test_disabled_path_keeps_one_buffer_and_one_marks_pass(self):
-  import map_pixels
-  from unittest.mock import patch
-  with tempfile.TemporaryDirectory() as folder:
-   library=Path(folder)/'map.so'
-   subprocess.run(['cc','-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC',str(ROOT/'graphics/native/map_pixels.c'),'-lm','-o',str(library)],check=True)
-   lib=C.CDLL(str(library))
-   lib.pocket_map_base.argtypes=[C.c_void_p,C.c_size_t,C.c_void_p,C.c_uint,C.c_uint]
-   lib.pocket_map_marks.argtypes=[C.c_void_p,C.c_size_t,C.c_uint,C.c_uint,C.c_void_p,C.c_uint,C.c_void_p]
-   class Plane:
-    base=[('█',(1<<48)|(0xffffff<<24)|0x101010)]*4
-    overlay={0:('A',(1<<48)|(0xffffff<<24)|0x101010)}
-   for enabled,expected in ((False,1),(True,2)):
-    app=map_pixels.View.__new__(map_pixels.View);app.lib=lib;app.presentation_text=enabled
-    app.font=NS(glyph=lambda ch:bytes([255])*16)
-    app.base=NS(renderer=NS(engine=NS(),module=NS(Viewport=lambda *args:NS())))
-    projection=NS(center=(0,0),span=1)
-    with patch.object(map_pixels,'segments',return_value=[]),patch.object(lib,'pocket_map_marks',wraps=lib.pocket_map_marks) as marks:
-     normal,deferred,labels=app.build((0,0,2,2,Plane()),projection)
-     self.assertEqual(marks.call_count,expected);self.assertEqual(len(labels),1)
-     if enabled:self.assertIsNot(normal,deferred);self.assertNotEqual(normal[0],deferred[0])
-     else:self.assertIs(normal,deferred)
+ def test_semantic_annotations_are_one_shared_mark_set(self):
+  from array import array
+  from map_pixels import View
+  class Plane:
+   base=[('┼',0)]*4
+   overlay={0:('A',(1<<48)|(0xffffff<<24))}
+  features=NS(terrain=array('I',[0]*8),sample_width=2,sample_height=4,vectors=(),labels={})
+  surface=NS(unavailable_reason='',viewport=lambda:object(),features=lambda *args:features,overlay_vectors=())
+  scene=View(None,None).build((0,0,2,2,Plane()),surface)
+  self.assertEqual([(m.index,m.ch) for m in scene.marks],[(0,ord('A'))])
+  self.assertEqual(len(scene.terrain),8)
 
 @unittest.skipUnless(sys.platform=='darwin' and shutil.which('sdl2-config'),'Mac CoreText/SDL test')
 class NativeText(unittest.TestCase):

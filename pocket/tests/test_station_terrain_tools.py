@@ -123,13 +123,13 @@ class SharedMapTests(unittest.TestCase):
         from entity_actions import EntityRef
         from unittest.mock import patch
         with patch.object(app.base,'entities_at',return_value=(EntityRef('station','W8NGS-9'),)):
-            refs=app.entities_at(x+5,y)
+            refs=app.entities_at(x+2,y)
         self.assertEqual(len(refs),1)
         self.assertTrue(refs[0].payload['saved_qth'])
         actions=ContextActions();actions.register('map-point','LOS radius from here',lambda entity:None)
-        self.assertEqual(actions.entries(refs)[0][0],'LOS radius from here · QTH TEST-1')
+        self.assertEqual(actions.entries(refs)[0][0],'LOS radius from here · QTH')
         self.assertEqual(refs[-1].payload['position'],tool.map.qth)
-        self.assertEqual(tool.map.qth_label,'QTH TEST-1')
+        self.assertEqual(tool.map.qth_label,'QTH')
 
     def test_repeater_radius_uses_site_frequency_without_moving_qth(self):
         from unittest.mock import patch

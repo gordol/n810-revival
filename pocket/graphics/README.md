@@ -2,7 +2,7 @@
 
 The graphical frontend runs the same Pocket desktop, app registry, settings,
 connections and window lifecycle as the terminal frontend. It presents native
-pixels through SDL2/OpenGL. The desktop does not run inside a PTY or parse an ANSI
+pixels through the accelerated SDL renderer (Metal on macOS). The desktop does not run inside a PTY or parse an ANSI
 frame; terminal applications still own their normal PTYs.
 
 ## Build and run
@@ -31,7 +31,7 @@ python3 -m pip install -r requirements-graphics-macos.txt
 ```
 
 That pinned optional compute environment requires Python 3.12 or newer. To use
-the portable OpenGL desktop with the existing CPU effect/map producers instead:
+the native desktop with CPU procedural effect producers instead:
 
 ```sh
 make gui EXTRA='--effect-backend cpu'
@@ -80,13 +80,23 @@ keeps its walking controls; G toggles its target game, R resets it, and clicking
 its viewport captures the pointer. Escape releases capture before returning to
 normal app navigation. The Mac/Linux SDL input adapter shares those actions.
 
-Station Map presents its existing terrain samples as pixels and draws roads
-and streams from geographic vector segments with native clipping. Station
-selection, labels, target previews, sidebar and input remain the shared model.
-The adapter shares the existing bounded map worker; it does not add a polling
-loop. Native vectors improve line drawing, while terrain sample resolution still
-comes from the existing map renderer. Terrain tools and third-party map packs
-retain their existing presentation.
+Map-capable apps publish one semantic surface from the shared engine: row-major
+terrain samples, geographic vector segments, explicit labels, and app annotations.
+The native renderer uploads source samples, rasterizes roads and streams into GPU
+target textures, and composites native images and overlapping window layers on
+the same accelerated renderer. Stable terrain and geographic lines remain in a
+cached texture while the zoom box and other changing annotations use a separate
+transparent texture. The target box is a pixel outline in the GUI; the TUI keeps
+its cell outline. The presenter clears any window margins outside the logical
+pixel canvas before each frame. Ordinary map presentation has no image readback.
+`--output` explicitly reads the GPU canvas for diagnostics.
+
+The engine prepares geodata and annotation placement on the CPU. Terrain sample
+resolution depends on installed source data. The terminal frontend defaults to
+cell presentation; it does not share native rasterization or infer geometry from
+characters. Terrain/LOS uses the same semantic surface; profile screens remain
+ordinary UI. A selected source without semantic layers displays an explicit
+native notice. The bounded map worker retains a complete scene during replacement.
 
 Retrying a failed graphical app replaces its old pixel view and releases any
 pointer capture and held movement associated with that view. The window keeps
@@ -97,9 +107,11 @@ engine and lifecycle owner as the terminal app. Prepare it explicitly with
 `make doom`; see [the game build notes](../shell/apps/doom-app/README.md).
 Game data and compiled engines are local outputs, never implicit startup downloads.
 
-The optional GPU-alpha composition candidate remains opt-in with
-`POCKET_GPU_COMPOSE=1`. Default overlay composition uses C; this integration does
-not change that performance choice or claim a new Nokia mixed-state GPU result.
+The native SDL scene path owns image rasterization and GPU window overlays.
+Legacy cell composition and procedural/3D producers remain separate stages;
+GPU compute producers that return cells can still transfer results to the CPU.
+The scene counters report map rasterization, line submissions, source uploads,
+and explicit diagnostic readbacks. They do not establish Nokia GPU acceptance.
 
 ## Verify
 

@@ -229,7 +229,6 @@ def main(platform=None,argv=None):
     if args.legacy_aprs and (not args.legacy_aprs.is_file() or not args.aprs_maps.is_dir()):parser.error('legacy viewer script and maps directory must exist')
     plans = () if args.minimal or workspace or native_defaults and not (args.app_preview or args.kitchen_sink) else compile_model(Path(__file__).with_name('operator.json').read_text())
     world = World(plans)
-    world.apply([Record(1, 'N0CALL', 'APRS observed', 'Listening'), Record(2, 'W7EXAMPLE', 'Offline record', 'Contact unconfirmed')])
     geometry = platform.geometry() if platform else measure(sys.stdout.fileno())
     panel=Panels(args.panel or 'top',mode=args.panel_mode or ('auto' if workspace else 'bar'))
     panel.launcher_count=2+len(workspace)
@@ -353,15 +352,22 @@ def main(platform=None,argv=None):
     def terrain_feature_enabled():
         identifier='station-map'
         return registered_apps.preferences(identifier).get('terrain-enabled',True) if identifier in registered_apps.entries else True
+    def configured_aprs_call():
+        from directory_preferences import self_calls as saved_self_calls
+        db=args.station_db or app_state/'directory.sqlite3'
+        calls=saved_self_calls(host.app_preferences,db)
+        return calls[0] if calls else ''
     def make_native(name,module_name,class_name,view_name=None):
         def create(_host,*,app_context=None):
             nonlocal messages_form
             import importlib
             factory=getattr(importlib.import_module(module_name),class_name)
             if name=='Messages':
-                messages_form=factory('N0CALL',services={key:(app_context.services.get(key) if app_context else registered_apps.providers.get(key)) for key in ('reticulum','meshcore')})
+                messages_form=factory(configured_aprs_call(),services={key:(app_context.services.get(key) if app_context else registered_apps.providers.get(key)) for key in ('reticulum','meshcore')})
+                messages_form.save_identity=save_configured_aprs_call
                 update_messages()
                 return messages_form
+            if name=='Services':return factory(getattr(native_catalog,view_name),call=configured_aprs_call())
             return factory(getattr(native_catalog,view_name)) if view_name else factory()
         return create
     native_specs=(('Messages','native_messages','Messages',None),('Services','native_services','Services','service_view'),
@@ -395,7 +401,7 @@ def main(platform=None,argv=None):
                 settings=(dict(id='terrain-enabled',label='Terrain profiles, LOS and obstructions',kind='bool',default=True),) if name=='Station Map' else (),uses=(dict(id='receive',required=False),)))
     def update_messages():
         if messages_form is None:return
-        try:messages_form.update(native_catalog.lines,outbox=native_catalog.outbox,records=native_catalog.bss_records)
+        try:messages_form.update(native_catalog.lines,call=configured_aprs_call(),outbox=native_catalog.outbox,records=native_catalog.bss_records)
         except (ValueError,KeyError,TypeError):messages_form.notice='Messages unavailable'
         if native_catalog.error:messages_form.notice='Offline';messages_form.diagnostics=str(native_catalog.error)
         elif messages_form.notice=='Offline':messages_form.notice='Receive only'
@@ -569,13 +575,14 @@ def main(platform=None,argv=None):
         from station_workspace import Context,Directory,Stations
         context=Context();sources=Path(station_app.argv[1]).parent if station_app else Path(__file__).resolve().parent/'vendor/packet-console'
         db=args.station_db or station_app.argv[station_app.argv.index('--db')+1]
-        from directory_preferences import self_calls as saved_self_calls,with_self_calls
+        from directory_preferences import self_calls as saved_self_calls,save_self_calls as save_local_self_calls,with_self_calls
         directory_sources=Path(__file__).resolve().parent/'vendor/packet-console'
         if not (directory_sources/'n810-directory-projection.py').is_file():directory_sources=sources
-        station_directory=Directory(db,directory_sources,context,self_calls=saved_self_calls(host.app_preferences));station_directory.update(True)
+        station_directory=Directory(db,directory_sources,context,self_calls=saved_self_calls(host.app_preferences,db));station_directory.update(True)
         def show_station_map():
             registered_apps.forms['Station Map']._ensure().focus_selection();host.activate('Station Map')
         stations_form=Stations(station_directory,show_station_map)
+        if not station_directory.self_calls:stations_form.edit_self_calls()
         def open_station_uls(call):
             form=registered_apps.forms.get('ULS Lookup')
             if form and form.open():form.owner.select_callsign(call)
@@ -587,7 +594,20 @@ def main(platform=None,argv=None):
             if owner is not None:return owner.path.text
             return getattr(form,'saved',{}).get('database',str(default_database()))
         stations_form.license_database_provider=station_license_database
-        stations_form.save_self_calls=lambda calls:host.set_preference('app_preferences',with_self_calls(host.app_preferences,calls))
+        def save_directory_self_calls(calls):
+            save_local_self_calls(db,calls)
+            host.set_preference('app_preferences',with_self_calls(host.app_preferences,calls))
+            if messages_form is not None:messages_form.update((),call=calls[0] if calls else '')
+        stations_form.save_self_calls=save_directory_self_calls
+    def save_configured_aprs_call(call):
+        ensure_station_directory()
+        calls=(call,)
+        from directory_preferences import save_self_calls as save_local_self_calls,with_self_calls
+        save_local_self_calls(station_directory.db,calls)
+        station_directory.set_self_calls(calls)
+        if stations_form is not None:stations_form.self_editor=None
+        host.set_preference('app_preferences',with_self_calls(host.app_preferences,calls))
+        if messages_form is not None:messages_form.update((),call=call)
     def ensure_station_map():
         nonlocal map_form,map_open
         ensure_station_directory()
@@ -602,8 +622,11 @@ def main(platform=None,argv=None):
         def save_map_own_call(call):
             from directory_preferences import with_self_calls
             calls=tuple(dict.fromkeys((call,)+tuple(station_directory.self_calls))) if call else ()
-            station_directory.self_calls=calls
+            station_directory.set_self_calls(calls)
+            from directory_preferences import save_self_calls as save_local_self_calls
+            save_local_self_calls(station_directory.db,calls)
             host.set_preference('app_preferences',with_self_calls(host.app_preferences,calls))
+            if messages_form is not None:messages_form.update((),call=calls[0] if calls else '')
         map_form.save_own_call=save_map_own_call
         if native_catalog:map_form.update_tracks(native_catalog.evidence)
         host.app_renderers=list(getattr(host,'app_renderers',()))+[map_form.renderer]
@@ -749,6 +772,8 @@ def main(platform=None,argv=None):
         launcher.set_mode(mode)
     def toggle_animation(direction):
         host.settle();host.set_preference('animate',not host.animate)
+    def toggle_window_animation(direction):
+        host.settle();host.set_preference('window_animations',not host.window_animations)
     def toggle_backdrop(direction):
         host.set_background_enabled(not host.background_enabled)
     settings_items=[
@@ -757,6 +782,7 @@ def main(platform=None,argv=None):
         ('Background',lambda:host.effect,lambda d:cycle(EFFECTS,host.effect,host.set_effect,d)),
         ('Backdrop enabled',lambda:'on' if host.background_enabled else 'off',toggle_backdrop),
         ('Animation',lambda:'on' if host.animate else 'off',toggle_animation),
+        ('Window animations',lambda:'on' if host.window_animations else 'off',toggle_window_animation),
         ('Animation time',lambda:slider(round(host.animation_duration*1000)),lambda d:host.set_preference('animation_duration',max(.04,min(.32,round(host.animation_duration+d*.04,2))))),
         ('Move drawing',lambda:host.move_mode,lambda d:host.set_preference('move_mode','live' if host.move_mode=='outline' else 'outline')),
         ('Resize drawing',lambda:host.resize_mode,lambda d:host.set_preference('resize_mode','live' if host.resize_mode=='outline' else 'outline')),
@@ -802,7 +828,7 @@ def main(platform=None,argv=None):
             ('Style',[rows['Frame style'],title_controls,window_rows[0]]),
             ('Behavior',[rows['Focused click'],rows['Move drawing'],rows['Resize drawing'],('Resize borders',lambda:'on' if host.resize_edges else 'off',lambda d:host.set_preference('resize_edges',not host.resize_edges)),('Desktop wheel',lambda:'on' if host.desktop_scroll else 'off',lambda d:host.set_preference('desktop_scroll',not host.desktop_scroll))]),
             ('Compositor',[rows['Overview shade']]+[c.row() for c in shared_controls['shadows']]),
-            ('Motion',[rows['Animation'],rows['Animation time'],('Mouse trails',lambda:'on' if host.mouse_trails else 'off',lambda d:host.set_mouse_trails(not host.mouse_trails))]+[c.row() for c in shared_controls['arrival']])]),
+            ('Motion',[rows['Animation'],rows['Window animations'],rows['Animation time'],('Mouse trails',lambda:'on' if host.mouse_trails else 'off',lambda d:host.set_mouse_trails(not host.mouse_trails))]+[c.row() for c in shared_controls['arrival']])]),
         ('Desktop',('  /\\ ', ' /~~\\', '/\\/\\'),'Backgrounds and landscape',[
             ('Background',[rows['Background'],rows['Backdrop enabled']]),
             ('Scenery',scenery_rows(host,scenery_library)),
@@ -1494,10 +1520,6 @@ def main(platform=None,argv=None):
                 elif char == 'v' and host.focus:
                     host.finish(False)
                     host.visibility(host.focus)
-                elif char == 'u':
-                    counter += 1
-                    n = counter
-                    inbox.submit(lambda n=n: [Record(1,'N0CALL','APRS observed',f'Synthetic observation {n}')])
             if DEVELOPMENT and (input_timing is not None):input_timing[0].end('input_handlers',input_timing[1])
             # Control socket accept/read/write and status are observations.
             # Mutating control callbacks mark the model explicitly; real input,

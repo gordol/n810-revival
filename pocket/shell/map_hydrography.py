@@ -2,7 +2,7 @@
 from pathlib import Path
 from data_paths import data_root
 from functools import lru_cache
-import json,gzip,hashlib,math
+import json,gzip,hashlib,math,platform
 PATH=data_root()/'hydrography/index.json'
 def signature():
  if not PATH.is_file():return ()
@@ -12,7 +12,7 @@ def index(identity):
  data=json.loads(PATH.read_text())
  if not data.get('complete'):raise ValueError('Incomplete hydrography catalogue')
  return data
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=192 if platform.machine().lower() not in ('armv6l','armv7l','armv7','arm') else 64)
 def tile(name,digest):
  raw=(PATH.parent/name).read_bytes()
  if hashlib.sha256(raw).hexdigest()!=digest:raise ValueError('Hydrography tile integrity failure')

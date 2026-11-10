@@ -245,3 +245,5 @@ int pocket_mbx_text_cells(void *ptr,uint32_t *out,size_t count){
  for(unsigned i=0;i<r->cols*r->rows;i++){out[i*2]=r->cells[i].code;out[i*2+1]=r->cells[i].fg;}
  return 0;
 }
+
+int pocket_mbx_cell_colors(void *ptr,uint32_t *out,size_t count){struct renderer *r=ptr;if(!r||!out||count!=(size_t)r->cols*r->rows*2)return -1;for(size_t i=0;i<count/2;i++){out[i*2]=r->cells[i].code;out[i*2+1]=r->cells[i].fg|((uint32_t)r->cells[i].bg<<16);}return 0;}

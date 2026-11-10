@@ -95,8 +95,12 @@ def zoom_context(image,overview,module,center,span,width,height):
         candidate=Image(base.width,base.height,cells,image.legend,(),0.,base,'zoom-context')
         if contains(candidate,center,span,width,height):return candidate
     regional=overview.image(module,width,height)
-    if regional is None:return image
     w=min(160,max(2,width));h=max(2,min(80,round(w*height/max(1,width))))
+    if regional is None:
+        if image is None or image.projection is None:return image
+        from offline_map import ReprojectedPlane
+        view=module.Viewport(center,span*1.6,w,h)
+        return Image(w,h,ReprojectedPlane(image,view),'Expanding retained map',(),0.,view,'zoom-context')
     view=module.Viewport(center,span*1.6,w,h)
     from paint import ink
     def sample_color(lon,lat):

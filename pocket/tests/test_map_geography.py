@@ -1,10 +1,87 @@
 import sys,unittest,gzip,json,time
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
-from map_geography import maidenhead,grid,load,signature
+from map_geography import maidenhead,grid,grid_features,grid_enabled,load,signature,decorate,label_annotations,vector_segments,selected_geography
 from map_fixtures import install, regional_data_available
 class GeographyTests(unittest.TestCase):
+ def test_one_detail_policy_selects_terminal_and_pixel_roads(self):
+  data=dict(streams=[dict(kind='river',bbox=(-1,-1,1,1),points=((0,0),(.1,0)))],
+            roads=[dict(kind='residential',bbox=(-1,-1,1,1),points=((0,0),(.1,0))),
+                   dict(kind='highway',bbox=(-1,-1,1,1),points=((0,0),(.1,0)))],labels=[])
+  view=SimpleNamespace(span=50.,bbox=(-1,-1,1,1),ground_m_per_halfcell=100)
+  with patch('map_geography.data_for_view',return_value=data):
+   streams,roads,_=selected_geography(SimpleNamespace(forest_roads=False),view)
+  self.assertEqual(len(streams),1)
+  self.assertEqual([r['kind'] for r in roads],['highway'])
+
+ def test_desktop_pixel_vectors_keep_local_streets_at_cell_spaced_zoom(self):
+  data=dict(streams=[],labels=[],roads=[
+      dict(kind='residential',bbox=(-1,-1,1,1),points=((0,0),(.1,0))),
+      dict(kind='service',bbox=(-1,-1,1,1),points=((0,.1),(.1,.1)))])
+  view=SimpleNamespace(span=5.629,bbox=(-1,-1,1,1),ground_m_per_halfcell=26)
+  engine=SimpleNamespace(forest_roads=False)
+  with patch('map_geography.data_for_view',return_value=data),patch('map_geography.covers',return_value=True):
+   self.assertEqual(len(list(vector_segments(engine,view))[1][1]),0)
+   selected=list(vector_segments(engine,view,detail_pixels=8))[1][1]
+  self.assertEqual(len(selected),8)
+
+ def test_forest_vectors_are_separate_from_fixed_terrain_roads(self):
+  data=dict(streams=[],labels=[],roads=[
+      dict(kind='forest',bbox=(-1,-1,1,1),points=((0,0),(.1,0))),
+      dict(kind='residential',bbox=(-1,-1,1,1),points=((0,.1),(.1,.1)))])
+  view=SimpleNamespace(span=2.,bbox=(-1,-1,1,1),ground_m_per_halfcell=2)
+  engine=SimpleNamespace(forest_roads=True)
+  with patch('map_geography.data_for_view',return_value=data),patch('map_geography.covers',return_value=True):
+   base=list(vector_segments(engine,view,detail_pixels=8,forest_roads=False))
+   forest=list(vector_segments(engine,view,detail_pixels=8,forest_roads=True,forest_only=True))
+  self.assertEqual(len(base[1][1]),4)
+  self.assertEqual(len(forest),1)
+  self.assertEqual(len(forest[0][1]),4)
+
+ def test_wide_terminal_map_keeps_only_major_routes(self):
+  roles=('motorway','trunk','primary','secondary','tertiary','residential')
+  data=dict(streams=[],labels=[],roads=[dict(kind=role,bbox=(-1,-1,1,1),points=((0,0),(.1,0))) for role in roles])
+  view=SimpleNamespace(span=55.,bbox=(-1,-1,1,1),ground_m_per_halfcell=480)
+  with patch('map_geography.data_for_view',return_value=data):
+   terminal=selected_geography(SimpleNamespace(forest_roads=False),view)[1]
+   pixel=selected_geography(SimpleNamespace(forest_roads=False),view,detail_pixels=8)[1]
+  self.assertEqual([road['kind'] for road in terminal],['motorway'])
+  self.assertIn('tertiary',[road['kind'] for road in pixel])
+
+ def test_pixel_grid_uses_same_auto_policy_and_geographic_lines(self):
+  self.assertTrue(grid_enabled('auto',4))
+  self.assertFalse(grid_enabled('auto',52))
+  self.assertTrue(grid_enabled('on',52))
+  view=SimpleNamespace(bbox=(-122.6,47.1,-122.4,47.3),span=4,width=40,height=20,
+                       project=lambda lon,lat:((lon+122.6)*200,(47.3-lat)*100))
+  (color,points),labels=grid_features(view)
+  self.assertEqual(color,(117,143,153))
+  self.assertEqual(len(points)%4,0)
+  self.assertTrue(points)
+  self.assertTrue(labels)
+
+ def test_semantic_vectors_use_source_geometry(self):
+  layer=dict(tile=100000,index={(0,0):(0,)},coords=(0,0,10000,0))
+  engine=SimpleNamespace(atlas=SimpleNamespace(roads=[layer],streams=None),layer_bounds={id(layer):(-100000,-100000,100000,100000)})
+  view=SimpleNamespace(bbox=(-1,-1,1,1),ground_m_per_halfcell=100,span=20)
+  self.assertEqual([(color,list(points)) for color,points in vector_segments(engine,view)],
+                   [((219,205,155),[0.,0.,.1,0.])])
+
+ def test_label_annotations_share_semantic_selection_with_cell_frame(self):
+  view=SimpleNamespace(span=20.,width=8,height=2,bbox=(-1,-1,1,1),project=lambda lon,lat:(4,1))
+  engine=SimpleNamespace(labels=[dict(name='City',lon=0,lat=0,kind='city')])
+  frame=[('┼',(220,205,155),(10,20,30))]*16
+  data=dict(roads=[],streams=[],labels=[])
+  with patch('map_geography.data_for_view',return_value=data),patch('map_hydrography.labels',return_value=()):
+   painted=decorate(engine,view,frame)
+   marks=label_annotations(engine,view)
+  self.assertEqual(painted[0],frame[0])
+  self.assertNotIn(0,marks)
+  self.assertEqual(''.join(marks[i][0] for i in range(2,6)),'City')
+  self.assertEqual(''.join(painted[i][0] for i in range(2,6)),'City')
+
  @unittest.skipUnless(regional_data_available(), "Regional integration test: run make maps-download maps first")
  def test_public_arterial_is_rendered_and_named_at_close_zoom(self):
   from offline_map import Renderer

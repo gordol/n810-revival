@@ -6,16 +6,15 @@
 #include <stddef.h>
 #include <math.h>
 #include <stdlib.h>
-struct map_sample {uint32_t ch,pad;uint64_t ink;};
+struct map_sample {uint32_t upper,lower;};
 struct map_mark {uint32_t index,ch;uint64_t ink;};
 static uint16_t map_color(uint64_t rgb){return (uint16_t)(((rgb>>8)&0xf800)|((rgb>>5)&0x7e0)|((rgb>>3)&31));}
 int pocket_map_base(uint16_t *out,size_t capacity,const struct map_sample *cells,unsigned cols,unsigned rows){
  if(!out||!cells||!cols||cols>512||!rows||rows>256||capacity<(size_t)cols*8*rows*16)return -1;
  unsigned width=cols*8;
  for(unsigned y=0;y<rows*16;++y)for(unsigned x=0;x<width;++x){
-  const struct map_sample *cell=cells+(y/16)*cols+x/8;
-  int front=cell->ch==0x2588||(cell->ch==0x2580&&y%16<8)||(cell->ch==0x2584&&y%16>=8);
-  out[y*width+x]=map_color(front?cell->ink>>24:cell->ink);
+  const uint32_t *samples=(const uint32_t*)cells;
+  out[y*width+x]=map_color(samples[(y/8)*cols+x/8]);
  }
  return 0;
 }

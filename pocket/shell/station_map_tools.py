@@ -7,7 +7,7 @@ class StationMapTools:
         self._disabled_qth=None;self.terrain_enabled=True;self.layers_visible=False;self._panel_layer=None;self.dialog=None;self.dialog_spans=();self.internet=None;self.internet_own='';self.internet_calls='';self.internet_editor=None;self.qth_path=qth_path;self._saved_pin_layer=None
         self.sidebar_tab='layers';self.detail_repeater=None;self.detail_point=None;self._detail_press=None;self._detail_call=None;self.sidebar_scroll=0;self._sidebar_max_scroll=0
         self._sidebar_focus=False
-        self.base=base;self.tool=None;self.terrain_active=False;self._wakeup=None;self._session_callback=None;self._saved_terrain={};self._terrain_button_row=0
+        self.base=base;self.tool=None;self.terrain_active=False;self._wakeup=None;self._session_callback=None;self._saved_terrain={};self._terrain_button_row=0;self._map_presentation='cells'
     def __getattr__(self,name):return getattr(self.base,name)
     def bind_wakeup(self,callback):
         self._wakeup=callback;self.base.renderer.completion_wakeup=callback
@@ -16,12 +16,20 @@ class StationMapTools:
         if self.tool is None:
             from native_terrain_profile import TerrainProfile
             self.tool=TerrainProfile(map_base=self.base,qth_path=self.qth_path)
+            source=self.tool.map.renderer
+            if source is not self.base.renderer:source.set_presentation(self._map_presentation)
             if self._wakeup:self.tool.bind_wakeup(self._wakeup)
             if self._saved_terrain:self.tool.restore_session(self._saved_terrain)
             if self._session_callback:self.tool.bind_session(self._session_callback)
             self.tool.resolve_station=self.resolve_station
             self.tool.enabled_provider=lambda:self.terrain_enabled
         return self.tool
+    def set_map_presentation(self,mode):
+        """Select the shared engine's output once for this host presentation."""
+        self.base.renderer.set_presentation(mode)
+        if self.tool and self.tool.map.renderer is not self.base.renderer:
+            self.tool.map.renderer.set_presentation(mode)
+        self._map_presentation=mode
     def preferences_changed(self,preferences):
         self.terrain_enabled=bool(preferences.get('terrain-enabled',True))
         if not self.terrain_enabled:
@@ -52,6 +60,7 @@ class StationMapTools:
         if not self.terrain_enabled:return self.terrain_unavailable()
         tool=self.ensure_tool();self.terrain_active=True
         self.layers_visible=False;self.base.side_overview=False;self.dialog=None
+        if self._session_callback:self._session_callback()
         tool.screen='profile';tool.error='';tool.target_label=call
         position=position or self.resolve_station(call)
         if not position:
@@ -93,6 +102,7 @@ class StationMapTools:
         tool.map.end=not end if mode=='path' else False
         tool.map.notice='Fixed LOS origin · right-click to choose another' if mode=='area' else 'Choose endpoints · P profile · Esc return to stations'
         if mode=='area' and position is not None:tool.show_los()
+        if self._session_callback:self._session_callback()
         return True
     def coverage_from_location(self,label,position,frequency,height_m=None):
         if not self.terrain_enabled:return self.terrain_unavailable()
@@ -232,7 +242,9 @@ class StationMapTools:
         map_screen=not self.terrain_active or self.ensure_tool().screen=='map'
         if key.lower()=='s' and map_screen:
             self.base.key('s');self.layers_visible=bool(self.base.side_overview)
-            self._focus_sidebar(self.layers_visible);return True
+            self._focus_sidebar(self.layers_visible)
+            if self._session_callback:self._session_callback()
+            return True
         if map_screen and key in ('\t','backtab'):
             if getattr(self.base,'side_overview',False) and not self.base.full_overview:
                 self._focus_sidebar(not self._sidebar_focus)
@@ -242,7 +254,9 @@ class StationMapTools:
         if map_screen and self._sidebar_focus and (self.layers_visible or getattr(self.base,'side_overview',False)):
             lower=key.lower()
             if key in ('escape','\x1b'):
-                self.layers_visible=False;self.base.side_overview=False;return True
+                self.layers_visible=False;self.base.side_overview=False
+                if self._session_callback:self._session_callback()
+                return True
             if key in ('up','down','pageup','pagedown','home','end'):
                 step={'up':-1,'down':1,'pageup':-5,'pagedown':5}.get(key,0)
                 self.sidebar_scroll=0 if key=='home' else self._sidebar_max_scroll if key=='end' else max(0,min(self._sidebar_max_scroll,self.sidebar_scroll+step))
@@ -278,7 +292,9 @@ class StationMapTools:
         if self.terrain_active:
             self.ensure_tool()
             if key in ('escape','\x1b') and self.tool.screen=='map' and not self.base.full_overview and self.base.target_box.view is None:
-                self.terrain_active=False;self.base.cancel_pointer();return True
+                self.terrain_active=False;self.base.cancel_pointer()
+                if self._session_callback:self._session_callback()
+                return True
             return self.tool.key(key)
         if key in ('g','G') and self.terrain_enabled:
             self.enter_terrain();self.tool.open_call();return True
@@ -335,7 +351,7 @@ class StationMapTools:
         if callable(provider):
             calls=provider() or ()
             self.internet_own=calls[0] if calls else ''
-        if self.tool:self.tool.map.qth_label='QTH'+(' '+self.internet_own if self.internet_own else '')
+        if self.tool:self.tool.map.qth_label='QTH'
         if self.dialog:
             from app_widgets import Canvas
             c=Canvas(self.width,self.height)
@@ -376,7 +392,7 @@ class StationMapTools:
                 x0,y0,w,h,plane=self._saved_pin_layer
                 x=round((x+.5)*w/image.width-.5);y=round((y+.5)*h/image.height-.5)
                 if 0<=x<w and 0<=y<h:
-                    overlay={y*w+x+i:(char,ink(255,255,255,background=(120,30,75))) for i,char in enumerate('QTH'+(' '+self.internet_own if self.internet_own else '')) if x+i<w}
+                    overlay={y*w+x+i:(char,ink(255,255,255,background=(120,30,75))) for i,char in enumerate('QTH') if x+i<w}
                     self._saved_pin_layer=(x0,y0,w,h,Plane(plane,overlay))
         label='[ Terrain T ]' if self.terrain_enabled else ''
         self._terrain_button_row=1 if self.base.preview or self.base.full_overview or self.base.target_box.view is not None else 0
@@ -443,6 +459,65 @@ class StationMapTools:
         self._panel_layer=(x0,y0,w,h,Plane(plane,overlay))
         return tuple(lines)
     def layer(self):return None if self.dialog else self._panel_layer or (self.tool.layer() if self.terrain_active else self._saved_pin_layer or self.base.layer())
+    def locator_surface(self,layer):
+        if self._map_presentation!='semantic' or not self.base.side_overview:return None
+        rect=getattr(self.base,'_locator_rect',None)
+        if rect is None or layer is None:return None
+        x,y,width,height,image=rect
+        if getattr(image,'source',None)!='semantic' or image.projection is None:return None
+        from array import array
+        from map_overview import corners
+        from offline_map import MapSurface
+        center,span=self.base.target_box.view or (self.base.center,self.base.span)
+        (west,north),(east,south)=corners(center,span,self.width,max(1,self.height-3))
+        ring=((west,north),(east,north),(east,south),(west,south),(west,north))
+        outline=array('d')
+        for first,second in zip(ring,ring[1:]):outline.extend((*first,*second))
+        key=('locator',id(image),rect[:4],tuple(center),span)
+        surface=MapSurface(image,(x,y,width,height,image.cells),self.base.renderer,key,
+                           overlay_vectors=(((255,210,65),outline),),labels=False)
+        return surface,x-layer[0],y-layer[1]
+    def map_surface(self):
+        """The current semantic map source, independent of its tool screen."""
+        if self.dialog or getattr(self.base,'filter_open',False):return None
+        if self.terrain_active:
+            tool=self.ensure_tool()
+            if tool.screen!='map':return None
+            image=tool.map.image
+        else:image=getattr(self.base,'_shown_image',None) or getattr(self.base,'_display_image',None)
+        layer=self.layer()
+        if image is None or image.projection is None or layer is None:return None
+        from offline_map import MapSurface,without_grid,plane_identity
+        vectors=()
+        if self.terrain_active and tool.map.mode=='path' and all(tool.map.points):
+            from array import array
+            a,b=tool.map.points
+            vectors=(((255,240,110),array('d',(a[1],a[0],b[1],b[0]))),)
+        box_plane=None
+        if not self.terrain_active and getattr(self.base,'_target_layer',None) is getattr(self.base,'_target_layer_cache',None):
+            target_layer=getattr(self.base,'_target_layer_cache',None)
+            if target_layer is not None and self.base.target_box.view is not None:
+                from map_overview import corners
+                from array import array
+                center,span=self.base.target_box.view
+                (west,north),(east,south)=corners(center,span,self.width,max(1,self.height-3))
+                ring=((west,north),(east,north),(east,south),(west,south),(west,north))
+                outline=array('d')
+                for first,second in zip(ring,ring[1:]):outline.extend((*first,*second))
+                vectors=(*vectors,((255,210,65),outline))
+                box_plane=target_layer[4]
+        source=tool.map.renderer if self.terrain_active else self.base.renderer
+        unavailable='' if source.supports_semantic_image(image) else 'Selected map has no native semantic layers'
+        grid_mode=getattr(self.base,'maidenhead_grid','off')
+        inset=self.locator_surface(layer)
+        key=(id(source),id(image),plane_identity(layer[4]),layer[:4],grid_mode,unavailable,
+             bool(getattr(source,'forest_roads',False)),tuple(tuple(point) if point is not None else None for point in tool.map.points) if self.terrain_active else (),
+             inset[0].key if inset else None)
+        pane=min(32,self.width//3) if getattr(self.base,'side_overview',False) and not self.base.full_overview else 0
+        content_width=max(1,layer[2]-pane) if pane else layer[2]
+        return MapSurface(image,without_grid(layer),source,key,grid_mode,vectors,
+                          unavailable_reason=unavailable,inset=inset,box_plane=box_plane,
+                          content_width=content_width)
     def spans(self):return self.dialog_spans if self.dialog else self.tool.spans() if self.terrain_active else self.base.spans()
     def poll(self):
         if self.internet:
@@ -460,13 +535,13 @@ class StationMapTools:
                     px,py=image.projection.project(tool.map.qth[1],tool.map.qth[0])
                     qx=round((px+.5)*layer[2]/image.width-.5)+layer[0]
                     qy=round((py+.5)*layer[3]/image.height-.5)+layer[1]
-                    label='QTH'+(' '+self.internet_own if self.internet_own else '')
+                    label='QTH'
                     if self.terrain_active and tool.map.mode=='path' and tool.map.points[0]==tool.map.qth:label='A '+label
                     if qy==y and qx<=x<min(self.width,qx+len(label)):
                         # The topmost saved-location label owns its complete hit area.
                         # Do not expose station labels hidden beneath it.
                         position=tool.map.qth
-                        return (EntityRef('map-point',f'{position[0]:.7f},{position[1]:.7f}',payload={'position':position,'label':'QTH'+(' '+self.internet_own if self.internet_own else ''),'saved_qth':True}),)
+                        return (EntityRef('map-point',f'{position[0]:.7f},{position[1]:.7f}',payload={'position':position,'label':'QTH','saved_qth':True}),)
             if position:refs=tuple(refs)+(EntityRef('map-point',f'{position[0]:.7f},{position[1]:.7f}',payload={'position':position}),)
         return refs
     def selected_entities(self):

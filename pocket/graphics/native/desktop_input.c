@@ -92,9 +92,11 @@ int pocket_window_event(int out[6]){
   if(e.type==SDL_MOUSEMOTION&&SDL_GetRelativeMouseMode()){
    out[0]=5;out[1]=e.motion.xrel;out[2]=e.motion.yrel;return 1;
   }
-  if(e.type==SDL_MOUSEBUTTONDOWN||e.type==SDL_MOUSEBUTTONUP){out[0]=2;out[1]=e.button.x;out[2]=e.button.y;out[3]=e.button.button==SDL_BUTTON_LEFT?0:e.button.button==SDL_BUTTON_MIDDLE?1:2;out[4]=e.type==SDL_MOUSEBUTTONUP;return 1;}
-  if(e.type==SDL_MOUSEMOTION&&e.motion.state&SDL_BUTTON_LMASK){out[0]=2;out[1]=e.motion.x;out[2]=e.motion.y;out[3]=32;return 1;}
+  if(e.type==SDL_MOUSEBUTTONDOWN||e.type==SDL_MOUSEBUTTONUP){out[0]=2;out[1]=e.button.x;out[2]=e.button.y;out[3]=e.button.button==SDL_BUTTON_LEFT?0:e.button.button==SDL_BUTTON_MIDDLE?1:2;out[4]=e.type==SDL_MOUSEBUTTONUP;out[5]=(int)e.button.timestamp;return 1;}
+  if(e.type==SDL_MOUSEMOTION&&e.motion.state&SDL_BUTTON_LMASK){out[0]=2;out[1]=e.motion.x;out[2]=e.motion.y;out[3]=32;out[5]=(int)e.motion.timestamp;return 1;}
   if(e.type==SDL_KEYDOWN||e.type==SDL_KEYUP){out[0]=3;out[1]=e.key.keysym.sym;out[3]=e.key.keysym.mod;out[4]=e.type==SDL_KEYUP;out[5]=e.key.repeat;return 1;}
  }
  return 0;
 }
+
+#include "gpu_scene.c"

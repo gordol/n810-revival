@@ -27,6 +27,10 @@ def box_glyphs(font):
     shapes['╯']={(3,y) for y in range(6)}|{(2,6)}|{(x,7) for x in range(2)}
     shapes['┄']={(x,7) for x in range(8) if x%4<3}
     shapes['┆']={(3,y) for y in range(16) if y%6<4}
+    # The weather icon is emitted as Unicode by the shared shell.
+    shapes['☀']={(3,5),(4,5),(2,6),(5,6),(2,7),(5,7),(3,8),(4,8),
+                 (3,2),(4,2),(3,11),(4,11),(0,6),(7,6),
+                 (1,3),(6,3),(1,10),(6,10)}
     glyphs=list(font.glyphs)
     for ch,points in shapes.items():
         bits=bytes(sum(128>>x for x,y in points if y==row) for row in range(16))

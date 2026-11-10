@@ -1,9 +1,11 @@
 # Map navigation and retained regions
 
 Ordinary dragging moves the map. Zoom preview changes a target box; Enter accepts
-it and Escape cancels it. Explicit Overview keeps its camera fixed while the box
-is adjusted. Moving a preview beyond the loaded image scrolls its context at the
-same scale instead of returning to the regional overview.
+it and Escape cancels it. Explicit Overview keeps its camera fixed while the
+target box fits. When zooming out or moving the box beyond that view, the
+overview camera expands to keep the box visible. Moving a normal preview beyond
+the loaded image scrolls its context at the same scale instead of returning to
+the regional overview.
 
 `map_regions.py` owns a cache of at most two geographic regions, with a combined
 240,000-cell budget. Its cache key includes display spacing and layer/source
@@ -33,6 +35,29 @@ work, layer/scale invalidation, and north/south panning at a 953 km span.
 `tests/test_map_interaction_regressions.py` checks input through the outer app
 wrapper as well as the underlying map. These tests do not establish live display
 quality on either the laptop terminal or Nokia.
+
+## Station Map regression checklist
+
+- Main GUI map: terrain remains semantic pixels through pan, preview, confirm,
+  resize and Overview; roads and labels remain geographic overlays. A zoom
+  before the first map image arrives must still start the map request.
+- Box-only redraw: reuse the stable terrain and geographic-line texture; change
+  only the transparent annotation texture. Keep window margins clear at odd
+  physical sizes so old map pixels cannot appear above or below the UI.
+- Sidebar locator: use the same terrain and vector source as the main map at its
+  own camera, with dense desktop pixel sampling and a geographic target outline.
+  Opening the sidebar must not replace the detailed locator with enlarged cells.
+- Overview zoom out: keep the target box visible by expanding the camera when it
+  reaches an edge, including when the regional preview asset is absent.
+- TUI: keep its cell renderer and check readability at local and regional zoom.
+- N810: measure map latency and memory on the physical device before claiming
+  the desktop detail density is suitable there.
+
+Run `python3 -m unittest discover -s tests -p test_map_interaction_regressions.py`,
+`python3 -m unittest discover -s tests -p test_map_pixel_handoff.py`, and
+`python3 graphics/check_map.py` for the interaction and native Metal checks.
+The native check requires a working desktop graphics environment. It asserts a
+pixel locator, dense terrain, scene rebuilds and zero map readbacks.
 
 # Map data preparation
 
