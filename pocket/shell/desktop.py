@@ -849,7 +849,7 @@ def main(platform=None,argv=None):
     def open_registered_settings(category):
         settings.category=category;host.activate('Settings')
     registered_apps.settings_opener=open_registered_settings
-    from app_registry import LazyApplication
+    from app_registry import LazyApplication,instantiated_forms
     def make_scenery(_host):
         from scenery_app import SceneryApp
         return SceneryApp(host,scenery_library,lambda:host.close('Scenery'))
@@ -1833,7 +1833,8 @@ def main(platform=None,argv=None):
                     if interval is not None:
                         timeout=interval if timeout is None else min(timeout,interval)
                         owner_delay('application:'+str(index),interval)
-                for name,form in host.app_forms.items():
+                lifecycle_forms=instantiated_forms(host.app_forms)
+                for name,form in lifecycle_forms:
                     interval=(metrics.model_call(name,'interval',form.poll_interval) if DEVELOPMENT and (metrics) else form.poll_interval()) if hasattr(form,'poll_interval') else None
                     window=host.window(name)
                     if host.shown(window) and not window.rolled and hasattr(form,'presentation_interval'):
@@ -1848,7 +1849,7 @@ def main(platform=None,argv=None):
                     if radio_delay is not None:
                         timeout=radio_delay if timeout is None else min(timeout,radio_delay)
                         owner_delay('sources',radio_delay)
-                for name,form in host.app_forms.items():
+                for name,form in lifecycle_forms:
                     future_wakeups.watch(form,'form:'+name)
             for renderer in (*getattr(host,'app_renderers',()),host.terrain_renderer):
                 if renderer is not None:future_wakeups.watch(renderer,'background' if renderer is host.terrain_renderer and host.effect=='flux' else 'all','pending')
@@ -1864,7 +1865,7 @@ def main(platform=None,argv=None):
                 timeout=clock_delay if timeout is None else min(timeout,clock_delay)
                 owner_delay('panel',clock_delay)
             if lifecycle_refresh:
-                for name,form in host.app_forms.items():
+                for name,form in lifecycle_forms:
                     if host.shown(host.window(name)) and (getattr(form,'spin',False) or getattr(form,'transition',None)):
                         timeout=.04 if timeout is None else min(timeout,.04);owner_delay('form:'+name,.04)
             delay=store.delay(now)
@@ -1889,7 +1890,7 @@ def main(platform=None,argv=None):
             if keyboard_delay is not None:timeout=keyboard_delay if timeout is None else min(timeout,keyboard_delay)
             if DEVELOPMENT:
                 pointer_trace.sample(host)
-            if lifecycle_refresh:app_readiness.sync((*host.app_forms.values(),*applications))
+            if lifecycle_refresh:app_readiness.sync(tuple(form for _,form in lifecycle_forms)+tuple(applications))
             else:app_readiness.rearm_integers()
             if host.drag and due_owners and not refresh_models and not launcher.active:
                 # Paint pending motion, then service overdue owners before

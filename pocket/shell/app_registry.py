@@ -523,3 +523,14 @@ class Registry:
 def discover():
     resources=tuple(p for p in os.environ.get('CURRENT_WORLD_RESOURCES','').split(os.pathsep) if p)
     return Registry(resource_roots=resources).discover()
+
+
+def instantiated_forms(forms):
+    """Snapshot existing owners for readiness/deadlines, including hidden ones.
+
+    Uncreated exact lazy wrappers return no sources or intervals. Subclasses
+    may implement their own lifecycle and must retain the generic path.
+    Recompute after presentation callbacks so a newly created owner is included.
+    """
+    return tuple((name,form) for name,form in forms.items()
+                 if type(form) is not LazyApplication or form.owner is not None)
