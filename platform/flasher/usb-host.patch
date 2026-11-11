@@ -1,0 +1,19 @@
+--- a/src/operations.c
++++ b/src/operations.c
+@@ -40,6 +40,7 @@
+ 	if ( ! dev )
+ 		goto clean;
+ 
++#ifndef POCKET_USB_ONLY
+ 	/* LOCAL */
+ 	if ( local_init() == 0 ) {
+ 		dev->method = METHOD_LOCAL;
+@@ -47,6 +48,8 @@
+ 		dev->detected_hwrev = local_get_hwrev();
+ 		return dev;
+ 	}
++
++#endif
+ 
+ 	/* USB */
+ 	usb = usb_open_and_wait_for_device();

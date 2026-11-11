@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Unit]
+Description=Pocket graphical desktop
+Wants=n810-setup-touch.service
+After=systemd-user-sessions.service systemd-udev-settle.service n810-setup-touch.service
+ConditionPathExists=/usr/local/share/pocket/graphics/nokia.py
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -I /usr/local/lib/pocket/bootstrap_desktop.py
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

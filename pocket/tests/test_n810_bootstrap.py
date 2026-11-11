@@ -26,6 +26,15 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(kit['state'],'kit_prepared');self.assertFalse(kit['tablet_installed'])
         checked=bootstrap.inspect(self.root/'kit/INSTALLATION.json');self.assertEqual(checked['files'],result['files'])
         self.assertIn('tablet is not installed',(self.root/'kit/README.txt').read_text())
+    def test_internal_kit_requires_its_ram_installer_and_plan(self):
+        path=self.manifest('n810-internal')
+        plan=bootstrap.inspect(path)
+        self.assertEqual(plan['kind'],'n810-internal')
+        self.assertFalse(plan['tablet_installed'])
+        self.data['files']=[row for row in self.data['files'] if row['role']!='install-plan']
+        path.write_text(json.dumps(self.data))
+        with self.assertRaisesRegex(ValueError,'install-plan'):bootstrap.inspect(path)
+
     def test_update_requires_its_own_installer_and_guide(self):
         path=self.manifest('pocket-update');self.assertEqual(bootstrap.inspect(path)['kind'],'pocket-update')
         self.data['files'].pop();path.write_text(json.dumps(self.data))
@@ -65,6 +74,18 @@ class SetupTests(unittest.TestCase):
         native_key(form,'\t');native_key(form,'\t');self.assertEqual(navigation(form).target,'check')
         native_key(form,'\r')
         self.assertIsNotNone(form.pool)
+    def test_flasher_action_uses_shared_builder_without_manifest(self):
+        form=N810Setup();self.addCleanup(form.close)
+        with patch('n810_flasher.build',return_value={'state':'flasher_built','binary':'/fixture/0xFFFF','source_revision':'fixture'}) as build:
+            for _ in range(5):native_key(form,'\t')
+            self.assertEqual(navigation(form).target,'flasher')
+            native_key(form,'\r')
+            form.pending.result(timeout=2);form.poll()
+            build.assert_called_once()
+        self.assertIsNone(form.result)
+        self.assertEqual(form.tool_result['state'],'flasher_built')
+        self.assertIn('No tablet was accessed',form.status)
+
     def test_open_render_and_help_do_not_start_work(self):
         form=N810Setup();self.addCleanup(form.close)
         for width,height in ((40,14),(80,24),(110,36)):
