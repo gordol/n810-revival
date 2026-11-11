@@ -76,6 +76,10 @@ class window_presenter {
             const auto n=recvmsg(fd_,&message,MSG_DONTWAIT);
             if(message.msg_flags&MSG_TRUNC)return false;
             if(!n)return true; // Trusted consumer closes only after forgetting imports.
+            // Cancellation may win poll while the completed frame ACK is queued.
+            // It confirms frame consumption, not import retirement: drain it and
+            // still require the subsequent CLOSE/READY handshake before release.
+            if(n==static_cast<ssize_t>(sizeof(response))&&!std::memcmp(response.magic,"SWN1",4)&&response.kind==window_ack&&response.serial==serial_&&!response.width&&!response.height&&!response.count&&!response.reserved)continue;
             if(n==static_cast<ssize_t>(sizeof(response))&&!std::memcmp(response.magic,"SWN1",4)&&response.kind==window_ready&&response.serial==serial_&&!response.width&&!response.height&&!response.count&&!response.reserved)return true;
             if(n==static_cast<ssize_t>(sizeof(response))&&!std::memcmp(response.magic,"SWN1",4)&&(response.kind==window_pause||response.kind==window_resume)&&!response.serial&&!response.width&&!response.height&&!response.count&&!response.reserved)continue;
             if(n<0&&(errno==EAGAIN||errno==EINTR))continue;

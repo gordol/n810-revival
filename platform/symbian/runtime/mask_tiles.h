@@ -23,7 +23,10 @@ template<class Emit> void mask_tiles(const sg_sprite &source,unsigned width,unsi
  }
  if(u0==u1||v0==v1)throw std::runtime_error("Degenerate tiled mask UVs unsupported");
  const double a=u0*double(width),b=u1*double(width),c=v0*double(height),d=v1*double(height);
- for(unsigned y=0;y<height;y+=128)for(unsigned x=0;x<width;x+=128){
+ const unsigned first_x=unsigned(std::min(a,b)/128)*128,first_y=unsigned(std::min(c,d)/128)*128;
+ const unsigned end_x=std::min(width,unsigned(std::ceil(std::max(a,b)/128))*128);
+ const unsigned end_y=std::min(height,unsigned(std::ceil(std::max(c,d)/128))*128);
+ for(unsigned y=first_y;y<end_y;y+=128)for(unsigned x=first_x;x<end_x;x+=128){
   unsigned w=std::min(128U,width-x),h=std::min(128U,height-y);
   double left=std::max(std::min(a,b),double(x)),right=std::min(std::max(a,b),double(x+w));
   double top=std::max(std::min(c,d),double(y)),bottom=std::min(std::max(c,d),double(y+h));

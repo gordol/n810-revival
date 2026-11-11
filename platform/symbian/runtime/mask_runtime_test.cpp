@@ -64,6 +64,15 @@ int main(int argc,char **argv){
   unsigned previous=last_texture;off_t position=lseek(gpu,0,SEEK_CUR);
   assert(!sg_mask_sprite_draw(&sprite,&src,&m,8,consume,nullptr));assert(last_texture==previous&&lseek(gpu,0,SEEK_CUR)==position);
  }
+ // Repeated small crops from a larger canonical atlas share the tile result.
+ GLuint atlas=texture(257,131,data.data()),atlas_mask=texture(257,131,data.data());names.push_back(atlas);names.push_back(atlas_mask);
+ src={450,1,atlas,257,131,1};m={451,1,atlas_mask,257,131,1};
+ sg_sprite cropped=sprite;for(unsigned i=0;i<4;i++){cropped.xyuv[4*i+2]=.1f+.3f*sprite.xyuv[4*i+2];cropped.xyuv[4*i+3]=.1f+.6f*sprite.xyuv[4*i+3];}
+ assert(!sg_mask_sprite_draw(&cropped,&src,&m,8,consume,nullptr));unsigned tile_texture=last_texture;off_t tile_position=lseek(gpu,0,SEEK_CUR);
+ for(unsigned i=0;i<10;i++){assert(!sg_mask_sprite_draw(&cropped,&src,&m,8,consume,nullptr));assert(last_texture==tile_texture&&lseek(gpu,0,SEEK_CUR)==tile_position);}
+ sg_sprite next_crop=cropped;for(unsigned i=0;i<4;i++)next_crop.xyuv[4*i+2]+=.5f;
+ assert(!sg_mask_sprite_draw(&next_crop,&src,&m,8,consume,nullptr));assert(last_texture!=tile_texture&&lseek(gpu,0,SEEK_CUR)>tile_position);
+ sg_mask_source_retire(src.lifetime);assert(!mask_cache_state_.cache->references(src.lifetime));
  GLuint full=texture(128,128,data.data()),reserved=texture(128,128,nullptr);names.push_back(full);names.push_back(reserved);
  glFinish();mbx_window_view held{};assert(!n810_mbx_window_channels(full,full,reserved,MBX_WINDOW_RED_ALPHA,&held));
  GLuint large=texture(240,320,data.data()),large_mask=texture(240,320,data.data());names.push_back(large);names.push_back(large_mask);

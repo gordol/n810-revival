@@ -16,7 +16,8 @@ struct source {
 };
 struct key {
  uint64_t context=0;source image,mask;uint32_t flags=0;
- bool operator==(const key& b)const{return context==b.context&&image==b.image&&mask==b.mask&&flags==b.flags;}
+ uint32_t x=0,y=0,width=0,height=0; // optional canonical source tile
+ bool operator==(const key& b)const{return context==b.context&&image==b.image&&mask==b.mask&&flags==b.flags&&x==b.x&&y==b.y&&width==b.width&&height==b.height;}
 };
 /* Result lifetime is cache-owned only when insert succeeds. Hit handles are
  * borrowed until the next cache mutation; caller must issue its draw first.
@@ -39,7 +40,8 @@ class cache {
  public:
  cache(uint64_t context,uint64_t bytes,size_t entries):context_(context),budget_(bytes),limit_(std::min<size_t>(entries,256)){entries_.reserve(limit_);}
  cache(const cache&)=delete;cache& operator=(const cache&)=delete;
- bool accepts(const key& k)const{return context_&&k.context==context_&&eligible(k.image)&&eligible(k.mask)&&k.image.width==k.mask.width&&k.image.height==k.mask.height&&(k.flags&~12U)==0;}
+ bool accepts(const key& k)const{return context_&&k.context==context_&&eligible(k.image)&&eligible(k.mask)&&k.image.width==k.mask.width&&k.image.height==k.mask.height&&(k.flags&~12U)==0&&
+  ((!k.width&&!k.height&&!k.x&&!k.y)||(k.width&&k.height&&k.width<=128&&k.height<=128&&k.x<k.image.width&&k.y<k.image.height&&k.width<=k.image.width-k.x&&k.height<=k.image.height-k.y));}
  bool references(uint64_t lifetime)const{for(const auto& e:entries_)if(e.k.image.lifetime==lifetime||e.k.mask.lifetime==lifetime)return true;return false;}
  uint64_t bytes()const{return used_;}size_t size()const{return entries_.size();}
  uint32_t find(const key& k){if(!accepts(k))return 0;for(size_t i=0;i<entries_.size();++i)if(entries_[i].k==k){auto e=entries_[i];entries_.erase(entries_.begin()+i);entries_.push_back(e);return e.result;}return 0;}
@@ -47,7 +49,7 @@ class cache {
   * Unknown allocation size must bypass caching. Never charge less than RGBA8.
   * False leaves ownership with caller and does not evict anything. */
  template<class Release> bool insert(const key& k,uint32_t result,uint64_t charge,Release release){
-  if(!accepts(k)||!result||result==k.image.name||result==k.mask.name||!limit_||charge< uint64_t(k.image.width)*k.image.height*4||charge>budget_)return false;
+  if(!accepts(k)||!result||result==k.image.name||result==k.mask.name||!limit_||charge< uint64_t(k.width?k.width:k.image.width)*(k.height?k.height:k.image.height)*4||charge>budget_)return false;
   for(const auto& e:entries_)if(e.result==result||e.k==k)return false;
   while(entries_.size()>=limit_||charge>budget_-used_){auto e=entries_.front();entries_.erase(entries_.begin());used_-=e.bytes;release(e.result);}
   entries_.push_back({k,result,charge});used_+=charge;return true;

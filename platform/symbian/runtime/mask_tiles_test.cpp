@@ -46,6 +46,11 @@ int main(){
  mbx_mask::key k;k.context=1;k.image=k.mask=src;mbx_mask::cache cache(1,4096,3);std::vector<unsigned> released;
  for(unsigned i=0;i<3;i++){k.image.generation=i+1;assert(cache.insert(k,100+i,1024,[&](unsigned n){released.push_back(n);}));}
  assert(cache.references(1));assert(cache.evict_oldest([&](unsigned n){released.push_back(n);}));assert(released[0]==100&&cache.size()==2);
+ mbx_mask::key tile=k;tile.image.width=tile.image.height=tile.mask.width=tile.mask.height=1024;
+ tile.x=tile.y=896;tile.width=tile.height=128;assert(cache.accepts(tile));
+ tile.x=897;assert(!cache.accepts(tile));tile.x=896;tile.height=0;assert(!cache.accepts(tile));
+ mbx_mask::cache atlas_cache(1,65536,1);tile.height=128;assert(atlas_cache.insert(tile,900,65536,[](unsigned){}));
+ auto adjacent=tile;adjacent.x=768;assert(!atlas_cache.find(adjacent)&&atlas_cache.find(tile)==900);atlas_cache.close([](unsigned){});
  cache.close([&](unsigned n){released.push_back(n);});assert(cache.bytes()==0&&released.size()==3);
  std::printf("%u tile/crop/reversal cases: unique coverage, original UV mapping and attributes preserved; pre-miss eviction passed\n",cases);
 }

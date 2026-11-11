@@ -74,10 +74,15 @@ extern "C" int sg_mask_sprite_draw(const sg_sprite *sprite,const sg_mask_source 
  if(!sprite||!source||!mask||!draw||source->width!=mask->width||source->height!=mask->height||(flags&~12U))return -1;
  n810_command_profile::scope profile(83);mask_cache_init();mask_cache_drain();auto &s=mask_cache_state_;
  const bool small=source->width<=128&&source->height<=128;
+ sg::mask_tile single{};unsigned tile_count=0;
+ if(!small)sg::mask_tiles(*sprite,source->width,source->height,[&](const sg::mask_tile &tile){if(!tile_count)single=tile;++tile_count;});
  auto key=mask_key(*source,*mask,flags);
- const bool cacheable=small&&s.cached_limit&&std::getenv("N810_SYMBIAN_MASK_CACHE")&&s.cache->accepts(key);
+ if(!small&&tile_count==1){key.x=single.x;key.y=single.y;key.width=single.width;key.height=single.height;}
+ // Cache one atlas tile when a crop fits it. Multi-tile images keep the one
+ // streaming allocation, avoiding allocation churn for images larger than LRU.
+ const bool cacheable=(small||tile_count==1)&&s.cached_limit&&std::getenv("N810_SYMBIAN_MASK_CACHE")&&s.cache->accepts(key);
  unsigned temporary=0;
- try {sg::mask_tiles(*sprite,source->width,source->height,[&](sg::mask_tile tile){
+ auto consume=[&](sg::mask_tile tile){
   unsigned result=cacheable?s.cache->find(key):0;bool borrowed=result!=0;
   if(borrowed)++s.hits;
   else {
@@ -90,7 +95,10 @@ extern "C" int sg_mask_sprite_draw(const sg_sprite *sprite,const sg_mask_source 
   if(!borrowed)temporary=result;
   tile.sprite.texture=result;
   if(draw(&tile.sprite,opaque))throw std::runtime_error("Resident mask sprite failed");
- });
+ };
+ try {
+ if(!small&&tile_count==1)consume(single);
+ else sg::mask_tiles(*sprite,source->width,source->height,consume);
  if(temporary){mask_finish();glDeleteTextures(1,&temporary);temporary=0;}
  }catch(...){
   // On a failed GPU flush, keep the texture owned by its context until teardown.
