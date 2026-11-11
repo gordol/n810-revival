@@ -62,7 +62,10 @@ int main(int argc,char **argv){
  if(!pixels){
   // An upload/destruction barrier must consume pending references first.
   setenv("N810_SYMBIAN_MASK_BATCH","1",1);sg_sprite_batch_mode(1);sg_sprite s{};s.projection[0]=2.f/240;s.projection[5]=-2.f/height;s.projection[10]=-1;s.projection[12]=-1;s.projection[13]=1;s.projection[15]=1;s.model[0]=14;s.model[5]=22;s.model[10]=s.model[15]=1;for(float &c:s.color)c=1;const float uv[]={0,1,0,1,1,0,1,0,0,0,0,0,1,1,1,1};std::memcpy(s.xyuv,uv,sizeof uv);
-  sg_mask_source a{100,1,sources[0],7,11,1},b{200,1,masks[0],7,11,1};assert(!sg_mask_sprite_draw(&s,&a,&b,0,consume,nullptr));assert(mask_page_.count==1);sg_mask_source_retire(100);assert(!mask_page_.count&&!pending_count);sg_mask_cache_close();sg_sprite_batch_mode(0);
+  sg_mask_source a{100,1,sources[0],7,11,1},b{200,1,masks[0],7,11,1};assert(!sg_mask_sprite_draw(&s,&a,&b,0,consume,nullptr));assert(!sg_sprite_batch_flush());auto retained_pages=mask_page_.pages;
+  for(unsigned hit=0;hit<4;hit++){assert(!sg_mask_sprite_draw(&s,&a,&b,0,consume,nullptr));assert(!sg_sprite_batch_flush());assert(mask_page_.pages==retained_pages);}
+  sg_mask_cache_close();sg_sprite_batch_mode(1);
+  assert(!sg_mask_sprite_draw(&s,&a,&b,0,consume,nullptr));assert(mask_page_.count==1);sg_mask_source_retire(100);assert(!mask_page_.count&&!pending_count);sg_mask_cache_close();sg_sprite_batch_mode(0);
  }
  glBindFramebuffer(GL_FRAMEBUFFER,0);glDeleteFramebuffers(1,&fbo);glDeleteTextures(1,&target);if(pixels){glDeleteFramebuffers(1,&capture_fbo);glDeleteTextures(1,&capture);}glDeleteTextures(sources.size(),sources.data());glDeleteTextures(masks.size(),masks.data());glDeleteTextures(big_sources.size(),big_sources.data());glDeleteTextures(big_masks.size(),big_masks.data());OSMesaDestroyContext(ctx);
  std::printf("mask_page forty sprites/twelve inputs/one composition; clip/order/retirement checks; pixels=%u\n",pixels?240*height*3:0);

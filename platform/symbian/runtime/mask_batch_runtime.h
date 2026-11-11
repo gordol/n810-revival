@@ -40,9 +40,6 @@ int mask_page_draw(const sg_sprite &sprite,const sg_mask_source &source,const sg
   s.owner=OSMesaGetCurrentContext();s.texture=sg_gpu_mask_allocate().texture;
  }
  if(s.owner!=OSMesaGetCurrentContext())throw std::runtime_error("Mask page context mismatch");
- // A flush may have composed this page before the incoming callback queued its
- // consumer (for example on a clip change). Consume that sprite before reset.
- if(s.composed){mask_finish();s.reset();}
  const std::array<unsigned long long,4> identity={source.lifetime,source.generation,mask.lifetime,mask.generation};
  const unsigned mode=flags&8U?MBX_WINDOW_BINARY_RED_ALPHA:MBX_WINDOW_RED_ALPHA;
  sg::mask_placement placement{};bool found=false;
@@ -50,6 +47,9 @@ int mask_page_draw(const sg_sprite &sprite,const sg_mask_source &source,const sg
   const auto &q=s.items[i];if(s.identities[i]==identity&&q.source==source.name&&q.mask==mask.name&&q.sx==crop.x&&q.sy==crop.y&&q.width==crop.width&&q.height==crop.height&&q.mode==mode){placement={q.dx,q.dy};found=true;break;}
  }
  if(!found){
+  // A completed page is immutable while consumers may still reference it.
+  // Exact retained hits can reuse it across state/list barriers without work.
+  if(s.composed){mask_finish();s.reset();}
   if(s.count==s.items.size()||!s.shelf.place(crop.width,crop.height,placement)){
    mask_finish();s.reset();if(!s.shelf.place(crop.width,crop.height,placement))throw std::runtime_error("Mask page placement rejected");
   }
