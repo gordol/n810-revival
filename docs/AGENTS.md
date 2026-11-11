@@ -21,7 +21,9 @@ Read the root [AGENTS.md](../AGENTS.md). The documentation rules below apply thr
 - Use full sentences, familiar words, and concrete explanations. State what the
   system does. Remove marketing language, vague claims, and summaries that omit
   the investigation. Put conversational asides in parentheses.
-- Keep the journal chronological. Introduce hardware, protocols, abbreviations,
+- Keep the journal chronological. Keep Markdown table rows contiguous and inspect
+  the rendered table after adding entries; a strict build can pass with a stray row.
+  Introduce hardware, protocols, abbreviations,
   and symbols before relying on them. Link authoritative manuals or source at
   the first useful explanation (including unfamiliar kernel flags).
 - Explain the symptom, attempted change, observed result, and next decision.
