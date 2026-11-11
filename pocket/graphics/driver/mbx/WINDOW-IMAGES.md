@@ -240,3 +240,26 @@ Local sanitizer tests check both planes, padding, formats, binary-mask rejection
 and the actual service admission block. ARM Mesa tests check the exact one-job
 write size, preserved GL state, no readback and legacy/resident regressions.
 These tests use a fake service and do not establish physical GPU pixels or FPS.
+
+Physical N810 acceptance subsequently matched all 76,954 selected pixels
+exactly: a small image, a far-origin atlas crop and a native 240x320 image.
+The three combines and four explicit capture draws completed in seven GPU
+jobs. Fault/cleanup flags stayed zero; normal unload preserved the boot,
+VT, panel and Pocket preferences, with Pocket remaining stopped.
+
+A separate offscreen helper comparison used the same process, module and Mesa,
+two warmups and 16 timed operations per mode/shape, with three-job baseline
+first. It performed no timed readback and no app input or display presentation:
+
+| Logical mask | Three-job operations/s | One-job operations/s | CPU ms/operation, old to new |
+| --- | ---: | ---: | ---: |
+| 7x11 | 43.259 | 50.937 | 15.476 to 14.748 |
+| 128x128 | 25.978 | 40.355 | 26.764 to 19.501 |
+| 240x320 | 8.772 | 11.315 | 78.859 to 74.333 |
+
+The counter delta was exactly 216 jobs for the warmups and measured operations.
+The benchmark process peaked at 13,852 KiB RSS across both modes; that does not
+isolate a per-mode memory difference. These are completed mask operations per
+second, not app, desktop or display FPS. Combined runtime/input performance
+requires its own measurement. Private evidence is under project output
+`mbx-upload-merge-20261110`, including the exact artifact manifest and raw logs.
