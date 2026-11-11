@@ -57,13 +57,15 @@ sg_mask_image mask_create(const sg_mask_source &source,const sg_mask_source &mas
  return image;
 }
 }
+#include "mask_batch_runtime.h"
 extern "C" void sg_mask_source_retire(unsigned long long lifetime){
+ if(mask_page_references(lifetime)){mask_finish();mask_page_.reset();}
  auto &s=mask_cache_state_;if(!s.cache||!lifetime||!s.cache->references(lifetime))return;
  if(s.owner!=OSMesaGetCurrentContext()){s.invalidate_pending=true;return;}
  mask_finish();mask_cache_drain();s.cache->invalidate(lifetime,mask_release);
 }
 extern "C" void sg_mask_cache_close(){
- auto &s=mask_cache_state_;if(!s.cache)return;
+ mask_page_close();auto &s=mask_cache_state_;if(!s.cache)return;
  if(s.owner==OSMesaGetCurrentContext()){mask_finish();s.cache->close(mask_release);}
  s.cache.reset();s.owner=nullptr;s.invalidate_pending=false;
  if(n810_runtime_debug())std::fprintf(stderr,"GPU_MASK_CACHE hits=%llu misses=%llu streamed=%llu retained_bytes=0\n",s.hits,s.misses,s.bypasses);
@@ -73,6 +75,7 @@ extern "C" int sg_mask_sprite_draw(const sg_sprite *sprite,const sg_mask_source 
  int (*draw)(const sg_sprite *,void *),void *opaque){
  if(!sprite||!source||!mask||!draw||source->width!=mask->width||source->height!=mask->height||(flags&~12U))return -1;
  n810_command_profile::scope profile(83);mask_cache_init();mask_cache_drain();auto &s=mask_cache_state_;
+ if(mask_page_draw(*sprite,*source,*mask,flags,draw,opaque))return 0;
  const bool small=source->width<=128&&source->height<=128;
  sg::mask_tile single{};unsigned tile_count=0;
  if(!small)sg::mask_tiles(*sprite,source->width,source->height,[&](const sg::mask_tile &tile){if(!tile_count)single=tile;++tile_count;});

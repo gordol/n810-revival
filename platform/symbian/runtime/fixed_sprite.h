@@ -10,6 +10,9 @@ extern "C" {
 #endif
 int sg_sprite_draw(const struct sg_sprite *);
 int sg_sprite_batch_flush(void);
+int sg_sprite_batch_active(void);
+int sg_sprite_batch_pending(void);
+int sg_mask_batch_prepare(void);
 /* Logical caller clip, before any deferred sprite setup. */
 int sg_sprite_outer_clip(int *clip);
 void sg_sprite_batch_mode(int enabled);

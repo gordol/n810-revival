@@ -163,7 +163,12 @@ static thread_local bool pending_scissor;
 static thread_local bool bitmap_run;
 extern "C" void sg_sprite_batch_mode(int enabled){bitmap_run=enabled!=0;}
 static bool batch_enabled(){const char *v=std::getenv("N810_SYMBIAN_SPRITE_BATCH");return bitmap_run&&v&&!std::strcmp(v,"1");}
+extern "C" int sg_sprite_batch_active(){return batch_enabled();}
+extern "C" int sg_sprite_batch_pending(){return pending_count!=0;}
 extern "C" int sg_sprite_batch_flush(){
+#ifndef SG_SPRITE_TEST
+ if(sg_mask_batch_prepare())return -1;
+#endif
  if(!pending_count)return 0;
  unsigned count=pending_count;pending_count=0;
  int result=sg_sprite_draw_impl(pending_sprites,pending_scissor?pending_clip:nullptr,pending_scissor?1:0,pending_sprites,count);

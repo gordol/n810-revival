@@ -39,6 +39,8 @@ class SymbianLaunchTest(unittest.TestCase):
                 self.assertEqual(env['N810_SYMBIAN_GPU_MASK'],'1')
                 self.assertEqual(env['N810_SYMBIAN_MASK_CACHE'],'1')
                 self.assertEqual(env['N810_SYMBIAN_SPRITE_BATCH'],'1')
+                self.assertEqual(env['N810_SYMBIAN_BATCH_LISTS'],'1')
+                self.assertEqual(env['N810_SYMBIAN_COMPACT_COMMANDS'],'1')
                 self.assertTrue(env['LD_PRELOAD'].endswith('/code/lib/libOSMesa.so.8'))
                 for descriptor in options['pass_fds']:os.fstat(descriptor)
                 self.assertEqual(os.read(int(env['N810_SYMBIAN_DISPLAY_GRANT_FD']),1),b'G')

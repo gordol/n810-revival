@@ -13,6 +13,8 @@
 #include <set>
 static std::set<unsigned> pending;static unsigned allocations;
 int sg_sprite_batch_flush(){pending.clear();return 0;}
+int sg_sprite_batch_active(){return 0;}
+int sg_sprite_batch_pending(){return !pending.empty();}
 static void checked_delete(GLsizei n,const GLuint *names){for(GLsizei i=0;i<n;i++)assert(!pending.count(names[i]));glDeleteTextures(n,names);}
 static void checked_storage(GLenum t,GLint l,GLint f,GLsizei w,GLsizei h,GLint b,GLenum format,GLenum type,const void *data){assert(!data);++allocations;glTexImage2D(t,l,f,w,h,b,format,type,data);}
 #define glDeleteTextures checked_delete

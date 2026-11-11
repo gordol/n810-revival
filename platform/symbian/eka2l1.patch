@@ -951,7 +951,7 @@ index 1ff570e..6c49831 100644
                      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, ((ostencil->get_total_dimensions() > 3) ?
                          (GL_TEXTURE_CUBE_MAP_POSITIVE_X + depth_face_index) : GL_TEXTURE_2D),
 diff --git a/src/emu/drivers/src/graphics/backend/ogl/graphics_ogl.cpp b/src/emu/drivers/src/graphics/backend/ogl/graphics_ogl.cpp
-index 435f22d..4c12298 100644
+index 435f22d..8d4ab7e 100644
 --- a/src/emu/drivers/src/graphics/backend/ogl/graphics_ogl.cpp
 +++ b/src/emu/drivers/src/graphics/backend/ogl/graphics_ogl.cpp
 @@ -1,3 +1,11 @@
@@ -1321,7 +1321,7 @@ index 435f22d..4c12298 100644
          GLint read_fb, draw_fb;
          glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_fb);
          glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_fb);
-@@ -1909,6 +2124,34 @@ namespace eka2l1::drivers {
+@@ -1909,6 +2124,38 @@ namespace eka2l1::drivers {
      }
  
      void ogl_graphics_driver::dispatch(command &cmd) {
@@ -1335,10 +1335,14 @@ index 435f22d..4c12298 100644
 +        if(cmd.opcode_==graphics_driver_update_bitmap||cmd.opcode_==graphics_driver_resize_bitmap||cmd.opcode_==graphics_driver_destroy_bitmap){
 +            auto *target=get_bitmap(cmd.data_[0]);if(target&&target->tex)n810_runtime::prepare_window_write(static_cast<unsigned>(target->tex->driver_handle()));
 +        }
++        const char *lists=std::getenv("N810_SYMBIAN_BATCH_LISTS");
++        const bool ordered_lists=lists&&!std::strcmp(lists,"1");
 +        const bool clip_only=cmd.opcode_==graphics_driver_clip_rect||
-+            cmd.opcode_==graphics_driver_clip_bitmap_rect;
++            cmd.opcode_==graphics_driver_clip_bitmap_rect||
++            (ordered_lists&&cmd.opcode_==graphics_driver_set_brush_color);
 +        // Queued sprites own their clip snapshot. These two commands only
-+        // change glScissor; all resource and other state changes remain barriers.
++        // change glScissor. Brush updates change a CPU value captured in each
++        // sprite. Resource and all other GL state changes remain barriers.
 +        if(cmd.opcode_!=graphics_driver_draw_bitmap&&!clip_only&&sg_sprite_batch_flush())throw std::runtime_error("Sprite batch command barrier failed");
 +        sg_sprite_batch_mode(cmd.opcode_==graphics_driver_draw_bitmap);
 +        if(cmd.opcode_==0x4e810001) {
@@ -1356,17 +1360,33 @@ index 435f22d..4c12298 100644
          switch (cmd.opcode_) {
          case graphics_driver_draw_bitmap: {
              draw_bitmap(cmd);
-@@ -2082,6 +2325,9 @@ namespace eka2l1::drivers {
+@@ -2082,8 +2329,25 @@ namespace eka2l1::drivers {
      }
  
      void ogl_graphics_driver::run() {
 +#ifdef EKA2L1_N810_PRIVATE_OSMESA
 +        host_graphics_profile::sampler cpu_sampler;
++        const char *lists=std::getenv("N810_SYMBIAN_BATCH_LISTS");
++        const bool ordered_lists=lists&&!std::strcmp(lists,"1");
++        bool pending_sprites=false;unsigned queued_lists=0;
 +#endif
          while (!should_stop) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            // Drain already queued lists before ending a sprite run. A single
++            // bounded condition-variable wait ends the batch when the queue is
++            // empty; the idle path still blocks indefinitely on notification.
++            std::optional<command_list> list = list_queue.pop(pending_sprites?1:0);
++            if(!list&&pending_sprites&&!should_stop){
++                if(sg_sprite_batch_flush())throw std::runtime_error("Sprite batch drain barrier failed");
++                sg_sprite_batch_mode(0);pending_sprites=false;queued_lists=0;continue;
++            }
++#else
              std::optional<command_list> list = list_queue.pop();
++#endif
  
-@@ -2093,10 +2339,17 @@ namespace eka2l1::drivers {
+             if (!list) {
+                 if (!should_stop) {
+@@ -2093,12 +2357,33 @@ namespace eka2l1::drivers {
                  break;
              }
  
@@ -1378,12 +1398,28 @@ index 435f22d..4c12298 100644
              }
  
 +#ifdef EKA2L1_N810_PRIVATE_OSMESA
-+            if(sg_sprite_batch_flush())throw std::runtime_error("Sprite batch list barrier failed");
-+            sg_sprite_batch_mode(0);
++            if(ordered_lists){
++                pending_sprites=sg_sprite_batch_pending()!=0;
++                // Bound a continuous metadata-only stream as well as sprites.
++                if(pending_sprites&&++queued_lists==64){
++                    if(sg_sprite_batch_flush())throw std::runtime_error("Sprite batch list budget failed");
++                    sg_sprite_batch_mode(0);pending_sprites=false;
++                }
++                if(!pending_sprites)queued_lists=0;
++            }else {
++                if(sg_sprite_batch_flush())throw std::runtime_error("Sprite batch list barrier failed");
++                sg_sprite_batch_mode(0);
++            }
 +#endif
              delete[] list->base_;
          }
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(sg_sprite_batch_flush())throw std::runtime_error("Sprite batch shutdown barrier failed");
++        sg_sprite_batch_mode(0);
++#endif
      }
+ 
+     void ogl_graphics_driver::abort() {
 diff --git a/src/emu/drivers/src/graphics/backend/ogl/shader_ogl.cpp b/src/emu/drivers/src/graphics/backend/ogl/shader_ogl.cpp
 index 118c1d4..a7d0f5f 100644
 --- a/src/emu/drivers/src/graphics/backend/ogl/shader_ogl.cpp
