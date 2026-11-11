@@ -32,10 +32,16 @@ Masked images now stay in GPU storage through composition and drawing. Native-si
 images reuse bounded staging storage, and font atlases pack the same glyphs more
 compactly. Physical pixel checks matched exactly.
 
-The isolated ChessGenius comparison removed mask readbacks, but CPU time and input
-response remain roughly unchanged. Down/Up responses still take about 2–3 seconds
-to produce a completed GPU frame. More GPU submissions offset the smaller transfers;
-reducing that submission work is next.
+Masked sprites can now share a GPU atlas page and one composition job. Exact
+image, mask and generation matches also reuse completed pages across draw barriers.
+The Nokia passed 230,400 pixel comparisons with unchanged output.
+
+In an isolated 60-second ChessGenius test, mask pages reduced GPU submissions from
+228 to 196 and CPU time from 25.87 to 24.74 seconds, with no mask readbacks. A
+separate matched test of completed-page reuse reduced CPU time another 3%.
+Input still takes seconds and varies with paging; reducing runtime handoffs and
+the remaining redraw work is the next priority. These measurements used completed
+GPU frames offscreen, with Pocket stopped and debug logging disabled.
 
 <!-- journal-sources:start -->
 ## Code, tests and build inputs
