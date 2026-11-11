@@ -40,7 +40,7 @@ def covers(view):
  a,b,c,d=bounds;w,s,e,n=view.bbox
  return a<=w<=e<=c and b<=s<=n<=d
 
-def selected_geography(engine,view,roads=True,display_span=None):
+def selected_geography(engine,view,roads=True,display_span=None,detail_pixels=1,forest_roads=None):
  """Select geographic features once for terminal and pixel consumers."""
  span=view.span if display_span is None else display_span
  data=data_for_view(view,span);west,south,east,north=view.bbox
@@ -53,17 +53,21 @@ def selected_geography(engine,view,roads=True,display_span=None):
  if roads:
   for item in data.get('roads',()):
    role=item.get('kind')
-   if role=='forest' and not getattr(engine,'forest_roads',False):continue
+   show_forest=getattr(engine,'forest_roads',False) if forest_roads is None else forest_roads
+   if role=='forest' and not show_forest:continue
    limit={'residential':20,'unclassified':20,'living_street':12,'service':8}.get(role)
-   if limit is not None and view.ground_m_per_halfcell>limit:continue
+   # Cell maps have one stroke per cell. The desktop semantic scene has eight
+   # horizontal pixels per cell, so it can keep useful local streets at scale.
+   if limit is not None and view.ground_m_per_halfcell/max(1,detail_pixels)>limit:continue
    if limit is None and span>item.get('max_span',100):continue
    if intersects(item):chosen.append(item)
  return streams,tuple(chosen),data.get('labels',())
 
-def vector_segments(engine,view,roads=True):
+def vector_segments(engine,view,roads=True,detail_pixels=1,forest_roads=None):
  """Return geographic road and stream geometry selected for this view."""
  if covers(view):
-  streams,chosen,_=selected_geography(engine,view,roads)
+  streams,chosen,_=selected_geography(engine,view,roads,detail_pixels=detail_pixels,
+                                     forest_roads=forest_roads)
   for items,color in ((streams,(55,177,196)),(chosen,(219,205,155))):
    points=array('d')
    for item in items:
@@ -87,14 +91,15 @@ def vector_segments(engine,view,roads=True):
   for i in sorted(ids):points.extend(value/100000 for value in coords[i*4:i*4+4])
   yield ((55,177,196) if role==2 else (219,205,155)),points
 
-def _semantic_labels(engine,view,frame,roads=True,display_span=None):
+def _semantic_labels(engine,view,frame,roads=True,display_span=None,detail_pixels=1,forest_roads=None):
  # A narrow edge patch inherits the whole display's road/label detail level.
  span=view.span if display_span is None else display_span
- streams,chosen,place_labels=selected_geography(engine,view,roads,span)
+ streams,chosen,place_labels=selected_geography(engine,view,roads,span,detail_pixels,forest_roads)
  labels=[];w,h=view.width,view.height
  west,south,east,north=view.bbox
  def visible(lon,lat):return west<=lon<=east and south<=lat<=north
  for stream in streams:
+  if frame is None and (not stream.get('name') or span>=8):continue
   shown=[]
   for a,b in zip(stream['points'],stream['points'][1:]):
    x,y=map(round,view.project(*a));xx,yy=map(round,view.project(*b));line=engine.geometry.clip(x,y,xx,yy,w,h)
@@ -109,6 +114,8 @@ def _semantic_labels(engine,view,frame,roads=True,display_span=None):
    x,y=shown[len(shown)//2];labels.append((2,stream['name'],x,y,(100,210,235)))
  if roads:
   for road in chosen:
+   label_limit={'highway':150,'motorway':100,'trunk':70,'primary':15,'secondary':10,'tertiary':5,'forest':8,'residential':1.2,'living_street':.8,'service':.6,'unclassified':2}.get(road.get('kind'),3)
+   if frame is None and (not road.get('name') or span>label_limit):continue
    pts=road['points'];shown=[]
    for a,b in zip(pts,pts[1:]):
     x,y=map(round,view.project(*a));xx,yy=map(round,view.project(*b))
@@ -124,7 +131,6 @@ def _semantic_labels(engine,view,frame,roads=True,display_span=None):
      e=2*err
      if e>-dy:err-=dy;x+=sx
      if e<dx:err+=dx;y+=sy
-   label_limit={'highway':150,'motorway':100,'trunk':70,'primary':15,'secondary':10,'tertiary':5,'forest':8,'residential':1.2,'living_street':.8,'service':.6,'unclassified':2}.get(road.get('kind'),3)
    if shown and road.get('name') and span<=label_limit:
     name=road['name']
     for word,short in (('Southwest','SW'),('Northwest','NW'),('Southeast','SE'),('Northeast','NE'),('Boulevard','Blvd'),('Avenue','Ave'),('Drive','Dr'),('Street','St'),('Road','Rd')):name=name.replace(word,short)
@@ -151,11 +157,12 @@ def decorate(engine,view,frame,roads=True,display_span=None):
  for index,cell in _semantic_labels(engine,view,frame,roads,display_span).items():frame[index]=cell
  return tuple(frame)
 
-def label_annotations(engine,view,roads=True,display_span=None):
+def label_annotations(engine,view,roads=True,display_span=None,detail_pixels=1,forest_roads=None):
  """Expose place and road-name labels without decoding painted map cells."""
  from paint import ink
  return {index:(char,ink(*foreground,background=background))
-         for index,(char,foreground,background) in _semantic_labels(engine,view,None,roads,display_span).items()}
+         for index,(char,foreground,background) in _semantic_labels(
+             engine,view,None,roads,display_span,detail_pixels,forest_roads).items()}
 
 def maidenhead(lat,lon,precision=6):
  lon=max(0,min(359.999999,lon+180));lat=max(0,min(179.999999,lat+90))

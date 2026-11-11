@@ -528,3 +528,19 @@ The linked source includes the compatibility fix and opt-in compilation candidat
 [Chronological source index](../reference/journal-sources.md#2026-11-10-windows-ce-runtime)
 
 Design investigation only. No Windows CE compatibility implementation or N810 test is included.
+
+<a id="2026-11-11-pocket-map-rendering"></a>
+
+## Restoring map detail in the native GPU desktop
+
+[Read the journal entry](../posts/2026-11-11-pocket-map-rendering.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Native map scenes](../assets/source/journal/pocket/graphics/map_pixels.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/map_pixels.py))<br>[Shared map navigation](../assets/source/journal/pocket/shell/map_navigation.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/map_navigation.py))<br>[Local station identity](../assets/source/journal/pocket/shell/directory_preferences.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/directory_preferences.py)) |
+| Checks and fixtures | [Native map desktop check](../assets/source/journal/pocket/graphics/check_map.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/check_map.py))<br>[Map regression checks](../assets/source/journal/pocket/tests/test_map_interaction_regressions.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_map_interaction_regressions.py))<br>[Pixel handoff checks](../assets/source/journal/pocket/tests/test_map_pixel_handoff.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_map_pixel_handoff.py)) |
+| Build inputs | [Graphics build and checks](../assets/source/journal/pocket/Makefile.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/Makefile)) |
+
+[Build and test instructions](../how-to/validate.md) · [Chronological source index](../reference/journal-sources.md#2026-11-11-pocket-map-rendering)
+
+Host Metal and source-only checks accompany this port. N810 device acceptance remains separate. Public map acquisition inputs and local settings are excluded from Git.

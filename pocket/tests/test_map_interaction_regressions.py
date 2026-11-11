@@ -40,6 +40,28 @@ class InteractionTests(unittest.TestCase):
   with patch.object(f.renderer,'frame',return_value=image),patch('repeater_catalog.load',return_value=()):
    f.lines()
   self.assertIsNotNone(f._display_image)
+ def test_semantic_forest_toggle_keeps_the_complete_visible_frame(self):
+  f=self.form();f.renderer.presentation='semantic'
+  image=f._image;shown=f._shown_image;display=object();f._display_image=display
+  f.renderer.ready['kept']=image;f.renderer.regions.ready['kept']=image
+  f.key('z')
+  self.assertTrue(f.renderer.forest_roads)
+  self.assertIs(f._image,image);self.assertIs(f._shown_image,shown);self.assertIs(f._display_image,display)
+  self.assertIn('kept',f.renderer.ready);self.assertIn('kept',f.renderer.regions.ready)
+ def test_direct_and_preview_drag_publish_native_pan_offset(self):
+  from pointer_events import PointerEvent
+  for preview in (False,True):
+   f=self.form();f.renderer.presentation='semantic';f.preview=preview;start=f.center
+   event=lambda button,x,y,released=False:PointerEvent(('mouse',button,x,y,released))
+   with patch.object(f,'entities_at',return_value=()),patch.object(f,'locator_hit',return_value=False):
+    f.pointer_event(event(0,35,15),120)
+    f.pointer_event(event(32,41,21),120)
+    self.assertEqual(f._gpu_pan_offset,(48,96))
+    self.assertEqual(f.center,start)
+    f.pointer_event(event(0,41,21,True),120)
+   self.assertNotEqual(f.center,start)
+   self.assertEqual(f._gpu_pan_offset,(48,96))
+   self.assertIsNone(f._target_drag)
 
  def test_repeated_forest_key_survives_pending_and_reused_frames_in_terrain_map(self):
   from station_map_tools import StationMapTools
@@ -108,6 +130,13 @@ class InteractionTests(unittest.TestCase):
   self.assertEqual(f._zoom_context_view,((47.,-121.5),50.))
   self.assertEqual(f._zoom_context_image.source,'pan-preview')
   self.assertEqual(f._zoom_context_image.projection.span,50.)
+ def test_overview_camera_expands_to_contain_a_distant_target(self):
+  f=self.form();f.full_overview=True;f._overview_camera=(f.center,20.)
+  f.target_box.choose((55.,-122.),8.)
+  f.expand_overview_camera()
+  self.assertEqual(f._overview_camera[0],(55.,-122.))
+  self.assertGreater(f._overview_camera[1],20.)
+  self.assertEqual(f._zoom_context_image.source,'overview-context')
  def test_scaled_planes_are_bounded_and_reuse_color_conversion(self):
   from paint import ink
   base=tuple(('▀',ink(60,70,80,background=(20,30,40))) for _ in range(4))

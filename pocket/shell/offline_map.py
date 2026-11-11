@@ -53,6 +53,8 @@ class MapFeatures:
     labels:dict
     sample_width:int
     sample_height:int
+    forest_roads:bool=False
+    pixel_detail:bool=False
 
 
 @dataclass(frozen=True,slots=True)
@@ -67,6 +69,10 @@ class MapSurface:
     terrain:bool=True
     roads:bool=True
     unavailable_reason:str=''
+    content_width:int=0
+    labels:bool=True
+    inset:object=None
+    box_plane:object=None
     def viewport(self):
         projection=self.image.projection;_,_,width,height,_=self.layer
         return self.renderer.module.Viewport(projection.center,projection.span,width,height,projection.cell_aspect)
@@ -75,15 +81,26 @@ class MapSurface:
         prepared=getattr(self.image,'features',None)
         projection=self.image.projection
         if (prepared is not None and projection is not None and
+            prepared.forest_roads==bool(getattr(self.renderer,'forest_roads',False)) and
+            prepared.pixel_detail and
             (view.width,view.height,tuple(view.center),view.span,view.cell_aspect)==
             (self.image.width,self.image.height,tuple(projection.center),projection.span,projection.cell_aspect)):
             from map_geography import grid_enabled,grid_features
-            if not grid_enabled(self.grid_mode,view.span):return prepared
+            if not grid_enabled(self.grid_mode,view.span):
+                if self.labels:return prepared
+                return MapFeatures(prepared.terrain,prepared.vectors,{},prepared.sample_width,
+                                   prepared.sample_height,prepared.forest_roads,prepared.pixel_detail)
             grid_vector,grid_labels=grid_features(view)
+            annotations=prepared.labels if self.labels else {}
             return MapFeatures(prepared.terrain,(grid_vector,*prepared.vectors),
-                               {**grid_labels,**prepared.labels},prepared.sample_width,prepared.sample_height)
-        return self.renderer.semantic_features(view,base_cells,terrain=self.terrain,
-                                               roads=self.roads,grid_mode=self.grid_mode)
+                               {**grid_labels,**annotations},prepared.sample_width,prepared.sample_height,
+                               prepared.forest_roads,prepared.pixel_detail)
+        features=self.renderer.semantic_features(view,base_cells,terrain=self.terrain,
+                                                roads=self.roads,grid_mode=self.grid_mode,
+                                                pixel_detail=True)
+        if self.labels:return features
+        return MapFeatures(features.terrain,features.vectors,{},features.sample_width,
+                           features.sample_height,features.forest_roads,features.pixel_detail)
 
 
 _Q5=tuple(round(round(value*31/255)*255/31) for value in range(256))
@@ -239,30 +256,33 @@ class Renderer:
         if mode not in ('cells','semantic'):raise ValueError('Unknown map presentation')
         if self.pending or self.ready:raise RuntimeError('Select map presentation before the first frame')
         self.presentation=mode
-    def semantic_features(self,view,terrain_cells,*,terrain=True,roads=True,grid_mode='off'):
+    def semantic_features(self,view,terrain_cells,*,terrain=True,roads=True,grid_mode='off',pixel_detail=False):
         """Give a pixel backend clean terrain, geographic lines, and labels."""
         if self.engine is None:raise ValueError('Offline map engine is not ready')
         if len(terrain_cells)!=view.width*view.height:raise ValueError('Map terrain dimensions differ')
+        self.engine.forest_roads=bool(getattr(self,'forest_roads',False))
         from map_geography import vector_segments,label_annotations,grid_features,grid_enabled
         # The cell plane contains TUI road strokes and labels. Never infer a
         # pixel map's terrain from those painted glyphs. Sample the engine's
         # terrain source at the same projection instead.
         frame,_=self.engine._rgb_terrain(view,terrain)
-        return self._features_from_terrain(view,frame,roads,grid_mode)
-    def _features_from_terrain(self,view,frame,roads=True,grid_mode='off'):
+        return self._features_from_terrain(view,frame,roads,grid_mode,pixel_detail)
+    def _features_from_terrain(self,view,frame,roads=True,grid_mode='off',pixel_detail=False):
         from map_geography import vector_segments,label_annotations,grid_features,grid_enabled
         samples=array('I')
         for row in range(view.height):
             cells=frame[row*view.width:(row+1)*view.width]
             samples.extend(map_rgb(upper) for _,upper,_ in cells)
             samples.extend(map_rgb(lower) for _,_,lower in cells)
-        vectors=list(vector_segments(self.engine,view,roads=roads))
-        labels=label_annotations(self.engine,view,roads=roads)
+        detail_pixels=8 if pixel_detail else 1
+        vectors=list(vector_segments(self.engine,view,roads=roads,detail_pixels=detail_pixels))
+        labels=label_annotations(self.engine,view,roads=roads,detail_pixels=detail_pixels)
         if grid_enabled(grid_mode,view.span):
             grid_vector,grid_labels=grid_features(view)
             vectors.insert(0,grid_vector)
             labels={**grid_labels,**labels}
-        return MapFeatures(samples,tuple(vectors),labels,view.width,view.height*2)
+        return MapFeatures(samples,tuple(vectors),labels,view.width,view.height*2,
+                           bool(getattr(self,'forest_roads',False)),pixel_detail)
     def region_identity(self):return getattr(self.engine,'cache_identity',id(self.engine.palette))
     def region_status(self,image=None):
         return dict(source=getattr(image,'source',None),regions=len(self.regions.ready),
@@ -343,7 +363,7 @@ class Renderer:
         _,center,span,width,height,terrain,roads=key
         view=self.module.Viewport(center,span,width,height)
         frame,legend=self.engine._rgb_terrain(view,terrain)
-        features=self._features_from_terrain(view,frame,roads)
+        features=self._features_from_terrain(view,frame,roads,pixel_detail=self.presentation=='semantic')
         if key!=self._wanted:raise CancelledError()
         places=tuple((p['name'] if 'name' in p else p.get('label',''),p['lon'],p['lat']) for p in self.engine.places(view))
         self.loading_phase='ready'

@@ -26,6 +26,7 @@ node_modules/
 # Download and build map data locally.
 /pocket/data/*
 !/pocket/data/README.md
+**/station-identity.json
 /pocket/shell/data/elevation-*/
 /pocket/shell/data/*3dep*
 /pocket/shell/data/*etopo*

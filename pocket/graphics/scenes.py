@@ -13,6 +13,13 @@ class MapScene:
     lines:tuple
     marks:object
 
+@dataclass(frozen=True)
+class MapComposite:
+    """Clipped map textures positioned over one map-window rectangle."""
+    layers:tuple
+    clip_width:int=0
+    clip_height:int=0
+
 @dataclass(eq=False,frozen=True)
 class RasterScene:
     source:MapScene

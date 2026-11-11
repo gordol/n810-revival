@@ -459,6 +459,25 @@ class StationMapTools:
         self._panel_layer=(x0,y0,w,h,Plane(plane,overlay))
         return tuple(lines)
     def layer(self):return None if self.dialog else self._panel_layer or (self.tool.layer() if self.terrain_active else self._saved_pin_layer or self.base.layer())
+    def locator_surface(self,layer):
+        if self._map_presentation!='semantic' or not getattr(self.base,'side_overview',False):return None
+        rect=getattr(self.base,'_locator_rect',None)
+        if rect is None or layer is None:return None
+        x,y,width,height,image=rect
+        if image.projection is None:return None
+        from array import array
+        from map_overview import corners
+        from offline_map import ContextPlane,MapSurface
+        center,span=self.base.target_box.view or (self.base.center,self.base.span)
+        (west,north),(east,south)=corners(center,span,self.width,max(1,self.height-3))
+        ring=((west,north),(east,north),(east,south),(west,south),(west,north))
+        outline=array('d')
+        for first,second in zip(ring,ring[1:]):outline.extend((*first,*second))
+        key=('locator',id(image),rect[:4],tuple(center),span)
+        cells=ContextPlane(image.cells,image.width,image.height,width,height)
+        surface=MapSurface(image,(x,y,width,height,cells),self.base.renderer,key,
+                           overlay_vectors=(((255,210,65),outline),),labels=False)
+        return surface,x-layer[0],y-layer[1]
     def map_surface(self):
         """The current semantic map source, independent of its tool screen."""
         if self.dialog or getattr(self.base,'filter_open',False):return None
@@ -475,12 +494,32 @@ class StationMapTools:
             from array import array
             a,b=tool.map.points
             vectors=(((255,240,110),array('d',(a[1],a[0],b[1],b[0]))),)
+        box_plane=None
+        if not self.terrain_active and getattr(self.base,'_target_layer',None) is getattr(self.base,'_target_layer_cache',None):
+            target_layer=getattr(self.base,'_target_layer_cache',None)
+            if target_layer is not None and self.base.target_box.view is not None:
+                from map_overview import corners
+                from array import array
+                center,span=self.base.target_box.view
+                (west,north),(east,south)=corners(center,span,self.width,max(1,self.height-3))
+                ring=((west,north),(east,north),(east,south),(west,south),(west,north))
+                outline=array('d')
+                for first,second in zip(ring,ring[1:]):outline.extend((*first,*second))
+                vectors=(*vectors,((255,210,65),outline))
+                box_plane=target_layer[4]
         source=tool.map.renderer if self.terrain_active else self.base.renderer
         unavailable='' if source.supports_semantic_image(image) else 'Selected map has no native semantic layers'
         grid_mode=getattr(self.base,'maidenhead_grid','off')
+        inset=self.locator_surface(layer)
         key=(id(source),id(image),plane_identity(layer[4]),layer[:4],grid_mode,unavailable,
-             bool(getattr(source,'forest_roads',False)),tuple(tuple(point) if point is not None else None for point in tool.map.points) if self.terrain_active else ())
-        return MapSurface(image,without_grid(layer),source,key,grid_mode,vectors,unavailable_reason=unavailable)
+             bool(getattr(source,'forest_roads',False)),tuple(tuple(point) if point is not None else None for point in tool.map.points) if self.terrain_active else (),
+             inset[0].key if inset else None)
+        content_width=layer[2]
+        if getattr(self.base,'side_overview',False) and not getattr(self.base,'full_overview',False):
+            content_width=max(1,content_width-min(32,self.width//3))
+        return MapSurface(image,without_grid(layer),source,key,grid_mode,vectors,
+                          unavailable_reason=unavailable,content_width=content_width,
+                          inset=inset,box_plane=box_plane)
     def spans(self):return self.dialog_spans if self.dialog else self.tool.spans() if self.terrain_active else self.base.spans()
     def poll(self):
         if self.internet:
@@ -504,7 +543,7 @@ class StationMapTools:
                         # The topmost saved-location label owns its complete hit area.
                         # Do not expose station labels hidden beneath it.
                         position=tool.map.qth
-                        return (EntityRef('map-point',f'{position[0]:.7f},{position[1]:.7f}',payload={'position':position,'label':'QTH'+(' '+self.internet_own if self.internet_own else ''),'saved_qth':True}),)
+                        return (EntityRef('map-point',f'{position[0]:.7f},{position[1]:.7f}',payload={'position':position,'label':label,'saved_qth':True}),)
             if position:refs=tuple(refs)+(EntityRef('map-point',f'{position[0]:.7f},{position[1]:.7f}',payload={'position':position}),)
         return refs
     def selected_entities(self):

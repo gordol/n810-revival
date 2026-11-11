@@ -129,7 +129,7 @@ class Context:
             self.check(self.lib.pocket_scene_marks(self.handle,target,source.marks,len(source.marks),int(defer)))
         except BaseException:self.release(target);raise
         self.maps[key]=(source,target)
-        while len(self.maps)>2:self.release(self.maps.popitem(last=False)[1][1])
+        while len(self.maps)>3:self.release(self.maps.popitem(last=False)[1][1])
         return target
     def upload(self,source,w,h,key,alpha=False):
         cache=self.layers if alpha else self.images;prior=cache.get(key)
@@ -244,12 +244,23 @@ class Context:
                 result=app.render_image()
                 if result is None:continue
                 source,px,py,w,height=result
+                from scenes import MapComposite
                 if isinstance(source,MapScene):
                     active_maps.add((id(source),bool(defer)));texture=self.texture(source,defer)
+                    self.check(self.lib.pocket_scene_image(self.handle,texture,px,py))
+                elif isinstance(source,MapComposite):
+                    clip_width=source.clip_width or w;clip_height=source.clip_height or height
+                    clip=(px,py,clip_width,clip_height)
+                    for item in source.layers:
+                        scene,sx,sy=item[:3]
+                        layer_clip=clip if len(item)==3 else (px+item[3],py+item[4],item[5],item[6])
+                        active_maps.add((id(scene),bool(defer)));texture=self.texture(scene,defer)
+                        self.check(self.lib.pocket_scene_layer(self.handle,texture,px+sx,py+sy,0,0,0,*layer_clip))
+                    rect=(px,py,clip_width,clip_height)
                 else:
                     active_images.add(app.name);texture=self.upload(source,w,height,app.name)
-                self.check(self.lib.pocket_scene_image(self.handle,texture,px,py))
-                rect=(px,py,w,height)
+                    self.check(self.lib.pocket_scene_image(self.handle,texture,px,py))
+                if not isinstance(source,MapComposite):rect=(px,py,w,height)
             self.image_rects.append(rect);pieces=[rect]
             for prior in covered:pieces=[part for piece in pieces for part in subtract(piece,prior)]
             covered.extend(pieces)

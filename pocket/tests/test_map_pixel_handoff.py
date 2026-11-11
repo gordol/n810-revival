@@ -8,7 +8,7 @@ from concurrent.futures import Future
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'graphics'))
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
-from map_pixels import View
+from map_pixels import View,place_labels,terrain_detail
 
 class Pool:
  def __init__(self):self.future=Future()
@@ -91,6 +91,42 @@ class MapPixelHandoff(unittest.TestCase):
   scene=View(None,None).build(layer,surface)
   self.assertEqual([(mark.index,mark.ch) for mark in scene.marks],[(0,ord('B')),(1,ord(' '))])
   self.assertEqual(scene.lines,())
+
+ def test_place_names_move_as_complete_runs_around_station_marks(self):
+  labels={4:('A',1),5:('B',1),6:('C',1)}
+  overlay={5:('X',2)}
+  placed=place_labels(labels,overlay,8,4)
+  indexes=sorted(placed)
+  self.assertEqual(indexes,[12,13,14])
+  self.assertEqual(''.join(placed[i][0] for i in indexes),'ABC')
+  self.assertNotIn(5,placed)
+
+ def test_desktop_semantic_terrain_samples_more_than_one_pair_per_cell(self):
+  from array import array
+  from offline_map import MapFeatures
+  view=NS(width=8,height=4,center=(0.,0.),span=1.,cell_aspect=2.,ground_m_per_halfcell=1.)
+  module=NS(Viewport=lambda center,span,w,h,aspect:NS(center=center,span=span,width=w,height=h,cell_aspect=aspect))
+  engine=NS(_rgb_terrain=lambda dense,terrain:([(' ',(1,2,3),(4,5,6))]*(dense.width*dense.height),''))
+  renderer=NS(module=module,engine=engine)
+  surface=NS(terrain=True,image=NS(source='semantic'),renderer=renderer)
+  features=MapFeatures(array('I',[0]*(8*4*2)),(),{},8,8)
+  with patch('desktop_elevation.enabled',return_value=True),patch('desktop_elevation.pixel_samples',return_value=None):
+   samples,width,height=terrain_detail(surface,view,features)
+  self.assertGreater(width,view.width)
+  self.assertGreater(height,view.height*2)
+  self.assertEqual(len(samples),width*height)
+
+ def test_pan_composite_moves_sharp_scene_over_surrounding_map(self):
+  from array import array
+  from scenes import MapScene,MapComposite
+  host=NS(origin=(0,0),window=lambda name:name,bounds=lambda window:(1,2,12,6))
+  app=View(host,None);app._surround_scene=MapScene(15,12,array('I',[0]*(15*12*2)),15,24,(),())
+  sharp=MapScene(5,4,array('I',[0]*40),5,8,(),())
+  composite,x,y,width,height=app.positioned(sharp,(0,0,5,4,()),NS(content_width=5,inset=None),(8,-16))
+  self.assertIsInstance(composite,MapComposite)
+  self.assertEqual((x,y,width,height),(16,48,40,64))
+  self.assertEqual(composite.layers[0][1:3],(-40,-64))
+  self.assertEqual(composite.layers[1][1:3],(8,-16))
 
  def test_unavailable_source_is_opaque_notice_without_fallback(self):
   surface=NS(unavailable_reason='No semantic layers',viewport=lambda:object(),features=lambda *args:self.fail('Fallback sampled'))

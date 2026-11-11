@@ -16,6 +16,18 @@ class GeographyTests(unittest.TestCase):
   self.assertEqual(len(streams),1)
   self.assertEqual([r['kind'] for r in roads],['highway'])
 
+ def test_native_pixel_detail_keeps_local_streets_and_forest_toggle_is_live(self):
+  data=dict(streams=[],labels=[],roads=[
+      dict(kind='residential',bbox=(-1,-1,1,1),points=((0,0),(.1,0))),
+      dict(kind='forest',bbox=(-1,-1,1,1),points=((0,.1),(.1,.1)))])
+  view=SimpleNamespace(span=5.,bbox=(-1,-1,1,1),ground_m_per_halfcell=100)
+  with patch('map_geography.data_for_view',return_value=data),patch('map_geography.covers',return_value=True):
+   self.assertEqual(selected_geography(SimpleNamespace(forest_roads=False),view)[1],())
+   roads=selected_geography(SimpleNamespace(forest_roads=False),view,detail_pixels=8)[1]
+   self.assertEqual([item['kind'] for item in roads],['residential'])
+   roads=selected_geography(SimpleNamespace(forest_roads=True),view,detail_pixels=8)[1]
+  self.assertEqual([item['kind'] for item in roads],['residential','forest'])
+
  def test_pixel_grid_uses_same_auto_policy_and_geographic_lines(self):
   self.assertTrue(grid_enabled('auto',4))
   self.assertFalse(grid_enabled('auto',52))

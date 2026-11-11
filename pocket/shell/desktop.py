@@ -569,10 +569,10 @@ def main(platform=None,argv=None):
         from station_workspace import Context,Directory,Stations
         context=Context();sources=Path(station_app.argv[1]).parent if station_app else Path(__file__).resolve().parent/'vendor/packet-console'
         db=args.station_db or station_app.argv[station_app.argv.index('--db')+1]
-        from directory_preferences import self_calls as saved_self_calls,with_self_calls
+        from directory_preferences import self_calls as saved_self_calls,save_self_calls
         directory_sources=Path(__file__).resolve().parent/'vendor/packet-console'
         if not (directory_sources/'n810-directory-projection.py').is_file():directory_sources=sources
-        station_directory=Directory(db,directory_sources,context,self_calls=saved_self_calls(host.app_preferences));station_directory.update(True)
+        station_directory=Directory(db,directory_sources,context,self_calls=saved_self_calls(host.app_preferences,db));station_directory.update(True)
         def show_station_map():
             registered_apps.forms['Station Map']._ensure().focus_selection();host.activate('Station Map')
         stations_form=Stations(station_directory,show_station_map)
@@ -587,7 +587,7 @@ def main(platform=None,argv=None):
             if owner is not None:return owner.path.text
             return getattr(form,'saved',{}).get('database',str(default_database()))
         stations_form.license_database_provider=station_license_database
-        stations_form.save_self_calls=lambda calls:host.set_preference('app_preferences',with_self_calls(host.app_preferences,calls))
+        stations_form.save_self_calls=lambda calls:save_self_calls(db,calls)
     def ensure_station_map():
         nonlocal map_form,map_open
         ensure_station_directory()
@@ -600,10 +600,10 @@ def main(platform=None,argv=None):
         map_form=StationMapTools(StationMap(context,map_sources,lambda:host.activate('Stations'),maps=args.station_maps),qth_path=app_state/'qth.msgpack')
         map_form.self_calls_provider=lambda:station_directory.self_calls
         def save_map_own_call(call):
-            from directory_preferences import with_self_calls
+            from directory_preferences import save_self_calls
             calls=tuple(dict.fromkeys((call,)+tuple(station_directory.self_calls))) if call else ()
             station_directory.self_calls=calls
-            host.set_preference('app_preferences',with_self_calls(host.app_preferences,calls))
+            save_self_calls(station_directory.db,calls)
         map_form.save_own_call=save_map_own_call
         if native_catalog:map_form.update_tracks(native_catalog.evidence)
         host.app_renderers=list(getattr(host,'app_renderers',()))+[map_form.renderer]

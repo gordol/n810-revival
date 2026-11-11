@@ -56,6 +56,7 @@ def map_class(Base):
             self._zoom_context_view=None
             self._zoom_applied=None
             self._pan_display_source=None
+            self._gpu_pan_offset=None
             self.maidenhead_grid='auto'
             self._overview=Overview();self._shown_image=None;self._detail_lines=None
             self._local_overview=LocalOverview(self.renderer);self._overview_camera=None
@@ -131,13 +132,37 @@ def map_class(Base):
             self._zoom_context_image=None;self._zoom_context_view=None
             self._detail_request=None;self._loading_overview=None
             self.full_overview=True
+        def expand_overview_camera(self):
+            if not self.full_overview or self._overview_camera is None or self.target_box.view is None:return
+            from types import SimpleNamespace
+            from map_overview import contains,LocalOverview
+            from offline_map import Image,ReprojectedPlane
+            width,height=max(2,self.width),max(2,self.height-3)
+            center,span=self._overview_camera;target_center,target_span=self.target_box.view
+            view=self.renderer.module.Viewport(center,span,width,height)
+            shown=SimpleNamespace(width=width,height=height,projection=view)
+            if contains(shown,target_center,target_span,width,height):return
+            span=min(2000.,max(span*1.6,target_span*1.6));center=tuple(target_center)
+            view=self.renderer.module.Viewport(center,span,width,height)
+            source=self._shown_image or self._image
+            if source is not None and source.projection is not None:
+                self._zoom_context_image=Image(width,height,ReprojectedPlane(source,view),
+                    'Expanding overview',(),0.,view,'overview-context')
+            self._overview_camera=center,span
+            self._local_overview=LocalOverview(self.renderer)
         def accept_overview(self):
             return self.apply_target()
         def key(self,key):
             self._zoom_applied=None
+            if key in ('\x1b','escape','back') and self.pointer_captured:
+                drag=self._target_drag
+                if drag is not None and drag.dragged and getattr(self.renderer,'presentation','cells')!='semantic':
+                    self.center,self.span=drag.center,drag.span
+                self.cancel_pointer();return True
             if key=='u':self.maidenhead_grid={'auto':'on','on':'off','off':'auto'}[self.maidenhead_grid];return True
             if key=='z':
                 self.renderer.forest_roads=not getattr(self.renderer,'forest_roads',False)
+                if getattr(self.renderer,'presentation','cells')=='semantic':return True
                 self.renderer.ready.clear();self.renderer.regions.ready.clear()
                 self._image=None;self._image_view=None;self._shown_image=None;self._display_image=None
                 self._zoom_context_image=None;self._local_overview=LocalOverview(self.renderer)
@@ -230,12 +255,16 @@ def map_class(Base):
             if changed:self.preview_zoom()
             return True
         def end_target_drag(self):
-            self._pan_drag=None;self._target_drag=None
+            self._pan_drag=None;self._target_drag=None;self._gpu_pan_offset=None
             self.target_box.held=False
         @property
         def pointer_captured(self):return self._locator_drag is not None or self._target_drag is not None or super().pointer_captured
         def cancel_pointer(self):
+            drag=getattr(self,'_target_drag',None)
+            if drag is not None and drag.dragged and getattr(self.renderer,'presentation','cells')!='semantic' and not self.full_overview:
+                self.center,self.span=drag.center,drag.span
             self._pan_display_source=None
+            self._gpu_pan_offset=None
             self._detail_request=None;self._loading_overview=None
             self._zoom_context_image=None
             self.double_tap.reset()
@@ -244,7 +273,7 @@ def map_class(Base):
             _,button,x,y,released=event
             if self._locator_drag is not None or (self._target_drag is None and self._pan_drag is None and self.locator_hit(x,y)):return self.locator_pointer(x,y,button,released)
             if y==0 and button==0 and not released:return self.pointer(x,y,width,button,released)
-            if self.filter_open or (not self.preview and self._target_drag is None and not self.showing_overview()):return super().pointer_event(event,width)
+            if self.filter_open:return super().pointer_event(event,width)
             if self.full_overview:return self.pointer(x,y,width,button,released)
             context=(self._image_view or (self.center,self.span),width,self.height,id(self._image),self.filter_open)
             empty=0<=x<width and 2<=y<self.height-1 and not self.entities_at(x,y)
@@ -253,6 +282,11 @@ def map_class(Base):
                 drag=self._target_drag;px,py=drag.x,drag.y
                 left,top,right,bottom=getattr(event,'bounds',(x,y,x,y))
                 if max(abs(left-px),abs(right-px),abs(top-py),abs(bottom-py))>1:drag.dragged=True
+                if drag.dragged and getattr(self.renderer,'presentation','cells')=='semantic':
+                    self._gpu_pan_offset=((x-px)*8,(y-py)*16)
+            elif (getattr(self.renderer,'presentation','cells')=='semantic' and button==0 and not released
+                  and not self.filter_open and 0<=x<width and 2<=y<self.height-1):
+                self._gpu_pan_offset=(0,0)
             handled=self.pointer(x,y,width,button,released)
             return self.zoom_at_pointer(x,y,width) if zoom else handled
         def pointer(self,column,row,width,button=0,released=False):
@@ -263,19 +297,22 @@ def map_class(Base):
                     if start<=column<start+length:return self.key(key)
                 if column<20:return self.key('v')
             if self.full_overview:return self.overview_pointer(column,row,width,button,released)
-            if not self.preview and self._target_drag is None and not self.showing_overview():return super().pointer(column,row,width,button,released)
             if button&64:return self.zoom_at_pointer(column,row,width,bool(button&1))
             if self._target_drag is not None:
                 drag=self._target_drag
                 if (width,max(1,self.height-3))!=(drag.width,drag.height):
                     self.cancel_pointer();return True
                 if abs(column-drag.x)>1 or abs(row-drag.y)>1:drag.dragged=True
+                semantic=getattr(self.renderer,'presentation','cells')=='semantic'
                 if drag.dragged:
-                    self.center,self.span=drag.destination(column,row),drag.span
-                    self.target_box.cancel();self._detail_request=None
-                    self._zoom_context_image=None;self._zoom_context_view=None
+                    if semantic:self._gpu_pan_offset=((column-drag.x)*8,(row-drag.y)*16)
+                    if not semantic or released:
+                        self.center,self.span=drag.destination(column,row),drag.span
+                        self.target_box.cancel();self._detail_request=None
+                        self._zoom_context_image=None;self._zoom_context_view=None
                 if released:
                     self._target_drag=None;self.target_box.held=False
+                    if not drag.dragged or not semantic:self._gpu_pan_offset=None
                     if not drag.dragged:self._pan_display_source=None
                     if not drag.dragged and self.target_box.view is None and self._detail_request is None:
                         # A stationary click retains the normal station selection path.
@@ -288,6 +325,7 @@ def map_class(Base):
                 self._target_drag=Drag(column,row,tuple(center),span,max(1,width),max(1,self.height-3),
                     getattr(image,'width',max(1,width)),getattr(image,'height',max(1,self.height-3)),
                     getattr(image,'projection',None),tuple(view_center),view_span)
+                if getattr(self.renderer,'presentation','cells')=='semantic':self._gpu_pan_offset=(0,0)
                 self.tracks.pause();self.target_box.held=self.preview;return True
             return super().pointer(column,row,width,button,released)
         def overview_pointer(self,column,row,width,button,released):
@@ -461,7 +499,7 @@ def map_class(Base):
             w,h=max(1,self.width),max(1,self.height-3)
             loading=self._image_view!=(tuple(self.center),self.span) or self._image is None or (self._image.width,self._image.height)!=raster_size(w,h)
             image=self._image;base_layer=self._display_layer
-            if self._pan_display_source is not None and not self.full_overview and pending is None:
+            if self._pan_display_source is not None and self._gpu_pan_offset is None and not self.full_overview and pending is None:
                 if not loading:self._pan_display_source=None
                 elif self._pan_display_source.projection is not None:
                     from offline_map import Image,ReprojectedPlane
@@ -483,7 +521,8 @@ def map_class(Base):
                     self._zoom_base=(0,2,w,h,ContextPlane(image.cells,image.width,image.height,w,h));self._zoom_base_key=cache
                 base_layer=self._zoom_base;self._target_layer=base_layer;self._shown_image=image
             if self.full_overview:
-                image=self._zoom_context_image if pending is not None and self._detail_request is None else self._loading_overview if self._detail_request is not None else previous_shown if self._target_drag is not None and previous_shown is not None and previous_shown.source=='cached-overview' else None
+                self.expand_overview_camera()
+                image=self._zoom_context_image if self._zoom_context_image is not None else self._loading_overview if self._detail_request is not None else previous_shown if self._target_drag is not None and previous_shown is not None and previous_shown.source=='cached-overview' else None
                 if image is None and self._detail_request is None and self._overview_camera is not None:
                     engine=self.renderer.engine
                     vectors=engine if engine is not None and getattr(engine,'_atlas',None) is not None else None
