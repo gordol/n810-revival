@@ -313,6 +313,9 @@ physical atlas pixels and application/input performance remain unverified.
 `gpu_command_reuse=1` adds a bounded four-entry CPU compilation cache for
 ordinary version9/10 submissions. It is opt-in pending physical acceptance;
 legacy compact templates and the experimental prepared-object ABI are unchanged.
+The root-only parameter can change between closed GPU clients, under the service
+mutex; changes while a client is open return `EBUSY`. This permits matched
+controls in one guarded service without GPU reset, module reload or reboot.
 The cache retains private command copies and at most 32 KiB of metadata per
 entry, not image pixels. On ARM32 its allocation is 1,208,560 bytes, created lazily
 and freed on clean service close. Allocation failure keeps the original encoder.

@@ -385,7 +385,17 @@ static bool gpu_command_reuse;
 static struct mbx_command_cache *gpu_service_command_cache;
 static bool gpu_service_command_cache_unavailable;
 static unsigned gpu_command_cache_hits,gpu_command_cache_misses,gpu_command_cache_bypasses;
-module_param(gpu_command_reuse,bool,0400);
+/* Idle-only CPU policy switch: matched comparisons need no GPU reset/reload. */
+static int gpu_command_reuse_set(const char *value,const struct kernel_param *parameter)
+{
+    int error;mutex_lock(&gpu_service_mutex);
+    error=gpu_service_opened?-EBUSY:param_ops_bool.set(value,parameter);
+    mutex_unlock(&gpu_service_mutex);return error;
+}
+static int gpu_command_reuse_get(char *buffer,const struct kernel_param *parameter)
+{return param_ops_bool.get(buffer,parameter);}
+static const struct kernel_param_ops gpu_command_reuse_ops={.set=gpu_command_reuse_set,.get=gpu_command_reuse_get};
+module_param_cb(gpu_command_reuse,&gpu_command_reuse_ops,&gpu_command_reuse,0600);
 module_param(gpu_command_cache_hits,uint,0400);
 module_param(gpu_command_cache_misses,uint,0400);
 module_param(gpu_command_cache_bypasses,uint,0400);

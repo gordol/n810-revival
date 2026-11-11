@@ -57,6 +57,13 @@ static unsigned gpu_prepared_slot,gpu_prepared_next;
 #define mbx_surface_slots_invalidate(p) (*(p)=0)
 #define file_inode(p) (&(p)->inode)
 #define i_size_write(p,s) ((p)->size=(s))
+struct kernel_param { void *arg; };
+static int param_set_bool(const char *text,const struct kernel_param *p){
+ if(strcmp(text,"0")&&strcmp(text,"1"))return -EINVAL;
+ *(bool*)p->arg=text[0]=='1';return 0;
+}
+static const struct {int (*set)(const char*,const struct kernel_param*);} param_ops_bool={param_set_bool};
+#include "command_reuse_set.inc"
 /* Generated verbatim from kernel/mbx_render_service.h by check_prepared.py. */
 #include "service_open.inc"
 #include "service_retire.inc"
@@ -70,6 +77,13 @@ static void clear_allocations(void){
  assert(!live);allocations=fail_at=0;
 }
 static void command_cache_release(void){
+ struct kernel_param p={&gpu_command_reuse};
+ gpu_service_opened=true;
+ assert(gpu_command_reuse_set("1",&p)==-EBUSY&&!gpu_command_reuse);
+ gpu_service_opened=false;
+ assert(gpu_command_reuse_set("bad",&p)==-EINVAL&&!gpu_command_reuse);
+ assert(!gpu_command_reuse_set("1",&p)&&gpu_command_reuse);
+ assert(!gpu_command_reuse_set("0",&p)&&!gpu_command_reuse);
  gpu_command_reuse=true;fail_at=allocations+1;
  gpu_service_init_command_cache();assert(!gpu_service_command_cache&&gpu_service_command_cache_unavailable);
  unsigned attempted=allocations;gpu_service_init_command_cache();assert(allocations==attempted);
