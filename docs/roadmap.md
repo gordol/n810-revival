@@ -9,6 +9,7 @@ These investigations concern future work. Each begins with evidence from the exi
 | Extend direct pixel scenes | Integrated native frontend, direct Room pixels, and ordered window overlays. | Validate more apps, resource lifetime, and physical Nokia behavior while preserving terminal views. |
 | Reduce idle work | Shared owners, subscriptions, and change-driven rendering. | Attribute CPU use to the desktop and each owner with Local-only and connected configurations. |
 | Complete source lineage | Kernel locks, component import records, licenses, and Git history. | Record upstream path/revision, modifications, and supporting development records per component. Mark unresolved human/LLM attribution explicitly. |
+| Run selected ARM Windows CE applications | Native ARM execution and managed display handoff from the Symbian runtime. | Load an independently authored ARM CE executable, resolve its imports, intercept its system requests, and verify output and clean exit on the N810. |
 
 The [architecture](explanation/architecture.md), [rendering explanation](explanation/rendering.md), and [touch-acquisition record](pocket/touch-acquisition.md) describe the current foundations. The [journal](journal.md) records the progression and its measured results.
 
@@ -48,6 +49,18 @@ flowchart TB
 *Native loading and one software-rendered game interaction have been demonstrated. The remaining GPU application milestones build on the physical driver results linked above.*
 
 Record progress separately for executable startup, a correct rendered frame, working controls, working audio, and sustained play. Each result should identify the source revision, game version, hardware, configuration, and observed limitations. Publish technical findings and permitted captures with links to the corresponding implementation and tests. Keep unverified compatibility expectations in this roadmap until a reproducible result supports a journal entry.
+
+## Run selected ARM Windows CE applications on Linux
+
+The [10 November design investigation](posts/2026-11-10-windows-ce-runtime.md) proposes a second compatibility runtime. It would follow the Symbian runtime's broad arrangement: load a guest executable and its libraries, run ordinary ARM instructions on the N810 CPU in an isolated Linux worker, dispatch guest operating-system requests through a supervised boundary, and return drawing and input through Pocket's session and display path. No Windows CE application has run through this proposed path.
+
+Start with one independently authored ARM Windows CE 3 or 4.x program with known imports and expected output. A PE loader must map and relocate its sections, resolve DLL names and exports, set up the guest stack and thread state, and reject unsupported binaries. Begin with a small CE-facing `coredll` implementation backed by Linux services. Test loading a matching original `coredll.dll` only as a separate experiment: its wrappers still expect CE kernel and service behavior. CE 3, 4.x, and 5.x need explicit compatibility profiles rather than an assumed common ABI.
+
+The memory model needs a guest `VirtualAlloc` and mapping manager for the 32 MB private-process layout, shared allocations, protection changes, and address collisions. The N810's 32-bit ARM kernel uses 4 KB pages; the CE KData and trap addresses in the upper address range cannot simply be mapped as Linux user pages. Identify the target program's actual KData, thread-local, and trap accesses before choosing direct shims, instruction handling, or controlled fault interception. Keep intentional guest traps distinct from genuine faults. Full structured exception handling belongs to the compatibility work for applications that require it.
+
+Advance through separately checked milestones: loader and import resolution; native ARM execution with a small set of calls; files, handles, threads, and timers; a message loop and basic GDI window; then DirectDraw surfaces, input, and audio if the selected application needs them. Verify each stage on a host and on the N810 separately. PocketDOS's ARM CAB is a possible later graphical acceptance target, but its DOS emulator and device interfaces make it a poor first diagnostic. Its supplied distribution restricts reverse engineering and modification, so it must not serve as an implementation source. The BE-300 package is MIPS and would require a separate translated or emulated CPU path.
+
+[WCECL](https://github.com/gweslab/wcecl) illustrates a replacement `COREDLL`, but targets x86 applications on desktop Windows and is archived. [CERF](https://github.com/gweslab/cerf) and [MAME](https://docs.mamedev.org/initialsetup/mameintro.html) are hardware-emulation references, not native ARM runtime bases. Review the exact revision and license before reusing any code. First acceptance is an authored CE app reaching expected output and clean exit through the native worker; a PocketDOS screen, working controls, and usable speed are later, independent results.
 
 ## Recording follow-up: desktop previews and background clearing
 

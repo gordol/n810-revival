@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-07",
+  "date": "2026-11-10",
   "entries": [
     {
       "post": "docs/posts/beginnings.md",
@@ -1407,6 +1407,17 @@
       "guide": "pocket/graphics.md",
       "source_heading": "Code, tests and build inputs",
       "note": "Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check."
+    },
+    {
+      "post": "docs/posts/2026-11-10-windows-ce-runtime.md",
+      "id": "2026-11-10-windows-ce-runtime",
+      "implementation": [],
+      "tests": [],
+      "inputs": [],
+      "guide": "",
+      "source_heading": "Research status",
+      "note": "Design investigation only. No Windows CE compatibility implementation or N810 test is included."
+
     }
   ]
 }

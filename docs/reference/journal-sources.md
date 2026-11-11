@@ -477,3 +477,14 @@ Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cb
 [Build and test instructions](../pocket/graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-07-gpu-effects)
 
 Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check.
+
+<a id="2026-11-10-windows-ce-runtime"></a>
+
+## Investigating a native ARM Windows CE runtime
+
+[Read the journal entry](../posts/2026-11-10-windows-ce-runtime.md)
+
+
+[Chronological source index](../reference/journal-sources.md#2026-11-10-windows-ce-runtime)
+
+Design investigation only. No Windows CE compatibility implementation or N810 test is included.
