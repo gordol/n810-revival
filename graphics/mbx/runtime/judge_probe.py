@@ -21,7 +21,14 @@ def judge(receipt,pin,inputs=None):
     for field in ('log_complete','initial_final_gates_match','initial_final_selector_match'):
         if receipt.get(field) is not True:raise ValueError(field+' is not confirmed')
     p=receipt.get('parameters',{})
-    for name,want in (CLEAN|READY|inputs).items():
+    initial=receipt.get('initial_divider',1)  # legacy receipts entered at divider1
+    if type(initial) is not int or initial not in (1,2):raise ValueError('invalid initial divider')
+    if inputs.get('target_divider')!=2 or (p.get('observed_select',0)&7)!=initial:
+        raise ValueError('initial selector was not restored')
+    transition=int(initial!=inputs['target_divider'])
+    expected=CLEAN|READY|inputs|{'active_divider':initial,
+        'divider_change_attempted':transition,'divider_restore_attempts':transition}
+    for name,want in expected.items():
         if type(p.get(name)) is not int or p[name]!=want:raise ValueError(name+' missing or unexpected')
     if not 2<=p.get('readiness_samples',0)<=inputs['readiness_limit']:raise ValueError('readiness sample count invalid')
     if p.get('gpu_dma_stage')!=0:raise ValueError('DMA ownership not released')

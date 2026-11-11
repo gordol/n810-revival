@@ -478,6 +478,46 @@ Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cb
 
 Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check.
 
+<a id="2026-11-09-gpu-desktop"></a>
+
+## The N810 GPU runs the desktop
+
+[Read the journal entry](../posts/2026-11-09-gpu-desktop.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Desktop rendering](../assets/source/journal/pocket/graphics/gpu_scene.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/gpu_scene.py)) |
+
+[Build and test instructions](../how-to/run-n810-gpu.md) · [Chronological source index](../reference/journal-sources.md#2026-11-09-gpu-desktop)
+
+<a id="2026-11-09-symbian-runtime"></a>
+
+## Symbian applications on the N810
+
+[Read the journal entry](../posts/2026-11-09-symbian-runtime.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Native runtime](../assets/source/journal/platform/symbian/runtime/runtime_main.cpp.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/symbian/runtime/runtime_main.cpp)) |
+
+[Build and test instructions](../how-to/run-n810-gpu.md) · [Chronological source index](../reference/journal-sources.md#2026-11-09-symbian-runtime)
+
+<a id="2026-11-10-gpu-residency-and-480mhz"></a>
+
+## Keeping GPU work resident, recovering performance, and testing at 480 MHz
+
+[Read the journal entry](../posts/2026-11-10-gpu-residency-and-480mhz.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Window images and mask APIs](../assets/source/journal/pocket/graphics/driver/mbx/mesa/mbx_window_export.h.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/driver/mbx/mesa/mbx_window_export.h))<br>[Owned command replay](../assets/source/journal/pocket/graphics/driver/mbx/common/mbx_vgp_wire.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/driver/mbx/common/mbx_vgp_wire.c))<br>[Compiled command cache](../assets/source/journal/pocket/graphics/driver/mbx/common/mbx_command_cache.h.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/driver/mbx/common/mbx_command_cache.h))<br>[GPU clock lifetime](../assets/source/journal/pocket/graphics/driver/mbx/kernel/n810_mbx_gpu_probe.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/driver/mbx/kernel/n810_mbx_gpu_probe.c)) |
+| Checks and fixtures | [Clock admission and cleanup fault injection](../assets/source/journal/pocket/graphics/driver/mbx/tests/check_clock_initial.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/driver/mbx/tests/check_clock_initial.py))<br>[Clock receipt checks](../assets/source/journal/pocket/graphics/driver/mbx/tests/test_clock_receipt.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/driver/mbx/tests/test_clock_receipt.py))<br>[Prepared and legacy commands](../assets/source/journal/pocket/graphics/driver/mbx/tests/check_prepared.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/driver/mbx/tests/check_prepared.py))<br>[Compilation-cache parity](../assets/source/journal/pocket/graphics/driver/mbx/tests/test_command_cache.c.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/driver/mbx/tests/test_command_cache.c)) |
+| Build inputs | [Pinned kernel build](../assets/source/journal/pocket/graphics/driver/mbx/build_kernel.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/driver/mbx/build_kernel.py))<br>[Pinned Mesa build](../assets/source/journal/pocket/graphics/driver/mbx/build_mesa.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/driver/mbx/build_mesa.py))<br>[Hardware verification record](../assets/source/journal/pocket/graphics/driver/mbx/VERIFICATION.md.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/driver/mbx/VERIFICATION.md)) |
+
+[Build and test instructions](../how-to/build-graphics.md) · [Chronological source index](../reference/journal-sources.md#2026-11-10-gpu-residency-and-480mhz)
+
+The linked source includes the compatibility fix and opt-in compilation candidate. The measurements above are physical N810 results; local candidate checks do not imply an application-level speedup. The graphics build guide describes prerequisites; later device experiments require their exact kernel and artifact identities.
+
 <a id="2026-11-10-windows-ce-runtime"></a>
 
 ## Investigating a native ARM Windows CE runtime

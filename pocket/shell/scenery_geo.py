@@ -1,12 +1,12 @@
 """Approximate georeferencing for our local, equirectangular DEM coordinates."""
 import json
 import math
-from pathlib import Path
+from data_paths import data_root
 from xml.sax.saxutils import escape
 
 
 def reference(camera):
-    metadata=json.loads(Path(__file__).with_name('data').joinpath('tahoma-3dep.json').read_text())
+    metadata=json.loads(data_root().joinpath('tahoma-3dep.json').read_text())
     radius=6371000;latitude=metadata['latitude_first']+metadata['latitude_step']*(metadata['nz']-1)/2
     def ll(x,z):return (metadata['latitude_first']+math.degrees(z/radius),metadata['longitude_first']+metadata['longitude_step']*(metadata['nx']-1)/2+math.degrees(x/(radius*math.cos(math.radians(latitude)))))
     lat,lon=ll(camera.origin.x,camera.origin.z)

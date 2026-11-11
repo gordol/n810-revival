@@ -1,0 +1,18 @@
+Subject: [PATCH] dmaengine: omap: complete interleaved copies at block end
+
+The non-cyclic callback completes the descriptor on its first interrupt.
+An interleaved descriptor contains numf frames, so FRAME_IE acknowledges
+before all rows have transferred. Use BLOCK_IE as for memcpy. Keep error IRQs.
+Pinned base: 6bd43ee8d27b207c958808368251d55ec0475f9e.
+
+--- a/drivers/dma/ti/omap-dma.c
++++ b/drivers/dma/ti/omap-dma.c
+@@ -1347,7 +1347,7 @@ static struct dma_async_tx_descriptor *omap_dma_prep_dma_interleaved(
+ 		return NULL;
+ 	}
+ 
+-	d->cicr = CICR_DROP_IE | CICR_FRAME_IE;
++	d->cicr = CICR_DROP_IE | CICR_BLOCK_IE;
+ 
+ 	d->csdp = data_type;
+ 

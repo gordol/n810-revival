@@ -1,0 +1,2819 @@
+diff --git a/src/emu/common/src/arm_cpudetect.cpp b/src/emu/common/src/arm_cpudetect.cpp
+index ee4c483..3488a94 100644
+--- a/src/emu/common/src/arm_cpudetect.cpp
++++ b/src/emu/common/src/arm_cpudetect.cpp
+@@ -179,6 +179,7 @@ namespace eka2l1::common {
+     void cpu_info::detect() {
+         // Set some defaults here
+         HTT = false;
++        bARMv7 = false; // ARMv6 must not retain an indeterminate capability flag.
+ #if EKA2L1_ARCH(ARM64)
+         OS64bit = true;
+         CPU64bit = true;
+diff --git a/src/emu/common/src/armemitter.cpp b/src/emu/common/src/armemitter.cpp
+index 71d34f3..d3e31b6 100644
+--- a/src/emu/common/src/armemitter.cpp
++++ b/src/emu/common/src/armemitter.cpp
+@@ -440,7 +440,13 @@ namespace eka2l1::common::armgen {
+ 
+             std::int32_t offset = static_cast<std::uint32_t>(pool.loc - reinterpret_cast<intptr_t>(pool.ldr_address) - 8);
+ 
+-            // Backpatch the LDR
++            // An ARM literal load has only a 12-bit byte displacement. Never
++            // silently turn an out-of-range displacement into register/opcode bits.
++            if (offset < -4095 || offset > 4095) {
++                std::fprintf(stderr, "arm_literal_out_of_range offset=%d value=%08x\n", offset, pool.val);
++                std::abort();
++            }
++            // Backpatch the LDR.
+             *reinterpret_cast<std::uint32_t *>(pool.ldr_address) |= (offset >= 0) << 23 | abs(offset);
+         }
+ 
+@@ -477,9 +483,13 @@ namespace eka2l1::common::armgen {
+                 if (val & 0xFFFF0000)
+                     MOVT(reg, val, true);
+             } else {
+-                // Use literal pool for ARMv6.
+-                add_new_lit(val);
+-                LDRLIT(reg, 0, 0); // To be backpatched later
++                // ARMv6 has no MOVW/MOVT. Keep the literal next to its load:
++                // large translated blocks can exceed LDR's 4095-byte reach.
++                // The unconditional branch skips data even if this conditional
++                // load is not taken, and neither instruction changes flags.
++                LDRLIT(reg, 0, true); // PC points to the word after the branch.
++                write32(0xEA000000);  // B past the following literal word.
++                write32(val);
+             }
+         }
+     }
+@@ -3106,8 +3116,19 @@ namespace eka2l1::common::armgen {
+     // Always clear code space with breakpoints, so that if someone accidentally executes
+     // uninitialized, it just breaks into the debugger.
+     void armx_codeblock::poision_memory(int offset) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        // Invalidate emitted code, not untouched anonymous pages. Startup can
++        // reset repeatedly before compiling a guest instruction; faulting the
++        // whole arena into RAM here causes avoidable swap on the N810.
++        const auto used = static_cast<std::size_t>(get_code_pointer() - region);
++        assert(offset >= 0 && static_cast<std::size_t>(offset) <= used && used <= region_size);
++        for (std::size_t pos = offset; pos + 4 <= used; pos += 4)
++            *reinterpret_cast<std::uint32_t *>(region + pos) = 0xE1200070; // ARM BKPT #0
++        flush_icache_section(region + offset, region + used);
++#else
+         // TODO: this isn't right for ARM!
+         memset(region + offset, 0xCC, region_size - offset);
++#endif
+         reset_codeptr(offset);
+     }
+ }
+\ No newline at end of file
+diff --git a/src/emu/common/src/virtualmem.cpp b/src/emu/common/src/virtualmem.cpp
+index 9a80e49..6c926f8 100644
+--- a/src/emu/common/src/virtualmem.cpp
++++ b/src/emu/common/src/virtualmem.cpp
+@@ -19,6 +19,12 @@
+  */
+ 
+ #include <common/cvt.h>
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++extern "C" {
++#include "native_memory.h"
++}
++#endif
++
+ #include <common/platform.h>
+ #include <common/virtualmem.h>
+ 
+@@ -90,6 +96,9 @@ namespace eka2l1::common {
+     }
+ 
+     bool unmap_memory(void *ptr, const std::size_t size) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if (native_runtime_enabled()) { int result=native_host_release(ptr);if(result)return result>0; }
++#endif
+ #if EKA2L1_PLATFORM(WIN32)
+         const auto result = VirtualFree(ptr, 0, MEM_RELEASE);
+ 
+diff --git a/src/emu/cpu/include/cpu/12l1r/arm_12l1r.h b/src/emu/cpu/include/cpu/12l1r/arm_12l1r.h
+index 5f6c137..db72049 100644
+--- a/src/emu/cpu/include/cpu/12l1r/arm_12l1r.h
++++ b/src/emu/cpu/include/cpu/12l1r/arm_12l1r.h
+@@ -27,6 +27,8 @@
+ #include <cpu/12l1r/tlb.h>
+ 
+ #include <memory>
++#include <map>
++#include <deque>
+ 
+ namespace eka2l1::arm {
+     namespace r12l1 {
+@@ -44,6 +46,12 @@ namespace eka2l1::arm {
+ 
+         arm::r12l1::exclusive_monitor *monitor_;
+         std::uint32_t target_ticks_run_;
++        std::uint32_t asid_ = 0;
++        bool asid_initialized_ = false;
++        // Each retained process owns its links and dispatch table; no guest-VA
++        // translation crosses process boundaries. Order is oldest to newest.
++        std::map<std::uint32_t,std::unique_ptr<r12l1::dashixiong_block>> inactive_blocks_;
++        std::deque<std::uint32_t> inactive_order_;
+ 
+     public:
+         explicit r12l1_core(arm::exclusive_monitor *monitor, const std::size_t page_bits);
+@@ -82,6 +90,7 @@ namespace eka2l1::arm {
+         void flush_tlb() override;
+ 
+         void clear_instruction_cache() override;
++        void set_asid(std::uint32_t asid) override;
+         void imb_range(address addr, std::size_t size) override;
+ 
+         bool should_clear_old_memory_map() const {
+@@ -90,4 +99,4 @@ namespace eka2l1::arm {
+ 
+         std::uint32_t get_num_instruction_executed() override;
+     };
+-}
+\ No newline at end of file
++}
+diff --git a/src/emu/cpu/include/cpu/12l1r/encoding/arm.inc b/src/emu/cpu/include/cpu/12l1r/encoding/arm.inc
+index 5b0047c..56a6734 100644
+--- a/src/emu/cpu/include/cpu/12l1r/encoding/arm.inc
++++ b/src/emu/cpu/include/cpu/12l1r/encoding/arm.inc
+@@ -71,7 +71,7 @@ INST(arm_TST_reg,       "TST (reg)",           "cccc00010001nnnn0000vvvvvrr0mmmm
+ INST(arm_TST_rsr,       "TST (rsr)",           "cccc00010001nnnn0000ssss0rr1mmmm") // all
+ 
+ // Exception Generating instructions
+-INST(arm_BKPT,          "BKPT",                "cccc00010010vvvvvvvvvvvv0111vvvv") // v5
++INST(arm_BKPT,          "BKPT",                "----00010010------------0111----") // v5
+ INST(arm_SVC,           "SVC",                 "cccc1111vvvvvvvvvvvvvvvvvvvvvvvv") // all
+ INST(arm_UDF,           "UDF",                 "111001111111------------1111----") // all
+ 
+diff --git a/src/emu/cpu/include/cpu/12l1r/encoding/thumb16.inc b/src/emu/cpu/include/cpu/12l1r/encoding/thumb16.inc
+index 6a06faf..64dbe0f 100644
+--- a/src/emu/cpu/include/cpu/12l1r/encoding/thumb16.inc
++++ b/src/emu/cpu/include/cpu/12l1r/encoding/thumb16.inc
+@@ -78,7 +78,7 @@ INST(thumb16_POP,            "POP",                      "1011110Pxxxxxxxx"), //
+ //INST(thumb16_REV,            "REV",                      "1011101000mmmddd"), // v6
+ //INST(thumb16_REV16,          "REV16",                    "1011101001mmmddd"), // v6
+ //INST(thumb16_REVSH,          "REVSH",                    "1011101011mmmddd"), // v6
+-INST(thumb16_BKPT,           "BKPT",                     "10111110xxxxxxxx"), // v5
++INST(thumb16_BKPT,           "BKPT",                     "10111110--------"), // v5
+ 
+ // Store/Load multiple registers
+ INST(thumb16_STMIA,          "STMIA",                    "11000nnnxxxxxxxx"),
+diff --git a/src/emu/cpu/src/12l1r/arm_12l1r.cpp b/src/emu/cpu/src/12l1r/arm_12l1r.cpp
+index 29f226b..84def7d 100644
+--- a/src/emu/cpu/src/12l1r/arm_12l1r.cpp
++++ b/src/emu/cpu/src/12l1r/arm_12l1r.cpp
+@@ -19,6 +19,7 @@
+ 
+ #include <common/log.h>
+ #include <cpu/12l1r/arm_12l1r.h>
++#include <algorithm>
+ 
+ namespace eka2l1::arm {
+     r12l1_core::r12l1_core(arm::exclusive_monitor *monitor, const std::size_t page_bits)
+@@ -166,15 +167,49 @@ namespace eka2l1::arm {
+         mem_cache_.flush();
+     }
+ 
++    void r12l1_core::set_asid(const std::uint32_t asid) {
++        // Cache keys and direct links are guest VAs, so each retained process
++        // needs its own complete block/dispatch set. The N810 boot path switches
++        // among the app, ECom, CDL, icon and backup servers; two entries cause
++        // repeated recompilation during short service-startup deadlines.
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        constexpr std::size_t retained_processes=6;
++#else
++        constexpr std::size_t retained_processes=2;
++#endif
++        if (asid_initialized_ && asid_ != asid) {
++            std::unique_ptr<r12l1::dashixiong_block> next;
++            auto found=inactive_blocks_.find(asid);
++            if (found!=inactive_blocks_.end()) {
++                next=std::move(found->second);
++                inactive_blocks_.erase(found);
++                inactive_order_.erase(std::find(inactive_order_.begin(),inactive_order_.end(),asid));
++            }
++            inactive_blocks_.emplace(asid_,std::move(big_block_));
++            inactive_order_.push_back(asid_);
++            while(inactive_order_.size()>=retained_processes) {
++                inactive_blocks_.erase(inactive_order_.front());
++                inactive_order_.pop_front();
++            }
++            big_block_=next ? std::move(next) : std::make_unique<r12l1::dashixiong_block>(this);
++            flush_tlb();
++        }
++        asid_ = asid;
++        asid_initialized_ = true;
++    }
++
+     void r12l1_core::clear_instruction_cache() {
+         big_block_->flush_all();
++        for (auto &entry : inactive_blocks_) entry.second->flush_all();
+     }
+ 
+     void r12l1_core::imb_range(address addr, std::size_t size) {
+         big_block_->flush_range(addr, static_cast<vaddress>(addr + size));
++        // Shared ROM patches must invalidate every retained translation too.
++        for (auto &entry : inactive_blocks_) entry.second->flush_range(addr,static_cast<vaddress>(addr+size));
+     }
+ 
+     std::uint32_t r12l1_core::get_num_instruction_executed() {
+         return target_ticks_run_ - jit_state_.ticks_left_;
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/src/emu/cpu/src/12l1r/block_gen.cpp b/src/emu/cpu/src/12l1r/block_gen.cpp
+index b0a878c..8881c49 100644
+--- a/src/emu/cpu/src/12l1r/block_gen.cpp
++++ b/src/emu/cpu/src/12l1r/block_gen.cpp
+@@ -36,7 +36,14 @@
+ #include <common/log.h>
+ 
+ namespace eka2l1::arm::r12l1 {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++    // Bound translation storage on the N810. Reset touches only emitted code;
++    // eight MiB avoids the observed four-MiB startup churn without eagerly
++    // committing the upstream thirty-two-MiB arena to physical RAM.
++    static constexpr std::size_t MAX_CODE_SPACE_BYTES = common::MB(8);
++#else
+     static constexpr std::size_t MAX_CODE_SPACE_BYTES = common::MB(32);
++#endif
+ 
+     static translated_block *dashixiong_get_block_proxy(dashixiong_block *self, const vaddress addr) {
+         return self->get_block(addr);
+@@ -235,6 +242,8 @@ namespace eka2l1::arm::r12l1 {
+ 
+         flush_lit_pool();
+         end_write();
++        // Publish dispatcher instructions and literal-load patches before entry.
++        flush_icache();
+     }
+ 
+     translated_block *dashixiong_block::start_new_block(const vaddress addr) {
+@@ -299,6 +308,11 @@ namespace eka2l1::arm::r12l1 {
+     }
+ 
+     void dashixiong_block::flush_all() {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        std::fprintf(stdout,"jit_cache_reset used_bytes=%zu\n",
++            MAX_CODE_SPACE_BYTES-static_cast<std::size_t>(get_space_left()));
++        std::fflush(stdout);
++#endif
+         clear_fast_dispatch();
+ 
+         link_to_.clear();
+@@ -620,10 +634,12 @@ namespace eka2l1::arm::r12l1 {
+             if (auto link_block = get_block(link.to_)) {
+                 B(link_block->translated_code_);
+ 
+-                // Reserved three words for unlink?
++                // Unlink writes MOVI2R + STR + B. ARMv7 needs at most four
++                // words; the ARMv6 inline literal sequence needs five.
+                 NOP();
+                 NOP();
+                 NOP();
++                if (!context_info.bARMv7) NOP();
+ 
+                 link.linked_ = true;
+             } else {
+diff --git a/src/emu/cpu/src/arm_factory.cpp b/src/emu/cpu/src/arm_factory.cpp
+index 7dcebb2..a15a2fa 100644
+--- a/src/emu/cpu/src/arm_factory.cpp
++++ b/src/emu/cpu/src/arm_factory.cpp
+@@ -18,6 +18,9 @@
+  * along with this program. If not, see <http://www.gnu.org/licenses/>.
+  */
+ #include <common/log.h>
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++#include "direct_core.h"
++#endif
+ #include <common/platform.h>
+ #include <cpu/arm_factory.h>
+ 
+@@ -144,6 +147,9 @@ namespace eka2l1::arm {
+     }
+ 
+     core_instance create_core(exclusive_monitor *monitor, arm_emulator_type arm_type) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(native_runtime_enabled()) return std::make_unique<direct_core>(native_runtime_arena());
++#endif
+         const char *reason = nullptr;
+         const arm_emulator_type resolved = resolve_emulator_type(arm_type, &reason);
+         if (reason) {
+diff --git a/src/emu/drivers/include/drivers/driver.h b/src/emu/drivers/include/drivers/driver.h
+index 4bf1fe8..b29eb1e 100644
+--- a/src/emu/drivers/include/drivers/driver.h
++++ b/src/emu/drivers/include/drivers/driver.h
+@@ -21,6 +21,10 @@
+ #pragma once
+ 
+ #include <cstdint>
++#include <algorithm>
++#include <cstdlib>
++#include <cstring>
++#include <stdexcept>
+ #include <condition_variable>
+ #include <mutex>
+ 
+@@ -36,6 +40,10 @@ namespace eka2l1::drivers {
+         std::uint32_t opcode_;
+         std::uint64_t data_[10];
+         int *status_;
++        // Optional host readback completion. The caller owns userdata until
++        // this command completes or the graphics worker has stopped/joined.
++        void (*readback_completion_)(void *, int) = nullptr;
++        void *readback_userdata_ = nullptr;
+ 
+         explicit command()
+             : opcode_(0)
+@@ -58,11 +66,13 @@ namespace eka2l1::drivers {
+ 
+         std::size_t size_;
+         std::size_t max_cap_;
++        std::size_t allocated_cap_;
+ 
+         explicit command_list(std::size_t max_cap = 0)
+             : base_(nullptr)
+             , size_(0)
+-            , max_cap_(max_cap) {
++            , max_cap_(max_cap)
++            , allocated_cap_(0) {
+         }
+ 
+         bool empty() const {
+@@ -74,27 +84,53 @@ namespace eka2l1::drivers {
+                 return nullptr;
+             }
+ 
+-            if (!base_) {
+-                renew();
+-            }
++            reserve(size_ + 1);
+ 
+             command *res = base_ + size_;
+             res->status_ = nullptr;
++            res->readback_completion_ = nullptr;
++            res->readback_userdata_ = nullptr;
+ 
+             size_++;
+ 
+             return res;
+         }
+ 
+-        void renew() {
+-            if (max_cap_ == 0) {
+-                return;
++        // A producer may retain command pointers only until its next append.
++        // Submitted lists are never grown or modified by the producer.
++        void reserve(std::size_t required) {
++            if (required > max_cap_) {
++                throw std::length_error("graphics command list capacity exceeded");
++            }
++            if (base_ && required <= allocated_cap_) return;
++            if (!required) return;
++            bool compact = false;
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            static const bool enabled = [] {
++                const char *value = std::getenv("N810_SYMBIAN_COMPACT_COMMANDS");
++                return value && !std::strcmp(value, "1");
++            }();
++            compact = enabled;
++#endif
++            std::size_t capacity = compact ? std::min<std::size_t>(64, max_cap_) : max_cap_;
++            if (base_) capacity = allocated_cap_;
++            while (capacity < required) capacity += std::min(capacity, max_cap_ - capacity);
++            command *replacement = new command[capacity];
++            if (base_) {
++                std::copy_n(base_, size_, replacement);
++                delete[] base_;
+             }
+-            // NOTE: After command all iterated, the base will be deleted.
+-            // No memory leak!
+-            base_ = new command[max_cap_];
++            base_ = replacement;
++            allocated_cap_ = capacity;
++        }
++
++        void renew() {
++            if (!max_cap_) return;
++            // Used for a newly owned list, never to overwrite submitted storage.
++            reserve(1);
+             size_ = 0;
+         }
++
+     };
+ 
+     class driver {
+diff --git a/src/emu/drivers/include/drivers/graphics/backend/ogl/graphics_ogl.h b/src/emu/drivers/include/drivers/graphics/backend/ogl/graphics_ogl.h
+index cdc8ff9..7377605 100644
+--- a/src/emu/drivers/include/drivers/graphics/backend/ogl/graphics_ogl.h
++++ b/src/emu/drivers/include/drivers/graphics/backend/ogl/graphics_ogl.h
+@@ -38,6 +38,11 @@
+ #include <memory>
+ #include <queue>
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++#include "clip_union.h"
++struct sg_sprite;
++#endif
++
+ namespace eka2l1::drivers {
+     struct ogl_state {
+         GLint last_program;
+@@ -70,6 +75,13 @@ namespace eka2l1::drivers {
+     };
+ 
+     class ogl_graphics_driver : public shared_graphics_driver {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        bool n810_region_active = false;
++        GLint n810_region_framebuffer = 0;
++        std::vector<sg::box> n810_region;
++        std::vector<int> n810_region_draw_boxes;
++        int n810_draw_sprite(const ::sg_sprite &sprite);
++#endif
+         eka2l1::request_queue<command_list> list_queue;
+ 
+         std::unique_ptr<ogl_shader_program> sprite_program;
+diff --git a/src/emu/drivers/include/drivers/graphics/backend/ogl/texture_ogl.h b/src/emu/drivers/include/drivers/graphics/backend/ogl/texture_ogl.h
+index 2785d6e..6e87a14 100644
+--- a/src/emu/drivers/include/drivers/graphics/backend/ogl/texture_ogl.h
++++ b/src/emu/drivers/include/drivers/graphics/backend/ogl/texture_ogl.h
+@@ -7,6 +7,10 @@ namespace eka2l1::drivers {
+     class ogl_texture : public texture {
+         friend class ogl_graphics_driver;
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        std::uint64_t mask_lifetime_=0,mask_generation_=0;
++        bool mask_initialized_=false,mask_render_target_=false;
++#endif
+         int dimensions;
+         vec3 tex_size;
+         texture_format internal_format;
+@@ -20,7 +24,14 @@ namespace eka2l1::drivers {
+         int last_binding{ 0 };
+ 
+     public:
+-        ogl_texture() {}
++        ogl_texture();
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        void mask_changed();
++        void mask_render_target() { mask_changed();mask_render_target_=true; }
++        std::uint64_t mask_lifetime() const {return mask_lifetime_;}
++        std::uint64_t mask_generation() const {return mask_generation_;}
++        bool mask_cache_eligible() const {return mask_lifetime_&&mask_generation_&&mask_initialized_&&!mask_render_target_&&dimensions==2;}
++#endif
+         ~ogl_texture() override;
+ 
+         bool create(graphics_driver *driver, const int dim, const int miplvl, const vec3 &size, const texture_format internal_format,
+diff --git a/src/emu/drivers/include/drivers/itc.h b/src/emu/drivers/include/drivers/itc.h
+index 1f2662b..2b2d2bd 100644
+--- a/src/emu/drivers/include/drivers/itc.h
++++ b/src/emu/drivers/include/drivers/itc.h
+@@ -31,6 +31,7 @@
+ #include <drivers/graphics/texture.h>
+ 
+ #include <atomic>
++#include <cstdlib>
+ #include <condition_variable>
+ #include <cstdint>
+ #include <cstring>
+@@ -75,6 +76,16 @@ namespace eka2l1::drivers {
+       */
+     drivers::handle create_bitmap(graphics_driver *driver, const eka2l1::vec2 &size, const std::uint32_t bpp, const std::uint32_t depth_bits = 24);
+ 
++    // WSERV/GDI targets have no depth or stencil semantics in the private
++    // scissor-based N810 window path. EGL surfaces keep their explicit config.
++    inline drivers::handle create_ui_bitmap(graphics_driver *driver, const eka2l1::vec2 &size, const std::uint32_t bpp) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if (std::getenv("N810_SYMBIAN_WINDOW_FD")) return create_bitmap(driver,size,bpp,0);
++#endif
++        return create_bitmap(driver,size,bpp);
++    }
++
++
+     /** \brief Create a new shader module.
+       *
+       * \param driver       The driver associated with the program. 
+@@ -222,6 +233,8 @@ namespace eka2l1::drivers {
+     std::uint64_t pack_from_two_floats(const float f1, const float f2);
+     void unpack_to_two_floats(const std::uint64_t source, float &f1, float &f2);
+ 
++    void optimize_n810_command_list(command_list &list);
++
+     class graphics_command_builder {
+     protected:
+         command_list list_;
+@@ -246,15 +259,18 @@ namespace eka2l1::drivers {
+         }
+ 
+         void reset_list() {
+-            delete list_.base_;
++            delete[] list_.base_;
+ 
+             list_.size_ = 0;
+             list_.base_ = nullptr;
++            list_.allocated_cap_ = 0;
+         }
+ 
+         command_list retrieve_command_list() {
++            optimize_n810_command_list(list_);
+             command_list copy = list_;
+             list_.base_ = nullptr;
++            list_.allocated_cap_ = 0;
+             list_.size_ = 0;
+ 
+             return copy;
+@@ -265,22 +281,24 @@ namespace eka2l1::drivers {
+         }
+ 
+         bool merge(command_list &another) {
+-            if (!another.base_ || !another.size_) {
+-                return true;
+-            }
+-
+-            if (list_.base_ == nullptr) {
+-                list_ = another;
++            if (&another == &list_) return false;
++            if (!another.base_ || !another.size_) return true;
++            if (another.size_ > list_.max_cap_ - list_.size_) return false;
++
++            if (!list_.base_) {
++                // Transfer ownership; do not free the storage we just adopted.
++                list_.base_ = another.base_;
++                list_.size_ = another.size_;
++                list_.allocated_cap_ = another.allocated_cap_;
+             } else {
+-                if (another.size_ + list_.size_ > list_.max_cap_) {
+-                    return false;
+-                }
+-
+-                std::memcpy(list_.base_ + list_.size_, another.base_, another.size_ * sizeof(command));
++                list_.reserve(list_.size_ + another.size_);
++                std::copy_n(another.base_, another.size_, list_.base_ + list_.size_);
+                 list_.size_ += another.size_;
++                delete[] another.base_;
+             }
+-
+-            delete[] another.base_;
++            another.base_ = nullptr;
++            another.size_ = 0;
++            another.allocated_cap_ = 0;
+             return true;
+         }
+ 
+diff --git a/src/emu/drivers/src/audio/backend/cubeb/audio_cubeb.cpp b/src/emu/drivers/src/audio/backend/cubeb/audio_cubeb.cpp
+index 3829249..68b2d29 100644
+--- a/src/emu/drivers/src/audio/backend/cubeb/audio_cubeb.cpp
++++ b/src/emu/drivers/src/audio/backend/cubeb/audio_cubeb.cpp
+@@ -51,7 +51,13 @@ namespace eka2l1::drivers {
+         // Fails harmlessly if another driver instance already registered it; cubeb_destroy unregisters it.
+         cubeb_set_log_callback(CUBEB_LOG_NORMAL, cubeb_log_redirector);
+ 
+-        if (cubeb_init(&context_, "EKA2L1 Audio Driver", nullptr) != CUBEB_OK) {
++        if (cubeb_init(&context_, "EKA2L1 Audio Driver",
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            "alsa"
++#else
++            nullptr
++#endif
++        ) != CUBEB_OK) {
+             LOG_CRITICAL(DRIVER_AUD, "Can't initialize Cubeb audio driver!");
+             return;
+         }
+@@ -61,7 +67,9 @@ namespace eka2l1::drivers {
+     }
+ 
+     cubeb_audio_driver::~cubeb_audio_driver() {
++#ifndef EKA2L1_N810_PRIVATE_OSMESA
+         BAE_DriverDeactivated(this);
++#endif
+         
+         if (context_) {
+             cubeb_destroy(context_);
+@@ -69,6 +77,7 @@ namespace eka2l1::drivers {
+     }
+ 
+     std::uint32_t cubeb_audio_driver::native_sample_rate() {
++        if (!init_ || !context_) return 0;
+         std::uint32_t preferred_rate = 0;
+ 
+ #ifdef EKA2L1_PLATFORM_ANDROID
+@@ -95,6 +104,10 @@ namespace eka2l1::drivers {
+ 
+     std::unique_ptr<audio_input_stream> cubeb_audio_driver::new_input_stream(const std::uint32_t sample_rate,
+         const std::uint8_t channels, data_callback callback) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        // Output-only application bring-up does not authorize microphone capture.
++        return nullptr;
++#endif
+         if (!init_) {
+             return nullptr;
+         }
+diff --git a/src/emu/drivers/src/audio/backend/dsp_shared.cpp b/src/emu/drivers/src/audio/backend/dsp_shared.cpp
+index 5c50237..da5f54d 100644
+--- a/src/emu/drivers/src/audio/backend/dsp_shared.cpp
++++ b/src/emu/drivers/src/audio/backend/dsp_shared.cpp
+@@ -48,6 +48,8 @@ namespace eka2l1::drivers {
+     }
+ 
+     bool dsp_output_stream_shared::set_properties(const std::uint32_t freq, const std::uint8_t channels) {
++        // A disabled backend reports unsupported through the existing dispatcher.
++        if (!aud_) return false;
+         // Doc said: Writing to the stream must have stopped before you call this function.
+         if ((channels_ == channels) && (freq_ == freq)) {
+             return true;
+@@ -71,6 +73,7 @@ namespace eka2l1::drivers {
+             return data_callback(buffer, nb_frames);
+         });
+ 
++        if (!stream_) return false;
+         if (stream_)
+             stream_->set_volume(static_cast<float>(volume_) / 10.0f);
+ 
+@@ -105,6 +108,7 @@ namespace eka2l1::drivers {
+             virtual_stop = true;
+         }
+ 
++        if (!stream_) return false;
+         avg_frame_count_ = 0;
+ 
+         if (virtual_stop) {
+@@ -136,6 +140,8 @@ namespace eka2l1::drivers {
+     }
+ 
+     bool dsp_output_stream_shared::write(const std::uint8_t *data, const std::uint32_t data_size) {
++        // Never read an extra byte from an incomplete PCM16 sample.
++        if ((!data && data_size) || (format_ == PCM16_FOUR_CC_CODE && (data_size & 1))) return false;
+         // Copy buffer to queue
+         if (format_ != PCM16_FOUR_CC_CODE) {
+             queue_data_decode(data, data_size);
+diff --git a/src/emu/drivers/src/audio/dsp.cpp b/src/emu/drivers/src/audio/dsp.cpp
+index 87a5d2d..956b1dc 100644
+--- a/src/emu/drivers/src/audio/dsp.cpp
++++ b/src/emu/drivers/src/audio/dsp.cpp
+@@ -28,7 +28,7 @@
+ #endif
+ 
+ namespace eka2l1::drivers {
+-#if EKA2L1_PLATFORM(IOS) && !EKA2L1_HAS_FFMPEG
++#if (EKA2L1_PLATFORM(IOS) || defined(EKA2L1_N810_PRIVATE_OSMESA)) && !EKA2L1_HAS_FFMPEG
+     struct dsp_output_stream_pcm final : public dsp_output_stream_shared {
+         explicit dsp_output_stream_pcm(drivers::audio_driver *aud)
+             : dsp_output_stream_shared(aud) {
+@@ -51,7 +51,7 @@ namespace eka2l1::drivers {
+                 std::vector<std::int16_t> converted(original_size);
+                 for (std::size_t i = 0; i < original_size; ++i) {
+                     converted[i] = static_cast<std::int16_t>(
+-                        static_cast<std::int8_t>(original[i])) << 8;
++                        static_cast<std::int8_t>(original[i])) * 256;
+                 }
+                 buffer_.push(reinterpret_cast<const std::uint16_t *>(converted.data()), converted.size());
+                 return;
+@@ -62,7 +62,7 @@ namespace eka2l1::drivers {
+ 
+         bool format(const four_cc fmt) override {
+             if ((fmt != PCM16_FOUR_CC_CODE) && (fmt != PCM8_FOUR_CC_CODE)) {
+-                LOG_WARN(DRIVER_AUD, "iOS DSP output only supports PCM formats for now");
++                LOG_WARN(DRIVER_AUD, "Native PCM DSP output supports only PCM8 and PCM16");
+                 return false;
+             }
+ 
+@@ -140,7 +140,7 @@ namespace eka2l1::drivers {
+         case dsp_stream_backend_ffmpeg:
+ #if EKA2L1_HAS_FFMPEG
+             return std::make_unique<dsp_output_stream_ffmpeg>(aud);
+-#elif EKA2L1_PLATFORM(IOS)
++#elif EKA2L1_PLATFORM(IOS) || defined(EKA2L1_N810_PRIVATE_OSMESA)
+             return std::make_unique<dsp_output_stream_pcm>(aud);
+ #else
+             break;
+diff --git a/src/emu/drivers/src/audio/player.cpp b/src/emu/drivers/src/audio/player.cpp
+index 4dff19f..dacc086 100644
+--- a/src/emu/drivers/src/audio/player.cpp
++++ b/src/emu/drivers/src/audio/player.cpp
+@@ -17,13 +17,16 @@
+  * along with this program. If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
++#include <cstring>
+ #include <common/platform.h>
+ #if EKA2L1_HAS_FFMPEG
+ #include <drivers/audio/backend/ffmpeg/player_ffmpeg.h>
+ #endif
++#ifndef EKA2L1_N810_PRIVATE_OSMESA
+ #include <drivers/audio/backend/minibae/player_minibae.h>
+ #include <drivers/audio/backend/tinysoundfont/player_tsf.h>
+ #include <drivers/audio/backend/wmf/player_wmf.h>
++#endif
+ #include <drivers/audio/player.h>
+ 
+ namespace eka2l1::drivers {
+@@ -53,6 +56,9 @@ namespace eka2l1::drivers {
+     }
+ 
+     std::unique_ptr<player> new_audio_player(audio_driver *aud, const player_type type) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        return nullptr;
++#else
+         switch (type) {
+ #if EKA2L1_PLATFORM(WIN32)
+         case player_type_wmf:
+@@ -74,5 +80,6 @@ namespace eka2l1::drivers {
+         }
+ 
+         return nullptr;
++#endif
+     }
+ }
+diff --git a/src/emu/drivers/src/graphics/backend/graphics_driver_shared.cpp b/src/emu/drivers/src/graphics/backend/graphics_driver_shared.cpp
+index 785a773..dc69bd5 100644
+--- a/src/emu/drivers/src/graphics/backend/graphics_driver_shared.cpp
++++ b/src/emu/drivers/src/graphics/backend/graphics_driver_shared.cpp
+@@ -22,6 +22,7 @@
+ #include <common/platform.h>
+ 
+ #include <cstdint>
++#include <chrono>
+ #include <limits>
+ #include <vector>
+ 
+@@ -167,11 +168,11 @@ namespace eka2l1::drivers {
+ 
+     void bitmap::resize(graphics_driver *driver, const eka2l1::vec2 &new_size) {
+         auto tex_to_replace = std::move(instantiate_suit_color_bitmap_texture(driver, new_size, bpp));
+-        auto ds_tex_to_replace = std::move(instantiate_bitmap_depth_stencil_texture(driver, new_size));
++        auto ds_tex_to_replace = depth_bits ? instantiate_bitmap_depth_stencil_texture(driver, new_size) : texture_ptr{};
+ 
+         if (fb) {
+             auto new_fb = make_framebuffer(driver, { tex_to_replace.get() }, { 0 }, ds_tex_to_replace.get(), 0,
+-                depth_bits == 16 ? nullptr : ds_tex_to_replace.get(), 0);
++                (depth_bits == 0 || depth_bits == 16) ? nullptr : ds_tex_to_replace.get(), 0);
+ 
+             fb->bind(driver, framebuffer_bind_read);
+             new_fb->bind(driver, framebuffer_bind_draw);
+@@ -197,8 +198,8 @@ namespace eka2l1::drivers {
+     }
+ 
+     void bitmap::init_fb(graphics_driver *driver) {
+-        ds_tex = std::move(instantiate_bitmap_depth_stencil_texture(driver, tex->get_size()));
+-        fb = make_framebuffer(driver, { tex.get() }, { 0 }, ds_tex.get(), 0, depth_bits == 16 ? nullptr : ds_tex.get(), 0);
++        ds_tex = depth_bits ? instantiate_bitmap_depth_stencil_texture(driver, tex->get_size()) : texture_ptr{};
++        fb = make_framebuffer(driver, { tex.get() }, { 0 }, ds_tex.get(), 0, (depth_bits == 0 || depth_bits == 16) ? nullptr : ds_tex.get(), 0);
+     }
+ 
+     shared_graphics_driver::shared_graphics_driver(const graphic_api gr_api)
+@@ -521,7 +522,19 @@ namespace eka2l1::drivers {
+             no_need_flip ? 0.0f : static_cast<float>(new_rect.size.y), -1.0f, 1.0f);
+     }
+ 
++    void record_bitmap_command_timing(std::uint64_t,std::uint64_t,std::uint64_t);
+     void shared_graphics_driver::read_bitmap(command &cmd) {
++        struct completion_guard {
++            command &cmd; int result=0;
++            ~completion_guard() { if(cmd.readback_completion_)cmd.readback_completion_(cmd.readback_userdata_,result); }
++        } completion{cmd};
++        struct read_timer {
++            std::uint64_t queued,started;
++            static std::uint64_t now() {return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();}
++            explicit read_timer(std::uint64_t q):queued(q),started(q?now():0){}
++            ~read_timer(){if(queued)record_bitmap_command_timing(queued,started,now());}
++        } timing(cmd.data_[9]);
++
+         drivers::handle handle = cmd.data_[0];
+         
+         bitmap *bmp = get_bitmap(handle);
+@@ -580,6 +593,7 @@ namespace eka2l1::drivers {
+         const bool res = bmp->fb->read(target_format, target_data_type, pos, size, ptr);
+         bmp->fb->unbind(this);
+ 
++        completion.result=res;
+         finish(cmd.status_, res);
+     }
+ 
+diff --git a/src/emu/drivers/src/graphics/backend/ogl/fb_ogl.cpp b/src/emu/drivers/src/graphics/backend/ogl/fb_ogl.cpp
+index 1ff570e..6c49831 100644
+--- a/src/emu/drivers/src/graphics/backend/ogl/fb_ogl.cpp
++++ b/src/emu/drivers/src/graphics/backend/ogl/fb_ogl.cpp
+@@ -49,6 +49,10 @@ namespace eka2l1::drivers {
+                     GL_RENDERBUFFER, static_cast<GLuint>(color_buffers[i]->driver_handle()));
+             } else {
+                 ogl_texture *otex = reinterpret_cast<ogl_texture*>(color_buffers[i]);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        otex->mask_render_target();
++#endif
++
+ 
+                 glFramebufferTexture2D(GL_FRAMEBUFFER, static_cast<GLenum>(GL_COLOR_ATTACHMENT0 + i),
+                     ((otex->get_total_dimensions() > 3) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + face_index_of_color_buffers[i] : GL_TEXTURE_2D)
+@@ -63,6 +67,10 @@ namespace eka2l1::drivers {
+                         static_cast<GLuint>(depth_buffer->driver_handle()));
+                 } else {
+                     ogl_texture *odepth = reinterpret_cast<ogl_texture*>(depth_buffer);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        odepth->mask_render_target();
++#endif
++
+                     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, ((odepth->get_total_dimensions() > 3)
+                         ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + face_index_of_depth_buffer : GL_TEXTURE_2D),
+                         static_cast<GLuint>(depth_buffer->driver_handle()), 0);
+@@ -75,6 +83,10 @@ namespace eka2l1::drivers {
+                         static_cast<GLuint>(depth_buffer->driver_handle()));
+                 } else {
+                     ogl_texture *odepth = reinterpret_cast<ogl_texture*>(depth_buffer);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        odepth->mask_render_target();
++#endif
++
+                     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, ((odepth->get_total_dimensions() > 3)
+                         ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + face_index_of_depth_buffer : GL_TEXTURE_2D),
+                         static_cast<GLuint>(depth_buffer->driver_handle()), 0);
+@@ -87,6 +99,10 @@ namespace eka2l1::drivers {
+                         static_cast<GLuint>(stencil_buffer->driver_handle()));
+                 } else {
+                     ogl_texture *ostencil = reinterpret_cast<ogl_texture*>(stencil_buffer);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        ostencil->mask_render_target();
++#endif
++
+                     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, ((ostencil->get_total_dimensions() > 3)
+                         ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + face_index_of_stencil_buffer : GL_TEXTURE_2D),
+                         static_cast<GLuint>(depth_buffer->driver_handle()), 0);
+@@ -100,18 +116,64 @@ namespace eka2l1::drivers {
+             LOG_ERROR(DRIVER_GRAPHICS, "Framebuffer not complete! Reason {}", framebuffer_status);
+         }
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        // Construction initializes the entire attachment. Caller clipping and
++        // write masks belong to the previous target, not this new storage.
++        // Inheriting them turns initialization into a partial read/modify/write
++        // of undefined pixels (and Mesa may lower that clear to a draw).
++        const GLboolean saved_scissor = glIsEnabled(GL_SCISSOR_TEST);
++        GLboolean saved_color_mask[4], saved_depth_mask;
++        GLfloat saved_clear_color[4];
++        GLdouble saved_clear_depth;
++        GLint saved_stencil_front, saved_stencil_back, saved_clear_stencil;
++        glGetBooleanv(GL_COLOR_WRITEMASK, saved_color_mask);
++        glGetFloatv(GL_COLOR_CLEAR_VALUE, saved_clear_color);
++        // Color-only Symbian surfaces do not touch depth/stencil state.
++        if (depth_buffer) {
++            glGetBooleanv(GL_DEPTH_WRITEMASK, &saved_depth_mask);
++            glGetDoublev(GL_DEPTH_CLEAR_VALUE, &saved_clear_depth);
++            glDepthMask(GL_TRUE);
++            glClearDepth(0);
++        }
++        if (stencil_buffer) {
++            glGetIntegerv(GL_STENCIL_WRITEMASK, &saved_stencil_front);
++            glGetIntegerv(GL_STENCIL_BACK_WRITEMASK, &saved_stencil_back);
++            glGetIntegerv(GL_STENCIL_CLEAR_VALUE, &saved_clear_stencil);
++            glStencilMaskSeparate(GL_FRONT, ~0U);
++            glStencilMaskSeparate(GL_BACK, ~0U);
++            glClearStencil(0);
++        }
++        glDisable(GL_SCISSOR_TEST);
++        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
++#endif
+         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
++#ifndef EKA2L1_N810_PRIVATE_OSMESA
+         glClearStencil(0);
+ #ifdef EKA2L1_PLATFORM_ANDROID
+         glClearDepthf(0);
+ #else
+         glClearDepth(0);
++#endif
+ #endif
+         std::uint32_t clear_flag = GL_COLOR_BUFFER_BIT;
+         if (depth_buffer) clear_flag |= GL_DEPTH_BUFFER_BIT;
+         if (stencil_buffer) clear_flag |= GL_STENCIL_BUFFER_BIT;
+ 
+         glClear(clear_flag);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        glColorMask(saved_color_mask[0], saved_color_mask[1], saved_color_mask[2], saved_color_mask[3]);
++        if (depth_buffer) {
++            glDepthMask(saved_depth_mask);
++            glClearDepth(saved_clear_depth);
++        }
++        if (stencil_buffer) {
++            glStencilMaskSeparate(GL_FRONT, static_cast<GLuint>(saved_stencil_front));
++            glStencilMaskSeparate(GL_BACK, static_cast<GLuint>(saved_stencil_back));
++            glClearStencil(saved_clear_stencil);
++        }
++        glClearColor(saved_clear_color[0], saved_clear_color[1], saved_clear_color[2], saved_clear_color[3]);
++        if (saved_scissor) glEnable(GL_SCISSOR_TEST);
++#endif
+ 
+         unbind(nullptr);
+     }
+@@ -192,6 +254,10 @@ namespace eka2l1::drivers {
+                 static_cast<GLuint>(tex->driver_handle()));
+         } else {
+             ogl_texture *ocolour = reinterpret_cast<ogl_texture*>(color_buffers[attachment_id]);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        ocolour->mask_render_target();
++#endif
++
+ 
+             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachment_id, ((ocolour->get_total_dimensions() > 3) ?
+                 (GL_TEXTURE_CUBE_MAP_POSITIVE_X + face_index) : GL_TEXTURE_2D), static_cast<GLuint>(ocolour->driver_handle()), 0);
+@@ -210,6 +276,10 @@ namespace eka2l1::drivers {
+                     static_cast<GLuint>(depth_buffer->driver_handle()));
+             } else {
+                 ogl_texture *odepth = reinterpret_cast<ogl_texture*>(depth_buffer);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        odepth->mask_render_target();
++#endif
++
+ 
+                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, ((odepth->get_total_dimensions() > 3) ?
+                     (GL_TEXTURE_CUBE_MAP_POSITIVE_X + depth_face_index) : GL_TEXTURE_2D), static_cast<GLuint>(depth_buffer->driver_handle()), 0);
+@@ -223,6 +293,10 @@ namespace eka2l1::drivers {
+                         static_cast<GLuint>(depth_buffer->driver_handle()));
+                 } else {
+                     ogl_texture *odepth = reinterpret_cast<ogl_texture*>(depth_buffer);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        odepth->mask_render_target();
++#endif
++
+ 
+                     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, ((odepth->get_total_dimensions() > 3) ?
+                         (GL_TEXTURE_CUBE_MAP_POSITIVE_X + depth_face_index) : GL_TEXTURE_2D), static_cast<GLuint>(depth_buffer->driver_handle()), 0);
+@@ -237,6 +311,10 @@ namespace eka2l1::drivers {
+                         static_cast<GLuint>(stencil_buffer->driver_handle()));
+                 } else {
+                     ogl_texture *ostencil = reinterpret_cast<ogl_texture*>(stencil_buffer);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        ostencil->mask_render_target();
++#endif
++
+ 
+                     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, ((ostencil->get_total_dimensions() > 3) ?
+                         (GL_TEXTURE_CUBE_MAP_POSITIVE_X + depth_face_index) : GL_TEXTURE_2D),
+diff --git a/src/emu/drivers/src/graphics/backend/ogl/graphics_ogl.cpp b/src/emu/drivers/src/graphics/backend/ogl/graphics_ogl.cpp
+index 435f22d..8d4ab7e 100644
+--- a/src/emu/drivers/src/graphics/backend/ogl/graphics_ogl.cpp
++++ b/src/emu/drivers/src/graphics/backend/ogl/graphics_ogl.cpp
+@@ -1,3 +1,11 @@
++#include "runtime_debug.h"
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++#include "host_graphics_profile.h"
++#include "gl_direct_dispatch.h"
++#endif
++#include "graphics_command_profile.h"
++#include <cstdio>
++#include <cstdlib>
+ /*
+  * Copyright (c) 2019 EKA2L1 Team.
+  * 
+@@ -42,9 +50,25 @@
+ #include <EGL/egl.h>
+ #endif
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++#include <GL/osmesa.h>
++#include <malloc.h>
++#include "fixed_sprite.h"
++namespace n810_runtime {void prepare_window_write(unsigned);void prepare_window_draw(unsigned);}
++#include "sprite_region_bounds.h"
++#endif
++
+ #define IMGUI_IMPL_OPENGL_LOADER_GLAD
+ 
+ namespace eka2l1::drivers {
++    // Successful per-draw diagnostics are optional; errors remain unconditional.
++    static bool n810_quiet_draw_diagnostics() {
++        static const bool quiet = [] {
++            const char *value = std::getenv("N810_SYMBIAN_QUIET_DRAWS");
++            return value && std::strcmp(value, "1") == 0;
++        }();
++        return quiet;
++    }
+     static void gl_post_callback_for_error(const char *name, void *funcptr, int len_args, ...) {
+         GLenum error_code;
+         error_code = glad_glGetError();
+@@ -57,7 +81,13 @@ namespace eka2l1::drivers {
+     void init_gl_graphics_library(graphics::gl_context::mode api) {
+         switch (api) {
+             case graphics::gl_context::mode::opengl: {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++                if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(OSMesaGetProcAddress))) {
++                    throw std::runtime_error("N810 private software GL loader failed");
++                }
++#else
+                 gladLoadGL();
++#endif
+                 break;
+             }
+ 
+@@ -77,6 +107,9 @@ namespace eka2l1::drivers {
+         }
+ 
+         glad_set_post_callback(gl_post_callback_for_error);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if (!n810_runtime_debug()) n810_gl_use_direct_dispatch();
++#endif
+     }
+ 
+     static bool force_bgra_conversion_requested() {
+@@ -227,17 +260,37 @@ namespace eka2l1::drivers {
+         }
+ 
+         LOG_TRACE(DRIVER_GRAPHICS, "Supported features (for optimization): {}", feature);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        // Compile before loading the guest services, while their heaps and
++        // ROM mappings are absent. do_init releases compiler temporaries;
++        // linked programs remain owned by this graphics context.
++        const char *prepare = std::getenv("N810_SYMBIAN_PREPARE_RENDERER");
++        if (prepare && std::strcmp(prepare, "1") == 0 &&
++                !std::getenv("N810_SYMBIAN_FIXED_FUNCTION")) {
++            std::fprintf(stderr, "graphics_phase=prepare_programs_begin\n");
++            do_init();
++            std::fprintf(stderr, "graphics_phase=prepare_programs_complete\n");
++        }
++#endif
+     }
+ 
+     ogl_graphics_driver::~ogl_graphics_driver() {
++        const bool trace = std::getenv("N810_SYMBIAN_TRACE_ATLAS") != nullptr;
++        if(trace)std::fprintf(stderr,"graphics_destroy=bitmaps\n");
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        sg_mask_cache_close();
++#endif
+         bmp_textures.clear();
++        if(trace)std::fprintf(stderr,"graphics_destroy=objects\n");
+         graphic_objects.clear();
++        if(trace)std::fprintf(stderr,"graphics_destroy=programs\n");
+ 
+         sprite_program.reset();
+         brush_program.reset();
+         mask_program.reset();
+         pen_program.reset();
+ 
++        if(trace)std::fprintf(stderr,"graphics_destroy=buffers\n");
+         GLuint vao_to_del[3] = { sprite_vao, brush_vao, pen_vao };
+         GLuint vbo_to_del[3] = { sprite_vbo, brush_vbo, pen_vbo };
+         GLuint ibo_to_del[2] = { sprite_ibo, pen_ibo };
+@@ -245,6 +298,7 @@ namespace eka2l1::drivers {
+         glDeleteVertexArrays(3, vao_to_del);
+         glDeleteBuffers(3, vbo_to_del);
+         glDeleteBuffers(2, ibo_to_del);
++        if(trace)std::fprintf(stderr,"graphics_destroy=members\n");
+     }
+ 
+     bool ogl_graphics_driver::support_extension(const graphics_driver_extension ext) {
+@@ -299,6 +353,11 @@ namespace eka2l1::drivers {
+     static constexpr const char *pen_f_path = "resources//pen.frag";
+ 
+     void ogl_graphics_driver::do_init() {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        const char *fixed = std::getenv("N810_SYMBIAN_FIXED_FUNCTION");
++        if (fixed && !std::strcmp(fixed, "gpu"))
++            throw std::runtime_error("GPU-only runtime refuses GLSL fallback initialization");
++#endif
+         auto sprite_norm_vertex_module = std::make_unique<ogl_shader_module>(eka2l1::runtime_resource_path(sprite_norm_v_path), shader_module_type::vertex);
+         auto brush_vertex_module = std::make_unique<ogl_shader_module>(eka2l1::runtime_resource_path(brush_v_path), shader_module_type::vertex);
+         auto pen_vertex_module = std::make_unique<ogl_shader_module>(eka2l1::runtime_resource_path(pen_v_path), shader_module_type::vertex);
+@@ -413,6 +472,20 @@ namespace eka2l1::drivers {
+         point_size_loc_pen = pen_program->get_uniform_location("u_pointSize").value_or(-1);
+         pattern_bytes_loc_pen = pen_program->get_uniform_location("u_pattern").value_or(-1);
+         viewport_loc_pen = pen_program->get_uniform_location("u_viewport").value_or(-1);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if (std::getenv("N810_SYMBIAN_RELEASE_COMPILER")) {
++            const auto before=mallinfo2();
++            sprite_norm_vertex_module.reset();brush_vertex_module.reset();pen_vertex_module.reset();
++            sprite_norm_fragment_module.reset();sprite_mask_fragment_module.reset();
++            sprite_upscale_fragment_module.reset();brush_fragment_module.reset();pen_fragment_module.reset();
++            auto release=reinterpret_cast<void (*)()>(OSMesaGetProcAddress("glReleaseShaderCompiler"));
++            if(!release)throw std::runtime_error("Private renderer lacks shader compiler release");
++            release();malloc_trim(0);
++            const auto after=mallinfo2();
++            std::fprintf(stderr,"shader_compiler_release allocated_before=%zu allocated_after=%zu arena_before=%zu arena_after=%zu mmap_before=%zu mmap_after=%zu\n",
++                before.uordblks,after.uordblks,before.arena,after.arena,before.hblkhd,after.hblkhd);
++        }
++#endif
+     }
+ 
+     void ogl_graphics_driver::commit_upscale_shader_change() {
+@@ -492,7 +565,57 @@ namespace eka2l1::drivers {
+         new_surface_size_ = new_size;
+     }
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++    int ogl_graphics_driver::n810_draw_sprite(const ::sg_sprite &sprite) {
++        if (!n810_region_active) return sg_sprite_draw(&sprite);
++        GLint framebuffer=0;glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&framebuffer);
++        if(framebuffer!=n810_region_framebuffer)throw std::runtime_error("region must be redefined after framebuffer change");
++        GLint old[4]; glGetIntegerv(GL_SCISSOR_BOX,old);
++        GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
++        glEnable(GL_SCISSOR_TEST);
++        GLint viewport[4];glGetIntegerv(GL_VIEWPORT,viewport);
++        sg::box sprite_bounds{};
++        bool bounded=std::getenv("N810_SYMBIAN_REGION_REJECT") && sg::unit_sprite_bounds(sprite,viewport,binding!=nullptr,sprite_bounds);
++        static unsigned bounds_reports=0;
++        if(bounds_reports++<8)if(n810_runtime_debug()) std::fprintf(stderr,"GPU_REGION_BOUNDS admitted=%u viewport=%d,%d binding=%u projection=%g,%g,%g,%g,%g\n",bounded,viewport[2],viewport[3],binding!=nullptr,sprite.projection[0],sprite.projection[5],sprite.projection[10],sprite.projection[12],sprite.projection[13]);
++        int result=0;unsigned skipped=0;
++        const bool batch=n810_region.size()>1&&std::getenv("N810_SYMBIAN_BATCH_REGION_STATE")!=nullptr;
++        auto &boxes=n810_region_draw_boxes;boxes.clear();if(batch)boxes.reserve(4*n810_region.size());
++        for(auto box:n810_region){
++            if(scissor)box=sg::intersection(box,{old[0],old[1],old[0]+old[2],old[1]+old[3]});
++            if(!sg::valid(box))continue;
++            if(bounded&&!sg::valid(sg::intersection(box,sprite_bounds))){++skipped;continue;}
++            if(batch){boxes.insert(boxes.end(),{box.x0,box.y0,box.x1-box.x0,box.y1-box.y0});continue;}
++            glScissor(box.x0,box.y0,box.x1-box.x0,box.y1-box.y0);
++            if((result=sg_sprite_draw(&sprite)))break;
++        }
++        if(batch&&!boxes.empty()){
++            if(boxes.size()==4){glScissor(boxes[0],boxes[1],boxes[2],boxes[3]);result=sg_sprite_draw(&sprite);}
++            else result=sg_sprite_draw_regions(&sprite,boxes.data(),boxes.size()/4);
++            static unsigned batches=0;if(++batches==1||batches%128==0)
++                if(n810_runtime_debug()) std::fprintf(stderr,"GPU_REGION_BATCH batches=%u regions=%zu CPU_raster_pixels=0\n",batches,boxes.size()/4);
++        }
++        if(skipped && !n810_quiet_draw_diagnostics())std::fprintf(stderr,"GPU_REGION_REJECT skipped=%u regions=%zu CPU_raster_pixels=0\n",skipped,n810_region.size());
++        glScissor(old[0],old[1],old[2],old[3]);
++        if(!scissor)glDisable(GL_SCISSOR_TEST);
++        return result;
++    }
++#endif
+     void ogl_graphics_driver::draw_rectangle(const eka2l1::rect &brush_rect) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(std::getenv("N810_SYMBIAN_FIXED_FUNCTION")) {
++            sg_sprite sprite{};
++            auto model=glm::translate(glm::mat4(1.0f),glm::vec3(brush_rect.top.x,brush_rect.top.y,0.0f));
++            model=glm::scale(model,glm::vec3(brush_rect.size.x,brush_rect.size.y,1.0f));
++            std::memcpy(sprite.projection,glm::value_ptr(projection_matrix),sizeof sprite.projection);
++            std::memcpy(sprite.model,glm::value_ptr(model),sizeof sprite.model);
++            const float vertices[]={0,1,0,1,1,0,1,0,0,0,0,0,1,1,1,1};
++            std::memcpy(sprite.xyuv,vertices,sizeof vertices);
++            for(unsigned i=0;i<4;++i)sprite.color[i]=brush_color.elements[i]/255.0f;
++            if(n810_draw_sprite(sprite))throw std::runtime_error("Fixed-function sprite failed");
++            return;
++        }
++#endif
+         if (!brush_program) {
+             do_init();
+         }
+@@ -538,9 +661,11 @@ namespace eka2l1::drivers {
+     }
+ 
+     void ogl_graphics_driver::draw_bitmap(command &cmd) {
+-        if (!sprite_program) {
+-            do_init();
+-        }
++        const char *fixed=nullptr;
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        fixed=std::getenv("N810_SYMBIAN_FIXED_FUNCTION");
++#endif
++        if (!sprite_program && !fixed) do_init();
+ 
+         // Get bitmap to draw
+         drivers::handle to_draw = static_cast<drivers::handle>(cmd.data_[0]);
+@@ -580,6 +705,54 @@ namespace eka2l1::drivers {
+             }
+         }
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(fixed && !(flags & bitmap_draw_flag_use_upscale_shader)) {
++            eka2l1::rect dest,source;
++            eka2l1::vec2 origin;
++            unpack_u64_to_2u32(cmd.data_[2],dest.top.x,dest.top.y);
++            unpack_u64_to_2u32(cmd.data_[3],dest.size.x,dest.size.y);
++            unpack_u64_to_2u32(cmd.data_[4],source.top.x,source.top.y);
++            unpack_u64_to_2u32(cmd.data_[5],source.size.x,source.size.y);
++            unpack_u64_to_2u32(cmd.data_[6],origin.x,origin.y);
++            const auto size=draw_texture->get_size();
++            if(size.x<=0||size.y<=0)throw std::runtime_error("Invalid fixed-function texture size");
++            float u0=0,v0=0,u1=1,v1=1;
++            if(!source.empty()){u0=float(source.top.x)/size.x;v0=float(source.top.y)/size.y;u1=float(source.top.x+source.size.x)/size.x;v1=float(source.top.y+source.size.y)/size.y;}
++            if(flags & bitmap_draw_flag_flip)std::swap(v0,v1);
++            if(!source.size.x)source.size.x=size.x;if(!source.size.y)source.size.y=size.y;
++            if(!dest.size.x)dest.size.x=source.size.x;if(!dest.size.y)dest.size.y=source.size.y;
++            uint32_t rotation_bits=uint32_t(cmd.data_[7]);float rotation;std::memcpy(&rotation,&rotation_bits,4);
++            auto model=glm::translate(glm::mat4(1.0f),glm::vec3(dest.top.x,dest.top.y,0));
++            model=glm::translate(model,glm::vec3(origin.x,origin.y,0));
++            model=glm::rotate(model,glm::radians(rotation),glm::vec3(0,0,1));
++            model=glm::translate(model,glm::vec3(-origin.x,-origin.y,0));
++            model=glm::scale(model,glm::vec3(dest.size.x,dest.size.y,1));
++            sg_sprite sprite{};sprite.texture=static_cast<GLuint>(draw_texture->driver_handle());
++            std::memcpy(sprite.projection,glm::value_ptr(projection_matrix),sizeof sprite.projection);
++            std::memcpy(sprite.model,glm::value_ptr(model),sizeof sprite.model);
++            const float vertices[]={0,1,u0,v1,1,0,u1,v0,0,0,u0,v0,1,1,u1,v1};
++            std::memcpy(sprite.xyuv,vertices,sizeof vertices);
++            for(unsigned i=0;i<4;++i)sprite.color[i]=(flags & bitmap_draw_flag_use_brush)?brush_color.elements[i]/255.0f:1.0f;
++            if(mask_draw_texture){
++                if(!std::getenv("N810_SYMBIAN_GPU_MASK"))throw std::runtime_error("GPU mask composition not enabled");
++                auto describe=[](texture *image){auto *t=static_cast<ogl_texture*>(image);const auto size=t->get_size();
++                    return sg_mask_source{t->mask_lifetime(),t->mask_generation(),static_cast<unsigned>(t->driver_handle()),static_cast<unsigned>(size.x),static_cast<unsigned>(size.y),t->mask_cache_eligible()?1U:0U};};
++                const auto image=describe(draw_texture),mask=describe(mask_draw_texture);
++                auto emit=[](const sg_sprite *piece,void *context){return static_cast<ogl_graphics_driver*>(context)->n810_draw_sprite(*piece);};
++                if(sg_mask_sprite_draw(&sprite,&image,&mask,flags,emit,this))throw std::runtime_error("Resident mask sprite rejected");
++            } else if(n810_draw_sprite(sprite))throw std::runtime_error("Fixed-function sprite failed");
++            return;
++        }
++        if(fixed&&sg_sprite_batch_flush())throw std::runtime_error("Sprite batch fallback barrier failed");
++        if(fixed && !std::strcmp(fixed,"gpu")) {
++            const auto ds=draw_texture->get_size();
++            const auto ms=mask_draw_texture?mask_draw_texture->get_size():eka2l1::vec2(0,0);
++            std::fprintf(stderr,"GPU_MASK_REQUEST flags=%u source=%d,%d mask=%d,%d source_id=%u mask_id=%u brush=%g,%g,%g,%g region=%zu\n",flags,ds.x,ds.y,ms.x,ms.y,(unsigned)draw_texture->driver_handle(),mask_draw_texture?(unsigned)mask_draw_texture->driver_handle():0,brush_color.elements[0],brush_color.elements[1],brush_color.elements[2],brush_color.elements[3],n810_region.size());
++            throw std::runtime_error("GPU mask/upscale path not admitted; refusing CPU shader fallback");
++        }
++#endif
++        if(!sprite_program)do_init();
++
+         eka2l1::rect dest_rect;
+         unpack_u64_to_2u32(cmd.data_[2], dest_rect.top.x, dest_rect.top.y);
+         unpack_u64_to_2u32(cmd.data_[3], dest_rect.size.x, dest_rect.size.y);
+@@ -825,6 +998,26 @@ namespace eka2l1::drivers {
+         unpack_to_two_floats(cmd.data_[2], scale, temp);
+ 
+         delete[] to_clip_rects;
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        n810_region_active=false;n810_region.clear();
++        if(std::getenv("N810_SYMBIAN_REGION_SCISSOR") && to_clip.rects_.size()>1){
++            if(!std::getenv("N810_SYMBIAN_FIXED_FUNCTION"))throw std::runtime_error("region requires fixed-function GPU path");
++            if(scale!=1.0f)throw std::runtime_error("region scissor currently requires exact unit scale");
++            std::vector<sg::box> boxes;
++            for(auto r:to_clip.rects_)if(r.valid()){
++                // Same framebuffer orientation as the existing single-region path.
++                const auto y=binding?r.top.y:current_fb_height-(r.top.y+r.size.y);
++                if(r.top.x < -32768 || r.top.x > 32768 || y < -32768 || y > 32768 || r.size.x>32768 || r.size.y>32768)
++                    throw std::runtime_error("region coordinate bounds");
++                boxes.push_back({r.top.x,y,r.top.x+r.size.x,y+r.size.y});
++            }
++            n810_region=sg::disjoint_union(boxes);n810_region_active=true;
++            glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&n810_region_framebuffer);
++            glDisable(GL_STENCIL_TEST);glDisable(GL_SCISSOR_TEST);
++            if (!n810_quiet_draw_diagnostics()) std::fprintf(stderr,"GPU_REGION_SCISSOR input=%zu disjoint=%zu CPU_raster_pixels=0\n",boxes.size(),n810_region.size());
++            return;
++        }
++#endif
+ 
+         if (to_clip.empty()) {
+             glDisable(GL_SCISSOR_TEST);
+@@ -904,6 +1097,9 @@ namespace eka2l1::drivers {
+     }
+ 
+     void ogl_graphics_driver::draw_indexed(command &cmd) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(n810_region_active)throw std::runtime_error("generic draw under region scissor not admitted");
++#endif
+         graphics_primitive_mode prim_mode = graphics_primitive_mode::triangles;
+         int count = 0;
+         data_format val_type = data_format::word;
+@@ -940,6 +1136,9 @@ namespace eka2l1::drivers {
+     }
+ 
+     void ogl_graphics_driver::draw_array(command &cmd) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(n810_region_active)throw std::runtime_error("generic draw under region scissor not admitted");
++#endif
+         graphics_primitive_mode prim_mode = graphics_primitive_mode::triangles;
+         std::int32_t first = 0;
+         std::int32_t count = 0;
+@@ -990,6 +1189,10 @@ namespace eka2l1::drivers {
+             break;
+ 
+         case drivers::graphics_feature::stencil_test:
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            if(!enable){n810_region_active=false;n810_region.clear();}
++            else if(n810_region_active)throw std::runtime_error("explicit stencil conflicts with region scissor");
++#endif
+             translated_feature = GL_STENCIL_TEST;
+             break;
+ 
+@@ -1357,6 +1560,9 @@ namespace eka2l1::drivers {
+     }
+ 
+     void ogl_graphics_driver::draw_line(command &cmd) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(n810_region_active)throw std::runtime_error("generic draw under region scissor not admitted");
++#endif
+         if (line_style == pen_style_none) {
+             return;
+         }
+@@ -1385,6 +1591,9 @@ namespace eka2l1::drivers {
+     }
+ 
+     void ogl_graphics_driver::draw_polygon(command &cmd) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(n810_region_active)throw std::runtime_error("generic draw under region scissor not admitted");
++#endif
+         if (line_style == pen_style_none) {
+             return;
+         }
+@@ -1658,6 +1867,9 @@ namespace eka2l1::drivers {
+             return;
+         }
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        static_cast<ogl_texture*>(texobj)->mask_changed();
++#endif
+         texobj->bind(nullptr, 0);
+         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max_ani);
+         texobj->unbind(nullptr);
+@@ -1697,6 +1909,9 @@ namespace eka2l1::drivers {
+             return;
+         }
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        tex->mask_render_target(); // Includes direct upload and framebuffer-copy variants.
++#endif
+         GLint read_fb, draw_fb;
+         glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_fb);
+         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_fb);
+@@ -1909,6 +2124,38 @@ namespace eka2l1::drivers {
+     }
+ 
+     void ogl_graphics_driver::dispatch(command &cmd) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        // A published screen target stays immutable until Pocket forgets its
++        // sampler. Begin the next frame before a command can mutate that target.
++        const bool writes_target=cmd.opcode_==graphics_driver_clear||cmd.opcode_==graphics_driver_draw_bitmap||
++            cmd.opcode_==graphics_driver_draw_rectangle||cmd.opcode_==graphics_driver_draw_line||
++            cmd.opcode_==graphics_driver_draw_polygon||cmd.opcode_==graphics_driver_draw_array||cmd.opcode_==graphics_driver_draw_indexed;
++        if(writes_target&&binding&&binding->tex)n810_runtime::prepare_window_draw(static_cast<unsigned>(binding->tex->driver_handle()));
++        if(cmd.opcode_==graphics_driver_update_bitmap||cmd.opcode_==graphics_driver_resize_bitmap||cmd.opcode_==graphics_driver_destroy_bitmap){
++            auto *target=get_bitmap(cmd.data_[0]);if(target&&target->tex)n810_runtime::prepare_window_write(static_cast<unsigned>(target->tex->driver_handle()));
++        }
++        const char *lists=std::getenv("N810_SYMBIAN_BATCH_LISTS");
++        const bool ordered_lists=lists&&!std::strcmp(lists,"1");
++        const bool clip_only=cmd.opcode_==graphics_driver_clip_rect||
++            cmd.opcode_==graphics_driver_clip_bitmap_rect||
++            (ordered_lists&&cmd.opcode_==graphics_driver_set_brush_color);
++        // Queued sprites own their clip snapshot. These two commands only
++        // change glScissor. Brush updates change a CPU value captured in each
++        // sprite. Resource and all other GL state changes remain barriers.
++        if(cmd.opcode_!=graphics_driver_draw_bitmap&&!clip_only&&sg_sprite_batch_flush())throw std::runtime_error("Sprite batch command barrier failed");
++        sg_sprite_batch_mode(cmd.opcode_==graphics_driver_draw_bitmap);
++        if(cmd.opcode_==0x4e810001) {
++            auto *bmp=get_bitmap(cmd.data_[0]);
++            if(!bmp||!bmp->tex)throw std::runtime_error("Invalid retained screen bitmap");
++            using callback=void(*)(void *,unsigned,unsigned,unsigned);
++            auto present=reinterpret_cast<callback>(cmd.data_[2]);
++            if(!present)throw std::runtime_error("Missing retained screen callback");
++            present(reinterpret_cast<void *>(cmd.data_[1]),static_cast<unsigned>(bmp->tex->driver_handle()),
++                static_cast<unsigned>(cmd.data_[3]),static_cast<unsigned>(cmd.data_[3]>>32));
++            finish(cmd.status_,0);return;
++        }
++#endif
++        n810_command_profile::scope command_profile(static_cast<unsigned>(cmd.opcode_));
+         switch (cmd.opcode_) {
+         case graphics_driver_draw_bitmap: {
+             draw_bitmap(cmd);
+@@ -2082,8 +2329,25 @@ namespace eka2l1::drivers {
+     }
+ 
+     void ogl_graphics_driver::run() {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        host_graphics_profile::sampler cpu_sampler;
++        const char *lists=std::getenv("N810_SYMBIAN_BATCH_LISTS");
++        const bool ordered_lists=lists&&!std::strcmp(lists,"1");
++        bool pending_sprites=false;unsigned queued_lists=0;
++#endif
+         while (!should_stop) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            // Drain already queued lists before ending a sprite run. A single
++            // bounded condition-variable wait ends the batch when the queue is
++            // empty; the idle path still blocks indefinitely on notification.
++            std::optional<command_list> list = list_queue.pop(pending_sprites?1:0);
++            if(!list&&pending_sprites&&!should_stop){
++                if(sg_sprite_batch_flush())throw std::runtime_error("Sprite batch drain barrier failed");
++                sg_sprite_batch_mode(0);pending_sprites=false;queued_lists=0;continue;
++            }
++#else
+             std::optional<command_list> list = list_queue.pop();
++#endif
+ 
+             if (!list) {
+                 if (!should_stop) {
+@@ -2093,12 +2357,33 @@ namespace eka2l1::drivers {
+                 break;
+             }
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            cpu_sampler.poll();
++#endif
+             for (std::size_t i = 0; i < list->size_; i++) {
+                 dispatch(list->base_[i]);
+             }
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            if(ordered_lists){
++                pending_sprites=sg_sprite_batch_pending()!=0;
++                // Bound a continuous metadata-only stream as well as sprites.
++                if(pending_sprites&&++queued_lists==64){
++                    if(sg_sprite_batch_flush())throw std::runtime_error("Sprite batch list budget failed");
++                    sg_sprite_batch_mode(0);pending_sprites=false;
++                }
++                if(!pending_sprites)queued_lists=0;
++            }else {
++                if(sg_sprite_batch_flush())throw std::runtime_error("Sprite batch list barrier failed");
++                sg_sprite_batch_mode(0);
++            }
++#endif
+             delete[] list->base_;
+         }
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(sg_sprite_batch_flush())throw std::runtime_error("Sprite batch shutdown barrier failed");
++        sg_sprite_batch_mode(0);
++#endif
+     }
+ 
+     void ogl_graphics_driver::abort() {
+diff --git a/src/emu/drivers/src/graphics/backend/ogl/shader_ogl.cpp b/src/emu/drivers/src/graphics/backend/ogl/shader_ogl.cpp
+index 118c1d4..a7d0f5f 100644
+--- a/src/emu/drivers/src/graphics/backend/ogl/shader_ogl.cpp
++++ b/src/emu/drivers/src/graphics/backend/ogl/shader_ogl.cpp
+@@ -1,3 +1,4 @@
++#include <cstdlib>
+ /*
+  * Copyright (c) 2018 EKA2L1 Team.
+  * 
+@@ -253,7 +254,7 @@ namespace eka2l1::drivers {
+ 
+     ogl_shader_program::~ogl_shader_program() {
+         if (metadata) {
+-            delete metadata;
++            delete[] metadata;
+         }
+ 
+         if (program) {
+@@ -302,6 +303,14 @@ namespace eka2l1::drivers {
+             return false;
+         }
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        // Linked executables retain their code independently of source shader
++        // attachments. Modules remain owned by the caller until batch end.
++        if (std::getenv("N810_SYMBIAN_RELEASE_COMPILER")) {
++            glDetachShader(program, ogl_vertex_module->shader_handle());
++            glDetachShader(program, ogl_fragment_module->shader_handle());
++        }
++#endif
+         return true;
+     }
+ 
+diff --git a/src/emu/drivers/src/graphics/backend/ogl/texture_ogl.cpp b/src/emu/drivers/src/graphics/backend/ogl/texture_ogl.cpp
+index d70eb15..7eaa578 100644
+--- a/src/emu/drivers/src/graphics/backend/ogl/texture_ogl.cpp
++++ b/src/emu/drivers/src/graphics/backend/ogl/texture_ogl.cpp
+@@ -1,3 +1,9 @@
++#include <stdexcept>
++#include <atomic>
++#include <limits>
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++extern "C" void sg_mask_source_retire(unsigned long long);
++#endif
+ /*
+  * Copyright (c) 2018 EKA2L1 Team.
+  * 
+@@ -98,9 +104,27 @@ namespace eka2l1::drivers {
+         return bgra8888_to_rgba(dest, data, data_size, size.x, static_cast<std::size_t>(height) * depth, row_length, alignment);
+     }
+ 
++    ogl_texture::ogl_texture() {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        static std::atomic<std::uint32_t> next{1};
++        auto value=next.load();
++        while(value!=UINT32_MAX && !next.compare_exchange_weak(value,value+1)) {}
++        mask_lifetime_=value==UINT32_MAX?0:value;
++#endif
++    }
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++    void ogl_texture::mask_changed() {
++        sg_mask_source_retire(mask_lifetime_);
++        if(mask_generation_==UINT64_MAX)mask_lifetime_=0;
++        else ++mask_generation_;
++    }
++#endif
+     bool ogl_texture::create(graphics_driver *driver, const int dim, const int miplvl, const vec3 &size, const texture_format internal_format,
+         const texture_format format, const texture_data_type data_type, void *data, const std::size_t total_size, const std::size_t ppl,
+         const std::uint32_t unpack_alignment) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        mask_changed();mask_initialized_=false;
++#endif
+         if (!texture)
+             glGenTextures(1, &texture);
+ 
+@@ -249,28 +273,49 @@ namespace eka2l1::drivers {
+             glDeleteTextures(1, &texture);
+         }
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(glGetError()!=GL_NO_ERROR) {mask_initialized_=false;throw std::runtime_error("GPU texture creation failed; mask provenance rejected");}
++        mask_initialized_=res&&data&&miplvl==0&&dim==2;
++#endif
+         return res;
+     }
+ 
+     ogl_texture::~ogl_texture() {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        sg_mask_source_retire(mask_lifetime_);
++#endif
+         if (texture) {
+             glDeleteTextures(1, &texture);
+         }
+     }
+ 
+     void ogl_texture::set_filter_minmag(const bool min, const filter_option op) {
++
+         bind(nullptr, 0);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        GLint previous=0;glGetTexParameteriv(to_gl_tex_dim(dimensions),(min ? GL_TEXTURE_MIN_FILTER : GL_TEXTURE_MAG_FILTER),&previous);
++        if(previous!=static_cast<GLint>(to_filter_option(op)))mask_changed();
++#endif
+         glTexParameteri(to_gl_tex_dim(dimensions), (min ? GL_TEXTURE_MIN_FILTER : GL_TEXTURE_MAG_FILTER), to_filter_option(op));
+         unbind(nullptr);
+     }
+ 
+     void ogl_texture::set_addressing_mode(const addressing_direction dir, const addressing_option op) {
++
+         bind(nullptr, 0);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        GLint previous=0;glGetTexParameteriv(to_gl_tex_dim(dimensions),to_tex_parameter_enum(dir),&previous);
++        if(previous!=static_cast<GLint>(to_tex_wrapping_enum(op)))mask_changed();
++#endif
+         glTexParameteri(to_gl_tex_dim(dimensions), to_tex_parameter_enum(dir), to_tex_wrapping_enum(op));
+         unbind(nullptr);
+     }
+ 
+     void ogl_texture::generate_mips() {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        mask_changed();
++#endif
++
+         bind(nullptr, 0);
+         glGenerateMipmap(to_gl_tex_dim(dimensions));
+         unbind(nullptr);
+@@ -305,6 +350,7 @@ namespace eka2l1::drivers {
+     }
+ 
+     void ogl_texture::set_channel_swizzle(channel_swizzles swizz) {
++
+         GLint swizz_gl[4];
+ 
+         for (int i = 0; i < 4; i++) {
+@@ -314,6 +360,11 @@ namespace eka2l1::drivers {
+         GLenum bind_point = to_gl_tex_dim(dimensions);
+ 
+         bind(nullptr, 0);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        const GLenum keys[]={GL_TEXTURE_SWIZZLE_R,GL_TEXTURE_SWIZZLE_G,GL_TEXTURE_SWIZZLE_B,GL_TEXTURE_SWIZZLE_A};
++        bool changed=false;for(unsigned i=0;i<4;++i){GLint previous=0;glGetTexParameteriv(bind_point,keys[i],&previous);changed|=previous!=swizz_gl[i];}
++        if(changed)mask_changed();
++#endif
+         glTexParameteri(bind_point, GL_TEXTURE_SWIZZLE_R, swizz_gl[0]);
+         glTexParameteri(bind_point, GL_TEXTURE_SWIZZLE_G, swizz_gl[1]);
+         glTexParameteri(bind_point, GL_TEXTURE_SWIZZLE_B, swizz_gl[2]);
+@@ -367,6 +418,10 @@ namespace eka2l1::drivers {
+ 
+     void ogl_texture::update_data(graphics_driver *driver, const int mip_lvl, const vec3 &offset, const vec3 &size, const std::size_t pixels_per_line,
+         const texture_format data_format, const texture_data_type data_type, const void *data, const std::size_t data_size, const std::uint32_t alg) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        mask_changed();
++#endif
++
+         bind(driver, 0);
+ 
+         drivers::texture_format converted_format = data_format;
+@@ -445,11 +500,20 @@ namespace eka2l1::drivers {
+         }
+ 
+         glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(glGetError()!=GL_NO_ERROR) {mask_initialized_=false;unbind(driver);throw std::runtime_error("GPU texture upload failed; mask provenance rejected");}
++        if(data && mip_lvl==0 && dimensions==2 && offset.x==0 && offset.y==0 && size.x==tex_size.x && size.y==tex_size.y)mask_initialized_=true;
++#endif
+         unbind(driver);
+     }
+ 
+     void ogl_texture::set_max_mip_level(const std::uint32_t max_mip) {
++
+         bind(nullptr, 0);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        GLint previous=0;glGetTexParameteriv(to_gl_tex_dim(dimensions),GL_TEXTURE_MAX_LEVEL,&previous);
++        if(previous!=static_cast<GLint>(static_cast<GLint>(max_mip)))mask_changed();
++#endif
+         glTexParameteri(to_gl_tex_dim(dimensions), GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(max_mip));
+         unbind(nullptr);
+     }
+diff --git a/src/emu/drivers/src/hwrm/vibration.cpp b/src/emu/drivers/src/hwrm/vibration.cpp
+index 9740a7b..c371ac2 100644
+--- a/src/emu/drivers/src/hwrm/vibration.cpp
++++ b/src/emu/drivers/src/hwrm/vibration.cpp
+@@ -23,13 +23,15 @@
+ #include <drivers/hwrm/backend/vibration_jdk.h>
+ #elif EKA2L1_PLATFORM(IOS)
+ #include <drivers/hwrm/backend/vibration_ios.h>
+-#elif !EKA2L1_PLATFORM(IOS)
++#elif !EKA2L1_PLATFORM(IOS) && !defined(EKA2L1_N810_PRIVATE_OSMESA)
+ #include <drivers/hwrm/backend/vibration_sdl2.h>
+ #endif
+ 
+ namespace eka2l1::drivers::hwrm {
+     std::unique_ptr<vibrator> make_suitable_vibrator() {
+-#if EKA2L1_PLATFORM(ANDROID)
++#if defined(EKA2L1_N810_PRIVATE_OSMESA)
++        return std::make_unique<vibrator_null>();
++#elif EKA2L1_PLATFORM(ANDROID)
+         return std::make_unique<vibrator_jdk>();
+ #elif EKA2L1_PLATFORM(IOS)
+         return std::make_unique<vibrator_ios>();
+diff --git a/src/emu/drivers/src/itc.cpp b/src/emu/drivers/src/itc.cpp
+index c5041e0..dad1d90 100644
+--- a/src/emu/drivers/src/itc.cpp
++++ b/src/emu/drivers/src/itc.cpp
+@@ -21,13 +21,81 @@
+ #include <drivers/driver.h>
+ #include <drivers/graphics/graphics.h>
+ #include <drivers/itc.h>
++#include <drivers/graphics/n810_command_coalesce.h>
+ 
+ #include <chrono>
+ #include <cstring>
++#include <cstdlib>
++#include <cstdio>
++#include <mutex>
+ 
+ using namespace std::chrono_literals;
+ 
+ namespace eka2l1::drivers {
++    namespace {
++        struct command_list_totals {
++            unsigned long long lists=0, commands=0, allocated_slots=0, small_lists=0, max_commands=0;
++        };
++        std::mutex list_totals_mutex;
++        command_list_totals list_totals;
++    }
++    void optimize_n810_command_list(command_list &list) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        static const bool enabled=[](){
++            const char *fixed=std::getenv("N810_SYMBIAN_FIXED_FUNCTION");
++            return std::getenv("N810_SYMBIAN_COMMAND_COALESCE") && fixed && !std::strcmp(fixed,"gpu");
++        }();
++        static const bool profile=std::getenv("N810_SYMBIAN_LIST_PROFILE")!=nullptr;
++        if(profile && list.base_) {
++            std::lock_guard<std::mutex> guard(list_totals_mutex);
++            ++list_totals.lists;
++            list_totals.commands += list.size_;
++            list_totals.allocated_slots += list.allocated_cap_;
++            list_totals.small_lists += list.size_ <= 64;
++            list_totals.max_commands = std::max<unsigned long long>(list_totals.max_commands, list.size_);
++        }
++        if(!enabled || !list.base_ || !list.size_)return;
++        const auto before=list.size_;
++        list.size_=n810_commands::coalesce(list.base_,list.size_,
++            {graphics_driver_set_feature,static_cast<unsigned>(graphics_feature::blend),
++             graphics_driver_blend_formula,graphics_driver_set_brush_color,graphics_driver_draw_bitmap});
++        static thread_local unsigned long long lists=0,input=0,removed=0;
++        ++lists;input+=before;removed+=before-list.size_;
++        if(lists==1||lists%64==0)std::fprintf(stderr,"WSERV_COMMAND_COALESCE lists=%llu input=%llu removed=%llu\n",lists,input,removed);
++#endif
++    }
++    namespace {
++        struct sync_timing { unsigned long long calls=0,total_us=0,max_us=0,lock_us=0; unsigned opcode=0; unsigned long long bitmap_calls=0,bitmap_queue_us=0,bitmap_execute_us=0,bitmap_max_execute_us=0; };
++        std::mutex command_timing_mutex;
++        sync_timing command_timing;
++        bool sync_timing_enabled() { static const bool enabled=std::getenv("N810_SYMBIAN_INPUT_TIMING")!=nullptr; return enabled; }
++    }
++    void record_bitmap_command_timing(std::uint64_t queued,std::uint64_t started,std::uint64_t ended) {
++        if (!queued || started<queued || ended<started) return;
++        std::lock_guard<std::mutex> guard(command_timing_mutex);
++        auto &s=command_timing;++s.bitmap_calls;
++        s.bitmap_queue_us+=(started-queued)/1000;
++        const auto elapsed=(ended-started)/1000;s.bitmap_execute_us+=elapsed;
++        if(elapsed>s.bitmap_max_execute_us)s.bitmap_max_execute_us=elapsed;
++    }
++    void report_sync_command_timing() {
++        if (std::getenv("N810_SYMBIAN_LIST_PROFILE")) {
++            command_list_totals totals;
++            { std::lock_guard<std::mutex> guard(list_totals_mutex); totals=list_totals; }
++            std::printf("WSERV_COMMAND_LIST_TOTAL lists=%llu commands=%llu allocated_slots=%llu small_lists=%llu max_commands=%llu command_bytes=%zu\n", totals.lists, totals.commands, totals.allocated_slots, totals.small_lists, totals.max_commands, sizeof(command));
++        }
++        if (!sync_timing_enabled()) return;
++        sync_timing s;
++        {
++            std::lock_guard<std::mutex> guard(command_timing_mutex);
++            s=command_timing;command_timing={};
++        }
++        if (!s.calls && !s.bitmap_calls) return;
++        // Calls can overlap across submitter threads; this is a sum of
++        // completed waits, not an additive wall-clock frame budget.
++        std::printf("graphics_sync scope=all_submitter_threads calls=%llu total_us=%llu max_us=%llu max_opcode=%u lock_us=%llu\n",s.calls,s.total_us,s.max_us,s.opcode,s.lock_us);
++        std::printf("bitmap_read calls=%llu queue_us=%llu execute_us=%llu max_execute_us=%llu\n",s.bitmap_calls,s.bitmap_queue_us,s.bitmap_execute_us,s.bitmap_max_execute_us);
++    }
+     static int send_sync_command(graphics_driver *drv, command cmd) {
+         if (!drv) {
+             return -1;
+@@ -42,9 +110,23 @@ namespace eka2l1::drivers {
+         cmd_list.size_ = 1;
+         *cmd_list.base_ = cmd;
+ 
++        const bool timed=sync_timing_enabled();
++        const auto begin=timed?std::chrono::steady_clock::now():std::chrono::steady_clock::time_point{};
++        // read_bitmap consumes only data slots 0..4. Slot 9 is a private,
++        // opt-in enqueue timestamp, not guest memory or a retained pointer.
++        if(timed && cmd.opcode_==graphics_driver_read_bitmap)
++            cmd_list.base_->data_[9]=std::chrono::duration_cast<std::chrono::nanoseconds>(begin.time_since_epoch()).count();
+         std::unique_lock<std::mutex> ulock(drv->mut_);
++        const auto locked=timed?std::chrono::steady_clock::now():begin;
+         drv->submit_command_list(cmd_list);
+         drv->cond_.wait(ulock, [&]() { return status != -100; });
++        if (timed) {
++            const auto elapsed=std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-begin).count();
++            std::lock_guard<std::mutex> guard(command_timing_mutex);
++            auto &s=command_timing;++s.calls;s.total_us+=elapsed;
++            s.lock_us+=std::chrono::duration_cast<std::chrono::microseconds>(locked-begin).count();
++            if (static_cast<unsigned long long>(elapsed)>s.max_us) {s.max_us=elapsed;s.opcode=static_cast<unsigned>(cmd.opcode_);}
++        }
+ 
+         return status;
+     }
+diff --git a/src/emu/kernel/include/kernel/process.h b/src/emu/kernel/include/kernel/process.h
+index 5b1d1d2..fc31c38 100644
+--- a/src/emu/kernel/include/kernel/process.h
++++ b/src/emu/kernel/include/kernel/process.h
+@@ -106,6 +106,7 @@ namespace eka2l1::kernel {
+     using process_uid_type_change_callback = std::function<void(void *, const process_uid_type &)>;
+     using process_uid_type_change_callback_elem = std::pair<void *, process_uid_type_change_callback>;
+     using process_logon_callback = std::function<void(process *pr)>;
++    using process_rendezvous_callback = std::function<void(process *pr, std::int32_t reason)>;
+ 
+     /**
+      * This ROM BSS manager works on the assumption that:
+@@ -189,6 +190,7 @@ namespace eka2l1::kernel {
+         // увеличения эмоций.
+         common::identity_container<process_uid_type_change_callback_elem> uid_change_callbacks;
+         common::identity_container<process_logon_callback> logon_requests_emu;
++        common::identity_container<process_rendezvous_callback> rendezvous_callbacks_emu;
+ 
+     protected:
+         thread_ptr primary_thread;
+@@ -233,6 +235,12 @@ namespace eka2l1::kernel {
+         void logon_cancel(const std::size_t handle);
+ 
+         void rendezvous(int rendezvous_reason);
++        std::size_t register_rendezvous_callback(process_rendezvous_callback callback) {
++            return rendezvous_callbacks_emu.add(callback);
++        }
++        void unregister_rendezvous_callback(std::size_t handle) {
++            rendezvous_callbacks_emu.remove(handle);
++        }
+ 
+         void finish_logons();
+ 
+diff --git a/src/emu/kernel/include/kernel/timing.h b/src/emu/kernel/include/kernel/timing.h
+index 36fbd01..c12662f 100644
+--- a/src/emu/kernel/include/kernel/timing.h
++++ b/src/emu/kernel/include/kernel/timing.h
+@@ -93,6 +93,9 @@ namespace eka2l1 {
+         ~ntimer();
+ 
+         void reset();
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        void debug_pending_events();
++#endif
+ 
+         /**
+          * @brief Stop the timer thread and drop all pending events.
+diff --git a/src/emu/kernel/src/kernel.cpp b/src/emu/kernel/src/kernel.cpp
+index 18fc231..3289031 100644
+--- a/src/emu/kernel/src/kernel.cpp
++++ b/src/emu/kernel/src/kernel.cpp
+@@ -35,6 +35,12 @@
+ #include <common/cvt.h>
+ #include <common/fileutils.h>
+ #include <common/log.h>
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++extern "C" {
++#include "native_memory.h"
++}
++#endif
++
+ #include <common/path.h>
+ #include <common/virtualmem.h>
+ 
+@@ -1386,7 +1392,18 @@ namespace eka2l1 {
+             rebase_offset = addr - chunk_base;
+         }
+ 
+-        if (rebase_offset == 0) {
++        bool direct_native = false;
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        direct_native = native_runtime_enabled();
++#endif
++        #ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if (direct_native && rebase_offset == 0 && rom_size % 4096 == 0) {
++            rom_map_size_ = rom_size;
++            rom_map_ = native_host_map_file(path.c_str(), rom_size, chunk_base);
++            if (!rom_map_) return false;
++        } else
++#endif
++        if (rebase_offset == 0 && !direct_native) {
+             rom_map_ = common::map_file(path, prot_read_write, 0, true);
+             rom_map_size_ = 0;
+ 
+@@ -1398,7 +1415,11 @@ namespace eka2l1 {
+                 addr, rebase_offset, chunk_base);
+ 
+             rom_map_size_ = rebase_offset + rom_size;
++            #ifdef EKA2L1_N810_PRIVATE_OSMESA
++            rom_map_ = direct_native ? native_host_allocate(rom_map_size_,chunk_base) : common::map_memory(rom_map_size_);
++#else
+             rom_map_ = common::map_memory(rom_map_size_);
++#endif
+ 
+             if (!rom_map_) {
+                 return false;
+diff --git a/src/emu/kernel/src/libmanager.cpp b/src/emu/kernel/src/libmanager.cpp
+index 9a113c0..82d4f3c 100644
+--- a/src/emu/kernel/src/libmanager.cpp
++++ b/src/emu/kernel/src/libmanager.cpp
+@@ -46,6 +46,7 @@
+ #include <algorithm>
+ #include <cctype>
+ #include <cstdio>
++#include <cstdlib>
+ #include <string_view>
+ 
+ namespace eka2l1::hle {
+@@ -174,7 +175,16 @@ namespace eka2l1::hle {
+         }
+ 
+         // Add that codeseg as our dependency
+-        parent_cs->add_dependency(dependency_info);
++        if (!parent_cs->add_dependency(dependency_info)) {
++            return false;
++        }
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if (std::getenv("N810_SYMBIAN_IMPORT_TRACE")) {
++            std::fprintf(stdout, "e32_dependency_registered dll=%s imports=%zu\n",
++                dll_name8.c_str(), dependency_info.import_info_.size());
++            std::fflush(stdout);
++        }
++#endif
+         return true;
+     }
+ 
+diff --git a/src/emu/kernel/src/process.cpp b/src/emu/kernel/src/process.cpp
+index ab4a3be..c3fbe8a 100644
+--- a/src/emu/kernel/src/process.cpp
++++ b/src/emu/kernel/src/process.cpp
+@@ -511,6 +511,9 @@ namespace eka2l1::kernel {
+     }
+ 
+     void process::rendezvous(int rendezvous_reason) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if(name().find("CdlServer")!=std::string::npos) std::fprintf(stderr,"cdl_phase=process_rendezvous now_us=%llu reason=%d\n",(unsigned long long)kern->get_ntimer()->microseconds(),rendezvous_reason);
++#endif
+         exit_reason = rendezvous_reason;
+         exit_type = entity_exit_type::pending;
+ 
+@@ -520,6 +523,9 @@ namespace eka2l1::kernel {
+         }
+ 
+         rendezvous_requests.clear();
++        for (auto &callback : rendezvous_callbacks_emu) {
++            if (callback) callback(this, rendezvous_reason);
++        }
+     }
+ 
+     void process::finish_logons() {
+diff --git a/src/emu/kernel/src/scheduler.cpp b/src/emu/kernel/src/scheduler.cpp
+index 152092e..80ea96e 100644
+--- a/src/emu/kernel/src/scheduler.cpp
++++ b/src/emu/kernel/src/scheduler.cpp
+@@ -19,6 +19,9 @@
+  */
+ 
+ #include <algorithm>
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++#include "direct_core.h"
++#endif
+ 
+ #include <common/algorithm.h>
+ #include <common/configure.h>
+@@ -33,6 +36,10 @@
+ #include <mem/mmu.h>
+ #include <mem/process.h>
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++extern "C" bool n810_frontend_event_input_ready();
++#endif
++
+ namespace eka2l1::kernel {
+     thread_scheduler::thread_scheduler(kernel_system *kern, ntimer *timing, arm::core *cpu)
+         : kern(kern)
+@@ -114,6 +121,15 @@ namespace eka2l1::kernel {
+ 
+                 core_mmu->set_current_addr_space(mm_process->address_space_id());
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++                if (auto *native = dynamic_cast<arm::direct_core *>(run_core)) {
++                    // Each native process owns a separate Linux address space.
++                    // Retain its mappings across switches, but never across
++                    // reuse of a numeric ASID by a different guest process.
++                    native->set_native_address_space(mm_process->address_space_id(), crr_process->unique_id());
++                    native->set_schedule_frequency(kern->capped_cpu_hz());
++                } else
++#endif
+                 run_core->flush_tlb();
+ 
+                 // Let the core tag its translation cache with the new address
+@@ -130,7 +146,17 @@ namespace eka2l1::kernel {
+             // Let free access to kernel now
+             if (kern->should_core_idle_when_inactive()) {
+                 kern->unlock();
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++                // The native frontend drains physical input on this thread.
++                // A guest-only wake source cannot notice pending Linux input.
++                // Sleep (never spin), but return periodically so the frontend
++                // can dispatch keys and observe shutdown/deadline requests.
++                // Native input now wakes this event directly. Retain a rare
++                // housekeeping timeout for cancellation/failure/deadline flags.
++                idle_event.wait_for(n810_frontend_event_input_ready() ? 1000000 : 10000);
++#else
+                 idle_event.wait();
++#endif
+                 kern->lock();
+             }
+         }
+diff --git a/src/emu/kernel/src/server.cpp b/src/emu/kernel/src/server.cpp
+index e2b0484..4d9bbe3 100644
+--- a/src/emu/kernel/src/server.cpp
++++ b/src/emu/kernel/src/server.cpp
+@@ -1,3 +1,6 @@
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++#include "runtime_debug.h"
++#endif
+ /*
+  * Copyright (c) 2018 EKA2L1 Team
+  * 
+@@ -19,6 +22,7 @@
+  */
+ 
+ #include <common/log.h>
++#include <cstdio>
+ #include <utils/err.h>
+ 
+ #include <kernel/kernel.h>
+@@ -64,6 +68,10 @@ namespace eka2l1::service {
+     }
+ 
+     int server::deliver(ipc_msg_ptr msg) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if (n810_runtime_debug() && !hle && (name()=="CdlServer" || name()=="!ecomserver"))
++            std::printf("native_ipc_deliver server=%s function=%d id=%u ready=%d\n",name().c_str(),msg->function,msg->id,ready());
++#endif
+         // Is ready
+         if (ready()) {
+             accept(msg, true);
+@@ -104,6 +112,11 @@ namespace eka2l1::service {
+     }
+ 
+     void server::accept(ipc_msg_ptr msg, const bool notify_owner) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if (n810_runtime_debug() && !hle && (name()=="CdlServer" || name()=="!ecomserver"))
++            std::printf("native_ipc_accept server=%s function=%d id=%u receiver=%llu status=%08x notify=%d\n",name().c_str(),msg->function,msg->id,
++                static_cast<unsigned long long>(request_own_thread->unique_id()),request_status.ptr_address(),notify_owner);
++#endif
+         msg->msg_status = ipc_message_status::accepted;
+ 
+         // On some platforms where IPCv1 is still relevant, odd pointer is used to indicates new IPCv2
+@@ -149,6 +162,10 @@ namespace eka2l1::service {
+         ipc_msg_ptr pending_msg = nullptr;
+         receive(pending_msg);
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++        if (n810_runtime_debug() && !hle && (name()=="CdlServer" || name()=="!ecomserver"))
++            std::printf("native_ipc_receive server=%s queued=%d status=%08x\n",name().c_str(),pending_msg!=nullptr,msg_request_status.ptr_address());
++#endif
+         request_status = msg_request_status;
+         request_own_thread = kern->crr_thread();
+         request_data = data;
+diff --git a/src/emu/kernel/src/thread.cpp b/src/emu/kernel/src/thread.cpp
+index 57a4936..77cec23 100644
+--- a/src/emu/kernel/src/thread.cpp
++++ b/src/emu/kernel/src/thread.cpp
+@@ -18,6 +18,7 @@
+  * along with this program. If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
++#include <cstdio>
+ #include <common/algorithm.h>
+ #include <common/cvt.h>
+ #include <common/log.h>
+@@ -536,6 +537,11 @@ namespace eka2l1 {
+             const std::string exit_category_u8 = common::ucs2_to_utf8(category);
+ 
+             exit_description = epoc::get_panic_description(exit_category_u8, reason);
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            std::fprintf(stderr,"guest_thread_exit name=%s type=%d category=%s reason=%d description=%s\n",
++                obj_name.c_str(),static_cast<int>(the_exit_type),exit_category_u8.c_str(),reason,
++                exit_description ? exit_description->c_str() : "");
++#endif
+ 
+             switch (the_exit_type) {
+             case kernel::entity_exit_type::panic:
+@@ -837,6 +843,9 @@ namespace eka2l1 {
+         }
+ 
+         void thread::rendezvous(int rendezvous_reason) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            if(name()=="CdlServer") std::fprintf(stderr,"cdl_phase=thread_rendezvous now_us=%llu reason=%d\n",(unsigned long long)kern->get_ntimer()->microseconds(),rendezvous_reason);
++#endif
+             for (auto &ren : rendezvous_requests) {
+                 ren.complete(rendezvous_reason);
+             }
+diff --git a/src/emu/kernel/src/timer.cpp b/src/emu/kernel/src/timer.cpp
+index af509f6..79053ff 100644
+--- a/src/emu/kernel/src/timer.cpp
++++ b/src/emu/kernel/src/timer.cpp
+@@ -79,6 +79,9 @@ namespace eka2l1 {
+                 return false;
+             }
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            if(requester && requester->name()=="CdlServer") std::fprintf(stderr,"cdl_phase=timer_arm now_us=%llu deadline_us=%llu\n",(unsigned long long)timing->microseconds(),(unsigned long long)deadline);
++#endif
+             lock_request_ = lock_request;
+             if (!lock_request_) {
+                 last_lock_tick_.reset();
+@@ -192,6 +195,9 @@ namespace eka2l1 {
+             if (lock_request_) {
+                 last_lock_tick_ = kern->universal_time() / (common::microsecs_per_sec / epoc::TICK_TIMER_HZ);
+             }
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            if(info.done_nof.requester && info.done_nof.requester->name()=="CdlServer") std::fprintf(stderr,"cdl_phase=timer_fire now_us=%llu\n",(unsigned long long)timing->microseconds());
++#endif
+             info.done_nof.complete(lock_request_ && lock_synchronizing_ ? epoc::error_general : epoc::error_none);
+         }
+ 
+diff --git a/src/emu/kernel/src/timing.cpp b/src/emu/kernel/src/timing.cpp
+index 21c9495..dfbb1b0 100644
+--- a/src/emu/kernel/src/timing.cpp
++++ b/src/emu/kernel/src/timing.cpp
+@@ -27,6 +27,7 @@
+ #include <kernel/timing.h>
+ 
+ #include <algorithm>
++#include <cstdio>
+ #include <mutex>
+ #include <thread>
+ #include <vector>
+@@ -65,6 +66,17 @@ namespace eka2l1 {
+         teletimer_->stop();
+     }
+ 
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++    void ntimer::debug_pending_events() {
++        const std::lock_guard<std::mutex> guard(lock_);
++        const auto now=teletimer_->microseconds();
++        std::printf("guest_timer_queue count=%zu paused=%d stopped=%d now_us=%llu\n",events_.size(),should_paused_.load(),should_stop_.load(),static_cast<unsigned long long>(now));
++        unsigned shown=0;
++        for(auto i=events_.rbegin();i!=events_.rend() && shown++<8;++i)
++            std::printf("guest_timer name=%s due_delta_us=%lld\n",event_types_[i->event_type].name.c_str(),
++                static_cast<long long>(i->event_time)-static_cast<long long>(now));
++    }
++#endif
+     void ntimer::stop() {
+         wipeout();
+     }
+diff --git a/src/emu/mem/src/model/flexible/control.cpp b/src/emu/mem/src/model/flexible/control.cpp
+index ca2dcbd..a987d64 100644
+--- a/src/emu/mem/src/model/flexible/control.cpp
++++ b/src/emu/mem/src/model/flexible/control.cpp
+@@ -18,6 +18,11 @@
+  */
+ 
+ #include <mem/model/flexible/control.h>
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++#include "native_address_layout.h"
++#else
++namespace eka2l1::mem { static std::uint32_t native_kernel_boundary(std::uint32_t original,bool,bool) { return original; } }
++#endif
+ 
+ namespace eka2l1::mem::flexible {
+     static constexpr std::uint32_t MAX_PAGE_DIR_ALLOW = 512;
+@@ -25,7 +30,7 @@ namespace eka2l1::mem::flexible {
+     control_flexible::control_flexible(arm::exclusive_monitor *monitor, page_table_allocator *alloc, config::state *conf, std::size_t psize_bits, const bool mem_map_old)
+         : control_base(monitor, alloc, conf, psize_bits, mem_map_old)
+         , rom_sec_(rom, global_data, page_size())
+-        , kernel_mapping_sec_(kernel_mapping, kernel_mapping_end, page_size()) {
++        , kernel_mapping_sec_(native_kernel_boundary(kernel_mapping,false,mem_map_old), native_kernel_boundary(kernel_mapping_end,true,mem_map_old), page_size()) {
+         // Instantiate the page directory manager
+         dir_mngr_ = std::make_unique<page_directory_manager>(MAX_PAGE_DIR_ALLOW);
+         chunk_mngr_ = std::make_unique<chunk_manager>();
+diff --git a/src/emu/mem/src/model/multiple/chunk.cpp b/src/emu/mem/src/model/multiple/chunk.cpp
+index 477b576..cecaea7 100644
+--- a/src/emu/mem/src/model/multiple/chunk.cpp
++++ b/src/emu/mem/src/model/multiple/chunk.cpp
+@@ -18,6 +18,12 @@
+  */
+ 
+ #include <mem/model/multiple/chunk.h>
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++extern "C" {
++#include "native_memory.h"
++}
++#endif
++
+ #include <mem/model/multiple/control.h>
+ #include <mem/model/multiple/process.h>
+ 
+@@ -379,7 +385,11 @@ namespace eka2l1::mem {
+             host_base_ = create_info.host_map;
+             is_external_host = true;
+         } else {
++            #ifdef EKA2L1_N810_PRIVATE_OSMESA
++            host_base_ = native_runtime_enabled() ? native_host_allocate(max_size_,base_) : common::map_memory(max_size_);
++#else
+             host_base_ = common::map_memory(max_size_);
++#endif
+             is_external_host = false;
+         }
+ 
+diff --git a/src/emu/mem/src/model/multiple/control.cpp b/src/emu/mem/src/model/multiple/control.cpp
+index 51b708c..7794bf7 100644
+--- a/src/emu/mem/src/model/multiple/control.cpp
++++ b/src/emu/mem/src/model/multiple/control.cpp
+@@ -19,6 +19,11 @@
+ 
+ #include <common/log.h>
+ #include <mem/model/multiple/control.h>
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++#include "native_address_layout.h"
++#else
++namespace eka2l1::mem { static std::uint32_t native_kernel_boundary(std::uint32_t original,bool,bool) { return original; } }
++#endif
+ 
+ namespace eka2l1::mem {
+     control_multiple::control_multiple(arm::exclusive_monitor *monitor, page_table_allocator *alloc, config::state *conf, std::size_t psize_bits, const bool mem_map_old)
+@@ -27,7 +32,7 @@ namespace eka2l1::mem {
+         , user_global_sec_(mem_map_old ? shared_data_eka1 : shared_data, mem_map_old ? shared_data_end_eka1 : ram_drive, page_size())
+         , user_code_sec_(mem_map_old ? ram_code_addr_eka1 : ram_code_addr, mem_map_old ? ram_code_addr_eka1_end : rom, page_size())
+         , user_rom_sec_(mem_map_old ? rom_eka1 : rom, mem_map_old ? kern_mapping_eka1 : global_data, page_size())
+-        , kernel_mapping_sec_(mem_map_old ? kern_mapping_eka1 : kernel_mapping, mem_map_old ? kern_mapping_eka1_end : kernel_mapping_end, page_size()) {
++        , kernel_mapping_sec_(native_kernel_boundary(mem_map_old ? kern_mapping_eka1 : kernel_mapping,false,mem_map_old), native_kernel_boundary(mem_map_old ? kern_mapping_eka1_end : kernel_mapping_end,true,mem_map_old), page_size()) {
+     }
+ 
+     control_multiple::~control_multiple() {
+diff --git a/src/emu/services/include/services/window/screen.h b/src/emu/services/include/services/window/screen.h
+index 079ab0d..0ec5320 100644
+--- a/src/emu/services/include/services/window/screen.h
++++ b/src/emu/services/include/services/window/screen.h
+@@ -327,6 +327,13 @@ namespace eka2l1::epoc {
+         }
+ 
+         bool region_redraw_supported() const {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++            // The retained GPU screen bitmap also preserves untouched pixels
++            // for legacy WSERV. Keep direct-screen synchronization on its old
++            // full-refresh path; NGA behavior remains unchanged.
++            if (!is_screenplay_architecture())
++                return !auto_clear_enabled() && !sync_screen_buffer && active_dsa_count_ == 0;
++#endif
+             return is_screenplay_architecture() && !auto_clear_enabled();
+         }
+ 
+diff --git a/src/emu/services/src/context.cpp b/src/emu/services/src/context.cpp
+index 7b8feff..a5fabb4 100644
+--- a/src/emu/services/src/context.cpp
++++ b/src/emu/services/src/context.cpp
+@@ -148,6 +148,11 @@ namespace eka2l1 {
+                 if (!signaled) {
+                     msg->own_thr->signal_request();
+                     signaled = true;
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++                    // Match native-server completion observability in this
++                    // diagnostic frontend; guest completion itself is unchanged.
++                    kern->call_ipc_complete_callbacks(msg, res);
++#endif
+                 }
+             }
+         }
+diff --git a/src/emu/services/src/fbs/font_atlas.cpp b/src/emu/services/src/fbs/font_atlas.cpp
+index 8453c20..83cbe7b 100644
+--- a/src/emu/services/src/fbs/font_atlas.cpp
++++ b/src/emu/services/src/fbs/font_atlas.cpp
+@@ -25,6 +25,8 @@
+ #include <common/time.h>
+ 
+ #include <cstring>
++#include <cstdio>
++#include <cstdlib>
+ 
+ namespace eka2l1::epoc {
+     struct atlas_packing_state {
+@@ -145,11 +147,49 @@ namespace eka2l1::epoc {
+         // bigger than GL_MAX_TEXTURE_SIZE; the create then fails and the
+         // incomplete atlas samples as opaque black, turning every glyph drawn
+         // from it into a solid block (seen on the iOS GLES simulator, max 4096).
+-        const int width = common::min<int>(get_atlas_width(),
++        int width = common::min<int>(get_atlas_width(),
+             static_cast<int>(driver->max_texture_size()));
+         drivers::graphics_command_builder upload_builder;
+ 
++        // Keep the chosen allocation size for subsequent updates and rebuilds.
++        if (atlas_data_ && pack_state_) width = pack_state_->width_;
++
+         if (!atlas_data_) {
++            const char *compact = std::getenv("N810_SYMBIAN_COMPACT_ATLAS");
++            if (compact && std::strcmp(compact, "1") == 0 && width > 512) {
++                std::vector<int> codes(initial_range_.second);
++                std::vector<eka2l1::vec2> sizes(codes.size());
++                for (std::size_t i = 0; i < codes.size(); ++i)
++                    codes[i] = initial_range_.first + i;
++                if (adapter_->measure_atlas_glyphs(typeface_idx_, codes.data(), codes.size(),
++                        metric_identifier_, sizes.data())) {
++                    for (int candidate = 512; candidate < width; candidate *= 2) {
++                        std::vector<stbrp_rect> rects(sizes.size());
++                        bool valid = true;
++                        for (std::size_t i = 0; i < sizes.size(); ++i) {
++                            const int w = sizes[i].x + GLYPH_PADDING * 2;
++                            const int h = sizes[i].y + GLYPH_PADDING * 2;
++                            if (w < 0 || h < 0 || w > candidate || h > candidate) {
++                                valid = false;
++                                break;
++                            }
++                            rects[i].w = static_cast<stbrp_coord>(w);
++                            rects[i].h = static_cast<stbrp_coord>(h);
++                        }
++                        if (!valid) continue;
++                        begin_packing(candidate);
++                        if (stbrp_pack_rects(&pack_state_->context_, rects.data(),
++                                static_cast<int>(rects.size()))) {
++                            width = candidate;
++                            break;
++                        }
++                    }
++                }
++            }
++            if (std::getenv("N810_SYMBIAN_TRACE_ATLAS"))
++                std::fprintf(stderr,"font_atlas_allocate width=%d bpp=%u glyphs=%u bytes=%zu\n",width,
++                    unsigned(adapter_->get_atlas_bitmap_bits_per_pixel()),unsigned(initial_range_.second),
++                    static_cast<std::size_t>(width)*width*adapter_->get_atlas_bitmap_bits_per_pixel()/8);
+             atlas_data_ = std::make_unique<std::uint8_t[]>(width * width * adapter_->get_atlas_bitmap_bits_per_pixel() / 8);
+ 
+             std::vector<int> initial_codes(initial_range_.second);
+@@ -173,7 +213,7 @@ namespace eka2l1::epoc {
+             }
+ 
+             // Submit the bitmap through another queue, in case the command list above never got submitted
+-            atlas_handle_ = drivers::create_bitmap(driver, { width, width },  adapter_->get_atlas_bitmap_bits_per_pixel());
++            atlas_handle_ = drivers::create_ui_bitmap(driver, { width, width },  adapter_->get_atlas_bitmap_bits_per_pixel());
+ 
+             upload_builder.update_bitmap(atlas_handle_, reinterpret_cast<const char *>(atlas_data_.get()),
+                 width * width * adapter_->get_atlas_bitmap_bits_per_pixel() / 8, { 0, 0 }, { width, width });
+diff --git a/src/emu/services/src/window/bitmap_cache.cpp b/src/emu/services/src/window/bitmap_cache.cpp
+index 0ce9da2..cb66c4d 100644
+--- a/src/emu/services/src/window/bitmap_cache.cpp
++++ b/src/emu/services/src/window/bitmap_cache.cpp
+@@ -398,7 +398,7 @@ namespace eka2l1::epoc {
+                 retired_->handles.push_back(driver_textures[idx]);
+             }
+ 
+-            driver_textures[idx] = drivers::create_bitmap(driver, bmp->header_.size_pixels, suit_bpp);
++            driver_textures[idx] = drivers::create_ui_bitmap(driver, bmp->header_.size_pixels, suit_bpp);
+             if (snapshot) {
+                 texture_snapshots[idx] = retain_texture(driver_textures[idx]);
+             }
+diff --git a/src/emu/services/src/window/classes/gstore.cpp b/src/emu/services/src/window/classes/gstore.cpp
+index 09ddf8c..74e53bd 100644
+--- a/src/emu/services/src/window/classes/gstore.cpp
++++ b/src/emu/services/src/window/classes/gstore.cpp
+@@ -176,7 +176,10 @@ namespace eka2l1::epoc {
+ 
+         const auto last_expired = std::find(expired.rbegin(), expired.rend(), true);
+         if (last_expired == expired.rend()) {
+-            return need_invalidate;
++            // Rotating the current segment after its age limit discards no
++            // pixels or commands. Request a guest repaint only when stored
++            // history actually expires, not merely when starting a segment.
++            return false;
+         }
+ 
+         // Older segments may be painted over by an expired one, so they have to go into the merge too.
+@@ -234,6 +237,27 @@ namespace eka2l1::epoc {
+     }
+ 
+     void gdi_command_builder::build_single_command(const gdi_store_command &command) {
++        // Reject invisible explicit rectangles before bitmap hashing, mask
++        // conversion, texture lookup, and GL command construction. clip_ is
++        // the immutable segment/server clip; GDI clip commands can only narrow
++        // it further. Unknown sizes and scaled/rotated operations keep the path.
++        if (scale_factor_ == 1.0f && !clip_.empty()) {
++            eka2l1::rect bounds;
++            if (command.opcode_ == gdi_store_command_draw_rect || command.opcode_ == gdi_store_command_xor_rect) {
++                bounds = command.get_data_struct_const<gdi_store_command_draw_rect_data>().rect_;
++            } else if (command.opcode_ == gdi_store_command_draw_bitmap) {
++                const auto &data = command.get_data_struct_const<gdi_store_command_draw_bitmap_data>();
++                if (!(data.gdi_flags_ & GDI_STORE_COMMAND_BRUSH_PATTERN)) bounds = data.dest_rect_;
++            }
++            if (bounds.size.x > 0 && bounds.size.y > 0) {
++                bounds.top += position_;
++                bool visible = false;
++                for (const auto &clip : clip_.rects_) {
++                    if (!bounds.intersect(clip).empty()) { visible = true; break; }
++                }
++                if (!visible) return;
++            }
++        }
+         // Retained UI stores premultiplied RGBA even for replacement-mode GDI writes.
+         if (premultiplied_target_) {
+             builder_.set_feature(drivers::graphics_feature::blend, true);
+diff --git a/src/emu/services/src/window/classes/winuser.cpp b/src/emu/services/src/window/classes/winuser.cpp
+index 8f4ca2f..0633849 100644
+--- a/src/emu/services/src/window/classes/winuser.cpp
++++ b/src/emu/services/src/window/classes/winuser.cpp
+@@ -1,3 +1,5 @@
++#include <cstdio>
++#include <cstdlib>
+ /*
+  * Copyright (c) 2019 EKA2L1 Team
+  * 
+@@ -43,6 +45,24 @@
+ #include <utils/err.h>
+ 
+ namespace eka2l1::epoc {
++    // Translucent foreground windows must be recomposited over lower-window
++    // updates. Opaque visibility clips alone cannot protect those pixels.
++    static bool legacy_incremental_gdi_supported(screen *scr) {
++        if (scr->is_screenplay_architecture() || !scr->region_redraw_supported() || !scr->root) return false;
++        struct alpha_walker : window_tree_walker {
++            bool found = false;
++            bool do_it(window *win) override {
++                if (win->type == window_kind::client) {
++                    auto *canvas = static_cast<canvas_base *>(win);
++                    if (canvas->is_visible() && canvas->is_translucent()) found = true;
++                }
++                return found;
++            }
++        } walker;
++        scr->root->walk_tree_back_to_front(&walker);
++        return !walker.found;
++    }
++
+     static constexpr std::uint8_t bits_per_ordpos = 4;
+     static constexpr std::uint8_t max_ordpos_pri = 0b1111;
+     static constexpr std::uint8_t max_pri_level = (sizeof(std::uint32_t) / bits_per_ordpos) - 1;
+@@ -111,6 +131,13 @@ namespace eka2l1::epoc {
+     }
+ 
+     canvas_base::~canvas_base() {
++        // DSA objects can outlive their window during client/server teardown.
++        // Cancel while the window and its screen reference are still valid;
++        // do_cancel removes itself from directs_ and clears its window pointer.
++        while (!directs_.empty()) {
++            directs_.back()->do_cancel(true);
++        }
++
+         // Detach observers first, while this object is still intact: EGL
+         // surfaces keep a raw backed-window pointer and outlive windows whose
+         // owner exited without destroying them (freed later by the dispatcher,
+@@ -212,7 +239,7 @@ namespace eka2l1::epoc {
+         const auto placement = place_surface(attachment.config, abs_rect, source.size(), scr->display_scale_factor, native_rotation);
+         common::region clip;
+         clip.add_rect(placement.clip);
+-        clip = clip.intersect(visible_region);
++        clip = clip.intersect(scr->server_redraw_clip(visible_region));
+         if (clip.empty() || placement.destination.empty() || placement.source.empty()) {
+             return false;
+         }
+@@ -631,7 +658,8 @@ namespace eka2l1::epoc {
+             onscreen_region.clip(eka2l1::rect({ 0, 0 }, scr->current_mode().size));
+ 
+             if (recomposite_if_occluded && !visible_region.empty() && !visible_region.identical(onscreen_region)) {
+-                scr->flags_ |= screen::FLAG_SERVER_REDRAW_PENDING;
++                if (scr->region_redraw_supported()) scr->add_server_redraw_region(abs_rect);
++                else scr->flags_ |= screen::FLAG_SERVER_REDRAW_PENDING;
+             }
+ 
+             // We need a redraw from the client side, so set this
+@@ -1291,7 +1319,9 @@ namespace eka2l1::epoc {
+         auto color_extracted = common::rgba_to_vec(clear_color);
+ 
+         builder.set_feature(drivers::graphics_feature::blend, false);
+-        builder.clip_bitmap_region(visible_region, scr->display_scale_factor);
++        const auto redraw_clip = scr->server_redraw_clip(visible_region);
++        if (redraw_clip.empty()) return false;
++        builder.clip_bitmap_region(redraw_clip, scr->display_scale_factor);
+ 
+         if (display_mode() <= epoc::display_mode::color16mu) {
+             color_extracted.w = 255;
+@@ -1330,11 +1360,14 @@ namespace eka2l1::epoc {
+ 
+         if (initialise || surface_ui_size_ != pixel_size) {
+             const drivers::handle previous = surface_ui_;
+-            surface_ui_ = drivers::create_bitmap(driver, pixel_size, 32);
++            surface_ui_ = drivers::create_ui_bitmap(driver, pixel_size, 32);
++            if (std::getenv("N810_SYMBIAN_INPUT_TIMING"))
++                std::fprintf(stderr,"surface_producer=redraw_ui target=%llu size=%d,%d\n",static_cast<unsigned long long>(surface_ui_),pixel_size.x,pixel_size.y);
+             builder.bind_bitmap(surface_ui_);
+             builder.set_feature(drivers::graphics_feature::clipping, false);
+             builder.set_feature(drivers::graphics_feature::stencil_test, false);
+             builder.set_feature(drivers::graphics_feature::blend, false);
++            builder.set_color_mask(0xF);
+             builder.clear(eka2l1::vecx<float, 6>({ 0, 0, 0, 0, 1, 0 }), drivers::draw_buffer_bit_color_buffer);
+             if (previous) {
+                 builder.draw_bitmap(previous, 0, eka2l1::rect({ 0, 0 }, surface_ui_size_ * (scr->display_scale_factor / surface_ui_scale_)),
+@@ -1387,10 +1420,12 @@ namespace eka2l1::epoc {
+         const drivers::filter_option filter = client->get_ws().get_kernel_system()->get_config()->nearest_neighbor_filtering
+             ? drivers::filter_option::nearest : drivers::filter_option::linear;
+ 
+-        const drivers::handle texture = drivers::create_bitmap(driver, pixel_size, 32);
++        const drivers::handle texture = drivers::create_ui_bitmap(driver, pixel_size, 32);
+         if (!texture) {
+             return nullptr;
+         }
++        if (std::getenv("N810_SYMBIAN_INPUT_TIMING"))
++            std::fprintf(stderr,"surface_producer=flatten_segments target=%llu size=%d,%d\n",static_cast<unsigned long long>(texture),pixel_size.x,pixel_size.y);
+ 
+         drivers::graphics_command_builder builder;
+         builder.bind_bitmap(texture);
+@@ -1399,6 +1434,7 @@ namespace eka2l1::epoc {
+         builder.set_feature(drivers::graphics_feature::clipping, false);
+         builder.set_feature(drivers::graphics_feature::stencil_test, false);
+         builder.set_feature(drivers::graphics_feature::blend, false);
++        builder.set_color_mask(0xF);
+         builder.clear(eka2l1::vecx<float, 6>({ 0, 0, 0, 0, 1, 0 }), drivers::draw_buffer_bit_color_buffer);
+ 
+         auto merged = std::make_unique<gdi_store_command_segment>();
+@@ -1693,9 +1729,56 @@ namespace eka2l1::epoc {
+         if (retains_pixels) {
+             current_segment->add_command(command);
+         }
++        // A later opaque replacement makes earlier stored pixels in that
++        // exact clipped rectangle unreachable. Trim only previous segments;
++        // the current segment must retain its own ordered drawing operations.
++        if (!(flags & (flags_in_redraw | flags_enable_alpha)) &&
++            !scr->is_screenplay_architecture() && scr->display_scale_factor == 1.0f) {
++            eka2l1::rect opaque;
++            if (command.opcode_ == gdi_store_command_draw_rect) {
++                const auto &data=command.get_data_struct_const<gdi_store_command_draw_rect_data>();
++                if (data.color_.w == 255) opaque=data.rect_;
++            } else if (command.opcode_ == gdi_store_command_draw_bitmap) {
++                const auto &data=command.get_data_struct_const<gdi_store_command_draw_bitmap_data>();
++                // canvas_base has snapshotted this bitmap's immutable metadata.
++                if (!data.mask_fbs_bitmap_ && !data.mask_drv_ && data.main_fbs_bitmap_ &&
++                    (data.gdi_flags_ & GDI_STORE_COMMAND_MAIN_RAW) &&
++                    !(data.gdi_flags_ & (GDI_STORE_COMMAND_BLIT | GDI_STORE_COMMAND_BRUSH_PATTERN))) {
++                    const auto *bitmap=reinterpret_cast<const epoc::bitwise_bitmap*>(data.main_fbs_bitmap_);
++                    auto mode=bitmap->settings_.current_display_mode();
++                    if(mode==epoc::display_mode::none)mode=bitmap->settings_.initial_display_mode();
++                    if(mode!=epoc::display_mode::none && !epoc::is_display_mode_alpha(mode)) opaque=data.dest_rect_;
++                }
++            }
++            if (opaque.valid() && opaque.size.x>0 && opaque.size.y>0) {
++                common::region covered;covered.add_rect(opaque);covered.clip(bounding_rect());
++                common::region logical_clip;
++                if (last_clip_command_.opcode_ == gdi_store_command_set_clip_rect_single) {
++                    logical_clip.add_rect(last_clip_command_.get_data_struct_const<gdi_store_command_set_clip_rect_single_data>().clipping_rect_);
++                    covered=covered.intersect(logical_clip);
++                } else if (last_clip_command_.opcode_ == gdi_store_command_set_clip_rect_multiple) {
++                    const auto &clip=last_clip_command_.get_data_struct_const<gdi_store_command_set_clip_rect_multiple_data>();
++                    logical_clip.rects_.insert(logical_clip.rects_.end(),clip.rects_,clip.rects_+clip.rect_count_);
++                    covered=covered.intersect(logical_clip);
++                }
++                for (const auto &old:redraw_segments_.get_segments()) {
++                    if(old.get()!=current_segment && old->type_!=gdi_store_command_segment_pending_redraw)
++                        old->region_.eliminate(covered);
++                }
++            }
++        }
+         // Without redraw storing, earlier pixels may exist only in the screen bitmap.
+-        if ((created_non_redraw_segment && !retains_pixels) || (flags & flags_enable_alpha)) {
++        if (flags & flags_enable_alpha) {
+             scr->flags_ |= screen::FLAG_SERVER_REDRAW_PENDING;
++        } else if (created_non_redraw_segment && !retains_pixels) {
++            // The legacy retained screen already contains preceding writes.
++            // pending_segment_ applies only the new commands, clipped to this
++            // window's visible area. Creating a history segment is not damage
++            // to other windows and does not require replaying the whole store.
++            if (!legacy_incremental_gdi_supported(scr)) {
++                if (scr->region_redraw_supported()) scr->add_server_redraw_region(abs_rect);
++                else scr->flags_ |= screen::FLAG_SERVER_REDRAW_PENDING;
++            }
+         }
+     }
+ 
+@@ -1715,6 +1798,13 @@ namespace eka2l1::epoc {
+     }
+ 
+     std::uint64_t redraw_msg_canvas::try_update(kernel::thread *drawer) {
++        // Opaque GDI updates are already clipped by visible_region, including
++        // foreground occlusion. Keep the retained pixels outside those writes.
++        // Alpha and explicit EndRedraw/exposure keep their recomposition path.
++        if (legacy_incremental_gdi_supported(scr) &&
++            !(flags & (flags_enable_alpha | flags_in_redraw))) {
++            return canvas_base::schedule_update(drawer, false);
++        }
+         return canvas_base::try_update(drawer);
+     }
+ 
+@@ -1746,10 +1836,13 @@ namespace eka2l1::epoc {
+                 background_region.make_empty();
+             }
+             if (fills_background && clear_color_enable && !background_region.empty()) {
+-                background_region.advance(abs_rect.top);
+-                background_region = background_region.intersect(visible_region);
+-
+-                builder.clip_bitmap_region(background_region, scr->display_scale_factor);
++                common::region drawn_background = background_region;
++                drawn_background.advance(abs_rect.top);
++                drawn_background = drawn_background.intersect(server_clip);
++                // An empty clip means unclipped in the graphics command API.
++                // Keep undamaged background pending instead of issuing a draw.
++                if (drawn_background.empty()) return;
++                builder.clip_bitmap_region(drawn_background, scr->display_scale_factor);
+ 
+                 auto color_extracted = common::rgba_to_vec(clear_color);
+ 
+@@ -1760,7 +1853,8 @@ namespace eka2l1::epoc {
+                 builder.set_brush_color_detail(color_extracted);
+                 builder.draw_rectangle(eka2l1::rect(abs_rect.top * scr->display_scale_factor, { 0, 0 }));
+ 
+-                background_region.make_empty();
++                drawn_background.advance(eka2l1::vec2(-abs_rect.top.x, -abs_rect.top.y));
++                background_region.eliminate(drawn_background);
+             } else {
+                 builder.set_brush_color(eka2l1::vec3(255, 255, 255));
+                 builder.set_feature(drivers::graphics_feature::clipping, false);
+@@ -1772,6 +1866,22 @@ namespace eka2l1::epoc {
+         eka2l1::drivers::filter_option filter = (client->get_ws().get_kernel_system()->get_config()->nearest_neighbor_filtering ?
+             eka2l1::drivers::filter_option::nearest : eka2l1::drivers::filter_option::linear);
+ 
++        // A completed legacy full-screen replay already includes the commands
++        // in pending_segment_. Re-emitting them below duplicates raster work
++        // (and is incorrect for non-idempotent blending/XOR). Partial-region
++        // and unfinished redraws retain their original incremental path.
++        const bool pending_covered_by_server = pending_segment_ &&
++            !(flags & flags_in_redraw) &&
++            (scr->flags_ & screen::FLAG_SERVER_REDRAW_PENDING) &&
++            server_clip.identical(visible_region) && !server_clip.empty() &&
++            !redraw_segments_.get_segments().empty();
++        if (pending_covered_by_server) {
++            gdi_command_builder updates(client->get_ws().get_graphics_driver(), builder,
++                *client->get_ws().get_bitmap_cache(), filter, abs_rect.top,
++                scr->display_scale_factor, server_clip);
++            updates.build_texture_updates(*pending_segment_);
++        }
++
+         if (scr->flags_ & screen::FLAG_SERVER_REDRAW_PENDING) {
+             auto &segments = redraw_segments_.get_segments();
+ 
+@@ -1805,6 +1915,8 @@ namespace eka2l1::epoc {
+             }
+         }
+ 
++        if (pending_covered_by_server) pending_segment_.reset();
++
+         if (scr->flags_ & screen::FLAG_CLIENT_REDRAW_PENDING) {
+             if ((scr->flags_ & screen::FLAG_SERVER_REDRAW_PENDING) == 0 && background_surface_.changed()) {
+                 draw_surface(builder, background_surface_);
+@@ -2079,11 +2191,14 @@ namespace eka2l1::epoc {
+             drivers::graphics_command_builder cmd_builder;
+ 
+             if (driver_win_id == 0) {
+-                driver_win_id = drivers::create_bitmap(drv, abs_rect.size, 32);
++                driver_win_id = drivers::create_ui_bitmap(drv, abs_rect.size, 32);
++                if (std::getenv("N810_SYMBIAN_INPUT_TIMING"))
++                    std::fprintf(stderr,"surface_producer=backed_canvas target=%llu size=%d,%d\n",static_cast<unsigned long long>(driver_win_id),abs_rect.size.x,abs_rect.size.y);
+                 // Symbian initializes backup bitmaps with the default white background.
+                 cmd_builder.bind_bitmap(driver_win_id);
+                 cmd_builder.set_feature(drivers::graphics_feature::clipping, false);
+                 cmd_builder.set_feature(drivers::graphics_feature::stencil_test, false);
++                cmd_builder.set_color_mask(0xF);
+                 cmd_builder.clear(eka2l1::vecx<float, 6>({ 1, 1, 1, 1, 1, 0 }), drivers::draw_buffer_bit_color_buffer);
+             } else {
+                 cmd_builder.resize_bitmap(driver_win_id, abs_rect.size);
+@@ -2170,7 +2285,9 @@ namespace eka2l1::epoc {
+         }
+ 
+         if (!ping_pong_driver_win_id) {
+-            ping_pong_driver_win_id = drivers::create_bitmap(drv, abs_rect.size, 32);
++            ping_pong_driver_win_id = drivers::create_ui_bitmap(drv, abs_rect.size, 32);
++            if (std::getenv("N810_SYMBIAN_INPUT_TIMING"))
++                std::fprintf(stderr,"surface_producer=scroll_scratch target=%llu size=%d,%d\n",static_cast<unsigned long long>(ping_pong_driver_win_id),abs_rect.size.x,abs_rect.size.y);
+         }
+ 
+         eka2l1::rect dest_rect(source_rect.top + offset, source_rect.size);
+@@ -2199,7 +2316,9 @@ namespace eka2l1::epoc {
+         }
+ 
+         builder.set_feature(drivers::graphics_feature::blend, false);
+-        builder.clip_bitmap_region(visible_region, scr->display_scale_factor);
++        const auto redraw_clip = scr->server_redraw_clip(visible_region);
++        if (redraw_clip.empty()) return false;
++        builder.clip_bitmap_region(redraw_clip, scr->display_scale_factor);
+ 
+         eka2l1::rect draw_dest_rect = abs_rect;
+         scale_rectangle(draw_dest_rect, scr->display_scale_factor);
+diff --git a/src/emu/services/src/window/fifo.cpp b/src/emu/services/src/window/fifo.cpp
+index 418d2ff..7394a10 100644
+--- a/src/emu/services/src/window/fifo.cpp
++++ b/src/emu/services/src/window/fifo.cpp
+@@ -42,7 +42,7 @@ namespace eka2l1::epoc {
+     std::uint32_t event_fifo::queue_event(const event &evt) {
+         const std::lock_guard<std::mutex> guard(lock_);
+ 
+-        if (q_.size() == maximum_element) {
++        if (q_.size() >= maximum_element) {
+             do_purge();
+         }
+ 
+@@ -76,51 +76,48 @@ namespace eka2l1::epoc {
+     // Lone pointer ups
+     // Lone focus lost/gain
+     void event_fifo::do_purge() {
+-        for (size_t i = 0; i < q_.size(); i++) {
+-            switch (q_[i].evt.type) {
+-            case epoc::event_code::event_password:
+-                break;
+-
+-            case epoc::event_code::null:
+-            case epoc::event_code::key:
+-            case epoc::event_code::touch_enter:
+-            case epoc::event_code::touch_exit: {
+-                q_.erase(q_.begin() + i);
+-                break;
+-            }
+-
+-            case epoc::event_code::touch: {
+-                // TODO: implement logics in
+-                // https://github.com/SymbianSource/oss.FCL.sf.os.graphics/blob/ff133bc50e6158bfb08cc093b0f0055321dcde99/windowing/windowserver/nga/SERVER/EVQUEUE.CPP#L630
+-                // just purge it right now
+-                q_.erase(q_.begin() + i);
+-                break;
+-            }
+-
+-            case epoc::event_code::focus_gained:
+-            case epoc::event_code::focus_lost: {
+-                if ((i + 1 < q_.size()) && ((q_[i + 1].evt.type == epoc::event_code::focus_gained) || (q_[i + 1].evt.type == epoc::event_code::focus_lost))) {
+-                    q_.erase(q_.begin() + i + 1);
+-                    q_.erase(q_.begin() + i);
++        // Preserve lone releases and unknown control events. Only discard a
++        // complete, still-queued key gesture; otherwise a consumer can retain
++        // a pressed key forever. Re-examine each index after erasing it.
++        for (size_t i = 0; i < q_.size();) {
++            const event current = q_[i].evt;
++            if (current.type == event_code::key_down) {
++                size_t up = i + 1;
++                for (; up < q_.size(); ++up) {
++                    const event &next = q_[up].evt;
++                    if (next.handle == current.handle &&
++                        next.key_evt_.scancode == current.key_evt_.scancode &&
++                        next.type == event_code::key_up) break;
+                 }
+-
+-                break;
+-            }
+-
+-            case epoc::event_code::switch_on: {
+-                if (i + 1 < q_.size() && (q_[i + 1].evt.type == epoc::event_code::switch_on)) {
+-                    q_.erase(q_.begin() + i);
+-                    break;
++                if (up < q_.size()) {
++                    for (size_t j = up + 1; j-- > i;) {
++                        const event &part = q_[j].evt;
++                        if (j == i || j == up || (part.type == event_code::key &&
++                            part.handle == current.handle &&
++                            part.key_evt_.scancode == current.key_evt_.scancode))
++                            q_.erase(q_.begin() + j);
++                    }
++                    continue;
+                 }
+             }
+-
+-            default: {
+-                LOG_ERROR(SERVICE_WINDOW, "Unhandled purge of event type: {}", static_cast<int>(q_[i].evt.type));
+-                assert(false);
+-
+-                break;
++            if (current.type == event_code::null || current.type == event_code::key ||
++                current.type == event_code::touch_enter || current.type == event_code::touch_exit) {
++                q_.erase(q_.begin() + i);
++                continue;
++            }
++            if (current.type == event_code::touch &&
++                (current.adv_pointer_evt_.evtype == event_type::drag ||
++                 current.adv_pointer_evt_.evtype == event_type::move)) {
++                q_.erase(q_.begin() + i);
++                continue;
+             }
++            if (i + 1 < q_.size() && current.handle == q_[i + 1].evt.handle &&
++                ((current.type == event_code::focus_gained && q_[i + 1].evt.type == event_code::focus_lost) ||
++                 (current.type == event_code::focus_lost && q_[i + 1].evt.type == event_code::focus_gained))) {
++                q_.erase(q_.begin() + i, q_.begin() + i + 2);
++                continue;
+             }
++            ++i;
+         }
+     }
+ 
+diff --git a/src/emu/services/src/window/screen.cpp b/src/emu/services/src/window/screen.cpp
+index 91d1b35..d086014 100644
+--- a/src/emu/services/src/window/screen.cpp
++++ b/src/emu/services/src/window/screen.cpp
+@@ -283,7 +283,7 @@ namespace eka2l1::epoc {
+             kern->unlock();
+             guard.unlock();
+ 
+-            drivers::handle bitmap_handle = drivers::create_bitmap(driver, eka2l1::vec2(max_square_width, max_square_width), bits_per_pixel);
++            drivers::handle bitmap_handle = drivers::create_ui_bitmap(driver, eka2l1::vec2(max_square_width, max_square_width), bits_per_pixel);
+ 
+             kern->lock();
+             guard.lock();
+@@ -536,7 +536,7 @@ namespace eka2l1::epoc {
+             // Create new one! Its content is undefined until something draws over it, and a
+             // fullscreen app that leaves part of the screen alone (the control pane area, for
+             // instance) would present that leftover memory as garbage. Ask for a clearing redraw.
+-            screen_texture = drivers::create_bitmap(driver, screen_size_scaled, 32);
++            screen_texture = drivers::create_ui_bitmap(driver, screen_size_scaled, 32);
+             flags_ |= FLAG_SERVER_REDRAW_PENDING;
+         } else {
+             builder.bind_bitmap(screen_texture);
+diff --git a/src/emu/services/src/window/surface.cpp b/src/emu/services/src/window/surface.cpp
+index 1e2b281..c891476 100644
+--- a/src/emu/services/src/window/surface.cpp
++++ b/src/emu/services/src/window/surface.cpp
+@@ -14,6 +14,8 @@
+ #include <drivers/itc.h>
+ 
+ #include <limits>
++#include <cstdio>
++#include <cstdlib>
+ 
+ namespace eka2l1::epoc {
+     surface_id surface_registry::add(const std::shared_ptr<window_surface> &surface) {
+@@ -88,8 +90,9 @@ namespace eka2l1::epoc {
+ 
+         driver_ = driver;
+         drivers::graphics_command_builder builder;
++        const bool initialize = !handle_ || size != size_;
+         if (!handle_) {
+-            handle_ = drivers::create_bitmap(driver, size, 32);
++            handle_ = drivers::create_ui_bitmap(driver, size, 32);
+             if (!handle_) {
+                 return false;
+             }
+@@ -106,6 +109,14 @@ namespace eka2l1::epoc {
+         builder.set_feature(drivers::graphics_feature::blend, false);
+         builder.set_feature(drivers::graphics_feature::cull, false);
+         builder.set_color_mask(0xF);
++        // This operation replaces the entire target with blending disabled.
++        // Establish fresh/resized storage through the GPU before the copy;
++        // never use a clear to reconstruct a previously retained image.
++        if (initialize) {
++            builder.clear(eka2l1::vecx<float, 6>({0, 0, 0, 0, 1, 0}), drivers::draw_buffer_bit_color_buffer);
++            if (std::getenv("N810_SYMBIAN_INPUT_TIMING"))
++                std::fprintf(stderr,"surface_producer=publish_bitmap target=%llu source=%llu size=%d,%d gpu_initialize=1\n",static_cast<unsigned long long>(handle_),static_cast<unsigned long long>(source),size.x,size.y);
++        }
+         builder.draw_bitmap(source, 0, eka2l1::rect({ 0, 0 }, size), eka2l1::rect({ 0, 0 }, size),
+             { 0, 0 }, 0.0f, drivers::bitmap_draw_flag_flip);
+         builder.bind_bitmap(source);
+diff --git a/src/emu/system/src/epoc.cpp b/src/emu/system/src/epoc.cpp
+index 1c3238d..56cf10f 100644
+--- a/src/emu/system/src/epoc.cpp
++++ b/src/emu/system/src/epoc.cpp
+@@ -181,6 +181,14 @@ namespace eka2l1 {
+         explicit system_impl(system *parent, system_create_components &param);
+ 
+         ~system_impl() {
++            const auto teardown_phase=[](const char *name) {
++#ifdef EKA2L1_N810_PRIVATE_OSMESA
++                std::fprintf(stderr,"runtime_teardown=%s\n",name);
++#else
++                (void)name;
++#endif
++            };
++            teardown_phase("timer_stop");
+             // Join the timer thread before anything else goes away: its event
+             // callbacks (kernel timers, animation scheduler redraws) run
+             // concurrently and reach into the kernel, window server and font state
+@@ -193,20 +201,25 @@ namespace eka2l1 {
+             scripting_.reset();
+ #endif
+ 
++            teardown_phase("dispatcher_shutdown");
+             // Reset dispatchers...
+             if (dispatcher_)
+                 dispatcher_->shutdown(gdriver);
+ 
+             dispatcher_.reset();
+ 
++            teardown_phase("kernel_wipeout");
+             // We need to clear kernel content second, since some object do references to it,
+             // and if we let it go in destructor it would be messy! :D
+             if (kern_)
+                 kern_->wipeout();
+ 
++            teardown_phase("kernel_reset");
+             kern_.reset();
++            teardown_phase("memory_reset");
+             mem_.reset();
+             timing_.reset();
++            teardown_phase("member_destructors");
+         };
+ 
+         void set_graphics_driver(drivers::graphics_driver *graphics_driver);

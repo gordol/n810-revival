@@ -1,0 +1,8 @@
+{
+  "upstream": "https://github.com/EKA2L1/EKA2L1",
+  "revision": "d27ee467cb932f75d217062469bd39c047e2eeed",
+  "status": "Experimental source checkpoint; not a turnkey release",
+  "private_inputs_included": false,
+  "mac_build": "424/424 units and link passed; N95 initialization fails before app launch",
+  "batch_cache_hits": "Opt-in; host checks only; physical candidate not verified"
+}

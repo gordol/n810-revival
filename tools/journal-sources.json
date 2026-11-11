@@ -1409,6 +1409,93 @@
       "note": "Source integration: [d7cbc64](https://github.com/gordol/n810-revival/commit/d7cbc64d8324e4f948426b37fc91c46fe32d73ff). The linked files are included in this checkout. Historical Mac captures and measurements describe their dated experimental runs; Linux software-GL checks and ARM cross-builds establish separate build/test results. The detailed experimental effect/terrain comparison programs remain separate from the included desktop smoke check."
     },
     {
+      "post": "docs/posts/2026-11-09-gpu-desktop.md",
+      "id": "2026-11-09-gpu-desktop",
+      "implementation": [
+        {
+          "label": "Desktop rendering",
+          "path": "pocket/graphics/gpu_scene.py"
+        }
+      ],
+      "tests": [],
+      "inputs": [],
+      "guide": "how-to/run-n810-gpu.md",
+      "source_heading": "Follow the implementation",
+      "note": ""
+    },
+    {
+      "post": "docs/posts/2026-11-09-symbian-runtime.md",
+      "id": "2026-11-09-symbian-runtime",
+      "implementation": [
+        {
+          "label": "Native runtime",
+          "path": "platform/symbian/runtime/runtime_main.cpp"
+        }
+      ],
+      "tests": [],
+      "inputs": [],
+      "guide": "how-to/run-n810-gpu.md",
+      "source_heading": "Code, tests and build inputs",
+      "note": ""
+    },
+    {
+      "post": "docs/posts/2026-11-10-gpu-residency-and-480mhz.md",
+      "id": "2026-11-10-gpu-residency-and-480mhz",
+      "implementation": [
+        {
+          "label": "Window images and mask APIs",
+          "path": "pocket/graphics/driver/mbx/mesa/mbx_window_export.h"
+        },
+        {
+          "label": "Owned command replay",
+          "path": "pocket/graphics/driver/mbx/common/mbx_vgp_wire.c"
+        },
+        {
+          "label": "Compiled command cache",
+          "path": "pocket/graphics/driver/mbx/common/mbx_command_cache.h"
+        },
+        {
+          "label": "GPU clock lifetime",
+          "path": "pocket/graphics/driver/mbx/kernel/n810_mbx_gpu_probe.c"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Clock admission and cleanup fault injection",
+          "path": "pocket/graphics/driver/mbx/tests/check_clock_initial.py"
+        },
+        {
+          "label": "Clock receipt checks",
+          "path": "pocket/graphics/driver/mbx/tests/test_clock_receipt.py"
+        },
+        {
+          "label": "Prepared and legacy commands",
+          "path": "pocket/graphics/driver/mbx/tests/check_prepared.py"
+        },
+        {
+          "label": "Compilation-cache parity",
+          "path": "pocket/graphics/driver/mbx/tests/test_command_cache.c"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Pinned kernel build",
+          "path": "pocket/graphics/driver/mbx/build_kernel.py"
+        },
+        {
+          "label": "Pinned Mesa build",
+          "path": "pocket/graphics/driver/mbx/build_mesa.py"
+        },
+        {
+          "label": "Hardware verification record",
+          "path": "pocket/graphics/driver/mbx/VERIFICATION.md"
+        }
+      ],
+      "guide": "how-to/build-graphics.md",
+      "source_heading": "Code, tests and build inputs",
+      "note": "The linked source includes the compatibility fix and opt-in compilation candidate. The measurements above are physical N810 results; local candidate checks do not imply an application-level speedup. The graphics build guide describes prerequisites; later device experiments require their exact kernel and artifact identities."
+    },
+    {
       "post": "docs/posts/2026-11-10-windows-ce-runtime.md",
       "id": "2026-11-10-windows-ce-runtime",
       "implementation": [],
@@ -1417,7 +1504,6 @@
       "guide": "",
       "source_heading": "Research status",
       "note": "Design investigation only. No Windows CE compatibility implementation or N810 test is included."
-
     }
   ]
 }

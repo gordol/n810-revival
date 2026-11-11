@@ -14,7 +14,7 @@ RETIRED=frozenset(('Terrain Profile','Weather','Moon Lab','Notes','Activity','Di
     'APRS (terminal)','Directory (terminal)','Walk (terminal)'))
 
 WINDOW_FIELDS=('x','y','w','h','desktop','visible','rolled','pinned','opened')
-PREFS=('application_menu_mode','app_preferences','scenery','font_preview_id','show_underlying_text','timezone_name','list_scrollbars','list_counts','status_verbosity','pager_position','show_pager','resize_edges','desktop_scroll','wm_escape','mouse_trails','terminal_opacity','window_controls','terrain_grid','season','show_foliage','show_animals','show_flowers','show_lookout','arrival_duration','snap_windows','flux_performance','flux_arms','flux_density','flux_glow','window_opacity','flurry_sway','flurry_speed','flurry_strands','style','palette','animate','animation_duration','move_mode','resize_mode',
+PREFS=('application_menu_mode','app_preferences','scenery','font_preview_id','show_underlying_text','timezone_name','list_scrollbars','list_counts','status_verbosity','pager_position','show_pager','resize_edges','desktop_scroll','wm_escape','mouse_trails','terminal_opacity','window_controls','terrain_grid','season','show_foliage','show_animals','show_flowers','show_lookout','arrival_duration','snap_windows','flux_performance','flux_arms','flux_density','flux_glow','window_opacity','flurry_sway','flurry_speed','flurry_strands','style','palette','animate','window_animations','animation_duration','move_mode','resize_mode',
        'tinted','background_enabled','focused_button_minimizes','overview_opacity','scene_seed','nature_epoch','nature_rate','light_mode','moon_phase','parallax','overview_zoom','terrain_shadows','shadow_enabled','shadow_size','shadow_opacity','shadow_direction','show_clock','show_connectivity')
 
 
@@ -92,6 +92,7 @@ def restore(data,host,panels,layout=True):
     if prefs['application_menu_mode'] not in MENU_MODES:raise ValueError('invalid application menu mode')
     prefs.setdefault('wm_escape','ctrl-]')
     if prefs['wm_escape'] not in WM_ESCAPES:raise ValueError('invalid WM escape')
+    prefs.setdefault('window_animations',False)
     prefs.setdefault('mouse_trails',False)
     prefs.setdefault('terminal_opacity',1.)
     prefs.setdefault('window_controls','auto')
@@ -145,7 +146,7 @@ def restore(data,host,panels,layout=True):
     if prefs['moon_phase'] not in PHASES:raise ValueError('invalid moon phase')
     if prefs['light_mode'] not in ('dynamic','day','night'):raise ValueError('invalid light mode')
     if prefs['nature_rate'] not in (1,10,30,60):raise ValueError('invalid nature speed')
-    for key in ('show_underlying_text','show_pager','resize_edges','desktop_scroll','mouse_trails','show_foliage','show_animals','show_flowers','show_lookout','snap_windows','animate','tinted','background_enabled','focused_button_minimizes','show_clock','show_connectivity'):
+    for key in ('show_underlying_text','show_pager','resize_edges','desktop_scroll','mouse_trails','show_foliage','show_animals','show_flowers','show_lookout','snap_windows','animate','window_animations','tinted','background_enabled','focused_button_minimizes','show_clock','show_connectivity'):
         if type(prefs[key]) is not bool:raise ValueError('invalid toggle')
     for key,low,high in (('terminal_opacity',0,1),('terrain_grid',0,.35),('arrival_duration',.25,12),('flux_density',.5,4),('flux_glow',0,1),('window_opacity',0,1),('flurry_sway',0,1),('flurry_speed',.25,2),('parallax',0,.03),('overview_zoom',1,2.5),('shadow_size',1,4),('shadow_opacity',0,.85)):
         if type(prefs[key]) not in (int,float) or not low<=prefs[key]<=high:raise ValueError('invalid scene control')

@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
 from app_readiness import AppReadiness
+from app_registry import instantiated_forms
 from core import Inbox
 from model_deadlines import ModelDeadlines
 from renderer_wakeup import FutureWakeups
@@ -23,7 +24,7 @@ class LifecycleTests(unittest.TestCase):
         self.ready=AppReadiness(self.selector);self.addCleanup(self.ready.close)
         self.schedule=ModelDeadlines()
         self.forms={}
-        self.env=dict(DEVELOPMENT=True,lifecycle_refresh=True,applications=(),metrics=None,host=SimpleNamespace(app_forms=self.forms,damage=False,
+        self.env=dict(instantiated_forms=instantiated_forms,DEVELOPMENT=True,lifecycle_refresh=True,applications=(),metrics=None,host=SimpleNamespace(app_forms=self.forms,damage=False,
             window=lambda name:SimpleNamespace(rolled=False),shown=lambda w:True),
             radio=None,timeout=None,owner_delays={},model_schedule=self.schedule,now=10.,serviced_owners=set(),
             future_wakeups=FutureWakeups(self.inbox),app_readiness=self.ready,time=time,presented_forms=())

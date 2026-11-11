@@ -11,8 +11,8 @@ static PyObject *create(PyObject *self,PyObject *args){(void)self;unsigned w,h;i
 static PyObject *getcell(PyObject *self,PyObject *args){(void)self;PyObject *o;unsigned i;uint32_t glyph;uint64_t ink;if(!PyArg_ParseTuple(args,"OI",&o,&i))return NULL;Surface *s=surface(o);if(!s)return NULL;int valid=cw_get(s,i,&glyph,&ink);if(valid<0){PyErr_SetString(PyExc_IndexError,"cell index");return NULL;}if(!valid)Py_RETURN_NONE;return Py_BuildValue("IK",glyph,(unsigned long long)ink);}
 /* Packed native export for pixel presenters. No per-cell Python objects. */
 static PyObject *export_cells(PyObject *self,PyObject *args){
- (void)self;PyObject *o,*indices;Py_buffer view;
- if(!PyArg_ParseTuple(args,"OO",&o,&indices))return NULL;
+ (void)self;PyObject *o,*indices;Py_buffer view;int holes=0;
+ if(!PyArg_ParseTuple(args,"OO|p",&o,&indices,&holes))return NULL;
  Surface *s=surface(o);if(!s)return NULL;
  if(PyObject_GetBuffer(indices,&view,PyBUF_FORMAT|PyBUF_C_CONTIGUOUS))return NULL;
  if(view.itemsize!=4||view.ndim!=1||!view.format||strcmp(view.format,"I")||view.len%4||view.len/4>65536||(view.len&&(uintptr_t)view.buf%4)){
@@ -21,8 +21,9 @@ static PyObject *export_cells(PyObject *self,PyObject *args){
  Py_ssize_t count=view.len/4;const uint32_t *ids=view.buf;PyObject *result=PyBytes_FromStringAndSize(NULL,count*16);
  if(!result){PyBuffer_Release(&view);return NULL;}
  char *out=PyBytes_AsString(result);
- for(Py_ssize_t i=0;i<count;++i){uint32_t n=ids[i];if(n>=(size_t)s->w*s->h||!s->valid[n]){Py_DECREF(result);PyBuffer_Release(&view);PyErr_SetString(PyExc_ValueError,"invalid native front cell");return NULL;}
-  memcpy(out+i*16,&n,4);memcpy(out+i*16+4,s->glyph+n,4);memcpy(out+i*16+8,s->ink+n,8);
+ for(Py_ssize_t i=0;i<count;++i){uint32_t n=ids[i];if(n>=(size_t)s->w*s->h||(!s->valid[n]&&!holes)){Py_DECREF(result);PyBuffer_Release(&view);PyErr_SetString(PyExc_ValueError,"invalid native front cell");return NULL;}
+  uint32_t glyph=s->valid[n]?s->glyph[n]:32;uint64_t ink=s->valid[n]?s->ink[n]:0;
+  memcpy(out+i*16,&n,4);memcpy(out+i*16+4,&glyph,4);memcpy(out+i*16+8,&ink,8);
  }
  PyBuffer_Release(&view);return result;
 }
@@ -137,6 +138,7 @@ static PyMethodDef methods[]={
  {"damage_update",dirty_update,METH_VARARGS,"Add/remove bounded indices."},
  {"damage_merge",dirty_merge,METH_VARARGS,"Union/intersect/subtract dirty maps."},
  {"damage_take",dirty_take,METH_VARARGS,"Select a bounded priority batch."},
+ {"damage_bounds",dirty_bounds,METH_VARARGS,"Read exact damage bounds without exporting indices."},
  {"damage_intersects",dirty_intersects,METH_VARARGS,"Test a packed index batch."},
  {"damage_diff",dirty_diff,METH_VARARGS,"Compare native scene planes."},
  {"scene_has",scene_has,METH_VARARGS,"Test a native overlay cell."},

@@ -8,6 +8,7 @@ from functools import partial
 import time
 import math
 import os
+from array import array
 from paint import ink,rgb
 
 _BUNDLED=Path(__file__).resolve().parent/'vendor/packet-console'
@@ -42,6 +43,47 @@ class Image:
     seconds:float
     projection:object=None
     source:str='rendered'
+    features:object=None
+
+
+@dataclass(frozen=True,slots=True)
+class MapFeatures:
+    terrain:array
+    vectors:tuple
+    labels:dict
+    sample_width:int
+    sample_height:int
+
+
+@dataclass(frozen=True,slots=True)
+class MapSurface:
+    """One displayed map image, its app annotations, and grid preference."""
+    image:Image
+    layer:tuple
+    renderer:object
+    key:tuple
+    grid_mode:str='off'
+    overlay_vectors:tuple=()
+    terrain:bool=True
+    roads:bool=True
+    unavailable_reason:str=''
+    def viewport(self):
+        projection=self.image.projection;_,_,width,height,_=self.layer
+        return self.renderer.module.Viewport(projection.center,projection.span,width,height,projection.cell_aspect)
+    def features(self,view,base_cells):
+        if self.unavailable_reason:raise ValueError(self.unavailable_reason)
+        prepared=getattr(self.image,'features',None)
+        projection=self.image.projection
+        if (prepared is not None and projection is not None and
+            (view.width,view.height,tuple(view.center),view.span,view.cell_aspect)==
+            (self.image.width,self.image.height,tuple(projection.center),projection.span,projection.cell_aspect)):
+            from map_geography import grid_enabled,grid_features
+            if not grid_enabled(self.grid_mode,view.span):return prepared
+            grid_vector,grid_labels=grid_features(view)
+            return MapFeatures(prepared.terrain,(grid_vector,*prepared.vectors),
+                               {**grid_labels,**prepared.labels},prepared.sample_width,prepared.sample_height)
+        return self.renderer.semantic_features(view,base_cells,terrain=self.terrain,
+                                               roads=self.roads,grid_mode=self.grid_mode)
 
 
 _Q5=tuple(round(round(value*31/255)*255/31) for value in range(256))
@@ -60,6 +102,48 @@ class Plane:
     def __init__(self,base,overlay):self.base,self.overlay=base,overlay
     def __getitem__(self,index):return self.overlay.get(index,self.base[index])
     def __len__(self):return len(self.base)
+
+
+class SemanticPlane:
+    """Terrain-only cell fallback over a semantic pixel frame."""
+    __slots__=('samples','width','height')
+    def __init__(self,samples,width,height):self.samples,self.width,self.height=samples,width,height
+    def __len__(self):return self.width*self.height
+    def __getitem__(self,index):
+        if isinstance(index,slice):return tuple(self[i] for i in range(*index.indices(len(self))))
+        if index<0:index+=len(self)
+        if not 0<=index<len(self):raise IndexError(index)
+        row,column=divmod(index,self.width)
+        upper=self.samples[(row*2)*self.width+column]
+        lower=self.samples[(row*2+1)*self.width+column]
+        return (' ' if upper==lower else '▀',(1<<48)|(upper<<24)|lower)
+
+
+class GridPlane(Plane):
+    """TUI grid marks; pixel consumers use geographic grid features."""
+
+class PathPlane(Plane):
+    """TUI path dots; pixel consumers use the source endpoint geometry."""
+
+
+def without_grid(layer):
+    """Keep app annotations while removing TUI line presentations."""
+    if layer is None:return None
+    x,y,w,h,plane=layer
+    def clean(value):
+        if isinstance(value,(GridPlane,PathPlane)):return clean(value.base)
+        if isinstance(value,Plane):
+            base=clean(value.base)
+            return value if base is value.base else Plane(base,value.overlay)
+        return value
+    return x,y,w,h,clean(plane)
+
+
+def plane_identity(plane):
+    """Stable identity for rebuilt annotation wrappers over retained cells."""
+    if isinstance(plane,(GridPlane,PathPlane)):return plane_identity(plane.base)
+    if isinstance(plane,Plane):return plane_identity(plane.base),tuple(sorted(plane.overlay.items()))
+    return id(plane)
 
 
 class ScaledPlane:
@@ -141,6 +225,7 @@ class Renderer:
         self.module=self.engine=None;self.meshes=OrderedDict();self.latest3d=None;self._wanted=None
         from map_regions import Regions
         self.reuse_regions=False;self.regions=Regions();self.completion_wakeup=None;self.loading_phase='idle'
+        self.presentation='cells'
         self.timing_enabled=False;self._request_timing={};self._worker_timing={};self._worker_counts={};self._wanted_since=None
     def _completed(self,future):
         callback=self.completion_wakeup
@@ -148,6 +233,36 @@ class Renderer:
             try:callback()
             except Exception:pass
     def region_compatible(self,span):return span>=20
+    def supports_semantic_image(self,image):
+        return getattr(image,'features',None) is not None or getattr(self,'provider_selection',None) is None
+    def set_presentation(self,mode):
+        if mode not in ('cells','semantic'):raise ValueError('Unknown map presentation')
+        if self.pending or self.ready:raise RuntimeError('Select map presentation before the first frame')
+        self.presentation=mode
+    def semantic_features(self,view,terrain_cells,*,terrain=True,roads=True,grid_mode='off'):
+        """Give a pixel backend clean terrain, geographic lines, and labels."""
+        if self.engine is None:raise ValueError('Offline map engine is not ready')
+        if len(terrain_cells)!=view.width*view.height:raise ValueError('Map terrain dimensions differ')
+        from map_geography import vector_segments,label_annotations,grid_features,grid_enabled
+        # The cell plane contains TUI road strokes and labels. Never infer a
+        # pixel map's terrain from those painted glyphs. Sample the engine's
+        # terrain source at the same projection instead.
+        frame,_=self.engine._rgb_terrain(view,terrain)
+        return self._features_from_terrain(view,frame,roads,grid_mode)
+    def _features_from_terrain(self,view,frame,roads=True,grid_mode='off'):
+        from map_geography import vector_segments,label_annotations,grid_features,grid_enabled
+        samples=array('I')
+        for row in range(view.height):
+            cells=frame[row*view.width:(row+1)*view.width]
+            samples.extend(map_rgb(upper) for _,upper,_ in cells)
+            samples.extend(map_rgb(lower) for _,_,lower in cells)
+        vectors=list(vector_segments(self.engine,view,roads=roads))
+        labels=label_annotations(self.engine,view,roads=roads)
+        if grid_enabled(grid_mode,view.span):
+            grid_vector,grid_labels=grid_features(view)
+            vectors.insert(0,grid_vector)
+            labels={**grid_labels,**labels}
+        return MapFeatures(samples,tuple(vectors),labels,view.width,view.height*2)
     def region_identity(self):return getattr(self.engine,'cache_identity',id(self.engine.palette))
     def region_status(self,image=None):
         return dict(source=getattr(image,'source',None),regions=len(self.regions.ready),
@@ -198,6 +313,8 @@ class Renderer:
         self.engine.forest_roads=getattr(self,'forest_roads',False)
         if stage is not None:self._stage('initialize_seconds',stage)
         if key[0]=='3d':return self._render3d(key[1:])
+        if key[0] in ('map','context') and self.presentation=='semantic':
+            return self._render_semantic(key,began)
         _,center,span,width,height,terrain,roads=key
         viewport=self.module.Viewport(center,span,width,height)
         projection=None;source=None
@@ -221,6 +338,17 @@ class Renderer:
         if stage is not None:self._stage('places_seconds',stage)
         self.loading_phase='ready'
         return Image(width,height,cells,legend,places,time.monotonic()-began,projection or viewport,source)
+    def _render_semantic(self,key,began):
+        """Prepare one clean source frame; native and TUI share the map engine."""
+        _,center,span,width,height,terrain,roads=key
+        view=self.module.Viewport(center,span,width,height)
+        frame,legend=self.engine._rgb_terrain(view,terrain)
+        features=self._features_from_terrain(view,frame,roads)
+        if key!=self._wanted:raise CancelledError()
+        places=tuple((p['name'] if 'name' in p else p.get('label',''),p['lon'],p['lat']) for p in self.engine.places(view))
+        self.loading_phase='ready'
+        return Image(width,height,SemanticPlane(features.terrain,width,height),legend,places,
+                     time.monotonic()-began,view,'semantic',features)
     def _packed_view(self,viewport,terrain,roads,display_span=None):
         prepared=getattr(self.engine,'prepared',None)
         cache_key=(viewport.key,bool(terrain),bool(roads)) if hasattr(viewport,'key') else None

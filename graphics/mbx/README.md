@@ -1,9 +1,23 @@
-# MBX and Mesa source checkpoint
+# MBX driver source
 
-This directory contains the original MBX packet encoders, the experimental GPU module, Mesa integration, presentation helpers and their tests. The top-level directories preserve the earlier 4 November source checkpoint. The later [verified 30 FPS snapshot](checkpoints/30fps-20261104/README.md) contains the frozen production changes and regression tests behind the repeated GPU-geometry result. Its [build guide](../../docs/how-to/build-gpu-30fps.md) selects that source explicitly.
+The PowerVR MBX driver source lives in `graphics/mbx/` in the repository.
+It provides GPU command encoding, a Linux submission module and Mesa integration
+for the N810.
 
-`common/` defines command construction and the supported vertex instructions. `kernel/` owns DMA buffers, submission and completion handling. `mesa/` adapts Mesa 22.3.6 to those interfaces. `runtime/` contains experimental device-side diagnostics. `tests/` exercises the encoders, ownership checks and software reference comparisons.
+| Path under `graphics/mbx/` | Contents |
+| --- | --- |
+| `common/` | Command encoders and shared interfaces. |
+| `kernel/` | GPU submission, DMA buffers and completion handling. |
+| `mesa/` | Mesa rendering and resource adapters. |
+| `tests/` | Encoder, resource lifetime and pixel comparison tests. |
+| `build-inputs/` | Kernel configuration, compiler and library inputs. |
+| `dependencies.lock.json` | Dependency download locations and checksums. |
+| `checkpoints/` | Earlier driver versions used by historical benchmarks. |
 
-The source archive and Debian armel sysroot packages are pinned by URL and SHA-256 in `dependencies.lock.json`. The [graphics build guide](../../docs/how-to/build-graphics.md) describes the portable builder. The [verification page](../../docs/reference/component-build-verification.md) records the module and Mesa build results for each checkpoint.
+Start with [Run the N810 GPU desktop](../../docs/how-to/run-n810-gpu.md).
+The [driver build guide](../../docs/how-to/build-graphics.md) covers compilation.
+The [rendering explanation](../../docs/explanation/rendering.md) describes how
+Pocket uses the driver.
 
-Source files retain their SPDX or upstream license notices. Mesa's upstream archive supplies the licensing terms for its own code. Diagnostic and historical live-packaging helpers require their stated lab inputs; the portable build entry point is `build.py`.
+Mesa and Linux retain their upstream license terms; source files carry their
+applicable notices.

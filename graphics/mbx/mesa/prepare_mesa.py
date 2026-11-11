@@ -17,8 +17,11 @@ def prepare(source):
         if data.count(before) != 1:
             raise RuntimeError(f'Mesa integration anchor changed: {name}')
         path.write_text(data.replace(before, after))
-    for name in ('sp_mbx_vgp.h','sp_mbx_vgp_impl.h','mbx_trace.h','sp_mbx.c', 'sp_mbx.h','sp_mbx_backend.h','mbx_startup_gate.h','mbx_cpu_profile.h','mbx_color_cache.h'):
+    for name in ('sp_mbx_vgp.h','sp_mbx_vgp_impl.h','sp_mbx.c','sp_mbx.h','sp_mbx_backend.h',
+                 'separate_blend.c','channel_wire.c','sg_texture_resource.c','linear_resource.c'):
         (target / name).write_bytes((own / name).read_bytes())
+    for header in own.glob('*.h'):
+        (target / header.name).write_bytes(header.read_bytes())
     edit('meson.build', "  'sp_buffer.c',", "  'sp_mbx.c',\n  'sp_mbx.h',\n  'sp_buffer.c',")
     # pipe_context must remain at offset zero: Gallium casts its base pointer.
     # Repair the initial bring-up layout as well as handling pristine sources.
@@ -142,7 +145,7 @@ static void mbx_pipeline_profile(const uint64_t t[5])
         assert pv.count(anchor)==1
         pv=pv.replace(anchor,'if(draw_current_shader_position_output(draw)!=-1){mbx_trace_end_n("primitive_emit",mbx_stage_trace,0,4096);mbx_pipeline_profile(mbx_t);}')
         pp.write_text(pv)
-    for name in ('mbx_vgp_capture.h','mbx_vgp_shader.h','mbx_vgp_isa.h','mbx_vgp_isa.c'):
+    for name in ('mbx_vgp_capture.h','mbx_vgp_shader.h','mbx_affine_uv.h','mbx_vgp_isa.h','mbx_vgp_isa.c'):
         (draw/name).write_bytes((own/name).read_bytes())
     aux=draw.parent/'meson.build'
     av=aux.read_text()
@@ -156,7 +159,7 @@ static void mbx_pipeline_profile(const uint64_t t[5])
         pv=pv.replace('   vert_info = &fetched_vert_info;', '   vert_info = &fetched_vert_info;\n   bool mbx_raw_capture=mbx_vgp_capture_begin(draw,vert_info,prim_info);')
         pv=pv.replace('   mbx_t[2]=mbx_pipeline_clock();', '   if(mbx_raw_capture)mbx_vgp_capture_end(vert_info);\n   mbx_t[2]=mbx_pipeline_clock();')
         pp.write_text(pv)
-    for name in ('mbx_vgp_topology.h','mbx_vgp_topology.c','mbx_vgp_wire.h','mbx_vgp_draw.h','mbx_packets.h'):
+    for name in ('mbx_vgp_topology.h','mbx_vgp_topology.c','mbx_vgp_wire.h','mbx_vgp_draw.h','mbx_packets.h','mbx_image_abi.h','mbx_window_images.h'):
         (draw/name).write_bytes((own/name).read_bytes())
     av=aux.read_text()
     if "'draw/mbx_vgp_topology.c'" not in av:

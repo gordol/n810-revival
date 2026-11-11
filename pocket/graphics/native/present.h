@@ -21,10 +21,15 @@ struct mbx_presenter {
     struct mbx_present_ops ops;
     void *context;
     uint64_t submitted, completed, copied_bytes;
-    int pending, faulted;
+    int pending, faulted, writing;
     struct mbx_rect submitted_region;
 };
 int mbx_present_drain(struct mbx_presenter *p);
+/* Borrow the destination only after its previous display transfer completes.
+ * One owner must submit or cancel before any other presentation/close. */
+int mbx_present_acquire(struct mbx_presenter *,struct mbx_surface *);
+int mbx_present_submit(struct mbx_presenter *,struct mbx_rect);
+int mbx_present_cancel(struct mbx_presenter *);
 /* Single owner, no allocation, no X, no format conversion or scaling.
  * All bounds are validated before waiting or touching the framebuffer.
  * A transfer failure latches faulted; recovery belongs to the display owner. */

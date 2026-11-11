@@ -20,6 +20,8 @@ assert requested_display_rate in (None,'30','60')
 display_rate_changed=False
 assert os.environ.get('N810_MBX_PARALLEL_START','0') in ('0','1')
 parallel_startup=os.environ.get('N810_MBX_PARALLEL_START','0')=='1'
+original_rfbi_mode=Path('/sys/class/graphics/fb0/update_mode').read_text().strip()
+assert original_rfbi_mode in ('1','2')
 original=Path('/sys/class/tty/tty0/active').read_text().strip()
 assert original in ('tty1','tty8'),original
 # Ask the kernel for an unused VT; openvt still refuses an intervening owner.
@@ -262,6 +264,13 @@ finally:
  if desktop_pause is not None:
   desktop_pause.close();report['hidden_desktop_resumed']=True
  subprocess.run(['chvt',original.removeprefix('tty')],check=True)
+ # Preflight can fail after selecting manual RFBI but before a GPU service
+ # exists. Restore the original update policy even on that path, then submit
+ # the newly restored console once so stale panel RAM cannot remain visible.
+ Path('/sys/class/graphics/fb0/update_mode').write_text(original_rfbi_mode+'\n')
+ with open('/dev/fb0','rb',buffering=0) as restored:
+  fcntl.ioctl(restored.fileno(),0x40444f36,struct.pack('17I',0,0,800,480,0,0,0,800,480,*([0]*8)))
+ report['rfbi_update_mode_restored']=True
  backlight.write_text(original_brightness+'\n')
  if idle_paused:subprocess.run(['/etc/init.d/n810-wake','start'],check=True)
  # A benchmark may begin after the idle timer has already blanked the panel.

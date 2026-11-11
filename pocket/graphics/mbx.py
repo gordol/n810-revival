@@ -55,26 +55,31 @@ class Renderer:
   if not (0<h.width<=512 and 0<h.height<=256):raise ValueError('Recreate GPU renderer after resize')
   _,changed,computed=h.flush(budget,serialize=False)
   return self.consume_composed(changed,computed)
- def consume_composed(self,changed,computed):
-  # Accept a model-owned native composition batch without flushing it twice.
-  h=self.host;palette=h._ansi_colors();drawn=0
+ def prepare_palette(self):
+  h=self.host;palette=h._ansi_colors()
+  inputs=(palette,h.tinted,h.overview_opacity)
+  if getattr(self,'palette_inputs',None)==inputs:return self.layer_palette,self.layer_fallback
   shade=round((10 if h.tinted else 18)*(1-h.overview_opacity)+24*h.overview_opacity)
+  descriptors=[]
+  for color in range(len(palette)):
+   fallback=f'2;{shade};{shade};{shade}' if color in (15,16) else '5;232' if color==14 else '2;10;10;10' if color>=4 and h.tinted else '5;233'
+   descriptors.append(style(foreground(color,palette),background(color,fallback)))
+  if any(bold or underline for _,_,bold,underline in descriptors):raise ValueError('Native GPU batch does not yet support styled palette glyphs')
+  packed=(C.c_uint32*len(descriptors))(*(fg|(bg<<16) for fg,bg,_,_ in descriptors))
+  fallback=style('38;2;0;0;0','2;10;10;10' if h.tinted else '5;233')[1]
+  self.layer_palette=packed;self.layer_fallback=fallback;self.layer_key=tuple(packed);self.palette_inputs=inputs
+  return packed,fallback
+ def consume_composed(self,changed,computed):
+  # Terminal-compatible frontend only; native pixel scenes call prepare_palette.
+  h=self.host;drawn=0
   try:
    native=h._native
    if native is None or h.front is not native.front or not hasattr(native.lib,'export_cells'):
     raise RuntimeError('MBX GUI requires native batched cell export; Python per-cell fallback refused')
-   descriptors=[]
-   for color in range(len(palette)):
-    fallback=f'2;{shade};{shade};{shade}' if color in (15,16) else '5;232' if color==14 else '2;10;10;10' if color>=4 and h.tinted else '5;233'
-    descriptors.append(style(foreground(color,palette),background(color,fallback)))
-   if any(bold or underline for _,_,bold,underline in descriptors):
-    raise ValueError('Native GPU batch does not yet support styled palette glyphs')
+   packed,fallback=self.prepare_palette()
    indices=h.composed_indices
    if not isinstance(indices,memoryview):indices=memoryview(array('I',indices))
    records=native.lib.export_cells(native.front.pointer,indices)
-   packed=(C.c_uint32*len(descriptors))(*(fg|(bg<<16) for fg,bg,_,_ in descriptors))
-   fallback=style('38;2;0;0;0','2;10;10;10' if h.tinted else '5;233')[1]
-   self.layer_palette=packed;self.layer_fallback=fallback;self.layer_key=tuple(packed)
    drawn=self.lib.pocket_mbx_stage_region(self.handle,C.c_char_p(records),len(records),self.font_codes,self.font_bits,len(self.font_codes),packed,len(packed),fallback,h.width,h.height,*getattr(h,"origin",(0,0)))
    if drawn<0:
     import struct

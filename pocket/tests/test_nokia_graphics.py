@@ -1,6 +1,6 @@
 """Nokia pixels reuse selector input and do not poll idle or own the display stack."""
 from pathlib import Path
-import ast,importlib.util,sys,unittest
+import ast,importlib.util,sys,tempfile,unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
@@ -9,6 +9,27 @@ spec=importlib.util.spec_from_file_location('test_nokia_pixels',ROOT/'graphics/n
 nokia=importlib.util.module_from_spec(spec);spec.loader.exec_module(nokia)
 class NokiaGraphics(unittest.TestCase):
  def platform(self,**kwargs):return nokia.NokiaPlatform('font','renderer',None,**kwargs)
+ def test_default_and_explicit_cell_renderer_reach_platform_in_source_and_release(self):
+  # Exercise argument parsing through main, before opening a VT or renderer.
+  sys.path.insert(0,str(ROOT/'tools'))
+  from runtime_profile import release_source
+  raw=(ROOT/'graphics/nokia.py').read_bytes()
+  class Captured(Exception):pass
+  for release in (False,True):
+   tree=ast.parse(release_source(raw,'nokia.py') if release else raw)
+   main=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='main')
+   scope=dict(nokia.__dict__)
+   exec(compile(ast.fix_missing_locations(ast.Module(body=[main],type_ignores=[])),'nokia-main','exec'),scope)
+   for extra,expected in (([], 'gpu'),(['--cell-renderer','cpu'],'cpu')):
+    with self.subTest(release=release,renderer=expected),tempfile.TemporaryDirectory() as state:
+     captured={}
+     def platform(*args,**kwargs):captured.update(kwargs);raise Captured
+     scope.update(NokiaPlatform=platform,Window=lambda *a,**k:None)
+     argv=['nokia.py','--framebuffer-fd','3','--font','font','--renderer-library','renderer','--display-library','display','--native-library','native','--state',state,*extra]
+     with patch.object(sys,'argv',argv),patch('keyboard_runtime.console_foreground',return_value=True):
+      with self.assertRaises(Captured):scope['main']()
+     self.assertEqual(captured['cell_renderer'],expected)
+     self.assertTrue(captured['require_gpu'])
  def test_idle_uses_model_deadline_without_polling(self):
   p=self.platform();self.assertIsNone(p.wait_timeout(None));self.assertEqual(p.wait_timeout(12),12)
  def test_bounded_check_deadline_starts_after_initialization(self):
@@ -36,4 +57,19 @@ class NokiaGraphics(unittest.TestCase):
   self.assertTrue(nokia.NokiaPlatform.terminal_input)
   text=(ROOT/'shell/desktop.py').read_text()
   self.assertIn("platform is None or getattr(platform,'terminal_input',False):selector.register(sys.stdin",text)
+ def test_owner_scan_tolerates_exited_process_but_rejects_busy_vt(self):
+  import os
+  tree=ast.parse((ROOT/'platform/n810/native_owner.py').read_text())
+  scan=next(n for n in tree.body if isinstance(n,ast.For) and isinstance(n.target,ast.Name) and n.target.id=='f')
+  code=compile(ast.fix_missing_locations(ast.Module(body=[scan],type_ignores=[])),'owner-scan','exec')
+  def run(error=None,tty=0):
+   def read():
+    if error:raise error
+    return '1 (process with spaces) S 1 2 3 '+str(tty)+' 0'
+   paths=SimpleNamespace(glob=lambda pattern:[SimpleNamespace(read_text=read)])
+   exec(code,dict(Path=lambda path:paths,os=os,vt=3))
+  for error in (FileNotFoundError(),ProcessLookupError()):run(error)
+  run(tty=os.makedev(4,4))
+  with self.assertRaises(AssertionError):run(tty=os.makedev(4,3))
+  with self.assertRaises(PermissionError):run(PermissionError())
 if __name__=='__main__':unittest.main()
