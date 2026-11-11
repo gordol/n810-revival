@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Exercise semantic map handoff through the native desktop event dispatcher."""
 from pathlib import Path
-import json,sys,tempfile,time
+import json,sys,tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tests'))
 from reference_fixtures import activate
 activate()
@@ -13,7 +13,7 @@ from scenes import MapScene,MapComposite
 def main():
     from map_pixels import View
     original=View.render_image
-    counts={'active':0,'missing':0,'composite':0,'surround':0,'drag_composite':0,'overview_inset':0,'inset_surface':0,'inset_error':'','side_overview':0,'locator_rect':0}
+    counts={'completed':False,'active':0,'missing':0,'composite':0,'surround':0,'drag_composite':0,'overview_inset':0,'inset_surface':0,'inset_error':'','side_overview':0,'locator_rect':0}
     scenes=set()
     def render(view):
         plan=view.plan();result=original(view)
@@ -43,35 +43,47 @@ def main():
             def reject(*args):raise AssertionError('Desktop attempted pixel readback rasterization')
             self.renderer.finish=reject
         def events(self):
-            if not hasattr(self,'started'):self.started=time.monotonic();self.stage=0
-            schedule=((.2,{'launch':'window:Station Map'}),
-                      (1.2,{'key':'+'}),(1.6,{'key':'\r'}),
-                      (2.2,{'key':'-'}),(2.6,{'key':'\r'}),
-                      (3.2,{'resize':[125,40]}),(4.,{'key':'v'}),
-                      (4.5,{'key':'+'}),(5.,{'key':'-'}),
-                      (5.5,{'key':'u'}),(5.9,{'key':'s'}),(6.2,{'key':'z'}))
-            if self.stage<len(schedule) and time.monotonic()-self.started>=schedule[self.stage][0]:
-                self.actions.insert(0,schedule[self.stage][1]);self.stage+=1
-            events=super().events()
-            elapsed=time.monotonic()-self.started
+            if not hasattr(self,'stage'):
+                self.stage=0;self.last_active=-1;self.drag_step=0
+            schedule=({'launch':'window:Station Map'},
+                      {'key':'+'},{'key':'\r'},
+                      {'key':'-'},{'key':'\r'},
+                      {'resize':[125,40]},{'key':'v'},
+                      {'key':'+'},{'key':'-'},
+                      {'key':'u'},{'key':'s'},{'key':'z'})
             map_view=next((view for view in self.pixel_apps if view.name=='Station Map'),None)
-            if elapsed>=6.5 and self.stage>=len(schedule) and getattr(self,'drag_step',0)<3:
-                if map_view is not None and map_view._surround_scene is not None:
-                    wx,wy,ww,wh=self.host.bounds(self.host.window('Station Map'))
-                    column=wx+ww//2;row=wy+max(3,(wh-3)//2)
+            ready=(map_view is not None and map_view.ready is not None and map_view.pending is None)
+            # Advance only after the preceding action received a map frame.
+            # Software CI rendering can take longer than a timed action script.
+            advanced=counts['active']>self.last_active
+            dispatched=False
+            if self.stage<len(schedule) and (self.stage==0 or ready and advanced):
+                self.actions.insert(0,schedule[self.stage]);self.stage+=1;dispatched=True
+                self.last_active=counts['active']
+            events=super().events()
+            if not dispatched and self.stage==len(schedule) and ready and advanced and counts['overview_inset']:
+                if map_view._surround_scene is not None and self.drag_step<3:
+                    if self.drag_step==0:
+                        wx,wy,ww,wh=self.host.bounds(self.host.window('Station Map'))
+                        self.drag_origin=(wx+ww//2,wy+max(3,(wh-3)//2))
+                    column,row=self.drag_origin
                     actions=((0,column,row,False),(32,column+6,row+4,False),(0,column+6,row+4,True))
-                    self.drag_step=getattr(self,'drag_step',0)
-                    if self.drag_step<len(actions):
+                    # Hold the pointer until a shifted scene has actually drawn.
+                    if self.drag_step!=2 or counts['drag_composite']:
                         events.append(('mouse',*actions[self.drag_step]));self.drag_step+=1
+                        self.last_active=counts['active']
+                elif self.drag_step==3 and counts['drag_composite']:
+                    counts['completed']=True;self.closed=True
             return events
     run.shared.Platform=Platform;View.render_image=render
     try:
         with tempfile.TemporaryDirectory(prefix='pocket-map-check-') as folder:
             report=Path(folder)/'report.json'
             options=sys.argv[1:]
-            sys.argv=[__file__,'--headless','--seconds','8','--state',folder,
+            sys.argv=[__file__,'--headless','--seconds','120','--state',folder,
                       '--report',str(report),'--effect-backend','cpu','--no-save',*options]
             run.main();data=json.loads(report.read_text());gpu=data['gpu_scene']
+            if not counts['completed']:raise AssertionError('Map interaction sequence did not complete: '+repr(counts))
             if counts['active']<3 or counts['missing']:raise AssertionError(counts)
             if counts['drag_composite']<1:raise AssertionError('Native map drag did not draw its surrounding map: '+repr(counts))
             if counts['overview_inset']<1:raise AssertionError('Native map side overview omitted its inset scene: '+repr(counts))

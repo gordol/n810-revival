@@ -11,7 +11,7 @@ def main():
     args=parser.parse_args()
     for name in ('input','borders'):
         subprocess.run([str(HERE.parent/'build/graphics'/f'test-desktop-{name}')],check=True,timeout=30)
-    subprocess.run([sys.executable,str(HERE/'check_map.py'),*(['--allow-software'] if args.allow_software else [])],check=True,timeout=45)
+    subprocess.run([sys.executable,str(HERE/'check_map.py'),*(['--allow-software'] if args.allow_software else [])],check=True,timeout=150)
     with tempfile.TemporaryDirectory(prefix='pocket-graphics-check-') as folder:
         folder=Path(folder);actions=folder/'actions.json';report=folder/'report.json';output=folder/'frame.rgb565'
         actions.write_text(json.dumps([{'menu':True},{'key':'\u001b'},{'launch':'window:Messages'},{'launch':'window:Settings'},{'launch':'terminal:new'},{'app':'surface-room'},{'resize':[123,47]},{'resize':[80,25]}]))

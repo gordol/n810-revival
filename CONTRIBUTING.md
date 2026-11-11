@@ -93,6 +93,11 @@ tree. Review the diff, stage only intended files, then run it. The site build
 checks links and renders documentation; inspect affected pages and media too.
 Use the component build guides for kernel, graphics, HTIT, and map-data changes.
 
+GUI interaction checks must wait for rendered state and fail if the sequence
+does not complete within a bounded timeout. Verify graphics harness changes
+with `xvfb-run -a python3 pocket/graphics/check.py --allow-software` on Linux;
+a passing Mac GPU run does not cover the CI software renderer.
+
 Before uploading any history, run `python3 tools/check-history.py` locally and
 inspect relevant metadata and media. Redacting the latest file alone leaves
 earlier copies in history. Keep private recovery copies outside this repository.
