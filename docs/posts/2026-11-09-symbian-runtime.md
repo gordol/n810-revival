@@ -43,6 +43,34 @@ Input still takes seconds and varies with paging; reducing runtime handoffs and
 the remaining redraw work is the next priority. These measurements used completed
 GPU frames offscreen, with Pocket stopped and debug logging disabled.
 
+
+## 10 November: testing the 480 MHz setup
+
+We repeated the earlier ChessGenius test twice with the exact same native ARM
+runtime, Mesa library, 240×320 surface and Down/Up input sequence. Pocket and
+radio owners stayed stopped. Debug logging and sampling were off. The new kernel
+reported 480 MHz at both ends of each sample; no frequency setting changed.
+
+| Measurement | Earlier 330 MHz setup | Two 480 MHz runs |
+| --- | ---: | ---: |
+| CPU time in the 60-second application run | 24.46 s | 19.79 / 18.26 s |
+| First completed image | 16.87 s | 12.89 / 10.91 s |
+| Down → next completed image | 1.86 s | 1.86 / 1.41 s |
+| Up → next completed image | 2.84 s | 1.19 / 0.97 s |
+| Runtime peak RSS | 40.8 MiB | 52.5 / 52.6 MiB |
+| Major page faults | 1,736 | 871 / 811 |
+
+CPU time fell 19–25%, and Up responded faster in both runs. Down improved in one
+run. These are offscreen completed-image timings, not physical button-to-LCD
+latency or gameplay FPS. All 230,400 mask-fixture pixels matched exactly; both
+applications exited normally and the module unloaded without a reboot.
+
+This compares complete setups, not frequency alone: the kernel and GPU service
+configuration also changed. GPU submissions rose from 191 to 259, and counters
+reported two readbacks totaling 462,720 bytes per run, versus none previously.
+Memory use also increased. Those discrepancies need tracing before calling this
+an unchanged rendering pipeline or enabling the newer cache optimizations.
+
 <!-- journal-sources:start -->
 ## Code, tests and build inputs
 
