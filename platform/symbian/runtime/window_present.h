@@ -125,6 +125,15 @@ public:
     }
     bool present(unsigned source,unsigned width,unsigned height){
         if(width!=240||height!=320)throw std::runtime_error("Unexpected Symbian window dimensions");
+        // A pinned image is immutable: every admitted write opens an update
+        // before touching it. Repeated WSERV announcements need no new lease.
+        const char *reuse=std::getenv("N810_SYMBIAN_REUSE_PRESENT");
+        if(reuse&&!std::strcmp(reuse,"1")&&presented_&&pinned_&&!update_open_&&source==texture_){
+            // Service queued pause/resume, disconnect and cancellation through
+            // the normal handshake instead of hiding them behind a cache hit.
+            pollfd control[2]={{fd_,POLLIN,0},{cancel_[0],POLLIN,0}};
+            if(poll(control,2,0)==0)return true;
+        }
         if(!presented_){
             glFinish();const int result=publish_(source,&published_);
             // WSERV can announce a clear-only startup frame before any native
