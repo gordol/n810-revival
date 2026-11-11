@@ -1504,47 +1504,6 @@
       "guide": "",
       "source_heading": "Research status",
       "note": "Design investigation only. No Windows CE compatibility implementation or N810 test is included."
-    },
-    {
-      "post": "docs/posts/2026-11-11-pocket-map-rendering.md",
-      "id": "2026-11-11-pocket-map-rendering",
-      "implementation": [
-        {
-          "label": "Native map scenes",
-          "path": "pocket/graphics/map_pixels.py"
-        },
-        {
-          "label": "Shared map navigation",
-          "path": "pocket/shell/map_navigation.py"
-        },
-        {
-          "label": "Local station identity",
-          "path": "pocket/shell/directory_preferences.py"
-        }
-      ],
-      "tests": [
-        {
-          "label": "Native map desktop check",
-          "path": "pocket/graphics/check_map.py"
-        },
-        {
-          "label": "Map regression checks",
-          "path": "pocket/tests/test_map_interaction_regressions.py"
-        },
-        {
-          "label": "Pixel handoff checks",
-          "path": "pocket/tests/test_map_pixel_handoff.py"
-        }
-      ],
-      "inputs": [
-        {
-          "label": "Graphics build and checks",
-          "path": "pocket/Makefile"
-        }
-      ],
-      "guide": "how-to/validate.md",
-      "source_heading": "Code, tests and build inputs",
-      "note": "Host Metal and source-only checks accompany this port. N810 device acceptance remains separate. Public map acquisition inputs and local settings are excluded from Git."
     }
   ]
 }

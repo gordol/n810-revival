@@ -2,7 +2,8 @@
 
 Ordinary dragging moves the map. Zoom preview changes a target box; Enter accepts
 it and Escape cancels it. Explicit Overview keeps its camera fixed while the box
-is adjusted. Moving a preview beyond the loaded image scrolls its context at the
+is adjusted within the current view, expanding its context when the target leaves
+that view. Moving a preview beyond the loaded image scrolls its context at the
 same scale instead of returning to the regional overview.
 
 `map_regions.py` owns a cache of at most two geographic regions, with a combined
@@ -33,6 +34,30 @@ work, layer/scale invalidation, and north/south panning at a 953 km span.
 `tests/test_map_interaction_regressions.py` checks input through the outer app
 wrapper as well as the underlying map. These tests do not establish live display
 quality on either the laptop terminal or Nokia.
+
+## Native map rendering
+
+The native desktop draws terrain, geographic vectors and annotation marks as
+separate scene inputs. It selects local streets at pixel scale and samples
+terrain more densely within a bounded preparation budget. Place names move as
+complete labels around station and path marks. Forest-road toggling updates
+geographic features while retaining the visible terrain frame.
+
+During a drag, the renderer moves the sharp retained scene over a prepared
+surrounding map. Releasing the pointer requests the destination view; Escape
+cancels a captured drag. The sidebar locator uses its own semantic scene and a
+geographic target outline.
+
+Station identity is stored locally in `station-identity.json` beside the selected
+Directory database, with fallback to legacy app preferences. Saved QTH labels
+use the configured identity. The identity file, saved locations, downloaded map
+data and caches are local inputs and must stay out of Git.
+
+`graphics/check_map.py` exercises navigation, the locator and drag composition
+through the desktop dispatcher. The check waits for rendered interaction
+completion and rejects diagnostic readbacks. Mac Metal and Linux software
+OpenGL checks establish host behavior; they do not establish an N810 result or a
+measured performance improvement.
 
 # Map data preparation
 

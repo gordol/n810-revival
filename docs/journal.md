@@ -42,7 +42,6 @@ The visual record begins with the [sidebar desktop](posts/2026-10-05-sidebar-des
 | 9 November 2026 | [Symbian applications on the N810](posts/2026-11-09-symbian-runtime.md) |
 | 9–10 November 2026 | [Keeping GPU work resident and testing at 480 MHz](posts/2026-11-10-gpu-residency-and-480mhz.md) |
 | 10 November 2026 | [Investigating a native ARM Windows CE runtime](posts/2026-11-10-windows-ce-runtime.md) |
-| 11 November 2026 | [Restoring map detail in the native GPU desktop](posts/2026-11-11-pocket-map-rendering.md) |
 
 The guide and reference pages describe reusable procedures and the latest reconciled state. Dated posts preserve the observations available at each checkpoint.
 

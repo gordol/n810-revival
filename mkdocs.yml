@@ -94,7 +94,6 @@ nav:
   - Symbian applications on the N810: posts/2026-11-09-symbian-runtime.md
   - Keeping GPU work resident and testing at 480 MHz: posts/2026-11-10-gpu-residency-and-480mhz.md
   - Investigating a native ARM Windows CE runtime: posts/2026-11-10-windows-ce-runtime.md
-  - Restoring map detail in the native GPU desktop: posts/2026-11-11-pocket-map-rendering.md
 - Get started: start.md
 - Guides: guides.md
 - Roadmap: roadmap.md
