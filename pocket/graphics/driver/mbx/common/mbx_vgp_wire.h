@@ -34,6 +34,10 @@ struct mbx_vgp_wire_replay_cache {
  struct mbx_vgp_wire_replay_record record[MBX_VGP_WIRE_MAX_DRAWS];
  unsigned hits,misses;
 };
+/* Record uniform/viewport patch locations while compiling a complete clear
+ * frame. Metadata alone does not publish a replay identity or retain resources. */
+int mbx_vgp_wire_compile_records(const void *,unsigned,struct mbx_command *,unsigned,unsigned *,
+                               struct mbx_vgp_shader_cache *,struct mbx_vgp_wire_replay_cache *);
 int mbx_vgp_wire_encode_replay(const void *,unsigned,struct mbx_command *,unsigned,unsigned *,
                              struct mbx_vgp_shader_cache *,struct mbx_vgp_wire_replay_cache *);
 int mbx_vgp_wire_apply_update(const void *,unsigned,unsigned,struct mbx_command *,unsigned,unsigned *,

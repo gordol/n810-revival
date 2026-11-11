@@ -307,3 +307,48 @@ Local sanitizer checks compare every packed plane byte and transparent gap for
 nested transactions, unchanged GL bindings, target pinning, late-list rejection,
 unchanged prior tokens and forbidden CPU readback. These use a fake service;
 physical atlas pixels and application/input performance remain unverified.
+
+## Command compilation reuse candidate
+
+`gpu_command_reuse=1` adds a bounded four-entry CPU compilation cache for
+ordinary version9/10 submissions. It is opt-in pending physical acceptance;
+legacy compact templates and the experimental prepared-object ABI are unchanged.
+The cache retains private command copies and at most 32 KiB of metadata per
+entry, not image pixels. On ARM32 its allocation is 1,208,560 bytes, created lazily
+and freed on clean service close. Allocation failure keeps the original encoder.
+Frames beyond 32,768 commands or the metadata bound use the original encoder.
+
+Repeated passes compare all shader, topology, vertex, clear and scissor state
+exactly. Finite uniforms and viewports patch recorded command locations, so camera
+and lighting changes do not require rebuilding unchanged geometry. Texture pixels
+are excluded from compilation keys and still follow ordinary upload/residency
+rules. Image slot/layout select the same compiled sampler address; session and
+generation are checked against the live image arena on every dispatch. Cache hits
+never establish image ownership or accept a stale token. Channel jobs receive a
+private copy before their existing post-encode address/state edits.
+
+All resource parsing, surface admission, synchronization and guard policies remain
+active. Full jobs reuse their already validated resource parse after compilation;
+compact updates still parse their owned canonical snapshot. No new wire opcode,
+Mesa option, shader mode or application change is required. This removes CPU
+compilation work on hits; FIFO words, uploads and readbacks are unchanged.
+
+`gpu_command_cache_hits`, `gpu_command_cache_misses` and
+`gpu_command_cache_bypasses` expose aggregate counts without per-job logging. Check
+the hit rate alongside `gpu_full_encode_ns` and process CPU before claiming a gain.
+Keep `gpu_capture_success=0` for timing, with the normal verification policy and
+fault capture intact.
+
+Local acceptance: `tests/check_prepared.py` includes sanitizer-backed full-command
+comparisons for alternating native passes, changing uniforms/viewports, texture
+payloads and image generations. It also covers scissor replacement, invalid
+inputs, output mutation, storage caps and clean cache retirement. ARM fake-service
+and existing Mesa atlas/window/legacy checks pass. No new Nokia throughput or
+pixel result is claimed by these local checks.
+
+The explicit `tests/test_command_cache_gpu.c` tool submits sixteen unchanged
+native draws to a 128x128 offscreen RGBA target, changing only color uniforms.
+Run the same binary with reuse disabled/enabled under the guarded service. It
+saves first/last pixel buffers outside timing and reports completed GPU FPS,
+process CPU and RSS. These figures measure a driver workload, not Pocket desktop
+or LCD FPS. The test never loads a module, owns the display or sends input.

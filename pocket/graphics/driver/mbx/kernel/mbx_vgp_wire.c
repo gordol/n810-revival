@@ -167,6 +167,11 @@ int mbx_vgp_wire_encode_cached(const void *data,unsigned bytes,struct mbx_comman
                         unsigned capacity,unsigned *written,struct mbx_vgp_shader_cache *cache)
 {return wire_encode(data,bytes,commands,capacity,written,cache,0);}
 
+int mbx_vgp_wire_compile_records(const void *data,unsigned bytes,struct mbx_command *commands,
+ unsigned capacity,unsigned *written,struct mbx_vgp_shader_cache *shader,
+ struct mbx_vgp_wire_replay_cache *records)
+{return wire_encode(data,bytes,commands,capacity,written,shader,records);}
+
 int mbx_vgp_wire_encode_replay(const void *data,unsigned bytes,struct mbx_command *commands,
                         unsigned capacity,unsigned *written,struct mbx_vgp_shader_cache *shader,
                         struct mbx_vgp_wire_replay_cache *cache)

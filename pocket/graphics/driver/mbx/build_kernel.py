@@ -5,7 +5,7 @@ root=Path(__file__).parent
 module_root=root/'kernel'
 candidate=root/'build-inputs'
 # The portable encoder is the single source for both userspace and kernel builds.
-for name in ('mbx_window_images.h','mbx_texture_resident.h','mbx_owned_surface.h','mbx_surface_lease.h','channel_request.h','mbx_wire_resources.h','mbx_image_abi.h','mbx_vgp_wire.c','mbx_vgp_wire.h','mbx_packets.c','mbx_packets.h','mbx_context.c','mbx_context.h','mbx_vertex_program.c','mbx_vertex_program.h','mbx_vgp_transform.c','mbx_vgp_transform.h','mbx_vgp_batch.c','mbx_vgp_batch.h','mbx_gears_fixture.h','mbx_gears_frame.c','mbx_gears_frame_fixture.h','mbx_vgp_topology.c','mbx_vgp_topology.h','mbx_vgp_stream.c','mbx_vgp_stream.h','mbx_vgp_draw.c','mbx_vgp_draw.h','mbx_vgp_isa.c','mbx_vgp_isa.h'):
+for name in ('mbx_command_cache.h','mbx_window_images.h','mbx_texture_resident.h','mbx_owned_surface.h','mbx_surface_lease.h','channel_request.h','mbx_wire_resources.h','mbx_image_abi.h','mbx_vgp_wire.c','mbx_vgp_wire.h','mbx_packets.c','mbx_packets.h','mbx_context.c','mbx_context.h','mbx_vertex_program.c','mbx_vertex_program.h','mbx_vgp_transform.c','mbx_vgp_transform.h','mbx_vgp_batch.c','mbx_vgp_batch.h','mbx_gears_fixture.h','mbx_gears_frame.c','mbx_gears_frame_fixture.h','mbx_vgp_topology.c','mbx_vgp_topology.h','mbx_vgp_stream.c','mbx_vgp_stream.h','mbx_vgp_draw.c','mbx_vgp_draw.h','mbx_vgp_isa.c','mbx_vgp_isa.h'):
  (module_root/name).write_bytes((root/'common'/name).read_bytes())
 inputs={p.name:base64.b64encode(p.read_bytes()).decode() for p in module_root.iterdir() if p.suffix in ('.c','.h') or p.name=='Makefile'}
 for name in ('Module.symvers','candidate.config','binding-api-whitelist.txt'):inputs[name]=base64.b64encode((candidate/name).read_bytes()).decode()

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 /* Compile the actual service-open function with allocator fault injection. */
 #include "mbx_vgp_wire.h"
+#include "mbx_command_cache.h"
 #include <assert.h>
 #include <errno.h>
 #include <stdbool.h>
@@ -19,6 +20,9 @@ static unsigned gpu_service_mutex,gpu_resident_session,gpu_resident_slots;
 static unsigned gpu_service_shader_cache,gpu_resident_result,gpu_surface_lease;
 static unsigned gpu_surface_session,gpu_surface_generation,gpu_template_serial;
 static unsigned gpu_wire_replay_hits,gpu_wire_replay_misses;
+static struct mbx_command_cache *gpu_service_command_cache;
+static bool gpu_command_reuse,gpu_service_command_cache_unavailable;
+static unsigned gpu_command_cache_hits,gpu_command_cache_misses,gpu_command_cache_bypasses;
 static unsigned gpu_template_generation,gpu_template_uploads,gpu_template_updates;
 static unsigned gpu_template_upload_bytes,gpu_template_update_bytes;
 static unsigned gpu_template_copy_ns,gpu_template_encode_ns,gpu_full_copy_ns,gpu_full_encode_ns;
@@ -65,6 +69,15 @@ static void clear_allocations(void){
  memset(gpu_prepared_slots,0,sizeof gpu_prepared_slots);gpu_service_opened=false;gpu_service_failed=false;
  assert(!live);allocations=fail_at=0;
 }
+static void command_cache_release(void){
+ gpu_command_reuse=true;fail_at=allocations+1;
+ gpu_service_init_command_cache();assert(!gpu_service_command_cache&&gpu_service_command_cache_unavailable);
+ unsigned attempted=allocations;gpu_service_init_command_cache();assert(allocations==attempted);
+ fail_at=0;gpu_service_command_cache_unavailable=false;gpu_service_init_command_cache();
+ assert(gpu_service_command_cache&&live==1);
+ gpu_service_free_storage();assert(!gpu_service_command_cache&&!live);
+ allocations=fail_at=0;gpu_command_reuse=false;
+}
 static void selection_guards(void){
  struct mbx_vgp_prepared *o=gpu_prepared_slots+2;
  gpu_prepared_next=2;gpu_template_serial=50;o->generation=9;
@@ -99,6 +112,7 @@ static void selection_guards(void){
  puts("service selection: rejected replacements preserve generation, selected storage and replacement cursor");
 }
 int main(void){
+ command_cache_release();
  struct file file={0};unsigned session;
  gpu_prepared_commands=true;
  for(unsigned failure=1;failure<=1+MBX_VGP_PREPARED_SLOTS;++failure){

@@ -29,6 +29,7 @@ module_param(gpu_channel_select_mask,int,0600);
 #include "mbx_texture_equal.h"
 #include "mbx_surface_slots.h"
 #include "mbx_image_abi.h"
+#include "mbx_command_cache.h"
 static bool gpu_resident_surfaces;
 module_param(gpu_resident_surfaces,bool,0400);
 static unsigned gpu_resident_session;
@@ -379,6 +380,15 @@ static unsigned gpu_prepared_slot,gpu_prepared_next;
 static bool gpu_prepared_commands;
 module_param(gpu_prepared_commands,bool,0400);
 static bool gpu_wire_replay=true;
+/* Independent compilation reuse; current resources are admitted on every job. */
+static bool gpu_command_reuse;
+static struct mbx_command_cache *gpu_service_command_cache;
+static bool gpu_service_command_cache_unavailable;
+static unsigned gpu_command_cache_hits,gpu_command_cache_misses,gpu_command_cache_bypasses;
+module_param(gpu_command_reuse,bool,0400);
+module_param(gpu_command_cache_hits,uint,0400);
+module_param(gpu_command_cache_misses,uint,0400);
+module_param(gpu_command_cache_bypasses,uint,0400);
 static unsigned gpu_wire_replay_hits,gpu_wire_replay_misses;
 static unsigned gpu_template_serial,gpu_template_generation;
 static unsigned gpu_template_uploads,gpu_template_updates;
@@ -446,6 +456,8 @@ static int gpu_service_open(struct inode *inode,struct file *file)
         memset(gpu_prepared_storage,0,sizeof(gpu_prepared_storage));
         gpu_prepared_slot=gpu_prepared_next=0;
         gpu_wire_replay_hits=gpu_wire_replay_misses=0;
+        gpu_command_cache_hits=gpu_command_cache_misses=gpu_command_cache_bypasses=0;
+        gpu_service_command_cache_unavailable=false;
         gpu_template_generation=gpu_template_uploads=gpu_template_updates=0;
         gpu_template_upload_bytes=gpu_template_update_bytes=0;
         gpu_template_copy_ns=gpu_template_encode_ns=gpu_full_copy_ns=gpu_full_encode_ns=0;
@@ -481,6 +493,15 @@ static int gpu_service_open(struct inode *inode,struct file *file)
 done:
     mutex_unlock(&gpu_service_mutex);return e;
 }
+/* Optional memory is tried once per session. OOM must not turn every draw
+ * into another allocation attempt; the original encoder remains available. */
+static void gpu_service_init_command_cache(void)
+{
+    if(!gpu_command_reuse||gpu_service_command_cache||gpu_service_command_cache_unavailable)return;
+    gpu_service_command_cache=vmalloc(sizeof(*gpu_service_command_cache));
+    if(!gpu_service_command_cache)gpu_service_command_cache_unavailable=true;
+    else memset(gpu_service_command_cache,0,sizeof(*gpu_service_command_cache));
+}
 /* Caller holds gpu_service_mutex. Reject retained ownership before changing
  * the selected object, its identity or the replacement cursor. */
 static int gpu_service_select_prepared(unsigned bytes)
@@ -508,6 +529,7 @@ static int gpu_service_select_prepared(unsigned bytes)
 static void gpu_service_free_storage(void)
 {
     unsigned i;
+    vfree(gpu_service_command_cache);gpu_service_command_cache=NULL;
     if(gpu_prepared_commands){
         for(i=0;i<MBX_VGP_PREPARED_SLOTS;++i){
             vfree(gpu_prepared_storage[i]);gpu_prepared_storage[i]=NULL;
@@ -609,10 +631,10 @@ static ssize_t gpu_service_write(struct file *file,const char __user *buf,size_t
     update=job->magic==MBX_VGP_UPDATE_MAGIC;
     /* Typed bounded channel-combine request. The resource descriptor carries
      * only RGBA channel bits; addresses/strides derive from validated dimensions. */
-    if(!update){struct mbx_wire_resources channel_resources;
-        e=mbx_wire_resources_parse(job,bytes,&channel_resources);if(e)goto out;
-        if(channel_resources.count==1&&(channel_resources.item[0].version==9||channel_resources.item[0].version==11))
-            channel_mask=channel_resources.item[0].reserved;
+    if(!update){
+        e=mbx_wire_resources_parse(job,bytes,&resources);if(e)goto out;
+        if(resources.count==1&&(resources.item[0].version==9||resources.item[0].version==11))
+            channel_mask=resources.item[0].reserved;
     }
     if(update){
         if(channel_mask>=0){e=-EINVAL;goto out;}
@@ -648,6 +670,18 @@ static ssize_t gpu_service_write(struct file *file,const char __user *buf,size_t
                 gpu_service_replay_cache.snapshot_capacity,&gpu_service_shader_cache,&handle,&count);
             gpu_template_serial=gpu_service_prepared.generation;
             if(!e){prepared_started=true;gpu_template_generation=handle.generation;}
+        }else if(gpu_command_reuse&&(job->version==9||job->version==10)){
+            /* Do not expose compilation entries as legacy template handles. */
+            gpu_service_replay_cache.bytes=gpu_service_replay_cache.draws=gpu_service_replay_cache.written=0;
+            gpu_service_replay_cache.owner=NULL;
+            gpu_service_init_command_cache();
+            e=mbx_command_cache_encode_parsed(gpu_service_command_cache,job,bytes,gpu_service_commands,
+                MBX_VGP_WIRE_MAX_COMMANDS,&count,&gpu_service_shader_cache,&resources);
+            if(gpu_service_command_cache){
+                gpu_command_cache_hits=gpu_service_command_cache->hits;
+                gpu_command_cache_misses=gpu_service_command_cache->misses;
+                gpu_command_cache_bypasses=gpu_service_command_cache->bypasses;
+            }
         }else{
             e=mbx_vgp_wire_encode_replay(job,bytes,gpu_service_commands,MBX_VGP_WIRE_MAX_COMMANDS,&count,&gpu_service_shader_cache,
                                         gpu_wire_replay?&gpu_service_replay_cache:NULL);
@@ -660,7 +694,9 @@ static ssize_t gpu_service_write(struct file *file,const char __user *buf,size_t
     /* Updates keep the exact resource snapshot owned by this exclusive file.
      * Full uploads use the newly validated wire; neither path trusts an address. */
     texture_job=update?(const void *)gpu_service_replay_cache.snapshot:job;
-    e=mbx_wire_resources_parse(texture_job,texture_job->bytes,&resources);if(e)goto out;
+    /* Full jobs were parsed before compilation; commands never mutate wire.
+     * Compact updates instead use the separately owned canonical snapshot. */
+    if(update){e=mbx_wire_resources_parse(texture_job,texture_job->bytes,&resources);if(e)goto out;}
     texture_bytes=resources.bytes;texture_data=(const u8 *)texture_job+resources.data_offset;
     resident_job=resources.count&&resources.item[0].version==10;
     merge_job=resources.count&&resources.item[0].version==11;
