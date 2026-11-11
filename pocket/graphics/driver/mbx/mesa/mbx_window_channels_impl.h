@@ -109,3 +109,4 @@ __attribute__((visibility("default"))) int n810_mbx_window_channels_region(unsig
  struct mbx_window_rect region=*rect;
  return mbx_window_channels(source,mask,target,mode,view,&region);
 }
+#include "mbx_window_channels_batch_impl.h"

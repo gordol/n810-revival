@@ -59,6 +59,19 @@ int n810_mbx_window_channels(unsigned source,unsigned mask,unsigned target,
 struct mbx_window_rect {unsigned x,y,width,height;};
 int n810_mbx_window_channels_region(unsigned source,unsigned mask,unsigned target,
  const struct mbx_window_rect *rect,unsigned mode,struct mbx_window_view *view);
+/* One synchronous GPU merge for a zero-padded128x128 atlas. All inputs must
+ * have canonical CPU upload storage; source/mask sizes match per item and
+ * are at most1024x1024. sx/sy address both inputs. Destination rectangles
+ * must be disjoint and fit128x128. Modes match the single-region operation.
+ * Finish pending GL work and prior target consumers before calling. Pinned,
+ * imported, active-target and feedback aliases are rejected. No GL state is
+ * changed. On admission failure, view and target remain unchanged and no job
+ * is submitted. Device errors after submission are not an admission fallback.
+ * Returned view bounds the used atlas area; storage dimensions are128x128. */
+#define MBX_WINDOW_CHANNEL_BATCH_MAX 64U
+struct mbx_window_channel_item {unsigned source,mask,sx,sy,width,height,dx,dy,mode;};
+int n810_mbx_window_channels_batch(unsigned target,
+ const struct mbx_window_channel_item *items,unsigned count,struct mbx_window_view *view);
 int n810_mbx_window_get_layout(struct mbx_window_layout *out);
 int n810_mbx_window_export(unsigned texture,struct mbx_window_image *out);
 int n810_mbx_window_export_release(unsigned texture,const struct mbx_window_image *image);

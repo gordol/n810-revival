@@ -278,3 +278,32 @@ shapes; ARM Mesa tests assert actual write sizes for tiny, medium, full-small
 and native cases, with no-readback and capacity/rejection checks retained.
 Physical adaptive app/input performance is pending; the table above describes
 the earlier unconditional candidate, not a measurement of the adaptive policy.
+
+### Bounded channel atlas batch
+
+`n810_mbx_window_channels_batch(target, items, count, view)` prepares up to 64
+nonoverlapping regions in one zero-padded128x128 retained image. Each
+`mbx_window_channel_item` names source and mask GL textures, a shared source
+origin `sx,sy`, dimensions `width,height`, destination `dx,dy`, and the existing
+channel mode. Source/mask dimensions match per item and may be up to1024x1024;
+all inputs require canonical CPU upload storage. No resident input is read back.
+
+The operation validates every texture, sampler, source rectangle, destination
+rectangle, binary mask and target lifetime before reserving a target or
+submitting work. The two initial BGRA planes are packed once and passed to the
+existing resource-9 GPU combiner as one131152-byte job. It requires the same
+window-upload-merge module; no new kernel opcode or kernel build is needed.
+Calling this explicit API selects batching independently of the adaptive flag.
+
+The caller owns shelf placement and draw order. Finish prior GL work and prior
+consumers before overwriting the staging atlas. Publish/pin the completed target
+normally when crossing contexts. The call is synchronous, preserves GL state,
+and returns the used bounding width/height with128x128 storage. Admission errors
+leave the target and view unchanged and submit no job; errors after a device
+submission must not be treated as a fallback opportunity.
+
+Local sanitizer checks compare every packed plane byte and transparent gap for
+64 mixed-format/mode source crops. Actual ARM Mesa checks verify one write,
+nested transactions, unchanged GL bindings, target pinning, late-list rejection,
+unchanged prior tokens and forbidden CPU readback. These use a fake service;
+physical atlas pixels and application/input performance remain unverified.

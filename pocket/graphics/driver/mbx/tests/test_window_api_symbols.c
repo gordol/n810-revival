@@ -15,7 +15,9 @@ int main(void){
  int (*get_layout)(struct mbx_window_layout*)=dlsym(RTLD_DEFAULT,"n810_mbx_window_get_layout");
  int (*channels)(unsigned,unsigned,unsigned,unsigned,struct mbx_window_view*)=dlsym(RTLD_DEFAULT,"n810_mbx_window_channels");
  int (*region)(unsigned,unsigned,unsigned,const struct mbx_window_rect*,unsigned,struct mbx_window_view*)=dlsym(RTLD_DEFAULT,"n810_mbx_window_channels_region");
- assert(begin&&end&&export_image&&release_image&&import_image&&forget&&get_layout&&channels&&region);
+ int (*batch)(unsigned,const struct mbx_window_channel_item*,unsigned,struct mbx_window_view*)=dlsym(RTLD_DEFAULT,"n810_mbx_window_channels_batch");
+ assert(begin&&end&&export_image&&release_image&&import_image&&forget&&get_layout&&channels&&region&&batch);
+ struct mbx_window_channel_item item={1,2,0,0,1,1,0,0,0};struct mbx_window_view batch_view;assert(batch(3,&item,1,&batch_view)==-ENODEV);
  struct mbx_window_rect rect={0,0,1,1};struct mbx_window_view region_view;assert(region(1,2,3,&rect,0,&region_view)==-ENODEV);
  struct mbx_window_view view;assert(channels(1,2,3,0,&view)==-ENODEV);
  struct mbx_window_layout caps;assert(get_layout(&caps)==-ENODEV);
@@ -27,6 +29,6 @@ int main(void){
  glClearColor(1,0,0,1);glClear(GL_COLOR_BUFFER_BIT);glFinish();
  for(unsigned i=0;i<256;i++)assert(pixels[4*i]==255&&!pixels[4*i+1]&&!pixels[4*i+2]&&pixels[4*i+3]==255);
  assert(import_image(1,&image)==-ENODEV);OSMesaDestroyContext(ctx);
- puts("ARM Mesa: all nine window/transaction symbols exported; no-context/non-GPU rejected; ordinary OSMesa pixels intact");
+ puts("ARM Mesa: all ten window/transaction symbols exported; no-context/non-GPU rejected; ordinary OSMesa pixels intact");
  return 0;
 }
