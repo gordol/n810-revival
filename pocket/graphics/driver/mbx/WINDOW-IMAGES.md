@@ -221,8 +221,14 @@ remains `20261109-6970068`.
 `N810_MBX_CHANNEL_UPLOAD_MERGE=1` selects the existing two-plane channel
 combiner for `n810_mbx_window_channels[_region]` when both inputs still have
 canonical CPU upload storage. It requires the matching module with validated
-resource-9 window-target admission. The default three-job path is unchanged;
-resident and mixed inputs retain their established paths.
+resource-9 window-target admission. Adaptive admission compares the complete
+wire sizes: dense `80 + storage_width * storage_height * 8` bytes versus
+compact `2 * (436 + aligned_pitch_pixels * (height + 2) * 4) + 80` bytes,
+where `aligned_pitch_pixels = (width + 17) & ~15`. The one-job path is used
+only when its upload is no larger. Tiny/cropped inputs otherwise retain the
+compact three-job path before any allocation, bind or submission. The default
+three-job path is unchanged; resident and mixed inputs retain their established
+paths.
 
 The candidate uploads separate source and mask planes and performs channel
 selection on the GPU directly into the retained output. It avoids two scratch
@@ -230,11 +236,11 @@ renders, two scratch binds/queries and the intermediate window generations.
 It does not read pixels back or merge channels on the CPU. Red-to-alpha format
 conversion remains part of the initial upload, as in the existing path.
 
-One combine submits one job and `80 + storage_width * storage_height * 8`
-bytes. Dense padding can cost more upload bytes for a tiny logical rectangle
-than the old cropped, halo-padded inputs. Fewer submissions alone therefore do
-not establish a performance gain. Compare CPU, bytes and completed work before
-enabling this path in a normal release.
+An admitted combine submits one job and `80 + storage_width * storage_height * 8`
+bytes. Without byte admission, dense padding can cost more upload bytes for a
+tiny logical rectangle than the cropped, halo-padded inputs. Fewer submissions
+alone do not establish a performance gain. Compare CPU, bytes and completed work
+before enabling this path in a normal release.
 
 Local sanitizer tests check both planes, padding, formats, binary-mask rejection
 and the actual service admission block. ARM Mesa tests check the exact one-job
@@ -247,7 +253,8 @@ The three combines and four explicit capture draws completed in seven GPU
 jobs. Fault/cleanup flags stayed zero; normal unload preserved the boot,
 VT, panel and Pocket preferences, with Pocket remaining stopped.
 
-A separate offscreen helper comparison used the same process, module and Mesa,
+Before adaptive byte admission, a separate offscreen helper comparison forced
+the one-job candidate for every tested shape. It used the same process, module and Mesa,
 two warmups and 16 timed operations per mode/shape, with three-job baseline
 first. It performed no timed readback and no app input or display presentation:
 
@@ -263,3 +270,11 @@ isolate a per-mode memory difference. These are completed mask operations per
 second, not app, desktop or display FPS. Combined runtime/input performance
 requires its own measurement. Private evidence is under project output
 `mbx-upload-merge-20261110`, including the exact artifact manifest and raw logs.
+
+The subsequent combined app comparison found higher total upload traffic with
+unconditional dense fusion. Adaptive admission addresses that regression without
+changing either packet format or pixels. Local tests exhaust all 16,384 small
+shapes; ARM Mesa tests assert actual write sizes for tiny, medium, full-small
+and native cases, with no-readback and capacity/rejection checks retained.
+Physical adaptive app/input performance is pending; the table above describes
+the earlier unconditional candidate, not a measurement of the adaptive policy.

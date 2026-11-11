@@ -21,7 +21,9 @@ int main(void){
  for(unsigned i=0;i<4;i++){
   struct mbx_window_view view={0};off_t before=lseek(gpu,0,SEEK_CUR);assert(!region(source,mask,out,cases+i,MBX_WINDOW_BINARY_RED_ALPHA,&view));
   unsigned pitch=(cases[i].width+17U)&~15U,bytes=436+pitch*(cases[i].height+2U)*4;
-  assert(lseek(gpu,0,SEEK_CUR)-before==(off_t)(bytes*2+80));assert(view.width==cases[i].width&&view.height==cases[i].height&&view.storage_width==128&&view.storage_height==128);
+  unsigned expected=bytes*2+80,dense=80+128*128*8;
+  if(getenv("N810_MBX_CHANNEL_UPLOAD_MERGE")&&dense<=expected)expected=dense;
+  assert(lseek(gpu,0,SEEK_CUR)-before==(off_t)expected);assert(view.width==cases[i].width&&view.height==cases[i].height&&view.storage_width==128&&view.storage_height==128);
  }
  struct mbx_window_rect invalid[]={{0,0,0,1},{0,0,129,1},{1023,0,2,1},{0,1024,1,1},{~0U,0,1,1}};
  for(unsigned i=0;i<5;i++){off_t before=lseek(gpu,0,SEEK_CUR);struct mbx_window_view view={37,38,39,40};assert(region(source,mask,out,invalid+i,1,&view)==-EINVAL&&view.width==37&&lseek(gpu,0,SEEK_CUR)==before);}

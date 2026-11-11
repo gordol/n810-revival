@@ -17,7 +17,8 @@ int main(int argc,char **argv){
  const char *enabled[]={"N810_MBX_DEVICE","N810_MBX_GPU_VERTEX","N810_MBX_EXPERIMENTAL_2D","N810_MBX_MULTI_TEXTURE","N810_MBX_WINDOW_IMAGES","N810_MBX_NATIVE_WINDOWS","MBX_TEST_CHECKPOINT"};
  for(unsigned i=0;i<sizeof enabled/sizeof *enabled;i++)setenv(enabled[i],"1",1);setenv("N810_MBX_WINDOW_FIRST","0",1);setenv("N810_MBX_WINDOW_COUNT","6",1);
  OSMesaContext ctx=OSMesaCreateContextExt(OSMESA_RGBA,0,0,0,NULL);assert(ctx);unsigned char dummy[16*16*4];assert(OSMesaMakeCurrent(ctx,dummy,GL_UNSIGNED_BYTE,16,16));
- unsigned w=native?240:7,h=native?320:11,sw=native?240:128,sh=native?320:128;unsigned char *data=malloc(w*h*4);
+ int full=argc>1&&!strcmp(argv[1],"full"),medium=argc>1&&!strcmp(argv[1],"medium");
+ unsigned w=native?240:full?128:medium?64:7,h=native?320:full?128:medium?64:11,sw=native?240:128,sh=native?320:128;unsigned char *data=malloc(w*h*4);
  for(unsigned i=0;i<w*h;i++){data[4*i]=i&1?255:0;data[4*i+1]=37;data[4*i+2]=73;data[4*i+3]=i%256;}
  GLuint source=texture(w,h,data),mask=texture(w,h,data),out=texture(sw,sh,NULL);
  int (*combine)(unsigned,unsigned,unsigned,unsigned,struct mbx_window_view*)=dlsym(RTLD_DEFAULT,"n810_mbx_window_channels");
@@ -25,7 +26,10 @@ int main(int argc,char **argv){
  glFinish();GLint active,binding,after;glGetIntegerv(GL_ACTIVE_TEXTURE,&active);glGetIntegerv(GL_TEXTURE_BINDING_2D,&binding);
  off_t submitted=lseek(gpu,0,SEEK_CUR);
  struct mbx_window_view view={0};assert(!combine(source,mask,out,MBX_WINDOW_BINARY_RED_ALPHA,&view));assert(view.width==w&&view.height==h&&view.storage_width==sw&&view.storage_height==sh);
- if(getenv("N810_MBX_CHANNEL_UPLOAD_MERGE"))assert(lseek(gpu,0,SEEK_CUR)-submitted==80+sw*sh*8U);
+ if(getenv("N810_MBX_CHANNEL_UPLOAD_MERGE")){
+  unsigned compact=2U*(436U+((w+17U)&~15U)*(h+2U)*4U)+80U,dense=80U+sw*sh*8U;
+  assert(lseek(gpu,0,SEEK_CUR)-submitted==(dense<=compact?dense:compact));
+ }
  glGetIntegerv(GL_ACTIVE_TEXTURE,&after);assert(after==active);glGetIntegerv(GL_TEXTURE_BINDING_2D,&after);assert(after==binding);
  struct mbx_window_image image;assert(!export_image(out,&image)&&image.token.slot==(native?0U:2U));off_t held=lseek(gpu,0,SEEK_CUR);assert(combine(source,mask,out,0,&view)==-EBUSY&&lseek(gpu,0,SEEK_CUR)==held);assert(!release(out,&image));
  glBindTexture(GL_TEXTURE_2D,source);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);held=lseek(gpu,0,SEEK_CUR);assert(combine(source,mask,out,0,&view)==-ENOTSUP&&lseek(gpu,0,SEEK_CUR)==held);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);

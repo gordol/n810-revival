@@ -6,6 +6,15 @@
 #include "window_checkpoint.h"
 #include "linear_resource.h"
 #include "mbx_window_export.h"
+/* Exact wire-byte admission, including compact halo/stride and packet headers.
+ * Dense storage padding must not make the opt-in path upload more bytes. */
+static int mbx_window_channels_upload_prefer(unsigned w,unsigned h,unsigned sw,unsigned sh){
+ unsigned pitch;size_t payload=mbx_linear_size(w,h,&pitch);
+ if(!payload||w>sw||h>sh||!((sw==128&&sh==128)||(sw==240&&sh==320)))return 0;
+ size_t dense=80U+(size_t)sw*sh*8U;
+ size_t compact=2U*(MBX_WINDOW_CHECKPOINT_BYTES+payload)+80U;
+ return dense<=compact;
+}
 /* Existing resource9: two dense BGRA planes, selected by the GPU channel
  * combiner. Conversion is initial upload only, never CPU alpha composition. */
 static int mbx_window_channels_upload_pack(const struct mbx_linear_source *a,

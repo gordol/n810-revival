@@ -52,7 +52,8 @@ static int mbx_window_channels(unsigned source,unsigned mask,unsigned target,uns
  int destination=mbx_window_available(c,r[2]);if(destination<0)return destination;
  struct mbx_window_token inputs[2]={{0}};unsigned char *packets[2]={NULL,NULL};unsigned lengths[2]={0};
  const char *fused=getenv("N810_MBX_CHANNEL_UPLOAD_MERGE");
- if(fused&&!strcmp(fused,"1")&&mbx_window_find(c,r[0])<0&&mbx_window_find(c,r[1])<0){
+ if(fused&&!strcmp(fused,"1")&&mbx_window_channels_upload_prefer(w,h,sw,sh)&&
+    mbx_window_find(c,r[0])<0&&mbx_window_find(c,r[1])<0){
   struct mbx_linear_source images[2];
   for(unsigned i=0;i<2;i++){
    struct softpipe_resource *s=softpipe_resource(r[i]);

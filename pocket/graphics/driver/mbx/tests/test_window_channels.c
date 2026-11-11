@@ -8,6 +8,19 @@
 static unsigned char source[1024*(1024*4+32)],packet[1048576];
 static struct mbx_command commands[65536];
 int main(void){
+ /* Exhaustive small-shape admission against the compact upload byte cost. */
+ for(unsigned h=1;h<=128;h++)for(unsigned w=1;w<=128;w++){
+  unsigned pitch;size_t payload=mbx_linear_size(w,h,&pitch);
+  assert(mbx_window_channels_upload_prefer(w,h,128,128)==
+   (80U+128U*128U*8U<=2U*(MBX_WINDOW_CHECKPOINT_BYTES+payload)+80U));
+ }
+ assert(!mbx_window_channels_upload_prefer(7,11,128,128));
+ assert(!mbx_window_channels_upload_prefer(64,64,128,128));
+ assert(mbx_window_channels_upload_prefer(128,128,128,128));
+ assert(mbx_window_channels_upload_prefer(240,320,240,320));
+ assert(!mbx_window_channels_upload_prefer(0,128,128,128));
+ assert(!mbx_window_channels_upload_prefer(129,128,128,128));
+ assert(!mbx_window_channels_upload_prefer(128,128,256,256));
  const unsigned dims[][2]={{1,1},{7,11},{63,127},{128,128},{240,320}};
  for(unsigned size=0;size<5;size++)for(unsigned rgba=0;rgba<2;rgba++)for(unsigned mode=0;mode<3;mode++){
   unsigned w=dims[size][0],h=dims[size][1],sw=size==4?240:128,sh=size==4?320:128,pitch,bytes=0,count;
