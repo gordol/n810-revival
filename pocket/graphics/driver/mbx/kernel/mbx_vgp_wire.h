@@ -20,7 +20,9 @@ struct mbx_vgp_shader_cache;
 int mbx_vgp_wire_encode_cached(const void *,unsigned,struct mbx_command *,unsigned,unsigned *,struct mbx_vgp_shader_cache *);
 /* One validated command template, bound to its exclusive output-buffer owner.
  * Snapshot storage is caller-owned. Larger frames fall back to full encoding.
- * Callers must invalidate bytes before independently modifying output commands. */
+ * Callers must invalidate bytes before independently modifying output commands.
+ * Legacy capture accepts only self-contained clear frames in versions1..6;
+ * newer retained-image dependencies use the explicit prepared-object API. */
 struct mbx_vgp_wire_replay_record {
  unsigned wire_offset,bytes,uniform_offset,uniform_words;
  unsigned uniform_command,viewport_command,scissor_words;

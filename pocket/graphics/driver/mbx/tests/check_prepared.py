@@ -18,6 +18,17 @@ with tempfile.TemporaryDirectory(prefix="mbx-prepared-") as tmp:
         "-o", binary,
     ], check=True)
     subprocess.run([binary], check=True)
+    legacy = str(Path(tmp) / "legacy")
+    subprocess.run([
+        os.environ.get("CC", "cc"), "-std=c11", "-Wall", "-Wextra", "-Werror",
+        "-Wno-unused-variable", "-Wno-misleading-indentation",
+        "-fsanitize=address,undefined", "-I" + str(root / "common"),
+        str(root / "tests/test_legacy_replay.c"),
+        *(str(root / "common" / name) for name in (
+            "mbx_vgp_wire.c", "mbx_vgp_draw.c", "mbx_vgp_transform.c", "mbx_vgp_isa.c")),
+        "-o", legacy,
+    ], check=True)
+    subprocess.run([legacy], check=True)
     service = (root / "kernel/mbx_render_service.h").read_text()
     start = service.index("static int gpu_service_open(")
     end = service.index("static void gpu_service_free_storage(", start)

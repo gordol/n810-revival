@@ -171,8 +171,21 @@ int mbx_vgp_wire_encode_replay(const void *data,unsigned bytes,struct mbx_comman
                         unsigned capacity,unsigned *written,struct mbx_vgp_shader_cache *shader,
                         struct mbx_vgp_wire_replay_cache *cache)
 {
- if(cache){cache->bytes=0;cache->owner=0;}
- return wire_encode(data,bytes,commands,capacity,written,shader,0);
+ const struct mbx_vgp_wire_frame *f=data;int error;
+ if(cache){cache->bytes=cache->draws=cache->written=0;cache->owner=0;}
+ /* Restore the exclusive-file legacy client contract. Versions1..6 contain
+  * their complete immutable inputs; window/resident dependencies in newer
+  * versions still require the explicit prepared-object lifetime path.
+  * The service owns/serializes command and snapshot storage until clean close.
+  * Ineligible or oversized frames retain full encoding, not a stale template. */
+ if(!cache||!cache->snapshot||!data||((unsigned long)data&3)||bytes<48||
+    bytes>cache->snapshot_capacity||f->version<1||f->version>6||f->clear_buffers!=5)
+  return wire_encode(data,bytes,commands,capacity,written,shader,0);
+ error=wire_encode(data,bytes,commands,capacity,written,shader,cache);
+ if(error)return error;
+ memmove(cache->snapshot,data,bytes);
+ cache->bytes=bytes;cache->draws=f->draws;cache->written=*written;cache->owner=commands;
+ return 0;
 }
 int mbx_vgp_wire_encode(const void *data,unsigned bytes,struct mbx_command *commands,unsigned capacity,unsigned *written)
 {return mbx_vgp_wire_encode_cached(data,bytes,commands,capacity,written,0);}
