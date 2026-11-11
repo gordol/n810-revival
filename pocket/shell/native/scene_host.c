@@ -13,6 +13,30 @@ static PyObject *dirty_new(PyObject *self,PyObject *args){
     PyObject *o=PyCapsule_New(d,dirty_name,dirty_free);if(!o){PyMem_Free(d->marked);PyMem_Free(d);}return o;
 }
 static PyObject *dirty_count(PyObject *self,PyObject *o){(void)self;DirtyMap *d=dirty_map(o);return d?PyLong_FromUnsignedLong(d->count):NULL;}
+/* Pixel presentation needs one rectangle, not an allocated index stream.
+ * Read the canonical map directly; this operation never consumes damage. */
+static PyObject *dirty_bounds(PyObject *self,PyObject *args){
+    (void)self;PyObject *o;unsigned stride;
+    if(!PyArg_ParseTuple(args,"OI",&o,&stride))return NULL;
+    DirtyMap *d=dirty_map(o);if(!d)return NULL;
+    if(!stride||d->n%stride){PyErr_SetString(PyExc_ValueError,"invalid damage stride");return NULL;}
+    if(!d->count)return Py_BuildValue("(IIII)",0u,0u,0u,0u);
+    unsigned left=stride,top=d->n/stride,right=0,bottom=0;
+    for(unsigned y=0;y<d->n/stride;y++){
+        const unsigned char *row=d->marked+y*stride;
+        unsigned first=0,last=stride;
+        while(first<stride&&!row[first])++first;
+        if(first==stride)continue;
+        while(last>first+1&&!row[last-1])--last;
+        /* Interior membership cannot affect this row's extrema. In the
+         * common rectangular-damage case, skip the whole marked run. */
+        if(first<left)left=first;
+        if(last>right)right=last;
+        if(y<top)top=y;
+        bottom=y+1;
+    }
+    return Py_BuildValue("(IIII)",left,top,right-left,bottom-top);
+}
 static PyObject *dirty_has(PyObject *self,PyObject *args){(void)self;PyObject *o;long i;if(!PyArg_ParseTuple(args,"Ol",&o,&i))return NULL;
     DirtyMap *d=dirty_map(o);if(!d)return NULL;return PyBool_FromLong(i>=0&&(uint32_t)i<d->n&&d->marked[i]);}
 static PyObject *dirty_rect(PyObject *self,PyObject *args){

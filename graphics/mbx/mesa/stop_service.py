@@ -22,11 +22,15 @@ def snapshot():
         return {'Y':1,'N':0}[value] if value in ('Y','N') else int(value)
     return {p.name:scalar(p) for p in base.iterdir() if p.name!='recover'}
 try:
+    receipt=json.loads((Path(__file__).parent/'service-identity/receipt.json').read_text())
+    original_divider=receipt.get('initial_divider',1)
+    assert type(original_divider) is int and original_divider in (1,2)
     before=snapshot();(out/'before.json').write_text(json.dumps(before,indent=2)+'\n')
     (base/'recover').write_text('1\n')
     after=snapshot();(out/'after.json').write_text(json.dumps(after,indent=2)+'\n')
     for k,v in {'recovery_complete':1,'recovery_error':0,'lifetime_pinned':0,'resident_fault':0,
-                'gpu_dma_stage':0,'enabled_references':0,'held_clock_handles':0,'active_divider':1,'cleanup_phase':11}.items():assert after[k]==v,(k,after[k])
+                'gpu_dma_stage':0,'enabled_references':0,'held_clock_handles':0,'active_divider':original_divider,'cleanup_phase':11}.items():assert after[k]==v,(k,after[k])
+    assert after['observed_select']==receipt['parameters']['observed_select']
     (out/'kernel-log.txt').write_bytes(subprocess.check_output(['dmesg'])[-262144:])
     if os.environ.get('N810_MBX_CAPTURE_FINAL')=='1' and (base/'gpu_capture_valid').read_text().strip()=='1':
         with open('/dev/n810-mbx-capture','rb',buffering=0) as f:data=f.read(2*1024*1024)

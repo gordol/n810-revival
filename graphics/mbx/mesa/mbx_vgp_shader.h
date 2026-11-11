@@ -18,16 +18,47 @@
 struct mbx_vgp_shader {
  unsigned words[MBX_VGP_SHADER_LIMIT*2],count,constants,inputs;
  uint32_t immediate[16][4];unsigned immediates;
- unsigned output_temp[32];
+ unsigned constant_color;
+ unsigned color_input;
+ unsigned output_temp[32],texture_outputs,texture_q_constant,texture_input,texture_q_input,texture_matrix_constant;
 };
 static bool mbx_vgp_append(struct mbx_vgp_shader *p,unsigned op,unsigned dst,unsigned mask,struct mbx_vgp_source *src,unsigned ns)
 {
  if(p->count==MBX_VGP_SHADER_LIMIT||mbx_vgp_encode(op,dst,mask,src,ns,p->words+2*p->count))return false;
  ++p->count;return true;
 }
-static bool mbx_vgp_compile(const struct tgsi_token *tokens,struct mbx_vgp_shader *out)
+/* Recognize a direct full UV-array export before assigning hardware input slots.
+ * The second Mesa array is delivered to VGP input3, not the xyz normal slot. */
+static unsigned mbx_vgp_direct_uv(const struct tgsi_token *tokens)
+{
+ struct tgsi_parse_context p;unsigned output=~0U;unsigned found=0;
+ if(tgsi_parse_init(&p,tokens)!=TGSI_PARSE_OK)return false;
+ while(!tgsi_parse_end_of_tokens(&p)){
+  tgsi_parse_token(&p);
+  if(p.FullToken.Token.Type==TGSI_TOKEN_TYPE_DECLARATION){
+   const struct tgsi_full_declaration *d=&p.FullToken.FullDeclaration;
+   if(d->Declaration.File==TGSI_FILE_OUTPUT&&d->Declaration.Semantic&&!d->Semantic.Index&&
+      (d->Semantic.Name==TGSI_SEMANTIC_GENERIC||d->Semantic.Name==TGSI_SEMANTIC_TEXCOORD)&&d->Range.First==d->Range.Last)output=d->Range.First;
+  }else if(p.FullToken.Token.Type==TGSI_TOKEN_TYPE_INSTRUCTION){
+   const struct tgsi_full_instruction *i=&p.FullToken.FullInstruction;
+   if(i->Instruction.NumDstRegs==1&&i->Dst[0].Register.File==TGSI_FILE_OUTPUT&&i->Dst[0].Register.Index==output){
+    const struct tgsi_full_src_register *r=&i->Src[0];
+    found=i->Instruction.Opcode==TGSI_OPCODE_MOV&&i->Instruction.NumSrcRegs==1&&i->Dst[0].Register.WriteMask==15&&
+     !i->Instruction.Saturate&&!i->Dst[0].Register.Indirect&&!i->Dst[0].Register.Dimension&&
+     r->Register.File==TGSI_FILE_INPUT&&(r->Register.Index==1||r->Register.Index==2)&&!r->Register.Indirect&&!r->Register.Dimension&&
+     !r->Register.Negate&&!r->Register.Absolute&&r->Register.SwizzleX==0&&r->Register.SwizzleY==1&&r->Register.SwizzleZ==2&&r->Register.SwizzleW==3;
+    if(found)found=r->Register.Index;
+   }
+  }
+ }
+ tgsi_parse_free(&p);return found;
+}
+#include "mbx_affine_uv.h"
+static bool mbx_vgp_compile_color(const struct tgsi_token *tokens,struct mbx_vgp_shader *out,bool external_color)
 {
  struct mbx_vgp_shader p={0};struct tgsi_parse_context parse;bool valid=true,ended=false;unsigned defined[14]={0};
+ p.constant_color=~0U;p.texture_q_constant=~0U;p.texture_matrix_constant=mbx_vgp_affine_uv(tokens);
+ p.texture_input=mbx_vgp_direct_uv(tokens);if(!p.texture_input&&p.texture_matrix_constant!=~0U)p.texture_input=1;
  for(unsigned i=0;i<32;++i)p.output_temp[i]=~0u;
  if(tgsi_parse_init(&parse,tokens)!=TGSI_PARSE_OK)return false;
  if(parse.FullHeader.Processor.Processor!=PIPE_SHADER_VERTEX){tgsi_parse_free(&parse);return false;}
@@ -44,6 +75,7 @@ static bool mbx_vgp_compile(const struct tgsi_token *tokens,struct mbx_vgp_shade
     if(!d->Declaration.Semantic||d->Range.First!=d->Range.Last||d->Range.First>=32||d->Semantic.Index){valid=false;break;}
     if(d->Semantic.Name==TGSI_SEMANTIC_POSITION)p.output_temp[d->Range.First]=10;
     else if(d->Semantic.Name==TGSI_SEMANTIC_COLOR)p.output_temp[d->Range.First]=11;
+    else if((d->Semantic.Name==TGSI_SEMANTIC_GENERIC||d->Semantic.Name==TGSI_SEMANTIC_TEXCOORD)&&!p.texture_outputs){p.output_temp[d->Range.First]=9;p.texture_outputs=1;}
     else valid=false;
    }
    continue;
@@ -68,20 +100,25 @@ static bool mbx_vgp_compile(const struct tgsi_token *tokens,struct mbx_vgp_shade
   if(in->Instruction.NumDstRegs!=1||in->Instruction.NumSrcRegs!=ns||in->Dst[0].Register.Indirect||in->Dst[0].Register.Dimension){valid=false;break;}
   unsigned dest=in->Dst[0].Register.Index,mask=in->Dst[0].Register.WriteMask;
   if(in->Dst[0].Register.File==TGSI_FILE_OUTPUT){if(dest>=32||p.output_temp[dest]==~0u){valid=false;break;}dest=p.output_temp[dest];}
-  else if(in->Dst[0].Register.File!=TGSI_FILE_TEMPORARY||dest>=10){valid=false;break;}
+  else if(in->Dst[0].Register.File!=TGSI_FILE_TEMPORARY||dest>=(p.texture_outputs?9U:10U)){valid=false;break;}
   struct mbx_vgp_source src[3];unsigned scratch=12,constant=128,input=16;
   for(unsigned j=0;j<ns&&valid;++j){
    const struct tgsi_full_src_register *r=&in->Src[j];unsigned index=r->Register.Index,bank;
    if(r->Register.Indirect||(r->Register.Dimension&&(r->Dimension.Indirect||r->Dimension.Index))){valid=false;break;}
    switch(r->Register.File){
-    case TGSI_FILE_INPUT:bank=0;if(index>=2){valid=false;break;}if(p.inputs<index+1)p.inputs=index+1;break;
+    case TGSI_FILE_INPUT:bank=0;if(index>=(p.texture_input==2?3U:2U)){valid=false;break;}if(p.inputs<index+1)p.inputs=index+1;if(p.texture_input&&index==p.texture_input)index=3;break;
     case TGSI_FILE_CONSTANT:bank=1;if(index>=MBX_VGP_UNIFORM_LIMIT){valid=false;break;}if(p.constants<index+1)p.constants=index+1;break;
     case TGSI_FILE_IMMEDIATE:bank=1;if(index>=p.immediates){valid=false;break;}index+=96;break;
-    case TGSI_FILE_TEMPORARY:bank=2;if(index>=10)valid=false;break;
+    case TGSI_FILE_TEMPORARY:bank=2;if(index>=(p.texture_outputs?9U:10U))valid=false;break;
     case TGSI_FILE_OUTPUT:bank=2;if(index>=32||p.output_temp[index]==~0u){valid=false;break;}index=p.output_temp[index];break;
     default:valid=false;bank=0;break;
    }
    if(!valid)break;
+   if(r->Register.File==TGSI_FILE_INPUT&&r->Register.Index==1&&p.texture_input!=1){
+    unsigned used=(op==7?7U:op==8?15U:(op==5||op==6)?1U:mask);
+    const unsigned lane[4]={r->Register.SwizzleX,r->Register.SwizzleY,r->Register.SwizzleZ,r->Register.SwizzleW};
+    for(unsigned k=0;k<4;k++)if((used&(1U<<k))&&lane[k]==3)p.color_input=1;
+   }
    unsigned sw=r->Register.SwizzleX|(r->Register.SwizzleY<<2)|(r->Register.SwizzleZ<<4)|(r->Register.SwizzleW<<6);
    src[j]=(struct mbx_vgp_source){bank,index,sw,r->Register.Negate};
    /* One distinct input and constant per instruction. Resolve bank conflicts
@@ -98,16 +135,26 @@ static bool mbx_vgp_compile(const struct tgsi_token *tokens,struct mbx_vgp_shade
   }
   if(!valid||!mbx_vgp_append(&p,op,16+dest,mask,src,ns)){valid=false;break;}
   defined[dest]|=mask;
+  if(p.texture_outputs&&dest==9&&(mask&8)){
+   p.texture_q_input=op==1&&src[0].bank==0&&src[0].index==3&&((src[0].swizzle>>6)&3)==3&&!src[0].negative&&!in->Instruction.Saturate;
+   p.texture_q_constant=op==1&&src[0].bank==1&&!src[0].negative&&!in->Instruction.Saturate?src[0].index*4+((src[0].swizzle>>6)&3):~0U;
+  }
   if(in->Instruction.Saturate){
    struct mbx_vgp_source a[2]={{2,dest,0xe4,0},{1,114,0,0}};
    if(!mbx_vgp_append(&p,10,16+dest,mask,a,2)){valid=false;break;}
    a[1].index=115;if(!mbx_vgp_append(&p,9,16+dest,mask,a,2)){valid=false;break;}
   }
  }
- tgsi_parse_free(&parse);if(!valid||!ended||defined[10]!=15||defined[11]!=15)return false;
+ if(p.texture_matrix_constant!=~0U)p.texture_q_input=1;
+ tgsi_parse_free(&parse);if(!valid||!ended||defined[10]!=15||(!external_color&&!p.texture_outputs&&defined[11]!=15)||(p.texture_outputs&&(defined[9]!=15||(p.texture_q_constant==~0U&&!p.texture_q_input))))return false;
+ if(external_color&&(p.texture_outputs||defined[11]||p.constants>=MBX_VGP_UNIFORM_LIMIT))return false;
  struct mbx_vgp_source pos={2,10,0xe4,0},color={2,11,0xc6,0};
+ if(external_color){p.constant_color=p.constants++;color=(struct mbx_vgp_source){1,p.constant_color,0xc6,0};}
+ if(p.texture_outputs&&defined[11]!=15)color=(struct mbx_vgp_source){1,115,0,0};
  if(!mbx_vgp_append(&p,1,0,15,&pos,1)||!mbx_vgp_append(&p,1,1,15,&color,1))return false;
+ if(p.texture_outputs){struct mbx_vgp_source uv={2,9,0xe4,0};if(!mbx_vgp_append(&p,1,3,15,&uv,1))return false;}
  for(unsigned i=0;i<2;++i){struct mbx_vgp_source a[2]={pos,{1,112+i,0xe4,0}};if(!mbx_vgp_append(&p,8,7,1u<<i,a,2))return false;}
  *out=p;return true;
 }
+static inline bool mbx_vgp_compile(const struct tgsi_token *tokens,struct mbx_vgp_shader *out){return mbx_vgp_compile_color(tokens,out,false);}
 #endif

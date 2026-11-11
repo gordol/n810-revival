@@ -196,4 +196,4 @@ class Renderer(PreparedRenderer):
                    requested_spacing_m=1000*span/max(1,width-1),dem_resolution='DEM 329×487 m; local Lakewood 10×14 m',
                    sampling='fixed geographic terrain patches; display-scale vector strokes',road_cells=road_cells,stream_cells=stream_cells)
         self.pack_state=state;self.loading_phase='ready'
-        return TerrainImage(width,height,tuple(result),'Local overview' if key[0]=='context' else 'Prepared terrain · one vector road/stream layer',(),time.monotonic()-start,view,'cached-overview' if key[0]=='context' else 'regional-pack',MappingProxyType(state))
+        return TerrainImage(width,height,tuple(result),'Local overview' if key[0]=='context' else 'Prepared terrain · one vector road/stream layer',(),time.monotonic()-start,view,'cached-overview' if key[0]=='context' else 'regional-pack',pack_status=MappingProxyType(state))

@@ -1,0 +1,5 @@
+clk_rate_exclusive_get
+clk_rate_exclusive_put
+devres_open_group
+devres_close_group
+devres_release_group

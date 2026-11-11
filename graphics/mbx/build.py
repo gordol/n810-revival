@@ -71,8 +71,10 @@ def main():
             if f.is_symlink() and os.readlink(f).startswith('/'):
                 destination=sysroot/os.readlink(f).lstrip('/');f.unlink();f.symlink_to(os.path.relpath(destination,f.parent))
         integration=work/'integration';shutil.copytree(source_root/'mesa',integration)
+        # Mesa-specific headers can extend the shared ABI; keep those versions.
         for f in (source_root/'common').iterdir():
-            if f.suffix in ('.c','.h'):shutil.copyfile(f,integration/f.name)
+            if f.suffix in ('.c','.h') and not (integration/f.name).exists():
+                shutil.copyfile(f,integration/f.name)
         mesa=work/('mesa-'+lock['mesa']['version']);run([sys.executable,integration/'prepare_mesa.py',mesa],'prepare-mesa')
         cross=work/'armel.cross';cross.write_text((HERE/'mesa/armel.cross.in').read_text().replace('@SYSROOT@',str(sysroot)))
         options=['-Dbuildtype=release','-Db_ndebug=true','-Dglx=xlib','-Dgallium-drivers=swrast','-Dvulkan-drivers=',

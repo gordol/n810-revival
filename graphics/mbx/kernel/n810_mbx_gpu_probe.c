@@ -460,6 +460,7 @@ static int recover_locked(const char *value,const struct kernel_param *unused)
     reset_asserted_verified=1;
     usleep_range(10000,11000);
     e=mbx_dma_release(&gpu_memory);gpu_dma_stage=gpu_memory.stage;if(e)goto fail;
+    e=gpu_service_retire_prepared(reset.completion_observed,recovery_mmu_control,recovery_tables_cleared);if(e)goto fail;
     e=cleanup_owned_clocks(c);if(e)goto fail;
     if(gpu_service_registered){misc_deregister(&gpu_service_device);gpu_service_registered=false;}
     platform_driver_unregister(&ready_driver);

@@ -1,0 +1,20 @@
+{
+  "archive": "mesa-prepared-base.tar.gz",
+  "sha256": "b91fcc4000bd84ea2a68b807fe73bb1290f767b2d2971af823495f32539731d2",
+  "bytes": 26949160,
+  "mesa_version": "22.3.6",
+  "upstream_revision": "not independently established; exact prepared source archive pinned",
+  "overlay_order": [
+    "frozen prepared source archive",
+    "reset optional files from frozen base",
+    "tracked mesa files",
+    "tracked common draw headers",
+    "tracked native export symbol additions"
+  ],
+  "limitations": "toolchain/sysroot pins still pending",
+  "sysroot": {
+    "archive": "mesa-armel-sysroot.tar.gz",
+    "bytes": 19982758,
+    "sha256": "1145bb1b07bd8bb07d6a994a79b5518b3748dc5b5420ba25247435d92fa55af3"
+  }
+}

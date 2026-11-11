@@ -10,6 +10,14 @@ class NativeMap(unittest.TestCase):
   path=Path(cls.temporary.name)/'map.so'
   subprocess.run(['cc','-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC',str(ROOT/'graphics/native/map_pixels.c'),'-lm','-o',str(path)],check=True)
   cls.lib=C.CDLL(str(path));cls.lib.pocket_map_lines.argtypes=[C.c_void_p,C.c_size_t,C.c_uint,C.c_uint,C.c_void_p,C.c_uint,C.c_uint]
+  cls.lib.pocket_map_base.argtypes=[C.c_void_p,C.c_size_t,C.c_void_p,C.c_uint,C.c_uint]
+ def test_typed_terrain_halves_fill_native_pixels(self):
+  out=(C.c_uint16*(2*8*16))();samples=(C.c_uint32*4)(0xff0000,0x00ff00,0x0000ff,0x00ff00)
+  self.assertEqual(self.lib.pocket_map_base(out,len(out),samples,2,1),0)
+  self.assertEqual(out[0],0xf800)
+  self.assertEqual(out[7*16+7],0xf800)
+  self.assertEqual(out[8*16],0x001f)
+  self.assertEqual(out[15*16+8],0x07e0)
  def test_clipped_diagonal_and_rejected_nonfinite_input(self):
   out=(C.c_uint16*72)(*([0x5aa5]*72));pixels=C.byref(out,8)
   lines=(C.c_double*8)(-100,-100,100,100,-200,7,200,7)

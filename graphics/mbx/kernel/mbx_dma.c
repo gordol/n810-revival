@@ -7,6 +7,8 @@
 #include "mbx_parameter_data.h"
 #include "mbx_parameter_data.c"
 
+bool gpu_window_images;
+
 #define TABLE_BYTES (8U * 4096U)
 #define PAGE_BYTES 4096U
 #define CONTROL_ACTIVE 0x1010101U
@@ -30,40 +32,49 @@ static bool overlaps(dma_addr_t a, unsigned int length_a,
  * Never expose a changed DMA bus address through the already-attached tables. */
 int mbx_dma_frame_for_device(struct mbx_dma_memory *memory)
 {
-    dma_addr_t address;
+    dma_addr_t address;u64 started=ktime_get_ns();
     if(!memory->frame_streaming||memory->frame_device_owned)return 0;
+    memory->frame_map_attrs=memory->frame_cpu_reads_only?DMA_ATTR_SKIP_CPU_SYNC:0;
     if(!memory->frame_block){
         unsigned i;int error=0;
-        for(i=0;i<memory->frame_page_count;++i){
-            address=dma_map_page_attrs(memory->device,virt_to_page(memory->frame_pages[i]),0,PAGE_BYTES,DMA_BIDIRECTIONAL,0);
+        memory->frame_map_first=memory->frame_sample_other?0:memory->frame_active*memory->frame_image_pages;
+        unsigned pages=memory->frame_sample_other?memory->frame_page_count:memory->frame_image_pages;
+        for(i=memory->frame_map_first;i<memory->frame_map_first+pages;++i){
+            address=dma_map_page_attrs(memory->device,virt_to_page(memory->frame_pages[i]),0,PAGE_BYTES,DMA_BIDIRECTIONAL,memory->frame_map_attrs);
             if(dma_mapping_error(memory->device,address)){error=-ENOMEM;break;}
             if(address!=memory->frame_dma[i]){
-                dma_unmap_page_attrs(memory->device,address,PAGE_BYTES,DMA_BIDIRECTIONAL,0);error=-ERANGE;break;
+                dma_unmap_page_attrs(memory->device,address,PAGE_BYTES,DMA_BIDIRECTIONAL,memory->frame_map_attrs);error=-ERANGE;break;
             }
             ++memory->frame_mapped_pages;memory->frame_device_owned=true;
         }
+        if(memory->frame_map_attrs)gpu_frame_clean_skipped_bytes+=(u64)memory->frame_mapped_pages*PAGE_BYTES;
         if(error)mbx_dma_frame_for_cpu(memory);
-        return error;
+        gpu_frame_device_ns+=ktime_get_ns()-started;return error;
     }
     address=dma_map_page_attrs(memory->device,virt_to_page(memory->frame_block),0,
-                              memory->frame_block_bytes,DMA_BIDIRECTIONAL,0);
+                              memory->frame_block_bytes,DMA_BIDIRECTIONAL,memory->frame_map_attrs);
     if(dma_mapping_error(memory->device,address))return -ENOMEM;
     if(address!=memory->frame_block_dma){
-        dma_unmap_page_attrs(memory->device,address,memory->frame_block_bytes,DMA_BIDIRECTIONAL,0);
+        dma_unmap_page_attrs(memory->device,address,memory->frame_block_bytes,DMA_BIDIRECTIONAL,memory->frame_map_attrs);
         return -ERANGE;
     }
-    memory->frame_device_owned=true;return 0;
+    memory->frame_device_owned=true;if(memory->frame_map_attrs)gpu_frame_clean_skipped_bytes+=memory->frame_block_bytes;
+    gpu_frame_device_ns+=ktime_get_ns()-started;return 0;
 }
 void mbx_dma_frame_for_cpu(struct mbx_dma_memory *memory)
 {
+    /* SKIP_CPU_SYNC applies to the device transition only. Unmap without
+     * that attribute returns ownership and invalidates every GPU-written page. */
+    u64 started=ktime_get_ns();
     if(memory->frame_streaming&&memory->frame_device_owned){
         if(memory->frame_block)dma_unmap_page_attrs(memory->device,memory->frame_block_dma,
                              memory->frame_block_bytes,DMA_BIDIRECTIONAL,0);
         else while(memory->frame_mapped_pages){
-            unsigned i=--memory->frame_mapped_pages;
+            unsigned i=memory->frame_map_first+--memory->frame_mapped_pages;
             dma_unmap_page_attrs(memory->device,memory->frame_dma[i],PAGE_BYTES,DMA_BIDIRECTIONAL,0);
         }
         memory->frame_device_owned=false;
+        gpu_frame_cpu_ns+=ktime_get_ns()-started;
     }
 }
 int mbx_dma_release(struct mbx_dma_memory *memory)
@@ -89,10 +100,12 @@ int mbx_dma_release(struct mbx_dma_memory *memory)
     }else for(i=0;i<memory->frame_page_count;++i)
         dma_free_coherent(memory->device,PAGE_BYTES,memory->frame_pages[i],memory->frame_dma[i]);
 
+    if(memory->windows)dma_free_coherent(memory->device,MBX_WINDOW_BYTES,memory->windows,memory->windows_dma);
+    if(memory->linear)dma_free_coherent(memory->device,MBX_LINEAR_BYTES,memory->linear,memory->linear_dma);
     if (memory->ta)
-        dma_free_coherent(memory->device,36864,memory->ta,memory->ta_dma);
+        dma_free_coherent(memory->device,MBX_TA_BYTES,memory->ta,memory->ta_dma);
     if (memory->parameters)
-        dma_free_coherent(memory->device, 65536, memory->parameters, memory->parameters_dma);
+        dma_free_coherent(memory->device, MBX_PARAMETER_BYTES, memory->parameters, memory->parameters_dma);
     if (memory->tiles)
         dma_free_coherent(memory->device, MBX_TILE_BYTES, memory->tiles, memory->tiles_dma);
     if (memory->target)
@@ -114,11 +127,12 @@ int mbx_dma_allocate(struct device *device, struct mbx_dma_memory *memory)
     int error;
     if (!device || !memory)
         return -EINVAL;
-    if (probe_mode==2 && (!gpu_frame_capacity_bytes ||
-        gpu_frame_capacity_bytes>MBX_FRAME_PAGES*PAGE_BYTES))
+    if ((probe_mode==1||probe_mode==3) && (!gpu_frame_capacity_bytes ||
+        gpu_frame_capacity_bytes>MBX_FRAME_PAGES*PAGE_BYTES||gpu_frame_buffers<1||gpu_frame_buffers>3||
+        (gpu_frame_buffers>=2&&(!gpu_frame_streaming||gpu_frame_contiguous||gpu_frame_capacity_bytes!=320000U))))
         return -EINVAL;
     if (memory->stage != MBX_DMA_EMPTY || memory->device || memory->tables ||
-        memory->guard || memory->target || memory->parameters || memory->tiles || memory->ta)
+        memory->guard || memory->target || memory->parameters || memory->tiles || memory->ta || memory->linear || memory->windows)
         return -EBUSY;
     error = dma_set_mask_and_coherent(device, DMA_BIT_MASK(32));
     if (error)
@@ -134,12 +148,21 @@ int mbx_dma_allocate(struct device *device, struct mbx_dma_memory *memory)
     memory->target = dma_alloc_coherent(device, PAGE_BYTES, &memory->target_dma, GFP_KERNEL);
     if (!memory->target)
         goto no_memory;
-    memory->parameters=dma_alloc_coherent(device,65536,&memory->parameters_dma,GFP_KERNEL);
+    memory->parameters=dma_alloc_coherent(device,MBX_PARAMETER_BYTES,&memory->parameters_dma,GFP_KERNEL);
     memory->tiles=dma_alloc_coherent(device,MBX_TILE_BYTES,&memory->tiles_dma,GFP_KERNEL);
-    memory->ta=dma_alloc_coherent(device,36864,&memory->ta_dma,GFP_KERNEL);
-    if(!memory->parameters || !memory->tiles || !memory->ta)goto no_memory;
-    if(!valid_address(memory->ta_dma,36864)){error=-ERANGE;goto fail;}
-    if(!valid_address(memory->parameters_dma,65536)||!valid_address(memory->tiles_dma,MBX_TILE_BYTES)){error=-ERANGE;goto fail;}
+    memory->ta=dma_alloc_coherent(device,MBX_TA_BYTES,&memory->ta_dma,GFP_KERNEL);
+    memory->linear=dma_alloc_coherent(device,MBX_LINEAR_BYTES,&memory->linear_dma,GFP_KERNEL);
+    if(!memory->parameters || !memory->tiles || !memory->ta || !memory->linear)goto no_memory;
+    if(!valid_address(memory->linear_dma,MBX_LINEAR_BYTES)){error=-ERANGE;goto fail;}
+    memset(memory->linear,0xa5,MBX_LINEAR_BYTES);
+    if(gpu_window_images){
+        memory->windows=dma_alloc_coherent(device,MBX_WINDOW_BYTES,&memory->windows_dma,GFP_KERNEL);
+        if(!memory->windows)goto no_memory;
+        if(!valid_address(memory->windows_dma,MBX_WINDOW_BYTES)){error=-ERANGE;goto fail;}
+        memset(memory->windows,0xa5,MBX_WINDOW_BYTES);
+    }
+    if(!valid_address(memory->ta_dma,MBX_TA_BYTES)){error=-ERANGE;goto fail;}
+    if(!valid_address(memory->parameters_dma,MBX_PARAMETER_BYTES)||!valid_address(memory->tiles_dma,MBX_TILE_BYTES)){error=-ERANGE;goto fail;}
     if (!valid_address(memory->tables_dma, TABLE_BYTES) ||
         !valid_address(memory->guard_dma, PAGE_BYTES) ||
         !valid_address(memory->target_dma, PAGE_BYTES) ||
@@ -150,24 +173,24 @@ int mbx_dma_allocate(struct device *device, struct mbx_dma_memory *memory)
         goto fail;
     }
     {
-        dma_addr_t addresses[6]={memory->tables_dma,memory->guard_dma,memory->target_dma,memory->parameters_dma,memory->tiles_dma,memory->ta_dma};
-        unsigned int lengths[6]={TABLE_BYTES,PAGE_BYTES,PAGE_BYTES,65536,MBX_TILE_BYTES,36864};
-        unsigned int a,b;
-        for(a=0;a<6;++a)for(b=a+1;b<6;++b)
+        dma_addr_t addresses[8]={memory->tables_dma,memory->guard_dma,memory->target_dma,memory->parameters_dma,memory->tiles_dma,memory->ta_dma,memory->linear_dma,memory->windows_dma};
+        unsigned int lengths[8]={TABLE_BYTES,PAGE_BYTES,PAGE_BYTES,MBX_PARAMETER_BYTES,MBX_TILE_BYTES,MBX_TA_BYTES,MBX_LINEAR_BYTES,MBX_WINDOW_BYTES};
+        unsigned int a,b,objects=memory->windows?8:7;
+        for(a=0;a<objects;++a)for(b=a+1;b<objects;++b)
             if(overlaps(addresses[a],lengths[a],addresses[b],lengths[b])){error=-ERANGE;goto fail;}
         /* Reject every owned DMA object if it touches the physical display
          * allocation reported by FBIOGET_FSCREENINFO before insertion. This
          * check precedes table attachment and every GPU DMA command. */
-        for(a=0;a<6;++a)
+        for(a=0;a<objects;++a)
             if(overlaps(addresses[a],lengths[a],display_base,display_bytes)){
                 error=-ERANGE;goto fail;
             }
-        if(probe_mode==2){
+        if((probe_mode==1||probe_mode==3)){
             memory->frame_streaming=gpu_frame_streaming;
-            memory->frame_block_bytes=PAGE_ALIGN(gpu_frame_capacity_bytes);
+            memory->frame_images=gpu_frame_buffers;
+            memory->frame_image_pages=gpu_frame_buffers>=2?MBX_IMAGE_PAGES:DIV_ROUND_UP(gpu_frame_capacity_bytes,PAGE_BYTES);
+            memory->frame_block_bytes=memory->frame_images*memory->frame_image_pages*PAGE_BYTES;
             if(gpu_frame_contiguous){
-                memory->frame_block_bytes=PAGE_ALIGN(gpu_frame_capacity_bytes);
-                memory->frame_streaming=gpu_frame_streaming;
                 if(memory->frame_streaming){
                     memory->frame_block=alloc_pages_exact(memory->frame_block_bytes,GFP_KERNEL);
                     /* Fragmented systems can still provide individual pages.
@@ -192,7 +215,7 @@ int mbx_dma_allocate(struct device *device, struct mbx_dma_memory *memory)
              * Preserve that colour in each kernel alias without requiring
              * one large contiguous allocation. */
             void *chunk=NULL;
-            for(i=0;i<DIV_ROUND_UP(gpu_frame_capacity_bytes,PAGE_BYTES);++i){
+            for(i=0;i<memory->frame_block_bytes/PAGE_BYTES;++i){
                 void *page;
                 if(memory->frame_block){
                     page=(u8 *)memory->frame_block+i*PAGE_BYTES;
@@ -213,7 +236,7 @@ int mbx_dma_allocate(struct device *device, struct mbx_dma_memory *memory)
                 memory->frame_pages[i]=page;memory->frame_page_count=i+1;
                 if(!valid_address(memory->frame_dma[i],PAGE_BYTES)||
                    overlaps(memory->frame_dma[i],PAGE_BYTES,display_base,display_bytes)){error=-ERANGE;goto fail;}
-                for(a=0;a<6;++a)if(overlaps(memory->frame_dma[i],PAGE_BYTES,addresses[a],lengths[a])){error=-ERANGE;goto fail;}
+                for(a=0;a<objects;++a)if(overlaps(memory->frame_dma[i],PAGE_BYTES,addresses[a],lengths[a])){error=-ERANGE;goto fail;}
                 for(a=0;a<i;++a)if(memory->frame_dma[a]==memory->frame_dma[i]){error=-ERANGE;goto fail;}
                 if(!memory->frame_streaming)memset(page,0x3c,PAGE_BYTES);
             }
@@ -226,28 +249,34 @@ int mbx_dma_allocate(struct device *device, struct mbx_dma_memory *memory)
         tables[i] = cpu_to_le32((u32)memory->guard_dma);
     /* GPU virtual page 0x1000 is the only non-guard data mapping. */
     tables[1] = cpu_to_le32((u32)memory->target_dma);
-    memset(memory->parameters,0,65536);memset(memory->tiles,0,MBX_TILE_BYTES);
-    mbx_background32(memory->parameters,65536/4);
+    memset(memory->parameters,0,MBX_PARAMETER_BYTES);memset(memory->tiles,0,MBX_TILE_BYTES);
+    mbx_background32(memory->parameters,MBX_PARAMETER_BYTES/4);
     /* Immutable black background bitmap lives in the second half of the
      * tile page, outside the128-byte padded region list. */
     ((__le32 *)memory->parameters)[1]=cpu_to_le32(0xa8804000U);
-    ((__le32 *)memory->parameters)[2]=cpu_to_le32(0x0e080000U|(0x20800U>>7));
-    mbx_tile_headers(memory->tiles,PAGE_BYTES/4,2,2,4,4);
-    ((__le32 *)memory->tiles)[30]|=cpu_to_le32(0x80000000U);
-    memset(memory->ta,0,36864);
+    ((__le32 *)memory->parameters)[2]=cpu_to_le32(0x0e080000U|((MBX_TILE_VA+MBX_TILE_BITMAP_OFFSET)>>7));
+    mbx_tile_headers(memory->tiles,MBX_TILE_BYTES/4,25,25,4,4);
+    ((__le32 *)memory->parameters)[7]=cpu_to_le32(0x44600000);
+    ((__le32 *)memory->parameters)[10]=cpu_to_le32(0x44600000);
+    ((__le32 *)memory->parameters)[21]=cpu_to_le32(0x3ee00000);
+    ((__le32 *)memory->parameters)[25]=cpu_to_le32(0x3ee00000);
+    ((__le32 *)memory->tiles)[1566]|=cpu_to_le32(0x80000000U);
+    memset(memory->ta,0,MBX_TA_BYTES);
     /* Separate allocator seed context; surface stateB stays zero.
      * Original reserved DPM pages17..26; parameter pages27..31 are distinct. */
-    ((__le32 *)((u8 *)memory->ta+28672))[0]=cpu_to_le32(17U|(10U<<13));
-    ((__le32 *)((u8 *)memory->ta+28672))[1]=cpu_to_le32(26U);
-    memset((u8 *)memory->ta+32768,0x5a,4096);
-    for(i=0;i<16;++i)tables[16+i]=cpu_to_le32((u32)memory->parameters_dma+4096*i);
-    for(i=0;i<MBX_TILE_BYTES/PAGE_BYTES;++i)tables[32+i]=cpu_to_le32((u32)memory->tiles_dma+PAGE_BYTES*i);
+    ((__le32 *)((u8 *)memory->ta+MBX_TA_RETIRE_OFFSET))[0]=cpu_to_le32(17U|(10U<<13));
+    ((__le32 *)((u8 *)memory->ta+MBX_TA_RETIRE_OFFSET))[1]=cpu_to_le32(26U);
+    memset((u8 *)memory->ta+MBX_TA_GUARD_OFFSET,0x5a,4096);
+    for(i=0;i<MBX_PARAMETER_BYTES/PAGE_BYTES;++i)tables[MBX_PARAMETER_VA/PAGE_BYTES+i]=cpu_to_le32((u32)memory->parameters_dma+4096*i);
+    for(i=0;i<MBX_TILE_BYTES/PAGE_BYTES;++i)tables[MBX_TILE_VA/PAGE_BYTES+i]=cpu_to_le32((u32)memory->tiles_dma+PAGE_BYTES*i);
     for(i=0;i<memory->frame_page_count;++i)tables[MBX_FRAME_VA/PAGE_BYTES+i]=cpu_to_le32((u32)memory->frame_dma[i]);
-    for(i=0;i<4;++i)tables[128+i]=cpu_to_le32((u32)memory->ta_dma+4096*i);
-    tables[144]=cpu_to_le32((u32)memory->ta_dma+16384);
-    tables[146]=cpu_to_le32((u32)memory->ta_dma+20480);
-    tables[148]=cpu_to_le32((u32)memory->ta_dma+24576);
-    tables[152]=cpu_to_le32((u32)memory->ta_dma+28672);
+    for(i=0;i<4;++i)tables[MBX_TA_VA/PAGE_BYTES+i]=cpu_to_le32((u32)memory->ta_dma+4096*i);
+    for(i=0;i<MBX_TA_STATE_BYTES/PAGE_BYTES;++i)tables[MBX_TA_STATE_VA/PAGE_BYTES+i]=cpu_to_le32((u32)memory->ta_dma+MBX_TA_STATE_OFFSET+i*PAGE_BYTES);
+    tables[MBX_TA_SAVE_A_VA/PAGE_BYTES]=cpu_to_le32((u32)memory->ta_dma+MBX_TA_SAVE_A_OFFSET);
+    tables[MBX_TA_SAVE_B_VA/PAGE_BYTES]=cpu_to_le32((u32)memory->ta_dma+MBX_TA_SAVE_B_OFFSET);
+    tables[MBX_TA_RETIRE_VA/PAGE_BYTES]=cpu_to_le32((u32)memory->ta_dma+MBX_TA_RETIRE_OFFSET);
+    for(i=0;i<MBX_LINEAR_BYTES/PAGE_BYTES;++i)tables[MBX_LINEAR_VA/PAGE_BYTES+i]=cpu_to_le32((u32)memory->linear_dma+PAGE_BYTES*i);
+    if(memory->windows)for(i=0;i<MBX_WINDOW_BYTES/PAGE_BYTES;++i)tables[MBX_WINDOW_VA/PAGE_BYTES+i]=cpu_to_le32((u32)memory->windows_dma+PAGE_BYTES*i);
     dma_wmb();
     return 0;
 
@@ -320,6 +349,18 @@ int mbx_dma_verify_fill8(struct mbx_dma_memory *memory, u32 expected_pixel)
 }
 /* Check every word, using four independent loads per loop so uncached DMA
  * reads do not pay the mapping-selection branch chain for each PTE. */
+/* Failure-only diagnostics: no per-word counters or logging on success.
+ * The offset is relative to the named allocation, never a kernel pointer. */
+static const __le32 *gpu_bounds_bad_word;
+static unsigned gpu_bounds_region,gpu_bounds_offset,gpu_bounds_expected,gpu_bounds_observed;
+module_param(gpu_bounds_region,uint,0400);
+module_param(gpu_bounds_offset,uint,0400);
+module_param(gpu_bounds_expected,uint,0400);
+module_param(gpu_bounds_observed,uint,0400);
+static bool mbx_bounds_mismatch(const __le32 *p,u32 expected)
+{
+ gpu_bounds_bad_word=p;gpu_bounds_expected=expected;gpu_bounds_observed=le32_to_cpu(*p);return false;
+}
 static bool mbx_words_equal(const __le32 *p,unsigned count,u32 expected,u32 step)
 {
     while(count>=4){
@@ -327,13 +368,15 @@ static bool mbx_words_equal(const __le32 *p,unsigned count,u32 expected,u32 step
             (le32_to_cpu(p[1])^(expected+step))|
             (le32_to_cpu(p[2])^(expected+2*step))|
             (le32_to_cpu(p[3])^(expected+3*step));
-        if(mismatch)return false;
+        if(mismatch){unsigned i;for(i=0;i<4;++i)
+            if(le32_to_cpu(p[i])!=expected+i*step)return mbx_bounds_mismatch(p+i,expected+i*step);
+        }
         p+=4;count-=4;expected+=4*step;
     }
-    while(count--){if(le32_to_cpu(*p++)!=expected)return false;expected+=step;}
+    while(count--){if(le32_to_cpu(*p)!=expected)return mbx_bounds_mismatch(p,expected);++p;expected+=step;}
     return true;
 }
-int mbx_dma_verify_bounds(struct mbx_dma_memory *memory)
+static int mbx_dma_verify_bounds_inner(struct mbx_dma_memory *memory)
 {
     const __le32 *tables;
     unsigned i,cursor=0;
@@ -343,15 +386,24 @@ int mbx_dma_verify_bounds(struct mbx_dma_memory *memory)
     dma_rmb();tables=memory->tables;
     if(!mbx_words_equal((const __le32 *)memory->target+2048/4,2048/4,0x3c3c3c3c,0))return -EILSEQ;
     if(!mbx_words_equal(memory->guard,PAGE_BYTES/4,0xa5a5a5a5,0))return -EOVERFLOW;
-    if(!mbx_words_equal((const __le32 *)((const u8 *)memory->ta+32768),4096/4,0x5a5a5a5a,0))return -EOVERFLOW;
+    if(!mbx_words_equal((const __le32 *)((const u8 *)memory->ta+MBX_TA_GUARD_OFFSET),4096/4,0x5a5a5a5a,0))return -EOVERFLOW;
+    if(memory->frame_images<1||memory->frame_images>3||memory->frame_active>=memory->frame_images||
+       memory->frame_page_count!=memory->frame_images*memory->frame_image_pages||
+       memory->frame_image_pages!=(memory->frame_images>=2?80U:DIV_ROUND_UP(gpu_frame_capacity_bytes,PAGE_BYTES)))return -EILSEQ;
+    for(i=0;i<memory->frame_images;++i){
+        unsigned first=i*memory->frame_image_pages;
+        unsigned tail=gpu_frame_capacity_bytes/PAGE_BYTES,offset=gpu_frame_capacity_bytes%PAGE_BYTES;
+        if(offset&&!mbx_words_equal((const __le32 *)memory->frame_pages[first+tail]+offset/4,(PAGE_BYTES-offset)/4,0x3c3c3c3c,0))return -EOVERFLOW;
+        if(memory->frame_image_pages==80&&!mbx_words_equal(memory->frame_pages[first+79],4096/4,0x3c3c3c3c,0))return -EOVERFLOW;
+    }
     ranges[0]=(typeof(ranges[0])){1,1,memory->target_dma,0};
-    ranges[1]=(typeof(ranges[0])){16,16,memory->parameters_dma,PAGE_BYTES};
-    ranges[2]=(typeof(ranges[0])){32,MBX_TILE_BYTES/PAGE_BYTES,memory->tiles_dma,PAGE_BYTES};
-    ranges[3]=(typeof(ranges[0])){128,4,memory->ta_dma,PAGE_BYTES};
-    ranges[4]=(typeof(ranges[0])){144,1,memory->ta_dma+16384,0};
-    ranges[5]=(typeof(ranges[0])){146,1,memory->ta_dma+20480,0};
-    ranges[6]=(typeof(ranges[0])){148,1,memory->ta_dma+24576,0};
-    ranges[7]=(typeof(ranges[0])){152,1,memory->ta_dma+28672,0};
+    ranges[1]=(typeof(ranges[0])){MBX_PARAMETER_VA/PAGE_BYTES,MBX_PARAMETER_BYTES/PAGE_BYTES,memory->parameters_dma,PAGE_BYTES};
+    ranges[2]=(typeof(ranges[0])){MBX_TILE_VA/PAGE_BYTES,MBX_TILE_BYTES/PAGE_BYTES,memory->tiles_dma,PAGE_BYTES};
+    ranges[3]=(typeof(ranges[0])){MBX_TA_VA/PAGE_BYTES,4,memory->ta_dma,PAGE_BYTES};
+    ranges[4]=(typeof(ranges[0])){MBX_TA_STATE_VA/PAGE_BYTES,MBX_TA_STATE_BYTES/PAGE_BYTES,memory->ta_dma+MBX_TA_STATE_OFFSET,PAGE_BYTES};
+    ranges[5]=(typeof(ranges[0])){MBX_TA_SAVE_A_VA/PAGE_BYTES,1,memory->ta_dma+MBX_TA_SAVE_A_OFFSET,0};
+    ranges[6]=(typeof(ranges[0])){MBX_TA_SAVE_B_VA/PAGE_BYTES,1,memory->ta_dma+MBX_TA_SAVE_B_OFFSET,0};
+    ranges[7]=(typeof(ranges[0])){MBX_TA_RETIRE_VA/PAGE_BYTES,1,memory->ta_dma+MBX_TA_RETIRE_OFFSET,0};
     for(i=0;i<8;++i){
         if(!mbx_words_equal(tables+cursor,ranges[i].first-cursor,memory->guard_dma,0)||
            !mbx_words_equal(tables+ranges[i].first,ranges[i].count,ranges[i].address,ranges[i].step))return -EOVERFLOW;
@@ -360,7 +412,41 @@ int mbx_dma_verify_bounds(struct mbx_dma_memory *memory)
     if(!mbx_words_equal(tables+cursor,MBX_FRAME_VA/PAGE_BYTES-cursor,memory->guard_dma,0))return -EOVERFLOW;
     cursor=MBX_FRAME_VA/PAGE_BYTES;
     for(i=0;i<memory->frame_page_count;++i)
-        if(le32_to_cpu(tables[cursor++])!=memory->frame_dma[i])return -EOVERFLOW;
+        if(!mbx_words_equal(tables+cursor++,1,memory->frame_dma[i],0))return -EOVERFLOW;
+    if(!mbx_words_equal(tables+cursor,MBX_LINEAR_VA/PAGE_BYTES-cursor,memory->guard_dma,0))return -EOVERFLOW;
+    if(!mbx_words_equal(tables+MBX_LINEAR_VA/PAGE_BYTES,MBX_LINEAR_BYTES/PAGE_BYTES,memory->linear_dma,PAGE_BYTES))return -EOVERFLOW;
+    cursor=(MBX_LINEAR_VA+MBX_LINEAR_BYTES)/PAGE_BYTES;
+    if(memory->windows){
+        if(!mbx_words_equal(tables+cursor,MBX_WINDOW_VA/PAGE_BYTES-cursor,memory->guard_dma,0)||
+           !mbx_words_equal(tables+MBX_WINDOW_VA/PAGE_BYTES,MBX_WINDOW_BYTES/PAGE_BYTES,memory->windows_dma,PAGE_BYTES))return -EOVERFLOW;
+        cursor=(MBX_WINDOW_VA+MBX_WINDOW_BYTES)/PAGE_BYTES;
+        if(!mbx_words_equal(memory->windows,PAGE_BYTES/4,0xa5a5a5a5,0))return -EOVERFLOW;
+        for(i=0;i<MBX_WINDOW_SLOTS;i++)if(!mbx_words_equal((const __le32 *)((u8 *)memory->windows+PAGE_BYTES+i*MBX_WINDOW_STRIDE+MBX_WINDOW_IMAGE_BYTES),PAGE_BYTES/4,0xa5a5a5a5,0))return -EOVERFLOW;
+    }
     if(!mbx_words_equal(tables+cursor,TABLE_BYTES/4-cursor,memory->guard_dma,0))return -EOVERFLOW;
+    if(!mbx_words_equal(memory->linear,PAGE_BYTES/4,0xa5a5a5a5,0)||!mbx_words_equal((const __le32 *)((const u8*)memory->linear+MBX_LINEAR_BYTES-PAGE_BYTES),PAGE_BYTES/4,0xa5a5a5a5,0))return -EOVERFLOW;
     return 0;
+}
+
+/* Regions: 1 target, 2 unmapped-page guard, 3 TA, 4 page tables,
+ * 5 texture arena, 6 frame image, 7 rendered-image arena. Region 0 is structural. */
+int mbx_dma_verify_bounds(struct mbx_dma_memory *memory)
+{
+ unsigned i;int error;
+ gpu_bounds_bad_word=NULL;
+ error=mbx_dma_verify_bounds_inner(memory);
+ if(error&&gpu_bounds_bad_word&&memory){
+  unsigned long at=(unsigned long)gpu_bounds_bad_word;
+  void *base[5]={memory->target,memory->guard,memory->ta,memory->tables,memory->linear};
+  unsigned bytes[5]={4096,4096,MBX_TA_BYTES,TABLE_BYTES,MBX_LINEAR_BYTES};
+  gpu_bounds_region=0;
+  for(i=0;i<5;++i)if(at>=(unsigned long)base[i]&&at-(unsigned long)base[i]<bytes[i]){
+   gpu_bounds_region=i+1;gpu_bounds_offset=at-(unsigned long)base[i];return error;
+  }
+  if(memory->windows&&at>=(unsigned long)memory->windows&&at-(unsigned long)memory->windows<MBX_WINDOW_BYTES){gpu_bounds_region=7;gpu_bounds_offset=at-(unsigned long)memory->windows;return error;}
+  for(i=0;i<memory->frame_page_count;++i)if(at>=(unsigned long)memory->frame_pages[i]&&at-(unsigned long)memory->frame_pages[i]<4096){
+   gpu_bounds_region=6;gpu_bounds_offset=i*4096+at-(unsigned long)memory->frame_pages[i];break;
+  }
+ }
+ return error;
 }

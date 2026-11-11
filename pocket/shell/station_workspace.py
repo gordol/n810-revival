@@ -560,7 +560,7 @@ class StationMap:
             # Resample terrain before adding stations. Scaling the composed layer
             # repeats text glyphs and separates each cell's two terrain halves.
             display_key=(id(image),w,h)
-            if display_key!=self._display_key:
+            if display_key!=self._display_key or self._display_image is None:
                 self._display_key=display_key;self._display_image=image
                 if (image.width,image.height)!=(w,h):
                     projection=getattr(image,'projection',None)

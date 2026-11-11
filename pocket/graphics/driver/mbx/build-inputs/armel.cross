@@ -1,0 +1,20 @@
+[binaries]
+c='arm-linux-gnueabi-gcc'
+cpp='arm-linux-gnueabi-g++'
+ar='arm-linux-gnueabi-ar'
+strip='arm-linux-gnueabi-strip'
+pkg-config='pkg-config'
+[host_machine]
+system='linux'
+cpu_family='arm'
+cpu='armv6'
+endian='little'
+[properties]
+needs_exe_wrapper=true
+sys_root='/tmp/mbx-mesa-build-20261102/sysroot'
+pkg_config_libdir=['/tmp/mbx-mesa-build-20261102/sysroot/usr/lib/arm-linux-gnueabi/pkgconfig', '/tmp/mbx-mesa-build-20261102/sysroot/usr/share/pkgconfig']
+[built-in options]
+c_args=['--sysroot=/tmp/mbx-mesa-build-20261102/sysroot', '-nostdinc', '-isystem/tmp/mbx-mesa-build-20261102/sysroot/gcc-intrinsic', '-isystem/tmp/mbx-mesa-build-20261102/sysroot/usr/include/arm-linux-gnueabi', '-isystem/tmp/mbx-mesa-build-20261102/sysroot/usr/include', '-mcpu=arm1136jf-s', '-marm', '-mfpu=vfp', '-mfloat-abi=softfp']
+cpp_args=['--sysroot=/tmp/mbx-mesa-build-20261102/sysroot', '-nostdinc', '-nostdinc++', '-isystem/tmp/mbx-mesa-build-20261102/sysroot/usr/include/c++/12', '-isystem/tmp/mbx-mesa-build-20261102/sysroot/usr/include/arm-linux-gnueabi/c++/12', '-isystem/tmp/mbx-mesa-build-20261102/sysroot/usr/include/c++/12/backward', '-isystem/tmp/mbx-mesa-build-20261102/sysroot/gcc-intrinsic', '-isystem/tmp/mbx-mesa-build-20261102/sysroot/usr/include/arm-linux-gnueabi', '-isystem/tmp/mbx-mesa-build-20261102/sysroot/usr/include', '-mcpu=arm1136jf-s', '-marm', '-mfpu=vfp', '-mfloat-abi=softfp']
+c_link_args=['--sysroot=/tmp/mbx-mesa-build-20261102/sysroot', '-L/tmp/mbx-mesa-build-20261102/sysroot/usr/lib/arm-linux-gnueabi', '-L/tmp/mbx-mesa-build-20261102/sysroot/lib/arm-linux-gnueabi', '-L/tmp/mbx-mesa-build-20261102/sysroot/usr/lib/gcc/arm-linux-gnueabi/12', '-Wl,-rpath-link,/tmp/mbx-mesa-build-20261102/sysroot/usr/lib/arm-linux-gnueabi', '-Wl,-rpath-link,/tmp/mbx-mesa-build-20261102/sysroot/lib/arm-linux-gnueabi']
+cpp_link_args=['--sysroot=/tmp/mbx-mesa-build-20261102/sysroot', '-L/tmp/mbx-mesa-build-20261102/sysroot/usr/lib/arm-linux-gnueabi', '-L/tmp/mbx-mesa-build-20261102/sysroot/lib/arm-linux-gnueabi', '-L/tmp/mbx-mesa-build-20261102/sysroot/usr/lib/gcc/arm-linux-gnueabi/12', '-Wl,-rpath-link,/tmp/mbx-mesa-build-20261102/sysroot/usr/lib/arm-linux-gnueabi', '-Wl,-rpath-link,/tmp/mbx-mesa-build-20261102/sysroot/lib/arm-linux-gnueabi']

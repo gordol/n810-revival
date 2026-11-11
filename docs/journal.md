@@ -38,6 +38,9 @@ The visual record begins with the [sidebar desktop](posts/2026-10-05-sidebar-des
 | 7 November 2026 | [Running the Pocket desktop in a native Mac window](posts/2026-11-07-native-desktop.md) |
 | 7 November 2026 | [Adding movement, aiming, and targets to Surface Room](posts/2026-11-07-surface-room.md) |
 | 7 November 2026 | [Moving desktop effects and terrain work onto the Mac GPU](posts/2026-11-07-gpu-effects.md) |
+| 9 November 2026 | [The N810 GPU runs the desktop](posts/2026-11-09-gpu-desktop.md) |
+| 9 November 2026 | [Symbian applications on the N810](posts/2026-11-09-symbian-runtime.md) |
+| 9–10 November 2026 | [Keeping GPU work resident and testing at 480 MHz](posts/2026-11-10-gpu-residency-and-480mhz.md) |
 | 10 November 2026 | [Investigating a native ARM Windows CE runtime](posts/2026-11-10-windows-ce-runtime.md) |
 
 The guide and reference pages describe reusable procedures and the latest reconciled state. Dated posts preserve the observations available at each checkpoint.

@@ -39,3 +39,13 @@ include maps.mk
 .PHONY: doom
 doom:
 	$(PYTHON) shell/apps/doom-app/build.py $(EXTRA)
+
+# N810 managed graphics session; APP=chess or APP=snakes.
+APP ?= chess
+.PHONY: symbian
+symbian:
+	$(PYTHON) shell/symbian_launch.py "$(APP)"
+
+.PHONY: symbian-install
+symbian-install:
+	$(PYTHON) shell/symbian_install.py "$(PACKAGE)"

@@ -42,7 +42,7 @@ def main():
     p.add_argument('--state',type=Path,required=True)
     p.add_argument('--font-mode',choices=('console','crisp','smooth'),default='console')
     p.add_argument('--allow-software',action='store_true',help='admit software GL for input/display diagnostics; does not enable or load a GPU service')
-    p.add_argument('--cell-renderer',choices=('cpu','gpu'),default='cpu',help='desktop text rasterizer; direct pixel apps are unchanged')
+    p.add_argument('--cell-renderer',choices=('cpu','gpu'),default='gpu',help='desktop cell renderer (default: verified GPU; cpu is an explicit override)')
     p.add_argument('--seconds',type=float)
     if DEVELOPMENT:
         p.add_argument('--actions',type=Path)

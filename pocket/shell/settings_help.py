@@ -28,6 +28,7 @@ DESCRIPTIONS = {
     'Font status': 'Selection is preview-only. Applying and restoring fonts awaits the device operator trial.',
     'Terminal font': 'Your external terminal app controls its own font. No font or kernel settings change here.',
     'Arrival time': 'How long terrain takes to reveal after loading. Longer is slower; actual drawing can take longer than this target.',
+    'Window animations': 'Animate window restore, minimize and roll changes. Off makes window geometry change immediately.',
     'Animation time': 'Duration of window transitions. Shorter values make them finish sooner.',
     'Animation': 'Animate desktop transitions and effects. Turning this off also skips the terrain reveal.',
     'Frame style': 'Choose the characters used to draw window borders and corners.',

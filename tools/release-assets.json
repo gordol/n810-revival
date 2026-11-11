@@ -178,6 +178,14 @@
     "docs/assets/demos/surface-room-play-20261107.gif": {
       "sha256": "5d805c8029743ead4310d1b15fa14a0987b81ac2f74b2650e016e4ec7dca40fb",
       "kind": "media"
+    },
+    "docs/assets/screenshots/mbx-gears-480mhz-20261110.png": {
+      "sha256": "8e49e0cc3e3995224699027c75dc2964096d245f610a9b2996b9fbe02220da7d",
+      "kind": "media"
+    },
+    "docs/assets/screenshots/mbx-terrain-480mhz-20261110.png": {
+      "sha256": "778da628678087401b46e2175cc451c142f33deae86dcb890e10c8585265344f",
+      "kind": "media"
     }
   }
 }

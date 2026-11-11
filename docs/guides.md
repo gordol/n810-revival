@@ -20,7 +20,9 @@ The [laptop window-controls tour](tutorials/laptop-tour.md) demonstrates the sam
 - [Build the N810 kernel and modules](how-to/build-kernel.md).
 - [Build the HTIT firmware](how-to/build-htit.md).
 - [Rebuild and inspect map data](how-to/build-map-data.md).
-- [Build and run the native graphical desktop](pocket/graphics.md).
+- [Start the N810 GPU desktop](how-to/run-n810-gpu.md).
+- [Run Symbian applications](how-to/run-symbian.md).
+- [Build the Mac/Linux graphical desktop](pocket/graphics.md).
 - [Build the local native compositor](how-to/build-native.md).
 - [Build and test the 30 FPS GPU driver](how-to/build-gpu-30fps.md).
 - [Run the Pocket tests](how-to/validate.md).

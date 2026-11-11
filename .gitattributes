@@ -4,3 +4,12 @@ pocket/shell/vendor/terminal/pyte-AUTHORS.txt -diff
 
 # Preserve the retained kernel source exactly as tested in October.
 platform/console-rgb/after/** -whitespace
+
+# Pinned patches, symbol tables and upstream Mesa copies retain tested bytes.
+graphics/display/*.patch -whitespace
+pocket/graphics/driver/display/*.patch -whitespace
+platform/symbian/eka2l1.patch -whitespace
+**/mbx/build-inputs/Module.symvers -whitespace
+**/mbx/mesa/sp_state_surface.c -whitespace
+**/mbx/mesa/sp_texture.c -whitespace
+**/mbx/mesa/sp_texture.h -whitespace

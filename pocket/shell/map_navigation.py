@@ -565,10 +565,10 @@ def map_class(Base):
             return patch if patch is not None and patch[0] is layer else None
         def layer(self):
             layer=self._locator_layer or self._target_layer or super().layer()
-            if self.maidenhead_grid=='off' or layer is None or self._shown_image is None:return layer
-            if self.maidenhead_grid=='auto' and self._shown_image.projection.span<30:return layer
-            from map_geography import grid
-            from offline_map import Plane
+            if layer is None or self._shown_image is None:return layer
+            from map_geography import grid,grid_enabled
+            if not grid_enabled(self.maidenhead_grid,self._shown_image.projection.span):return layer
+            from offline_map import GridPlane
             x,y,w,h,plane=layer
             key=(id(plane),id(self._shown_image),w,h,self.side_overview,self.full_overview)
             if getattr(self,'_grid_key',None)!=key:
@@ -580,6 +580,6 @@ def map_class(Base):
                 # Keep station labels, roads, zoom box and path ahead of the grid.
                 from paint import ink
                 marks={i:(char,ink(*tuple((style>>s)&255 for s in (40,32,24)),background=tuple((plane[i][1]>>s)&255 for s in (16,8,0)))) for i,(char,style) in marks.items() if plane[i][0] in (' ','▀','▄')}
-                self._grid_layer=(x,y,w,h,Plane(plane,marks));self._grid_key=key
+                self._grid_layer=(x,y,w,h,GridPlane(plane,marks));self._grid_key=key
             return self._grid_layer
     return StationMap

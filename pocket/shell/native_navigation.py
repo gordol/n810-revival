@@ -358,6 +358,8 @@ def native_presentation(form,lines,spans,width,height):
             if 0<=y<height-1:
                 for start,size in literal_spans(rows[y][:width],listing.query):spans.append((y,start,size,'match'))
     if type(form).__name__=='Stations' and not (listing is not None and listing.searching):hint='↑↓ browse · U ULS · Enter/v map · / filter · Tab pane'
+    if type(form).__name__=='StationMapTools' and target.kind=='map' and not state.modal():
+        hint='arrows pan · +/- zoom · Esc '+('Station Map' if form.terrain_active else 'Stations')
     if type(form).__name__=='SettingsManager' and form.category is None and target.key=='categories':hint='arrows browse · Enter open · / category filter · Tab focus'
     if type(form).__name__=='BirdView' and target.key=='map':hint='arrows orbit/tilt · +/- zoom · Tab focus · Esc back'
     if type(form).__name__=='DetachedView':hint='↑↓ browse · Enter reattach · Esc back'

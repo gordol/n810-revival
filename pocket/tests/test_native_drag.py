@@ -60,6 +60,28 @@ class DragTests(unittest.TestCase):
         self.assertEqual(computed,64)
         self.assertTrue(h.damage)
 
+    def test_gpu_drag_outline_exports_only_populated_border(self):
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'graphics'))
+        from gpu_scene import overlay_records
+        import struct
+        h=self.host();w=h.window('System')
+        h.pointer(0,w.x+10,w.y);h.pointer(32,w.x+13,w.y+2)
+        h._native.prepare_outline(h)
+        pointer,_,_=h._native.outline_layer
+        cols,rows,_=h._native.outline_plane[0]
+        with self.assertRaises(ValueError):
+            h._native.lib.export_cells(pointer,array('I',range(cols*rows)))
+        with self.assertRaises(ValueError):h._native.lib.export_cells(pointer,array('I',[cols*rows]),True)
+        records=overlay_records(h._native.lib,pointer,cols,rows,True)
+        ids=[v[0] for v in struct.iter_unpack('=IIQ',records)]
+        expected=list(range(cols*rows))
+        self.assertEqual(ids,expected)
+        self.assertEqual(struct.unpack_from('=IIQ',records,(cols+1)*16),(cols+1,32,0))
+        self.assertEqual(len(ids),len(set(ids)))
+        self.assertIsNone(h._native.lib.get(pointer,cols+1))
+        h.pointer(0,w.x+13,w.y+2,True)
+        self.assertIsNone(h.drag)
+
     def test_hollow_plane_does_not_erase_underlying_cells(self):
         h=self.host();lib=h._native.lib
         outline=lib.outline(12,4,tuple(map(ord,'++++-|')))

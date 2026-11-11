@@ -36,7 +36,7 @@ def parse_initial(log):
     if len(rows)!=1:raise ValueError('missing or repeated initial snapshot')
     return tuple(int(v,16) for v in rows[0])
 
-def main():
+def main(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--mode',choices=('identity','fill'),required=True)
     p.add_argument('--module',type=Path,default=ROOT/'payload/n810_mbx_gpu_probe.ko')
@@ -44,7 +44,7 @@ def main():
     p.add_argument('--output',type=Path)
     p.add_argument('--run',action='store_true')
     p.add_argument('--permit-global-clock-commit',action='store_true')
-    a=p.parse_args()
+    a=p.parse_args(argv)
     manifest=json.loads((ROOT/'MANIFEST.json').read_text())
     pin=manifest['files']['payload/n810_mbx_gpu_probe.ko']['sha256']
     data=a.module.read_bytes()
@@ -111,6 +111,7 @@ def main():
                  kernel_log_complete=complete,module_present_after_load=Path('/sys/module/n810_mbx_gpu_probe').exists())
     try:
         fclk,iclk,select=parse_initial(log.decode(errors='replace'))
+        receipt['initial_divider']=select&7
         receipt['initial_final_gates_match']=values.get('observed_fclk')==fclk and values.get('observed_iclk')==iclk
         receipt['initial_final_selector_match']=values.get('observed_select')==select
     except ValueError:receipt['log_complete']=False

@@ -1,0 +1,406 @@
+--- a/include/video/omapfb_dss.h
++++ b/include/video/omapfb_dss.h
+@@ -585,6 +585,14 @@
+ 	int (*update)(struct omap_dss_device *dssdev,
+ 		void (*callback)(void *), void *data);
+ 
++	/* Prepare/submit one manual RGB565 update; bounds may expand to full
++	 * screen when the current overlay configuration cannot be cropped. */
++	int (*prepare_update)(struct omap_dss_device *dssdev,
++			u16 *x, u16 *y, u16 *w, u16 *h);
++	int (*update_region)(struct omap_dss_device *dssdev,
++			u16 x, u16 y, u16 w, u16 h,
++			void (*callback)(void *), void *data);
++
+ 	void (*set_pixel_size)(struct omap_dss_device *dssdev, int pixel_size);
+ 	void (*set_data_lines)(struct omap_dss_device *dssdev, int data_lines);
+ 	void (*set_rfbi_timings)(struct omap_dss_device *dssdev,
+--- a/drivers/video/fbdev/omap2/omapfb/dss/dss.h
++++ b/drivers/video/fbdev/omap2/omapfb/dss/dss.h
+@@ -491,6 +491,10 @@
+ 		struct omap_dss_device *dst);
+ 
+ 	void (*start_update)(struct omap_overlay_manager *mgr);
++	int (*check_update_region)(struct omap_overlay_manager *mgr,
++			u16 x, u16 y, u16 w, u16 h);
++	int (*start_update_region)(struct omap_overlay_manager *mgr,
++			u16 x, u16 y, u16 w, u16 h);
+ 	int (*enable)(struct omap_overlay_manager *mgr);
+ 	void (*disable)(struct omap_overlay_manager *mgr);
+ 	void (*set_timings)(struct omap_overlay_manager *mgr,
+@@ -517,6 +521,10 @@
+ int dss_mgr_enable(struct omap_overlay_manager *mgr);
+ void dss_mgr_disable(struct omap_overlay_manager *mgr);
+ void dss_mgr_start_update(struct omap_overlay_manager *mgr);
++int dss_mgr_check_update_region(struct omap_overlay_manager *mgr,
++		u16 x, u16 y, u16 w, u16 h);
++int dss_mgr_start_update_region(struct omap_overlay_manager *mgr,
++		u16 x, u16 y, u16 w, u16 h);
+ int dss_mgr_register_framedone_handler(struct omap_overlay_manager *mgr,
+ 		void (*handler)(void *), void *data);
+ void dss_mgr_unregister_framedone_handler(struct omap_overlay_manager *mgr,
+--- a/drivers/video/fbdev/omap2/omapfb/dss/output.c
++++ b/drivers/video/fbdev/omap2/omapfb/dss/output.c
+@@ -241,6 +241,21 @@
+ }
+ EXPORT_SYMBOL(dss_mgr_start_update);
+ 
++
++int dss_mgr_check_update_region(struct omap_overlay_manager *mgr,
++		u16 x, u16 y, u16 w, u16 h)
++{
++	return dss_mgr_ops->check_update_region ?
++		dss_mgr_ops->check_update_region(mgr, x, y, w, h) : -EOPNOTSUPP;
++}
++
++int dss_mgr_start_update_region(struct omap_overlay_manager *mgr,
++		u16 x, u16 y, u16 w, u16 h)
++{
++	return dss_mgr_ops->start_update_region ?
++		dss_mgr_ops->start_update_region(mgr, x, y, w, h) : -EOPNOTSUPP;
++}
++
+ int dss_mgr_register_framedone_handler(struct omap_overlay_manager *mgr,
+ 		void (*handler)(void *), void *data)
+ {
+--- a/drivers/video/fbdev/omap2/omapfb/dss/apply.c
++++ b/drivers/video/fbdev/omap2/omapfb/dss/apply.c
+@@ -71,6 +71,7 @@
+ };
+ 
+ struct mgr_priv_data {
++	bool update_region_active;
+ 
+ 	bool user_info_dirty;
+ 	struct omap_overlay_manager_info user_info;
+@@ -804,6 +805,118 @@
+ 	mgr->unset_output(mgr);
+ }
+ 
++/* Software overlay state remains full-frame throughout. Only the manual
++ * transfer's hardware shadow registers are cropped, under data_lock. */
++static int dss_update_region_check_locked(struct omap_overlay_manager *mgr,
++		u16 x, u16 y, u16 w, u16 h, struct omap_overlay **selected)
++{
++	struct mgr_priv_data *mp = get_mgr_priv(mgr);
++	struct omap_overlay *ovl, *gfx = NULL;
++	struct omap_overlay_info *oi;
++
++	if (!w || !h || x >= mp->timings.x_res || y >= mp->timings.y_res ||
++	    w > mp->timings.x_res - x || h > mp->timings.y_res - y)
++		return -EINVAL;
++	if (!x && !y && w == mp->timings.x_res && h == mp->timings.y_res) {
++		*selected = NULL;
++		return 0;
++	}
++	if (!mgr_manual_update(mgr) || (x & 1) || (w & 1))
++		return -EOPNOTSUPP;
++	list_for_each_entry(ovl, &mgr->overlays, list) {
++		if (!get_ovl_priv(ovl)->enabled)
++			continue;
++		if (gfx || ovl->id != OMAP_DSS_GFX)
++			return -EOPNOTSUPP;
++		gfx = ovl;
++	}
++	if (!gfx)
++		return -EOPNOTSUPP;
++	oi = &get_ovl_priv(gfx)->info;
++	if (oi->color_mode != OMAP_DSS_COLOR_RGB16 || oi->rotation || oi->mirror ||
++	    oi->rotation_type != OMAP_DSS_ROT_DMA || oi->pos_x || oi->pos_y ||
++	    oi->width != mp->timings.x_res || oi->height != mp->timings.y_res ||
++	    oi->screen_width < oi->width ||
++	    (oi->out_width && oi->out_width != oi->width) ||
++	    (oi->out_height && oi->out_height != oi->height) ||
++	    (u64)oi->paddr + ((u64)(y + h - 1) * oi->screen_width + x + w) * 2 > U32_MAX)
++		return -EOPNOTSUPP;
++	*selected = gfx;
++	return 0;
++}
++
++static int dss_mgr_check_update_region_compat(struct omap_overlay_manager *mgr,
++		u16 x, u16 y, u16 w, u16 h)
++{
++	unsigned long flags;
++	struct omap_overlay *ovl;
++	int r;
++
++	spin_lock_irqsave(&data_lock, flags);
++	r = dss_update_region_check_locked(mgr, x, y, w, h, &ovl);
++	spin_unlock_irqrestore(&data_lock, flags);
++	return r;
++}
++
++static void dss_restore_update_region_locked(struct omap_overlay_manager *mgr)
++{
++	struct mgr_priv_data *mp = get_mgr_priv(mgr);
++	struct omap_overlay *ovl;
++
++	if (!mp->update_region_active)
++		return;
++	list_for_each_entry(ovl, &mgr->overlays, list)
++		if (get_ovl_priv(ovl)->enabled)
++			get_ovl_priv(ovl)->info_dirty = true;
++	dss_mgr_write_regs(mgr);
++	dispc_mgr_set_timings(mgr->id, &mp->timings);
++	mp->update_region_active = false;
++}
++
++static int dss_mgr_start_update_region_compat(struct omap_overlay_manager *mgr,
++		u16 x, u16 y, u16 w, u16 h)
++{
++	struct mgr_priv_data *mp = get_mgr_priv(mgr);
++	struct omap_overlay *ovl;
++	struct omap_overlay_info crop;
++	struct omap_video_timings timings;
++	unsigned long flags;
++	int r;
++
++	spin_lock_irqsave(&data_lock, flags);
++	if (mp->updating) { r = -EBUSY; goto out; }
++	r = dss_update_region_check_locked(mgr, x, y, w, h, &ovl);
++	if (r) goto out;
++	r = dss_check_settings(mgr);
++	if (r) goto out;
++	dss_restore_update_region_locked(mgr);
++	dss_mgr_write_regs(mgr);
++	dss_mgr_write_regs_extra(mgr);
++	if (ovl) {
++		crop = get_ovl_priv(ovl)->info;
++		crop.paddr += ((u32)y * crop.screen_width + x) * 2;
++		crop.width = crop.out_width = w;
++		crop.height = crop.out_height = h;
++		crop.pos_x = crop.pos_y = 0;
++		timings = mp->timings;
++		timings.x_res = w;
++		timings.y_res = h;
++		mp->update_region_active = true;
++		r = dispc_ovl_setup(ovl->id, &crop,
++			dss_ovl_use_replication(mp->lcd_config, crop.color_mode),
++			&timings, false);
++		if (r) { dss_restore_update_region_locked(mgr); goto out; }
++		dispc_mgr_set_timings(mgr->id, &timings);
++	}
++	mp->updating = true;
++	if (!dss_data.irq_enabled && need_isr())
++		dss_register_vsync_isr();
++	dispc_mgr_enable_sync(mgr->id);
++out:
++	spin_unlock_irqrestore(&data_lock, flags);
++	return r;
++}
++
+ static void dss_mgr_start_update_compat(struct omap_overlay_manager *mgr)
+ {
+ 	struct mgr_priv_data *mp = get_mgr_priv(mgr);
+@@ -922,8 +1035,11 @@
+ 		if (!mgr_manual_update(mgr) || !mp->framedone_handler)
+ 			continue;
+ 
+-		if (mask & dispc_mgr_get_framedone_irq(i))
++		if (mask & dispc_mgr_get_framedone_irq(i)) {
++			/* Already under data_lock; restore before releasing RFBI ownership. */
++			dss_restore_update_region_locked(mgr);
+ 			mp->framedone_handler(mp->framedone_handler_data);
++		}
+ 	}
+ 
+ 	if (!need_isr())
+@@ -1571,6 +1687,8 @@
+ 	.connect = dss_mgr_connect_compat,
+ 	.disconnect = dss_mgr_disconnect_compat,
+ 	.start_update = dss_mgr_start_update_compat,
++	.check_update_region = dss_mgr_check_update_region_compat,
++	.start_update_region = dss_mgr_start_update_region_compat,
+ 	.enable = dss_mgr_enable_compat,
+ 	.disable = dss_mgr_disable_compat,
+ 	.set_timings = dss_mgr_set_timings_compat,
+--- a/drivers/video/fbdev/omap2/omapfb/dss/rfbi.c
++++ b/drivers/video/fbdev/omap2/omapfb/dss/rfbi.c
+@@ -23,6 +23,9 @@
+ #define DSS_SUBSYS_NAME "RFBI"
+ 
+ #include <linux/kernel.h>
++#include <linux/atomic.h>
++#include <linux/ktime.h>
++#include <linux/moduleparam.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/export.h>
+ #include <linux/vmalloc.h>
+@@ -95,7 +98,26 @@
+ static int rfbi_convert_timings(struct omap_dss_device *dssdev, struct rfbi_timings *t);
+ static void rfbi_get_clk_info(struct omap_dss_device *dssdev, u32 *clk_period, u32 *max_clk_div);
+ 
++/* Read-only aggregate evidence; no per-frame printk or debug sampling. */
++static atomic64_t rfbi_completed_updates = ATOMIC64_INIT(0);
++static atomic64_t rfbi_completed_pixels = ATOMIC64_INIT(0);
++static atomic64_t rfbi_transfer_ns = ATOMIC64_INIT(0);
++static atomic64_t rfbi_partial_updates = ATOMIC64_INIT(0);
++static int rfbi_counter_get(char *buffer, const struct kernel_param *kp)
++{
++	return scnprintf(buffer, PAGE_SIZE, "%lld\n",
++		(long long)atomic64_read(kp->arg));
++}
++static const struct kernel_param_ops rfbi_counter_ops = { .get = rfbi_counter_get };
++module_param_cb(rfbi_completed_updates, &rfbi_counter_ops, &rfbi_completed_updates, 0444);
++module_param_cb(rfbi_completed_pixels, &rfbi_counter_ops, &rfbi_completed_pixels, 0444);
++module_param_cb(rfbi_transfer_ns, &rfbi_counter_ops, &rfbi_transfer_ns, 0444);
++module_param_cb(rfbi_partial_updates, &rfbi_counter_ops, &rfbi_partial_updates, 0444);
++
+ struct rfbi_data {
++	u64 update_started_ns;
++	u32 update_pixels;
++	bool partial_update;
+ 	struct platform_device *pdev;
+ 	void __iomem	*base;
+ 
+@@ -270,32 +292,29 @@
+ }
+ 
+ static int rfbi_transfer_area(struct omap_dss_device *dssdev,
++		u16 x, u16 y, u16 width, u16 height,
+ 		void (*callback)(void *data), void *data)
+ {
+ 	u32 l;
+ 	int r;
+ 	struct omap_overlay_manager *mgr = rfbi->output.manager;
+-	u16 width = rfbi->timings.x_res;
+-	u16 height = rfbi->timings.y_res;
+-
+-	/*BUG_ON(callback == 0);*/
+-	BUG_ON(rfbi->framedone_callback != NULL);
+-
+-	DSSDBG("rfbi_transfer_area %dx%d\n", width, height);
+-
+-	if (!dispc_mgr_is_enabled(rfbi->output.dispc_channel)) {
+-
+-		dss_mgr_set_timings(mgr, &rfbi->timings);
+-
+-		r = dss_mgr_enable(mgr);
+-		if (r)
+-			return r;
+-
+-		dss_mgr_start_update(mgr);
+-	}
+-
++	if (rfbi->framedone_callback || dispc_mgr_is_enabled(rfbi->output.dispc_channel))
++		return -EBUSY;
++	dss_mgr_set_timings(mgr, &rfbi->timings);
++	r = dss_mgr_enable(mgr);
++	if (r)
++		return r;
++	/* Install completion ownership before enabling the DISPC transfer. */
++	rfbi->update_pixels = width * height;
++	rfbi->partial_update = x || y || width != rfbi->timings.x_res || height != rfbi->timings.y_res;
+ 	rfbi->framedone_callback = callback;
+ 	rfbi->framedone_callback_data = data;
++	r = dss_mgr_start_update_region(mgr, x, y, width, height);
++	if (r) {
++		rfbi->framedone_callback = NULL;
++		rfbi->framedone_callback_data = NULL;
++		return r;
++	}
+ 
+ 	rfbi_write_reg(dssdev, RFBI_PIXEL_CNT, width * height);
+ 
+@@ -304,6 +323,7 @@
+ 	if (!rfbi->te_enabled)
+ 		l = FLD_MOD(l, 1, 4, 4); /* ITE */
+ 
++	rfbi->update_started_ns = ktime_get_ns();
+ 	rfbi_write_reg(dssdev, RFBI_CONTROL, l);
+ 
+ 	return 0;
+@@ -315,6 +335,13 @@
+ 	void (*callback)(void *data);
+ 
+ 	DSSDBG("FRAMEDONE\n");
++	if (rfbi->update_started_ns) {
++		atomic64_add(ktime_get_ns() - rfbi->update_started_ns, &rfbi_transfer_ns);
++		atomic64_add(rfbi->update_pixels, &rfbi_completed_pixels);
++		atomic64_inc(&rfbi_completed_updates);
++		if (rfbi->partial_update) atomic64_inc(&rfbi_partial_updates);
++		rfbi->update_started_ns = 0;
++	}
+ 
+ 	REG_FLD_MOD(RFBI_CONTROL, 0, 0, 0);
+ 
+@@ -692,7 +719,35 @@
+ static int rfbi_update(struct omap_dss_device *dssdev, void (*callback)(void *),
+ 		void *data)
+ {
+-	return rfbi_transfer_area(dssdev, callback, data);
++	return rfbi_transfer_area(dssdev, 0, 0, rfbi->timings.x_res,
++		rfbi->timings.y_res, callback, data);
++}
++
++static int rfbi_prepare_update(struct omap_dss_device *dssdev,
++		u16 *x, u16 *y, u16 *w, u16 *h)
++{
++	struct omap_overlay_manager *mgr = rfbi->output.manager;
++	int r;
++
++	if (!mgr || !*w || !*h || *x >= rfbi->timings.x_res ||
++	    *y >= rfbi->timings.y_res || *w > rfbi->timings.x_res - *x ||
++	    *h > rfbi->timings.y_res - *y)
++		return -EINVAL;
++	dss_mgr_set_timings(mgr, &rfbi->timings);
++	r = dss_mgr_check_update_region(mgr, *x, *y, *w, *h);
++	if (r == -EOPNOTSUPP) {
++		*x = *y = 0;
++		*w = rfbi->timings.x_res;
++		*h = rfbi->timings.y_res;
++		return 0;
++	}
++	return r;
++}
++
++static int rfbi_update_region(struct omap_dss_device *dssdev,
++		u16 x, u16 y, u16 w, u16 h, void (*callback)(void *), void *data)
++{
++	return rfbi_transfer_area(dssdev, x, y, w, h, callback, data);
+ }
+ 
+ static void rfbi_set_pixel_size(struct omap_dss_device *dssdev, int pixel_size)
+@@ -932,6 +987,8 @@
+         .get_timings = rfbi_get_timings,
+ 
+ 	.update = rfbi_update,
++	.prepare_update = rfbi_prepare_update,
++	.update_region = rfbi_update_region,
+ 
+ 	.set_pixel_size = rfbi_set_pixel_size,
+ 	.set_data_lines = rfbi_set_data_lines,
+--- a/drivers/video/fbdev/omap2/omapfb/displays/panel-n8x0.c
++++ b/drivers/video/fbdev/omap2/omapfb/displays/panel-n8x0.c
+@@ -816,20 +816,25 @@
+         dw = dssdev->panel.timings.x_res;
+         dh = dssdev->panel.timings.y_res;
+ 
+-        if (x != 0 || y != 0 || w != dw || h != dh) {
+-                dev_err(dssdev->dev, "invaid update region %d, %d, %d, %d\n",
+-                        x, y, w, h);
++        if (!w || !h || x >= dw || y >= dh || w > dw - x || h > dh - y)
+                 return -EINVAL;
+-        }
+ 
+         mutex_lock(&ddata->mutex);
+ 	dd->ops.rfbi->bus_lock(dd);
+ 
++        r = dd->ops.rfbi->prepare_update(dd, &x, &y, &w, &h);
++        if (r) {
++                dd->ops.rfbi->bus_unlock(dd);
++                mutex_unlock(&ddata->mutex);
++                return r;
++        }
+         blizzard_ctrl_setup_update(dd, x, y, w, h);
+ 
+-	r = dd->ops.rfbi->update(dd, update_done, ddata);
+-	if (r)
++	r = dd->ops.rfbi->update_region(dd, x, y, w, h, update_done, ddata);
++	if (r) {
++		blizzard_ctrl_setup_update(dd, 0, 0, dw, dh);
+ 		dd->ops.rfbi->bus_unlock(dd);
++	}
+ 
+         mutex_unlock(&ddata->mutex);
+ 

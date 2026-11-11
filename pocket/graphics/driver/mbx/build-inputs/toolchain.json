@@ -1,0 +1,37 @@
+{
+  "arm-linux-gnueabi-gcc": {
+    "path": "/usr/bin/arm-linux-gnueabi-gcc",
+    "sha256": "398c6b5be03b93b485ed04559cca2751e3a705de1e69ebe15e7ff2e3c47c8b4b",
+    "version": "arm-linux-gnueabi-gcc (Debian 14.2.0-19) 14.2.0"
+  },
+  "arm-linux-gnueabi-g++": {
+    "path": "/usr/bin/arm-linux-gnueabi-g++",
+    "sha256": "15bb9b2a075d3c79f2fc4f5828e9fa91d69294e16d183533b750db41825e6a10",
+    "version": "arm-linux-gnueabi-g++ (Debian 14.2.0-19) 14.2.0"
+  },
+  "arm-linux-gnueabi-ar": {
+    "path": "/usr/bin/arm-linux-gnueabi-ar",
+    "sha256": "47214ab77518a55bbe1ba2ea689e34c2b26f14fd8ad4fa135a3ddbcaeeb97a86",
+    "version": "GNU ar (GNU Binutils for Debian) 2.44"
+  },
+  "arm-linux-gnueabi-ld": {
+    "path": "/usr/bin/arm-linux-gnueabi-ld",
+    "sha256": "fb9b7dbf894c0199de3d92a04833d978465a8d1e42e0b6e47da0b8d82eb495c9",
+    "version": "GNU ld (GNU Binutils for Debian) 2.44"
+  },
+  "meson": {
+    "path": "/usr/bin/meson",
+    "sha256": "351bf432ee263564bddd23b503aa09a6e38a11e163f31f4bcec7e451b59a9be2",
+    "version": "1.7.0"
+  },
+  "ninja": {
+    "path": "/usr/bin/ninja",
+    "sha256": "809ab548ba6a1901e1b7bb36e13f9d84ad3b81c895927884c95357004a5a0acd",
+    "version": "1.12.1"
+  },
+  "pkg-config": {
+    "path": "/usr/bin/pkg-config",
+    "sha256": "a36311f6ec7e426c08276522616e239c505041647b49c86ddd2ce1dc2b05e3a1",
+    "version": "1.8.1"
+  }
+}
