@@ -2279,10 +2279,47 @@ index 0ce9da2..cb66c4d 100644
                  texture_snapshots[idx] = retain_texture(driver_textures[idx]);
              }
 diff --git a/src/emu/services/src/window/classes/gstore.cpp b/src/emu/services/src/window/classes/gstore.cpp
-index 09ddf8c..74e53bd 100644
+index 09ddf8c..83b6b63 100644
 --- a/src/emu/services/src/window/classes/gstore.cpp
 +++ b/src/emu/services/src/window/classes/gstore.cpp
-@@ -176,7 +176,10 @@ namespace eka2l1::epoc {
+@@ -18,6 +18,8 @@
+  */
+ 
+ #include <services/window/classes/gstore.h>
++#include <cstdlib>
++#include <cstring>
+ #include <services/window/util.h>
+ #include <services/window/bitmap_cache.h>
+ 
+@@ -153,6 +155,18 @@ namespace eka2l1::epoc {
+             }
+         }
+ 
++        // A tiny retained history is cheaper to replay than rasterizing a
++        // non-native-size snapshot. Keep both command and segment bounds.
++        const char *bounded = std::getenv("N810_SYMBIAN_BOUNDED_HISTORY");
++        bool keep_small_history = flatten && bounded && !std::strcmp(bounded, "1");
++        std::size_t retained_commands = 0;
++        if (keep_small_history) {
++            for (const auto &segment : segments_) {
++                retained_commands += segment->commands_.size();
++                if (retained_commands > 64) { keep_small_history = false; break; }
++            }
++        }
++
+         if (current_segment_ && (current_segment_->type_ == gdi_store_command_segment_non_redraw)) {
+             std::uint64_t current_time = common::get_current_utc_time_in_microseconds_since_epoch();
+ 
+@@ -161,7 +175,7 @@ namespace eka2l1::epoc {
+                 // Try to find older segments
+                 for (std::size_t i = 0; i < segments_.size(); i++) {
+                     if ((segments_[i].get() != current_segment_) && (segments_[i]->type_ == gdi_store_command_segment_non_redraw)) {
+-                        if ((current_time - segments_[i]->creation_date_) > AGE_LIMIT_NONREDRAW_US * 2) {
++                        if (!keep_small_history && (current_time - segments_[i]->creation_date_) > AGE_LIMIT_NONREDRAW_US * 2) {
+                             expired[i] = true;
+                         }
+                     }
+@@ -176,7 +190,10 @@ namespace eka2l1::epoc {
  
          const auto last_expired = std::find(expired.rbegin(), expired.rend(), true);
          if (last_expired == expired.rend()) {
@@ -2294,7 +2331,7 @@ index 09ddf8c..74e53bd 100644
          }
  
          // Older segments may be painted over by an expired one, so they have to go into the merge too.
-@@ -234,6 +237,27 @@ namespace eka2l1::epoc {
+@@ -234,6 +251,27 @@ namespace eka2l1::epoc {
      }
  
      void gdi_command_builder::build_single_command(const gdi_store_command &command) {

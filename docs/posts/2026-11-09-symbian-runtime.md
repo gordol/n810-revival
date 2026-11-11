@@ -71,6 +71,26 @@ reported two readbacks totaling 462,720 bytes per run, versus none previously.
 Memory use also increased. Those discrepancies need tracing before calling this
 an unchanged rendering pipeline or enabling the newer cache optimizations.
 
+
+## 11 November: tracing the extra reads
+
+A bounded Nokia diagnostic traced both 231,360-byte reads to Mesa's ordinary
+render-target path. Runtime surface logging identified a 240×241 temporary made
+by age-based redraw-history compaction. That temporary does not fit the retained
+128×128 or 240×320 image classes.
+
+An opt-in runtime change keeps up to 64 stored commands instead of rasterizing
+that small history merely because it aged. The existing segment limit and
+large-history compaction remain. All 5,656 sanitized history cases preserved
+command order, and the ARM build passed. The change stays disabled by default.
+
+The device comparison stopped before loading its test module because the kernel
+had recorded a zram decompression failure during swap-in. No reboot was issued;
+the GPU was unloaded and Pocket stayed stopped. Physical acceptance and the
+memory-growth investigation remain open. The sampled resident memory includes
+anonymous heaps and mapped code, so peak RSS alone does not establish an
+allocation leak or attribute the increase to those two reads.
+
 <!-- journal-sources:start -->
 ## Code, tests and build inputs
 
