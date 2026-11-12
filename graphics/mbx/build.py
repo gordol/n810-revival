@@ -84,6 +84,10 @@ def main():
         if a.osmesa:
             options.append('-Dosmesa=true')
             target=mesa/'src/gallium/targets/osmesa'
+            symbols=target/'osmesa.sym'
+            text=symbols.read_text()
+            if text.count('global:')!=1:raise RuntimeError('Unexpected OSMesa export list')
+            symbols.write_text(text.replace('global:', 'global:\n\t\tn810_mbx_surface_*;'))
             shutil.copyfile(HERE/'mesa/osmesa_frontend.c',target/'mbx_frontend.c')
             recipe=target/'meson.build';text=recipe.read_text()
             if text.count("  'target.c',")!=1:raise RuntimeError('Unexpected OSMesa target recipe')
@@ -97,6 +101,10 @@ def main():
         if a.osmesa:
             osmesa=work/'build/src/gallium/targets/osmesa/libOSMesa.so.8.0.0'
             run(['arm-linux-gnueabi-strip','--strip-unneeded','-o',out/'libOSMesa.so.8',osmesa],'strip-osmesa')
+            exports=subprocess.check_output(['arm-linux-gnueabi-nm','-D','--defined-only',str(out/'libOSMesa.so.8')],text=True)
+            required={'n810_mbx_surface_'+name for name in ('begin','end','copy','dma_copy','release')}
+            if not required<={line.split()[-1] for line in exports.splitlines()}:
+                raise RuntimeError('OSMesa is missing the Pocket GPU surface exports')
             shutil.copytree(mesa/'include',out/'include')
         versions=subprocess.check_output(['arm-linux-gnueabi-readelf','--version-info',str(library)],text=True)
         required={k:sorted(set(re.findall(k+r'_([0-9.]+)',versions)),key=lambda s:tuple(map(int,s.split('.')))) for k in ('GLIBC','GLIBCXX','CXXABI')}
