@@ -91,9 +91,10 @@ flasher:
 flasher-help: flasher
 	"$(FLASHER_OUTPUT)/0xFFFF" -h
 
+FLASHER_HELPER_OUTPUT ?= $(FLASHER_OUTPUT)-helper
 .PHONY: flasher-helper-prepare
 flasher-helper-prepare: flasher
-	python3 platform/flasher/prepare_macos_helper.py --build "$(FLASHER_OUTPUT)" --output "$(FLASHER_OUTPUT)-helper"
+	python3 platform/flasher/prepare_macos_helper.py --build "$(FLASHER_OUTPUT)" --output "$(FLASHER_HELPER_OUTPUT)"
 
 FLASHER_PREFIX ?= /usr/local
 .PHONY: flasher-install

@@ -88,7 +88,9 @@ this helper receives passwordless sudo; the desktop runs as the ordinary user.
 Its watchdog stops a stalled 0xFFFF child before the installer timeout, so a
 timed-out flash cannot remain armed for a later update-mode connection. After
 updating the helper source, prepare a new bundle and install it with the
-printed `--replace` command before another USB operation.
+printed `--replace` command before another USB operation. Set
+`FLASHER_HELPER_OUTPUT` to a new local folder for the replacement; the existing
+flasher build can be reused when its pinned source identity matches.
 The helper permits those USB operations whenever invoked by that user, so retain
 it only while that ongoing access is wanted. Existing installations are refused
 rather than overwritten.
