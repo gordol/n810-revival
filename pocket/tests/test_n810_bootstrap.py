@@ -7,7 +7,7 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'platform'/'bootstrap'))
 import n810_bootstrap as bootstrap
-from native_setup import N810Setup,_build_internal_kit,_mac_storage
+from native_setup import N810Setup,_build_internal_kit,_build_internal_source_kit,_mac_storage
 from native_navigation import native_key,navigation
 
 class SetupTests(unittest.TestCase):
@@ -82,14 +82,14 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(form.manifest.text,'pvc');self.assertIsNone(form.pool)
         native_key(form,'\t');self.assertEqual(navigation(form).target,'destination')
         native_key(form,'backtab');self.assertEqual(navigation(form).target,'manifest')
-        for _ in range(4):native_key(form,'\t')
+        for _ in range(6):native_key(form,'\t')
         self.assertEqual(navigation(form).target,'check')
         native_key(form,'\r')
         self.assertIsNotNone(form.pool)
     def test_flasher_action_uses_shared_builder_without_manifest(self):
         form=N810Setup();self.addCleanup(form.close)
         with patch('n810_flasher.build',return_value={'state':'flasher_built','binary':'/fixture/0xFFFF','source_revision':'fixture'}) as build:
-            for _ in range(8):native_key(form,'\t')
+            for _ in range(10):native_key(form,'\t')
             self.assertEqual(navigation(form).target,'flasher')
             native_key(form,'\r')
             form.pending.result(timeout=2);form.poll()
@@ -166,6 +166,39 @@ class SetupTests(unittest.TestCase):
         command=popen.call_args.args[0]
         self.assertIn('--plan',command);self.assertIn(str(plan.resolve()),command)
         self.assertIn('--output',command);self.assertIn(str(output),command)
+
+    def test_source_build_masks_password_and_uses_make_stdin(self):
+        form=N810Setup();self.addCleanup(form.close)
+        secret='fixture-private-password'
+        form.password.text=secret;form.password.cursor=len(secret)
+        self.assertNotIn(secret,form.password.draw(80))
+        self.assertNotIn(secret,form.password.presentation(80)[0])
+        self.assertNotIn(secret,str(form.session_state()))
+        form.field='password'
+        self.assertNotIn(secret,'\n'.join(form.lines()))
+        self.assertIn('Local nokia password','\n'.join(form.lines()))
+        form.destination.text=str(self.root/'kit')
+        form.ssh_key.text=str(self.root/'key.pub')
+        with patch('native_setup._setup_work',return_value={'state':'internal_kit_built',
+                'kind':'n810-internal','destination':str(self.root/'kit')}) as work:
+            form.start('source-kit');form.pending.result(timeout=2);form.poll()
+            self.assertEqual(work.call_args.args[-1],secret)
+        self.assertEqual(form.password.text,'')
+        self.assertEqual(form.manifest.text,str(self.root/'kit/INSTALLATION.json'))
+        key=self.root/'key.pub';key.write_text('ssh-ed25519 synthetic-fixture\n')
+        stream=tempfile.TemporaryFile()
+        class CaptureStdin(io.BytesIO):
+            def close(self):self.captured=self.getvalue();super().close()
+        process=type('Process',(),{'stdin':CaptureStdin(),'stdout':stream,
+                                   'poll':lambda self:0,'wait':lambda self:0})()
+        with patch('native_setup.subprocess.Popen',return_value=process) as popen, \
+                patch('native_setup._verify_built_kit',return_value={'state':'internal_kit_built'}) as verify:
+            result=_build_internal_source_kit(self.root/'new-kit',key,secret,None,threading.Event())
+        self.assertEqual(result['state'],'internal_kit_built')
+        self.assertEqual(process.stdin.captured,(secret+'\n').encode())
+        self.assertNotIn(secret,str(popen.call_args))
+        self.assertIn('INTERNAL_PASSWORD_STDIN=1',popen.call_args.args[0])
+        verify.assert_called_once()
 
     def test_open_render_and_help_do_not_start_work(self):
         form=N810Setup();self.addCleanup(form.close)

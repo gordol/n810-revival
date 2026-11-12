@@ -10,12 +10,13 @@ tested macOS route uses the tablet's stock Maemo USB mass-storage export to
 write and read back all 2 GB, then uses native 0xFFFF to flash the matching
 kernel. No SD card is involved.
 
-`make n810-build-internal` builds the kernel, MBX module, Mesa, Pocket release
-runtime, and Debian root in a Linux container, then packs the internal kit. Set
-`SSH_PUBLIC_KEY` to an Ed25519 public key before running it in a terminal. The
-build asks for the local `nokia` password and stages the GPU desktop for that
-account. It does not access a tablet. A RAM-installer output is optional for its
-separate development path.
+**Build kit from source** in Setup runs `make n810-build-internal` with Docker.
+Enter a new local kit folder, an Ed25519 public key file, and a local `nokia`
+password in the guided fields. The password is hidden and cleared from the form
+when the build starts. The Make target builds the kernel, MBX module, Mesa,
+Pocket release runtime, and Debian root from tracked source, then packs and
+verifies the internal kit. It does not access a tablet. A RAM-installer output
+is optional for its separate development path.
 
 ## Use the app
 
@@ -39,7 +40,8 @@ does not contain a touchscreen calibration. First boot collects two matching
 taps for each target on that tablet before starting Pocket.
 
 The RAM-installer actions below remain available for development, but their
-physical install has not been accepted.
+physical install has not been accepted. **Build from plan** is an advanced path
+for reviewed prebuilt Linux inputs:
 
 1. Prepare the root, kernel package, and GPU build directories described
    below, then save a private plan such as:
@@ -60,7 +62,7 @@ physical install has not been accepted.
    boot image.
 
 2. Enter that plan in the first field and a **new** private kit folder in the
-   second. Select **Build internal kit**. On Linux, authorize the build in the
+   second. Select **Build from plan**. On Linux, authorize the build in the
    launching terminal first with `sudo -v`; Setup invokes only the builder as
    root, not the Pocket desktop.
 3. Setup verifies the root image, installed desktop, and permanent kernel.
@@ -137,6 +139,9 @@ The source builder uses a fresh random internal-disk partition ID and a tracked
 source snapshot. The build needs a terminal for the local password prompt and
 enough free disk space for Linux, Mesa, and the root image. `INTERNAL_PLAN` still
 selects reviewed prebuilt input directories when that workflow is needed. The
+Setup source-build action supplies the local password through stdin to the same
+Make target, so the graphical frontend does not need a terminal. The password
+is not passed in process arguments or stored in the Setup session. The kit
 install commands then use the new kit folder:
 
 ```sh
@@ -169,9 +174,11 @@ without repeating the storage write.
 ## Remaining acceptance work
 
 The automatic internal writer and kernel-flash gates are implemented and covered
-with synthetic local fixtures. The source builder still needs a clean-checkout
-container run and a full GPU first-boot check on the new N810. Host tests alone
-do not establish tablet boot or input acceptance.
+with synthetic local fixtures. A tracked-source container build produced an
+internal kit whose expanded root and manifests passed `make n810-check` locally.
+The graphical Setup source-build path still needs an interactive host check, and
+the kit needs a full GPU first-boot check on the new N810. Host build and check
+results do not establish tablet boot or input acceptance.
 
 ## Validation
 

@@ -109,6 +109,8 @@ def main() -> None:
     parser.add_argument('--size-mib', type=int, default=2048, help='Root partition size in MiB (default: 2048)')
     parser.add_argument('--root-only', action='store_true',
                         help='Stage a Debian root for an internal PARTUUID image; skip the SD filesystem and card')
+    parser.add_argument('--password-stdin', action='store_true',
+                        help='Read the local user password from stdin for a guided non-TTY build')
     args = parser.parse_args()
     if sys.platform != 'linux' or os.geteuid() != 0:
         parser.error('Run as root on a Linux builder or VM.')
@@ -149,8 +151,16 @@ def main() -> None:
     try:
         run('chroot', str(root), '/bin/true')
         run('chroot', str(root), 'useradd', '-m', '-s', '/bin/bash', '-G', 'sudo', args.user)
-        print(f'Choose the local console/sudo password for {args.user}; it will not be saved in the manifest.', flush=True)
-        run('chroot', str(root), 'passwd', args.user)
+        if args.password_stdin:
+            password = sys.stdin.readline().rstrip('\n')
+            if not password or '\r' in password:
+                parser.error('Supply a nonempty local password on stdin')
+            subprocess.run(['chroot', str(root), 'chpasswd'], input=f'{args.user}:{password}\n',
+                           text=True, check=True)
+            del password
+        else:
+            print(f'Choose the local console/sudo password for {args.user}; it will not be saved in the manifest.', flush=True)
+            run('chroot', str(root), 'passwd', args.user)
         ssh = root / 'home' / args.user / '.ssh'
         ssh.mkdir(mode=0o700)
         write_file(root, f'/home/{args.user}/.ssh/authorized_keys', key, 0o600)

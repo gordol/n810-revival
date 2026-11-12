@@ -111,6 +111,7 @@ INTERNAL_SIZE_MIB ?= 1536
 INTERNAL_DOCKER_IMAGE ?= n810-internal-builder:local
 INTERNAL_DOCKER_FLAGS ?=
 INTERNAL_FIRMWARE_CACHE ?= n810-internal-firmware
+INTERNAL_PASSWORD_STDIN ?= 0
 N810_FLASHER ?= $(FLASHER_OUTPUT)/0xFFFF
 N810_INSTALLER_HOST ?= 169.254.81.1
 N810_INSTALLER_KEY ?=
@@ -120,14 +121,15 @@ n810-build-internal:
 	@if test -n "$(INTERNAL_PLAN)"; then \
 		python3 platform/bootstrap/build_internal_image.py --plan "$(INTERNAL_PLAN)" --output "$(INTERNAL_KIT)"; \
 	else \
-		test -t 0 || { echo 'Run in a terminal for the local nokia password prompt.' >&2; exit 1; }; \
+		if test "$(INTERNAL_PASSWORD_STDIN)" != 1; then test -t 0 || { echo 'Run in a terminal for the local nokia password prompt.' >&2; exit 1; }; fi; \
 		test -n "$(SSH_PUBLIC_KEY)" -a -f "$(SSH_PUBLIC_KEY)" || { echo 'Set SSH_PUBLIC_KEY to an Ed25519 public key file.' >&2; exit 1; }; \
 		test -d "$(abspath $(dir $(INTERNAL_KIT)))" -a ! -e "$(INTERNAL_KIT)" || { echo 'Choose a new INTERNAL_KIT below an existing directory.' >&2; exit 1; }; \
 		git diff --quiet HEAD && git diff --cached --quiet || { echo 'Commit source changes before building an identified kit.' >&2; exit 1; }; \
 		disk_id=$$(python3 -c 'import secrets; print(secrets.token_hex(4))'); \
 		bash -o pipefail -c 'python3 tools/package-source.py --list-context | COPYFILE_DISABLE=1 tar --null -T - -czf - | docker build $(INTERNAL_DOCKER_FLAGS) --progress=plain --file containers/internal-image.Dockerfile --build-arg DISK_ID=$$1 --build-arg SOURCE_COMMIT=$$2 -t $(INTERNAL_DOCKER_IMAGE) -' -- "$$disk_id" "$$(git rev-parse HEAD)" || exit; \
 		set --; if test -n "$(MAEMO_BACKUP)"; then set -- --mount "type=bind,src=$$(cd "$(MAEMO_BACKUP)" && pwd),dst=/backup,readonly"; fi; \
-		docker run --rm -it "$$@" \
+		attach=-it; if test "$(INTERNAL_PASSWORD_STDIN)" = 1; then attach=-i; fi; \
+		docker run --rm "$$attach" "$$@" \
 			--mount "type=bind,src=$$(cd "$$(dirname "$(SSH_PUBLIC_KEY)")" && pwd)/$$(basename "$(SSH_PUBLIC_KEY)"),dst=/run/owner.pub,readonly" \
 			--mount "type=bind,src=$(abspath $(dir $(INTERNAL_KIT))),dst=/output" \
 			--mount "type=volume,src=$(INTERNAL_FIRMWARE_CACHE),dst=/cache/firmware" \
@@ -135,6 +137,7 @@ n810-build-internal:
 			"$(INTERNAL_DOCKER_IMAGE)" python3 platform/bootstrap/build_internal_sources.py \
 			--output "/output/$(notdir $(INTERNAL_KIT))" --ssh-key /run/owner.pub \
 			--firmware-cache /cache/firmware --size-mib "$(INTERNAL_SIZE_MIB)" \
+			$$(if test "$(INTERNAL_PASSWORD_STDIN)" = 1; then printf '%s' '--password-stdin'; fi) \
 			$$(if test -n "$(MAEMO_BACKUP)"; then printf '%s' '--backup /backup'; fi) \
 			$$(if test "$(SD_FIRMWARE_OFFLINE)" = 1; then printf '%s' '--offline'; fi); \
 	fi

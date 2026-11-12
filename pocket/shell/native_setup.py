@@ -21,6 +21,36 @@ INTERNAL_BUILDER=BOOTSTRAP/'build_internal_image.py'
 MAC_WRITER=BOOTSTRAP/'write_macos_internal.py'
 
 
+class SecretInput(TextInput):
+    def presentation(self,width,focused=True):
+        visible=self.text
+        try:
+            self.text='*'*len(visible)
+            return super().presentation(width,focused)
+        finally:
+            self.text=visible
+
+    def draw(self,width):
+        visible=self.text
+        try:
+            self.text='*'*len(visible)
+            return super().draw(width)
+        finally:
+            self.text=visible
+
+
+def _verify_built_kit(output,progress):
+    if progress:progress('Build finished; verifying every kit file and the expanded root image…')
+    sys.path.insert(0,str(BOOTSTRAP))
+    from internal_installer import verify_local_kit
+    installation,manifest,files=verify_local_kit(output)
+    return dict(state='internal_kit_built',kind='n810-internal',release=installation['release'],
+                files=[dict(role=role,path=path.name,bytes=path.stat().st_size) for role,path in files.items()],
+                total_bytes=sum(path.stat().st_size for path in files.values()),
+                kernel_release=manifest['kernel_release'],desktop_user='nokia',autostart=True,
+                destination=str(output))
+
+
 def _build_internal_kit(plan_path,destination,progress,cancelled):
     if sys.platform!='linux':raise RuntimeError('Build internal kits on a Linux host or VM with e2fsprogs installed')
     plan_path=Path(plan_path).expanduser()
@@ -58,15 +88,50 @@ def _build_internal_kit(plan_path,destination,progress,cancelled):
         if 'password is required' in tail:
             raise RuntimeError('Authorize the Linux build step first by running sudo -v in the launching terminal')
         raise RuntimeError('Internal kit build failed; its output folder may be partial. Choose a new folder to retry. '+tail[-400:])
-    if progress:progress('Build finished; verifying every kit file and the expanded root image…')
-    sys.path.insert(0,str(BOOTSTRAP))
-    from internal_installer import verify_local_kit
-    installation,manifest,files=verify_local_kit(output)
-    return dict(state='internal_kit_built',kind='n810-internal',release=installation['release'],
-                files=[dict(role=role,path=path.name,bytes=path.stat().st_size) for role,path in files.items()],
-                total_bytes=sum(path.stat().st_size for path in files.values()),
-                kernel_release=manifest['kernel_release'],desktop_user='nokia',autostart=True,
-                destination=str(output))
+    return _verify_built_kit(output,progress)
+
+
+def _build_internal_source_kit(destination,ssh_key,password,progress,cancelled):
+    output=Path(destination).expanduser().absolute()
+    key=Path(ssh_key).expanduser().absolute()
+    if output.exists() or not output.parent.is_dir():
+        raise ValueError('Choose a new kit folder below an existing directory')
+    if not key.is_file() or key.is_symlink():
+        raise ValueError('Choose a regular Ed25519 public key file')
+    if not password or '\n' in password or '\r' in password:
+        raise ValueError('Enter a local nokia password without a line break')
+    argv=['make','--no-print-directory','n810-build-internal',
+          'SSH_PUBLIC_KEY='+str(key),'INTERNAL_KIT='+str(output),'INTERNAL_PASSWORD_STDIN=1']
+    if progress:progress('Building kernel, graphics, Debian and Pocket from tracked source…')
+    process=subprocess.Popen(argv,cwd=REPOSITORY,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT,start_new_session=True)
+    try:
+        process.stdin.write((password+'\n').encode());process.stdin.close()
+        del password
+        tail=bytearray()
+        while True:
+            if cancelled.is_set():
+                os.killpg(process.pid,signal.SIGTERM)
+                try:process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid,signal.SIGKILL);process.wait()
+                raise InterruptedError('Source kit build cancelled; remove any partial private output before retrying')
+            ready,_,_=select.select([process.stdout],[],[],.25)
+            if ready:
+                chunk=os.read(process.stdout.fileno(),4096)
+                if chunk:
+                    tail.extend(chunk)
+                    if len(tail)>4096:del tail[:-4096]
+                    message=chunk.decode(errors='replace').replace('\r','\n').strip().split('\n')[-1]
+                    if message and progress:progress(message[:180])
+                elif process.poll() is not None:break
+            elif process.poll() is not None:break
+        if process.wait():
+            raise RuntimeError('Source kit build failed; choose a new folder after inspecting the build. '+
+                               tail.decode(errors='replace')[-400:])
+    finally:
+        process.stdout.close()
+    return _verify_built_kit(output,progress)
 
 
 def _mac_storage(action,kit,disk,usb_location,progress):
@@ -93,7 +158,7 @@ def _mac_storage(action,kit,disk,usb_location,progress):
                 rootfs_written=action=='mac-write',rootfs_readback_verified=action=='mac-write')
 
 
-def _setup_work(action,manifest,destination,progress,cancelled,disk='',usb_location=''):
+def _setup_work(action,manifest,destination,progress,cancelled,disk='',usb_location='',ssh_key='',password=''):
     if action=='identify':
         sys.path.insert(0,str(BOOTSTRAP))
         from internal_installer import identify_device
@@ -111,6 +176,7 @@ def _setup_work(action,manifest,destination,progress,cancelled,disk='',usb_locat
                     total_bytes=sum(path.stat().st_size for path in files.values()),
                     kernel_release=plan['kernel_release'],desktop_user='nokia',autostart=True)
     if action=='kit':return _build_internal_kit(manifest,destination,progress,cancelled)
+    if action=='source-kit':return _build_internal_source_kit(destination,ssh_key,password,progress,cancelled)
     if not manifest.strip():raise ValueError('Choose an internal INSTALLATION.json manifest first')
     sys.path.insert(0,str(BOOTSTRAP))
     if action in ('mac-check','mac-write'):
@@ -129,6 +195,8 @@ class N810Setup:
         self.width=86;self.height=28
         default_manifest=Path(os.environ.get('N810_INSTALLATION_MANIFEST',str(REPOSITORY/'dist/n810-internal/INSTALLATION.json')))
         self.manifest=TextInput(str(default_manifest) if default_manifest.is_file() else '',limit=2048);self.destination=TextInput('',limit=2048)
+        self.ssh_key=TextInput(str(Path.home()/'.ssh/id_ed25519.pub'),limit=2048)
+        self.password=SecretInput('',limit=128)
         self.disk=TextInput('',limit=64);self.usb_location=TextInput('',limit=32)
         self.field='manifest';self.scroll=0;self._length=0;self._spans=();self._hits=[]
         self.result=None;self.tool_result=None;self.error='';self.status='Start at step 1 below. No disk or tablet is changed by opening Setup.'
@@ -138,10 +206,11 @@ class N810Setup:
     def navigation_targets(self):
         from native_navigation import Target
         return [Target('manifest','Installation manifest','input'),Target('destination','New local kit folder','input'),
+                Target('ssh_key','Ed25519 public key','input'),Target('password','Local nokia password','input'),
                 Target('disk','New N810 whole disk','input'),Target('usb_location','New N810 USB location','input'),
                 Target('check','Check files','action','v'),Target('install','Install Debian + Pocket','action','i'),Target('prepare','Prepare local kit','action','p'),
                 Target('cancel','Cancel preparation','action','c'),Target('flasher','Build host flasher','action','b'),
-                Target('kit','Build internal kit','action','k'),
+                Target('source-kit','Build kit from source','action','g'),Target('kit','Build from plan','action','k'),
                 Target('identify','Detect target','action','d'),Target('boot','Boot RAM installer','action','r'),
                 Target('write','RAM installer: erase and write','action','w'),
                 Target('mac-check','Check Mac N810 disk','action','m'),
@@ -149,6 +218,7 @@ class N810Setup:
                 Target('flash','Flash kernel and reboot','action','f'),Target('steps','Setup steps','details')]
     def navigation_focus(self):return self.field
     def navigation_input(self,key):return {'manifest':self.manifest,'destination':self.destination,
+                                            'ssh_key':self.ssh_key,'password':self.password,
                                             'disk':self.disk,'usb_location':self.usb_location}.get(key)
     def navigation_accept_input(self):return self.start('check')
     def changed(self):
@@ -164,15 +234,18 @@ class N810Setup:
     def start(self,action):
         if self.pending:self.status='A setup step is already running';return True
         if action=='flasher':return self.start_flasher()
-        if action!='identify' and not self.manifest.text.strip():self.error='Choose an internal INSTALLATION.json manifest first.';return True
-        if action in ('prepare','kit') and not self.destination.text.strip():self.error='Choose a new local kit folder first';return True
+        if action not in ('identify','source-kit') and not self.manifest.text.strip():self.error='Choose an internal INSTALLATION.json manifest first.';return True
+        if action in ('prepare','kit','source-kit') and not self.destination.text.strip():self.error='Choose a new local kit folder first';return True
+        if action=='source-kit' and (not self.ssh_key.text.strip() or not self.password.text):
+            self.error='Enter an Ed25519 public key path and local nokia password first';return True
         if action in ('mac-check','mac-write') and (not self.disk.text.strip() or not self.usb_location.text.strip()):
             self.error='Enter the new N810 whole disk and USB location first';return True
         self.error='';self.result=None;self.cancelled.clear()
         self.active_action=action
         labels={'check':'Verifying installation files…','prepare':'Preparing a local copy; tablet unchanged…',
                 'install':'Starting the permanent internal installation…',
-                'kit':'Building a private internal-install kit…','identify':'Identifying an N810 in update mode…',
+                'kit':'Building a private internal-install kit…',
+                'source-kit':'Building a private kit from tracked source…','identify':'Identifying an N810 in update mode…',
                 'boot':'Checking kit and booting the RAM installer…',
                 'write':'Connecting to the RAM installer and preparing internal storage…',
                 'flash':'Checking the write receipt and flashing the matching kernel…',
@@ -181,12 +254,14 @@ class N810Setup:
         self.status=labels.get(action,'Working…')
         if self.pool is None:self.pool=ThreadPoolExecutor(max_workers=1,thread_name_prefix='n810-setup')
         manifest=self.manifest.text;destination=self.destination.text
+        password=self.password.text if action=='source-kit' else ''
+        self.password.text='';self.password.cursor=0
         def progress(message):
             if self.closed:return
             self.status=message
             if self.wakeup:self.wakeup()
         self.pending=self.pool.submit(_setup_work,action,manifest,destination,progress,self.cancelled,
-                                      self.disk.text,self.usb_location.text)
+                                      self.disk.text,self.usb_location.text,self.ssh_key.text,password)
         callback=self.wakeup
         if callback:self.pending.add_done_callback(lambda _:callback() if not self.closed else None)
         return True
@@ -236,6 +311,7 @@ class N810Setup:
         if key=='i':return self.start('install')
         if key=='b':return self.start('flasher')
         if key=='k':return self.start('kit')
+        if key=='g':return self.start('source-kit')
         if key=='v':return self.start('check')
         if key=='p':return self.start('prepare')
         if key=='d':return self.start('identify')
@@ -247,7 +323,7 @@ class N810Setup:
         if key=='c':
             if self.pending and self.active_action=='install':
                 self.cancelled.set();self.status='Pausing after the current device operation completes…';return True
-            if self.pending and self.active_action in ('check','prepare','kit','flasher'):
+            if self.pending and self.active_action in ('check','prepare','kit','source-kit','flasher'):
                 self.cancelled.set();self.status='Cancelling local preparation…'
             elif self.pending:self.status='This device operation is in progress; wait for its result.'
             else:self.status='No preparation is running'
@@ -274,7 +350,8 @@ class N810Setup:
             return rows+['N810 INTERNAL INSTALLATION',
                 'Install Debian and Pocket on internal MMC. No SD card is needed.',
                 'Choose Check files. On macOS, use the Mac disk steps below and then Flash kernel.',
-                'For a new kit, enter a build-plan JSON and output folder, then Build internal kit.',
+                'For a new kit, enter a new output folder, SSH public key and local password; choose Build kit from source.',
+                'Build from plan accepts reviewed prebuilt Linux inputs as an advanced path.',
                 'For an existing kit, enter its INSTALLATION.json and choose Check files.',
                 'Build host flasher creates pinned 0xFFFF on this computer.',
                 'On macOS, boot stock Maemo and export its internal USB storage; enter its whole disk and USB location above.',
@@ -308,16 +385,19 @@ class N810Setup:
         self.poll();c=Canvas(self.width,self.height);self._hits=[];self._spans=[]
         c.put(0,0,'N810 Setup · host / tablet installation preparation');self._spans.append((0,0,self.width,'toolbar'))
         mac_fields=self.field in ('disk','usb_location','mac-check','mac-write')
+        source_fields=self.field in ('ssh_key','password','source-kit')
         fields=((1,'disk','New N810 disk (macOS /dev/diskN)',self.disk),
-                (3,'usb_location','New N810 USB port (0x...)',self.usb_location)) if mac_fields else (
+                (3,'usb_location','New N810 USB port (0x...)',self.usb_location)) if mac_fields else ((
+                (1,'ssh_key','Ed25519 public key file',self.ssh_key),
+                (3,'password','Local nokia password (hidden)',self.password)) if source_fields else (
                 (1,'manifest','Installation manifest or build plan',self.manifest),
-                (3,'destination','New local kit folder',self.destination))
+                (3,'destination','New local kit folder',self.destination)))
         for y,key,label,field in fields:
             c.put(0,y,label);c.put(0,y+1,field.draw(self.width));self._hits.append((y+1,key))
             self._spans.append((y+1,0,self.width,'input' if self.field==key else 'muted'))
         controls=[('check','Check files'),('install','Install Debian + Pocket'),
                   ('prepare','Prepare local kit'),('cancel','Cancel'),('flasher','Build host flasher'),
-                  ('kit','Build internal kit'),('identify','Detect target'),('boot','Boot RAM installer'),
+                  ('source-kit','Build kit from source'),('kit','Build from plan'),('identify','Detect target'),('boot','Boot RAM installer'),
                   ('write','RAM installer: erase + write'),('mac-check','Check Mac N810 disk'),
                   ('mac-write','Write Mac N810 disk'),('flash','Flash kernel + reboot')]
         visible=max(2,min(6,self.height-10))
@@ -343,7 +423,7 @@ class N810Setup:
             if row==hit[0] and (len(hit)==2 or hit[2]<=column<hit[2]+hit[3]):
                 self.field=hit[1];nav=self.__dict__.get('_navigation')
                 if nav:nav.target=self.field
-                if len(hit)>2:return self.key({'check':'v','prepare':'p','cancel':'c','flasher':'b','kit':'k',
+                if len(hit)>2:return self.key({'check':'v','prepare':'p','cancel':'c','flasher':'b','kit':'k','source-kit':'g',
                     'identify':'d','boot':'r','write':'w','mac-check':'m','mac-write':'x',
                     'flash':'f','install':'i'}[self.field])
                 return True
@@ -351,17 +431,18 @@ class N810Setup:
         if nav:nav.target=self.field
         return True
     def session_state(self):return dict(manifest=self.manifest.text,destination=self.destination.text,
-                                        disk=self.disk.text,usb_location=self.usb_location.text)
+                                        ssh_key=self.ssh_key.text,disk=self.disk.text,usb_location=self.usb_location.text)
     def restore_session(self,state):
-        for key in ('manifest','destination','disk','usb_location'):
+        for key in ('manifest','destination','ssh_key','disk','usb_location'):
             value=state.get(key)
             if isinstance(value,str) and len(value)<=2048:setattr(self,key,TextInput(value,limit=2048))
     def help_pages(self):
-        return (('N810 Setup',('Enter an INSTALLATION.json or a build-plan JSON. A build plan names the Debian root, matching kernel, Pocket GPU runtime, MBX module and Mesa build. Recovery and size_mib (1024–1900) are optional.',
-                 'Build internal kit uses the same build_internal_image.py command as make n810-build-internal. The plan names root, kernel_package, gpu_runtime, gpu_module_package and gpu_mesa_package; add recovery only for the RAM-installer path.',
+        return (('N810 Setup',('To build a new kit, enter a new local folder, your Ed25519 public key path and a local nokia password. Build kit from source uses the same n810-build-internal Make target as the CLI. Docker must be running.',
+                 'The password is hidden, sent to the local builder through stdin, and cleared from the form when building starts. The private kit contains its password hash and SSH access material.',
+                 'Build from plan is the advanced Linux path. Enter a build-plan JSON naming root, kernel_package, gpu_runtime, gpu_module_package and gpu_mesa_package; recovery is optional for the RAM-installer path.',
                  'After a kit is built, Check files validates the root, matching kernel and GPU Pocket autostart as nokia. It also checks a RAM installer when one is included.',
                  'Prepare local kit makes a verified copy. Build host flasher runs the pinned make flasher build and does not open USB.',
-                 'Build internal kit runs on Linux; run sudo -v in the launching terminal first. On macOS, run sudo -v before Detect target, Boot RAM installer or Flash kernel. Detection uses read-only 0xFFFF -I and accepts RX-44 only.',
+                 'Build kit from source runs on macOS or Linux with Docker. Build from plan runs on Linux; run sudo -v in the launching terminal first. On macOS, run sudo -v before Detect target, Boot RAM installer or Flash kernel. Detection uses read-only 0xFFFF -I and accepts RX-44 only.',
                  'On macOS, stock Maemo can export its internal MMC as a whole USB disk. Enter /dev/diskN and the new tablet USB location shown by macOS; Check Mac N810 disk performs identity checks. Write Mac N810 disk erases and fully reads back that disk, then saves a receipt for Flash kernel. Run sudo -v in the launching terminal first.',
                  'Boot RAM installer loads the verified kernel and initramfs with 0xFFFF -l -b. It does not flash internal storage.',
                  'Erase and write internal storage replaces the target N810 MMC. The installer verifies the MMC model, capacity and CID, then reads back the root image checksum.',
@@ -369,5 +450,6 @@ class N810Setup:
                  'A successful flash command is not proof of first boot. Confirm the graphical Pocket desktop starts as nokia on the target. Keep the original tablet in normal Linux mode.',
                  'Install Debian + Pocket runs the stages in order and waits for the pinned USB installer at 169.254.81.1. After root readback it powers off the new tablet; hold Home while powering it on to return to update mode. The saved receipt allows resuming before the permanent kernel flash.')),)
     def close(self):
+        self.password.text='';self.password.cursor=0
         self.closed=True;self.wakeup=None;self.cancelled.set()
         if self.pool:self.pool.shutdown(wait=False,cancel_futures=True)
