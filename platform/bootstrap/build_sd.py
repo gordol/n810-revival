@@ -54,13 +54,14 @@ def public_key(path: Path) -> str:
     return line + '\n'
 
 
-def kernel_inputs(package: Path) -> tuple[str, Path]:
+def kernel_inputs(package: Path, *, root_only: bool = False) -> tuple[str, Path]:
     report = json.loads((package / 'BUILD.json').read_text())
     release = (package / 'KERNELRELEASE').read_text().strip()
     if not re.fullmatch(r'[A-Za-z0-9._+-]+', release) or report.get('release') != release:
         raise ValueError('Kernel package release does not match BUILD.json.')
-    if report.get('root_device') != '/dev/mmcblk0p1':
-        raise ValueError('Build the matching kernel with --root-device /dev/mmcblk0p1.')
+    expected = (r'PARTUUID=[0-9a-f]{8}-01' if root_only else r'/dev/mmcblk0p1')
+    if not re.fullmatch(expected, report.get('root_device', '')):
+        raise ValueError('Kernel root-device does not match the selected image layout.')
     image = package / 'zImage-omap2420-n810'
     modules = package / 'root/lib/modules' / release
     if not image.is_file() or not modules.is_dir() or not list(modules.rglob('*.ko')):
@@ -106,6 +107,8 @@ def main() -> None:
     parser.add_argument('--touch-tools', type=Path, default=Path('/opt/n810-touch'))
     parser.add_argument('--user', default='nokia', help='First local account (default: nokia)')
     parser.add_argument('--size-mib', type=int, default=2048, help='Root partition size in MiB (default: 2048)')
+    parser.add_argument('--root-only', action='store_true',
+                        help='Stage a Debian root for an internal PARTUUID image; skip the SD filesystem and card')
     args = parser.parse_args()
     if sys.platform != 'linux' or os.geteuid() != 0:
         parser.error('Run as root on a Linux builder or VM.')
@@ -114,7 +117,7 @@ def main() -> None:
     if not 1024 <= args.size_mib <= 8191:
         parser.error('Choose a root partition between 1024 and 8191 MiB.')
     key = public_key(args.ssh_key)
-    release, modules = kernel_inputs(args.kernel_package.resolve())
+    release, modules = kernel_inputs(args.kernel_package.resolve(), root_only=args.root_only)
     for tool in ('mmdebstrap', 'chroot', 'mkfs.ext4', 'e2fsck', 'dpkg'):
         if shutil.which(tool) is None:
             parser.error(f'Missing Linux build tool: {tool}')
@@ -123,7 +126,8 @@ def main() -> None:
         for tool in ('qemu-arm-static', 'arch-test'):
             if shutil.which(tool) is None:
                 parser.error(f'Cross-architecture builders need {tool} and ARM binfmt support.')
-    for name in ('n810-touch-calibrate', 'n810-touch-fit.py', 'touch-runtime/touch_evdev.py'):
+    for name in ('n810-touch-calibrate', 'n810-fn-remap', 'n810-backlightd',
+                 'n810-touch-fit.py', 'touch-runtime/touch_evdev.py'):
         if not (args.touch_tools / name).is_file():
             parser.error('Missing touch tools; use make sd-image or supply --touch-tools.')
     from firmware import validate
@@ -164,7 +168,7 @@ def main() -> None:
     write_file(root, '/etc/ssh/sshd_config.d/10-n810-first-install.conf',
                'PermitRootLogin no\nPasswordAuthentication no\nKbdInteractiveAuthentication no\n')
     write_file(root, '/etc/systemd/system/ssh.service.d/10-generate-host-keys.conf',
-               '[Service]\nExecStartPre=/usr/bin/ssh-keygen -A\n')
+               '[Service]\nExecStartPre=\nExecStartPre=/usr/bin/ssh-keygen -A\nExecStartPre=/usr/sbin/sshd -t\n')
     (root / 'etc/machine-id').write_text('')
     for seed in (root / 'var/lib/systemd/random-seed', root / 'var/lib/dbus/machine-id'):
         seed.unlink(missing_ok=True)
@@ -208,12 +212,28 @@ def main() -> None:
     wants.mkdir(parents=True, exist_ok=True)
     (wants / 'n810-setup-touch.service').symlink_to('../n810-setup-touch.service')
     (wants / 'n810-zram.service').symlink_to('../n810-zram.service')
+    from first_boot import configure_first_boot
+    configure_first_boot(root, args.touch_tools / 'n810-fn-remap', args.touch_tools / 'n810-backlightd')
     state = root / 'home' / args.user / '.local/state/current-world'
     state.mkdir(parents=True, exist_ok=True)
     (state / 'touch-calibration.json').symlink_to('/etc/n810/touch-calibration.json')
     owner = (root / 'home' / args.user).stat()
     for directory in (state.parent.parent, state.parent, state):
         os.chown(directory, owner.st_uid, owner.st_gid)
+    if args.root_only:
+        report = {
+            'kind': 'n810-debian-root', 'suite': 'bookworm', 'architecture': 'armel',
+            'kernel_release': release,
+            'kernel_build_manifest_sha256': sha256(args.kernel_package / 'BUILD.json'),
+            'root_device': json.loads((args.kernel_package / 'BUILD.json').read_text())['root_device'],
+            'user': args.user, 'ssh_public_key_sha256': hashlib.sha256(key.encode()).hexdigest(),
+            'firmware': json.loads((work / 'FIRMWARE.json').read_text()),
+            'debian_package_database_sha256': sha256(root / 'var/lib/dpkg/status'),
+            'device_action': False,
+        }
+        (work / 'BUILD.json').write_text(json.dumps(report, indent=2) + '\n')
+        print(f'Internal-image Debian root ready: {root}', flush=True)
+        return
     partition = work / 'n810-root.ext4'
     partition_bytes = args.size_mib * 1024 * 1024
     with partition.open('wb') as image:

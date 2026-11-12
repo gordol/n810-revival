@@ -60,13 +60,26 @@ class SDBuilderTest(unittest.TestCase):
             report['root_device'] = '/dev/mmcblk0p1'
             (package / 'BUILD.json').write_text(json.dumps(report))
             self.assertEqual(build_sd.kernel_inputs(package)[0], '5.15.224-n810')
+            with self.assertRaisesRegex(ValueError, 'root-device'):
+                build_sd.kernel_inputs(package, root_only=True)
+            report['root_device'] = 'PARTUUID=685b7555-01'
+            (package / 'BUILD.json').write_text(json.dumps(report))
+            self.assertEqual(build_sd.kernel_inputs(package, root_only=True)[0], '5.15.224-n810')
+            with self.assertRaisesRegex(ValueError, 'root-device'):
+                build_sd.kernel_inputs(package)
+            report['root_device'] = 'PARTUUID=685b7555-02'
+            (package / 'BUILD.json').write_text(json.dumps(report))
+            with self.assertRaisesRegex(ValueError, 'root-device'):
+                build_sd.kernel_inputs(package, root_only=True)
+            report['root_device'] = 'PARTUUID=685b7555-01'
+            (package / 'BUILD.json').write_text(json.dumps(report))
             (modules / 'test.ko').write_bytes(b'tampered module')
             with self.assertRaisesRegex(ValueError, 'module does not match'):
-                build_sd.kernel_inputs(package)
+                build_sd.kernel_inputs(package, root_only=True)
             (modules / 'test.ko').write_bytes(b'module')
             image.write_bytes(b'tampered')
             with self.assertRaisesRegex(ValueError, 'does not match'):
-                build_sd.kernel_inputs(package)
+                build_sd.kernel_inputs(package, root_only=True)
 
 
 if __name__ == '__main__':
