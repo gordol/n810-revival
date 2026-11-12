@@ -18,12 +18,31 @@ def command(root, assets, state, framebuffer):
           '--framebuffer-fd',str(framebuffer),'--font',str(assets/'console-font.psf'),
           '--renderer-library',str(assets/'renderer.so'),'--display-library',str(assets/'window.so'),
           '--native-library',str(assets/'_cellengine.abi3.so'),'--state',str(state),
-          '--cell-renderer','cpu','--allow-software','--no-local-services']
+          '--cell-renderer','cpu','--allow-software']
     calibration=Path('/etc/n810/touch-calibration.json')
     if calibration.is_file() and Path('/dev/input/n810-touch').exists():
         argv+=['--touch-device','/dev/input/n810-touch','--touch-calibration',str(calibration),
                '--touch-display','800x480','--touch-rotation','0']
     return argv
+
+
+def restore_display(framebuffer, tty, console, old_kd, active_vt, mode, previous):
+    """Attempt every VT restoration step even if the framebuffer rejects one."""
+    errors=[]
+    actions=(
+        lambda: fcntl.ioctl(framebuffer,0x4f25),
+        lambda: fcntl.ioctl(tty,0x4b3a,old_kd),
+        lambda: fcntl.ioctl(console,0x5606,active_vt),
+        lambda: fcntl.ioctl(console,0x5607,active_vt),
+        lambda: mode.write_text(previous),
+    )
+    try:
+        for action in actions:
+            try:action()
+            except OSError as error:errors.append(error)
+    finally:
+        for fd in (framebuffer,tty,console):os.close(fd)
+    if errors:raise RuntimeError('Display restoration failed') from errors[0]
 
 
 def main():
@@ -57,9 +76,7 @@ def main():
                                pass_fds=(framebuffer,),env=env,preexec_fn=session)
         result=child.wait()
     finally:
-        fcntl.ioctl(framebuffer,0x4f25);fcntl.ioctl(tty,0x4b3a,old_kd[0])
-        fcntl.ioctl(console,0x5606,active[0]);fcntl.ioctl(console,0x5607,active[0]);mode.write_text(previous)
-        for fd in (framebuffer,tty,console):os.close(fd)
+        restore_display(framebuffer,tty,console,old_kd[0],active[0],mode,previous)
     raise SystemExit(result)
 
 if __name__=='__main__':main()
