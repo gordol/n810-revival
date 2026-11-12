@@ -20,6 +20,7 @@ keeps D-Bus. It selects sequential SysV startup through `.legacy-bootordering`
 so Debian's package-generated dependency files cannot skip the staged N810
 services. It starts `n810-console-ux` for the Fn translator and keymap,
 generates a unique Ed25519 SSH host key before Debian's `ssh` service, then
-runs touch setup before the GPU Pocket desktop. `n810-debian-lock.conf` keeps
+runs touch setup before the GPU Pocket desktop. The Bluetooth address init
+script provisions the controller before BlueZ starts. `n810-debian-lock.conf` keeps
 `n810-wake` in slider-only mode; `n810-display-keys` owns Power and brightness.
 The older idle and Power menu scripts remain separate from that GPU path.

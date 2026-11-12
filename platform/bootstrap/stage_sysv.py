@@ -9,6 +9,7 @@ import re
 DEVICE = Path(__file__).resolve().parents[1] / 'device'
 START = {
     'n810-ssh-hostkeys': (0, 'n810-ssh-hostkeys.init'),
+    'n810-bluetooth-address': (1, 'n810-bluetooth-address.init'),
     'n810-zram': (1, 'n810-zram.init'),
     'pocket-expand-internal-root': (1, 'pocket-expand-internal-root.init'),
     'n810-backlightd': (2, 'n810-backlightd.init'),
@@ -59,7 +60,7 @@ def stage(root, disk_id):
             if link.exists() or link.is_symlink():
                 link.unlink()
             link.symlink_to('../init.d/' + name)
-        if name not in ('n810-ssh-hostkeys', 'n810-setup-touch', 'pocket-expand-internal-root'):
+        if name not in ('n810-ssh-hostkeys', 'n810-bluetooth-address', 'n810-setup-touch', 'pocket-expand-internal-root'):
             for runlevel in (0, 1, 6):
                 link = root / f'etc/rc{runlevel}.d/K{99-priority:02d}{name}'
                 link.parent.mkdir(parents=True, exist_ok=True)

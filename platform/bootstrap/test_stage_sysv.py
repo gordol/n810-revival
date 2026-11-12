@@ -23,6 +23,9 @@ class StageSysVTest(unittest.TestCase):
             self.assertEqual(stage(root, '1a2b3c4d'), sorted(START))
             self.assertTrue((root / 'etc/init.d/.legacy-bootordering').is_file())
             self.assertTrue((root / 'etc/rc2.d/S00n810-ssh-hostkeys').is_symlink())
+            self.assertTrue((root / 'etc/rc2.d/S01n810-bluetooth-address').is_symlink())
+            self.assertIn('/usr/local/sbin/n810-bluetooth-address --wait 15',
+                          (root / 'etc/init.d/n810-bluetooth-address').read_text())
             self.assertTrue((root / 'etc/rc2.d/S04n810-setup-touch').is_symlink())
             self.assertTrue((root / 'etc/rc2.d/S05pocket-desktop').is_symlink())
             self.assertIn('HostKey /etc/ssh/ssh_host_ed25519_key',

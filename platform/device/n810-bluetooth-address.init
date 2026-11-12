@@ -1,0 +1,16 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          n810-bluetooth-address
+# Required-Start:    $local_fs
+# Required-Stop:
+# X-Start-Before:    bluetooth
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Set the Nokia Bluetooth controller address before BlueZ
+### END INIT INFO
+set -eu
+case "${1:-}" in
+start) /usr/local/sbin/n810-bluetooth-address --wait 15;;
+stop) :;;
+*) echo 'Usage: n810-bluetooth-address {start|stop}' >&2; exit 2;;
+esac
