@@ -130,6 +130,10 @@ def stage(root, runtime, module_package, mesa_package, kernel_package):
     record.update(renderer='native-mbx-gpu', module_sha256=module_hash,
                   mesa_sha256=hashes['libOSMesa.so.8'], gpu_release=release_name)
     install.write_text(json.dumps(record, indent=2) + '\n')
+    from stage_desktop import make_readable_tree
+    for relative in ('usr/local/lib/n810-graphics', 'usr/local/lib/n810-pocket',
+                     'usr/local/share/pocket-gui'):
+        make_readable_tree(root, relative)
     return record
 
 

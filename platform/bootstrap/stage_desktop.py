@@ -20,6 +20,18 @@ def checked_path(root,name):
     return path
 
 
+def make_readable_tree(root, relative):
+    """Installed public code must remain accessible under a private build umask."""
+    directory = root / relative
+    for path in (directory, *directory.rglob('*')):
+        if not path.is_symlink():
+            path.chmod(0o755 if path.is_dir() else 0o644)
+    for parent in directory.parents:
+        if parent == root:
+            break
+        parent.chmod(0o755)
+
+
 def stage(root,runtime,user='nokia'):
     if not re.fullmatch(r'[a-z_][a-z0-9_-]{0,30}',user):raise ValueError('Invalid local username')
     manifest=json.loads((runtime/'runtime-profile.json').read_text())
@@ -64,6 +76,8 @@ def stage(root,runtime,user='nokia'):
     result={'source_commit':manifest['source_commit'],'profile':manifest['profile'],
             'desktop_user':user,'renderer':'native-cpu-framebuffer','autostart':True}
     (root/'usr/local/share/pocket/INSTALL.json').write_text(json.dumps(result,indent=2)+'\n')
+    for relative in ('usr/local/share/pocket', 'usr/local/lib/pocket'):
+        make_readable_tree(root, relative)
     return result
 
 
