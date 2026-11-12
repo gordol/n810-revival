@@ -10,11 +10,12 @@ tested macOS route uses the tablet's stock Maemo USB mass-storage export to
 write and read back all 2 GB, then uses native 0xFFFF to flash the matching
 kernel. No SD card is involved.
 
-The kit builder runs on a Linux host or VM with administrator access. It packs
-an already staged Debian root, matching kernel package, Pocket release runtime,
-MBX module, and Mesa build. A RAM-installer output is optional for its separate
-development path. The builder does not create those build inputs from an empty
-checkout. It stages the GPU desktop for `nokia`.
+`make n810-build-internal` builds the kernel, MBX module, Mesa, Pocket release
+runtime, and Debian root in a Linux container, then packs the internal kit. Set
+`SSH_PUBLIC_KEY` to an Ed25519 public key before running it in a terminal. The
+build asks for the local `nokia` password and stages the GPU desktop for that
+account. It does not access a tablet. A RAM-installer output is optional for its
+separate development path.
 
 ## Use the app
 
@@ -124,13 +125,22 @@ A prepared directory contains the verified files, a self-contained
 `README.txt` pointing to the included guide. Rechecking the prepared manifest
 works without the original source directory.
 
-The shared Make and CLI stages are available without the desktop. `INTERNAL_PLAN`
-names the JSON input above, and `INTERNAL_KIT` selects a new output folder:
+The shared Make and CLI stages are available without the desktop. From a clean
+checkout with Docker running, build a new kit as follows:
+
+```sh
+make n810-build-internal SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" INTERNAL_KIT="$PWD/dist/n810-internal"
+make n810-check INTERNAL_KIT="$PWD/dist/n810-internal"
+```
+
+The source builder uses a fresh random internal-disk partition ID and a tracked
+source snapshot. The build needs a terminal for the local password prompt and
+enough free disk space for Linux, Mesa, and the root image. `INTERNAL_PLAN` still
+selects reviewed prebuilt input directories when that workflow is needed. The
+install commands then use the new kit folder:
 
 ```sh
 sudo -v
-sudo make n810-build-internal INTERNAL_PLAN=/path/internal-plan.json INTERNAL_KIT=/path/new-kit
-make n810-check INTERNAL_KIT=/path/new-kit
 make n810-write-macos-internal INTERNAL_KIT=/path/new-kit N810_DISK=/dev/diskN N810_USB_LOCATION=0x02100000
 sudo make n810-write-macos-internal INTERNAL_KIT=/path/new-kit N810_DISK=/dev/diskN N810_USB_LOCATION=0x02100000 N810_ERASE=1
 # Return only that N810 to update mode.
@@ -144,8 +154,9 @@ defaults to 1536. The kernel package must
 use `PARTUUID=<8 lowercase hex digits>-01`. If included, the RAM installer must
 use the matching kernel source. The Debian root must already contain the matching
 modules, N810 firmware, Pocket runtime, and enabled `pocket-desktop.service`.
-These source-input build steps still need to be composed into a fresh-checkout
-one-command builder.
+The source-input build path runs inside `containers/internal-image.Dockerfile`.
+The five directories named by a private plan remain available for advanced
+builds and review.
 
 The Install action and `make n810-install` use the optional RAM-installer route.
 After root readback, they power off the new tablet and wait for you to hold Home
@@ -158,10 +169,9 @@ without repeating the storage write.
 ## Remaining acceptance work
 
 The automatic internal writer and kernel-flash gates are implemented and covered
-with synthetic local fixtures. The remaining acceptance work is to produce the
-matching Debian, kernel, firmware, and Pocket inputs from a clean Linux builder,
-then run the guided install and verify first boot on a second
-N810. No tablet install or first-boot acceptance is implied by host tests.
+with synthetic local fixtures. The source builder still needs a clean-checkout
+container run and a full GPU first-boot check on the new N810. Host tests alone
+do not establish tablet boot or input acceptance.
 
 ## Validation
 

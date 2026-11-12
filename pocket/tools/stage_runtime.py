@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 from package_nokia import runtime_files
 from runtime_profile import profile_files
@@ -15,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GRAPHICS_BUILD_TOOLS = {'build.py', 'build_nokia.py', 'check.py', 'check_full.py', 'gui.py', 'generate_room.py', 'extend_font.py'}
 
 
-def stage(destination, profile='release', frontend=None):
+def stage(destination, profile='release', frontend=None, source_commit=None):
     if destination.exists():
         raise ValueError('output must be a new directory')
     paths = subprocess.check_output(['git', 'ls-files', 'shell', 'graphics'], cwd=ROOT, text=True).splitlines()
@@ -67,7 +68,9 @@ def stage(destination, profile='release', frontend=None):
             else:files[name]=source.read_bytes()
         files['build/graphics/frontend.json'] = (json.dumps(config, indent=2) + '\n').encode()
     revision=subprocess.run(['git','rev-parse','HEAD'],cwd=ROOT,capture_output=True,text=True)
-    commit=revision.stdout.strip() if revision.returncode==0 else None
+    commit=source_commit or (revision.stdout.strip() if revision.returncode==0 else None)
+    if source_commit and not re.fullmatch(r'[0-9a-f]{40}', source_commit):
+        raise ValueError('source_commit must be a full Git SHA-1')
     content_hash=hashlib.sha256(b''.join(name.encode()+hashlib.sha256(raw).digest() for name,raw in sorted(files.items()))).hexdigest()
     files['shell/build-info.json']=(json.dumps(dict(schema_version=1,release_id=commit[:12] if commit else 'UNKNOWN',
         framework_commit=commit,domain_commit=commit,build_profile=profile,platform='native-gui',backend='native pixels',
@@ -89,8 +92,9 @@ def main():
     parser.add_argument('--profile', choices=('release', 'dev'), default='release')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--frontend', type=Path, help='optional built target frontend.json')
+    parser.add_argument('--source-commit', help='full source commit when building from a Git-free source archive')
     args = parser.parse_args()
-    files = stage(args.output, args.profile, args.frontend)
+    files = stage(args.output, args.profile, args.frontend, args.source_commit)
     print(json.dumps({'profile': args.profile, 'files': len(files), 'bytes': sum(map(len, files.values()))}))
 
 
