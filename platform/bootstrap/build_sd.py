@@ -20,7 +20,7 @@ import uuid
 
 PACKAGES = (
     'systemd-sysv,dbus,udev,ifupdown,iproute2,openssh-server,sudo,'
-    'ca-certificates,kmod,passwd,python3,python3-venv,make,git,tmux,whiptail,kbd,bluez,wpasupplicant,iw,wireless-regdb,isc-dhcp-client,util-linux,mount'
+    'ca-certificates,kmod,passwd,python3,python3-venv,make,git,tmux,whiptail,kbd,bluez,wpasupplicant,iw,wireless-regdb,isc-dhcp-client,util-linux,mount,libusb-0.1-4'
 )
 SOURCES = (
     'deb https://deb.debian.org/debian bookworm main',
