@@ -8,7 +8,7 @@ RUN dpkg --add-architecture armel && apt-get update && apt-get install -y --no-i
     xz-utils patch gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf \
     gcc-arm-linux-gnueabi g++-arm-linux-gnueabi binutils-arm-linux-gnueabi \
     ninja-build pkg-config dpkg-dev mmdebstrap qemu-user-static binfmt-support \
-    arch-test e2fsprogs liblzo2-2 libusb-1.0-0-dev:armel \
+    arch-test e2fsprogs liblzo2-2 libusb-dev:armel \
     && apt-get download libpython3.11-dev:armel \
     && mkdir -p /opt/arm-headers \
     && dpkg-deb -x libpython3.11-dev_*_armel.deb /opt/arm-headers \
@@ -37,7 +37,7 @@ RUN git init -q pocket && git -C pocket add shell graphics \
        --output /build/runtime
 RUN python3 platform/flasher/build.py --output /build/flasher \
     --target armel --cc arm-linux-gnueabi-gcc \
-    --usb-flags '-I/usr/include/libusb-1.0 -lusb-1.0'
+    --usb-flags '-lusb'
 RUN install -d /opt/n810-touch/touch-runtime \
     && arm-linux-gnueabi-gcc -Os -static -march=armv6 -marm -mfloat-abi=soft -Wall -Wextra -Werror \
        platform/scripts/n810-touch-calibrate.c -lm -o /opt/n810-touch/n810-touch-calibrate \
