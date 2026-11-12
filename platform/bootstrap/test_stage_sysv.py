@@ -3,11 +3,35 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import shutil
+import sys
+import time
 
 from stage_sysv import START, stage
 
 
 class StageSysVTest(unittest.TestCase):
+    @unittest.skipUnless(sys.platform=='linux' and shutil.which('start-stop-daemon'),
+                         'Requires the real Debian service launcher')
+    def test_shell_daemons_launch_with_debian_start_stop_daemon(self):
+        device=Path(__file__).resolve().parents[1]/'device'
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            for name in ('n810-ledd','n810-powerd','n810-displayd'):
+                with self.subTest(service=name):
+                    daemon=root/name;marker=root/(name+'.started');run=root/(name+'.run')
+                    daemon.write_text('#!/bin/sh\ntouch "'+str(marker)+'"\n')
+                    daemon.chmod(0o755)
+                    script=(device/(name+'.init')).read_text().replace(
+                        'daemon=/usr/local/sbin/'+name,'daemon='+str(daemon)).replace(
+                        'run_dir=/run/'+name,'run_dir='+str(run))
+                    init=root/(name+'.init');init.write_text(script)
+                    result=subprocess.run(['sh',str(init),'start'],capture_output=True,text=True,timeout=5)
+                    self.assertEqual(result.returncode,0,result.stderr)
+                    deadline=time.monotonic()+2
+                    while not marker.exists() and time.monotonic()<deadline:time.sleep(.02)
+                    self.assertTrue(marker.exists(),result.stderr)
+
     def test_ssh_keys_start_before_ssh_and_pocket_after_touch(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
