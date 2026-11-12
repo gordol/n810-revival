@@ -19,11 +19,10 @@ import time
 
 REPOSITORY = Path(__file__).resolve().parents[2]
 DEFAULT_FLASHER = REPOSITORY / 'dist/flasher/0xFFFF'
-REQUIRED_ROLES = {
-    'root-filesystem', 'kernel', 'installer-kernel', 'installer-filesystem',
-    'install-plan', 'kernel-build-manifest', 'installer-build-manifest',
-    'installer-host-key', 'install-guide',
-}
+REQUIRED_ROLES = {'root-filesystem', 'kernel', 'install-plan',
+                  'kernel-build-manifest', 'install-guide'}
+RECOVERY_ROLES = {'installer-kernel', 'installer-filesystem',
+                  'installer-build-manifest', 'installer-host-key'}
 FIRST_BOOT_SERVICES = {
     'n810-setup-touch.service', 'n810-fn-remap.service',
     'n810-keyboard.service', 'n810-backlightd.service',
@@ -98,9 +97,12 @@ def verify_local_kit(kit):
             raise ValueError('Duplicate installation artifact path')
         files[role] = _artifact(root, row)
         paths.add(name)
-    if set(files) != REQUIRED_ROLES:
-        raise ValueError('Internal kit is incomplete: ' +
-                         ', '.join(sorted(REQUIRED_ROLES - set(files))))
+    missing = REQUIRED_ROLES - set(files)
+    if missing:
+        raise ValueError('Internal kit is incomplete: ' + ', '.join(sorted(missing)))
+    if set(files) not in (REQUIRED_ROLES, REQUIRED_ROLES | RECOVERY_ROLES):
+        raise ValueError('Internal kit has incomplete or unexpected RAM-installer artifacts')
+    has_recovery = RECOVERY_ROLES <= set(files)
 
     manifest = json.loads(internal_path.read_text())
     if manifest.get('kind') != 'n810-internal':
@@ -121,12 +123,13 @@ def verify_local_kit(kit):
         raise ValueError('Unexpected permanent kernel image')
     if digest(kernel) != manifest.get('kernel_sha256'):
         raise ValueError('Permanent kernel checksum differs from install plan')
-    if files['installer-kernel'].stat().st_size > 2097152:
-        raise ValueError('RAM-installer kernel exceeds the NOLO 2 MiB limit')
-    if files['installer-filesystem'].stat().st_size > 4194304:
-        raise ValueError('RAM-installer filesystem exceeds the NOLO 4 MiB limit')
-    if files['installer-filesystem'].read_bytes()[:6] != b'\xfd7zXZ\x00':
-        raise ValueError('RAM-installer filesystem is not an XZ-compressed cpio initramfs')
+    if has_recovery:
+        if files['installer-kernel'].stat().st_size > 2097152:
+            raise ValueError('RAM-installer kernel exceeds the NOLO 2 MiB limit')
+        if files['installer-filesystem'].stat().st_size > 4194304:
+            raise ValueError('RAM-installer filesystem exceeds the NOLO 4 MiB limit')
+        if files['installer-filesystem'].read_bytes()[:6] != b'\xfd7zXZ\x00':
+            raise ValueError('RAM-installer filesystem is not an XZ-compressed cpio initramfs')
 
     kernel_build = json.loads(files['kernel-build-manifest'].read_text())
     if (files['kernel-build-manifest'] != root / 'KERNEL-BUILD.json' or
@@ -134,18 +137,22 @@ def verify_local_kit(kit):
             kernel_build.get('root_device') != 'PARTUUID=' + disk_id + '-01' or
             kernel_build.get('files', {}).get('zImage-omap2420-n810') != digest(kernel)):
         raise ValueError('Permanent kernel build manifest does not match the internal install plan')
-    installer_build = json.loads(files['installer-build-manifest'].read_text())
-    if (files['installer-build-manifest'] != root / 'INSTALLER-BUILD.json' or
-            installer_build.get('kind') != 'n810-ram-installer' or
-            installer_build.get('filesystem_format') != 'cpio-xz' or
-            installer_build.get('root_device') != 'initramfs:/init' or
-            installer_build.get('kernel_release') != manifest.get('installer_kernel_release') or
-            installer_build.get('files', {}).get('kernel.bin') != digest(files['installer-kernel']) or
-            installer_build.get('files', {}).get('initramfs.cpio.xz') != digest(files['installer-filesystem'])):
-        raise ValueError('RAM-installer build manifest does not match the staged installer files')
-    if (manifest.get('kernel_package_manifest_sha256') != digest(files['kernel-build-manifest']) or
-            manifest.get('ram_installer_manifest_sha256') != digest(files['installer-build-manifest'])):
+    if has_recovery:
+        installer_build = json.loads(files['installer-build-manifest'].read_text())
+        if (files['installer-build-manifest'] != root / 'INSTALLER-BUILD.json' or
+                installer_build.get('kind') != 'n810-ram-installer' or
+                installer_build.get('filesystem_format') != 'cpio-xz' or
+                installer_build.get('root_device') != 'initramfs:/init' or
+                installer_build.get('kernel_release') != manifest.get('installer_kernel_release') or
+                installer_build.get('files', {}).get('kernel.bin') != digest(files['installer-kernel']) or
+                installer_build.get('files', {}).get('initramfs.cpio.xz') != digest(files['installer-filesystem'])):
+            raise ValueError('RAM-installer build manifest does not match the staged installer files')
+    if manifest.get('kernel_package_manifest_sha256') != digest(files['kernel-build-manifest']):
         raise ValueError('Source build manifest checksum differs from the internal install plan')
+    if has_recovery and manifest.get('ram_installer_manifest_sha256') != digest(files['installer-build-manifest']):
+        raise ValueError('RAM installer manifest checksum differs from the internal install plan')
+    if not has_recovery and manifest.get('install_transport') != 'maemo-usb-mass-storage':
+        raise ValueError('Kit without a RAM installer requires the Maemo USB storage transport')
 
     root_image = files['root-filesystem']
     expanded = hashlib.sha256()
@@ -283,6 +290,8 @@ def identify_device(flasher=DEFAULT_FLASHER, progress=None, timeout=30):
 def boot_installer(kit, flasher=DEFAULT_FLASHER, progress=None):
     root = Path(kit).expanduser().resolve()
     _, manifest, files = verify_local_kit(root)
+    if not RECOVERY_ROLES <= set(files):
+        raise ValueError('This kit uses Maemo USB storage and contains no RAM installer')
     identity = identify_device(flasher, progress)
     if progress:
         progress('Loading the verified RAM installer; internal storage is unchanged…')
@@ -392,6 +401,8 @@ class Installer:
 
     def inspect(self):
         _, manifest, files = verify_local_kit(self.kit)
+        if not RECOVERY_ROLES <= set(files):
+            raise ValueError('This kit uses Maemo USB storage and contains no RAM installer')
         self._manifest = manifest
         self._files = files
         identity_text = self.remote(RECOVERY_IDENTITY, stdout=subprocess.PIPE, text=True).stdout

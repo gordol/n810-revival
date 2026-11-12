@@ -29,11 +29,19 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(kit['state'],'kit_prepared');self.assertFalse(kit['tablet_installed'])
         checked=bootstrap.inspect(self.root/'kit/INSTALLATION.json');self.assertEqual(checked['files'],result['files'])
         self.assertIn('tablet is not installed',(self.root/'kit/README.txt').read_text())
-    def test_internal_kit_requires_its_ram_installer_and_plan(self):
+    def test_internal_kit_accepts_mac_transport_and_rejects_partial_recovery(self):
         path=self.manifest('n810-internal')
         plan=bootstrap.inspect(path)
         self.assertEqual(plan['kind'],'n810-internal')
         self.assertFalse(plan['tablet_installed'])
+        recovery='installer-kernel'
+        raw=b'Fixture only: '+recovery.encode()+b'\n'
+        name=recovery+'.fixture';(self.root/name).write_bytes(raw)
+        self.data['files'].append(dict(role=recovery,path=name,bytes=len(raw),
+                                       sha256=hashlib.sha256(raw).hexdigest()))
+        path.write_text(json.dumps(self.data))
+        with self.assertRaisesRegex(ValueError,'incomplete'):
+            bootstrap.inspect(path)
         self.data['files']=[row for row in self.data['files'] if row['role']!='install-plan']
         path.write_text(json.dumps(self.data))
         with self.assertRaisesRegex(ValueError,'install-plan'):bootstrap.inspect(path)

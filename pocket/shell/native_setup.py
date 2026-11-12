@@ -357,9 +357,9 @@ class N810Setup:
             value=state.get(key)
             if isinstance(value,str) and len(value)<=2048:setattr(self,key,TextInput(value,limit=2048))
     def help_pages(self):
-        return (('N810 Setup',('Enter an INSTALLATION.json or a build-plan JSON. A build plan names the Debian root, matching kernel, RAM installer, Pocket GPU runtime, MBX module and Mesa build, with optional size_mib (1024–1900).',
-                 'Build internal kit uses the same build_internal_image.py command as make n810-build-internal. The plan names root, kernel_package, recovery, gpu_runtime, gpu_module_package and gpu_mesa_package.',
-                 'After a kit is built, Check files validates the root, matching kernel, RAM installer and GPU Pocket autostart as nokia.',
+        return (('N810 Setup',('Enter an INSTALLATION.json or a build-plan JSON. A build plan names the Debian root, matching kernel, Pocket GPU runtime, MBX module and Mesa build. Recovery and size_mib (1024–1900) are optional.',
+                 'Build internal kit uses the same build_internal_image.py command as make n810-build-internal. The plan names root, kernel_package, gpu_runtime, gpu_module_package and gpu_mesa_package; add recovery only for the RAM-installer path.',
+                 'After a kit is built, Check files validates the root, matching kernel and GPU Pocket autostart as nokia. It also checks a RAM installer when one is included.',
                  'Prepare local kit makes a verified copy. Build host flasher runs the pinned make flasher build and does not open USB.',
                  'Build internal kit runs on Linux; run sudo -v in the launching terminal first. On macOS, run sudo -v before Detect target, Boot RAM installer or Flash kernel. Detection uses read-only 0xFFFF -I and accepts RX-44 only.',
                  'On macOS, stock Maemo can export its internal MMC as a whole USB disk. Enter /dev/diskN and the new tablet USB location shown by macOS; Check Mac N810 disk performs identity checks. Write Mac N810 disk erases and fully reads back that disk, then saves a receipt for Flash kernel. Run sudo -v in the launching terminal first.',

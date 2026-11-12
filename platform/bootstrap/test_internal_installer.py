@@ -61,10 +61,41 @@ class BuildPlan(unittest.TestCase):
             result=load_plan(plan)
             self.assertEqual(result['size_mib'],1200)
             self.assertEqual(result['kernel_package'],(root/'kernel').resolve())
+            without_recovery=json.loads(plan.read_text())
+            without_recovery.pop('recovery')
+            plan.write_text(json.dumps(without_recovery))
+            self.assertNotIn('recovery',load_plan(plan))
             plan.write_text('{"root":"a","root":"b","kernel_package":"c","recovery":"d"}')
             with self.assertRaisesRegex(ValueError,'Duplicate'):load_plan(plan)
 
 class CompressedKit(unittest.TestCase):
+    def test_maemo_storage_kit_needs_no_ram_installer(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            _,manifest=self.kit(root)
+            manifest['install_transport']='maemo-usb-mass-storage'
+            for name in ('installer_kernel_release','installer_kernel_sha256',
+                         'ram_installer_manifest_sha256'):
+                manifest.pop(name)
+            (root/'INTERNAL.json').write_text(json.dumps(manifest))
+            installation=json.loads((root/'INSTALLATION.json').read_text())
+            installation['files']=[row for row in installation['files']
+                                   if not row['role'].startswith(('installer-',))]
+            plan_row=next(row for row in installation['files'] if row['role']=='install-plan')
+            plan_row['sha256']=hashlib.sha256((root/'INTERNAL.json').read_bytes()).hexdigest()
+            plan_row['bytes']=(root/'INTERNAL.json').stat().st_size
+            (root/'INSTALLATION.json').write_text(json.dumps(installation))
+            for name in ('installer-kernel.bin','installer-initramfs.cpio.xz',
+                         'installer-known-hosts','INSTALLER-BUILD.json'):
+                (root/name).unlink()
+            _,verified,files=verify_local_kit(root)
+            self.assertEqual(verified['install_transport'],'maemo-usb-mass-storage')
+            self.assertNotIn('installer-kernel',files)
+            with patch('internal_installer.identify_device') as identify, \
+                 self.assertRaisesRegex(ValueError,'contains no RAM installer'):
+                boot_installer(root,'/fixture/flasher')
+            identify.assert_not_called()
+
     def test_complete_install_never_flashes_after_a_failed_root_write(self):
         with tempfile.TemporaryDirectory() as folder:
             self.kit(folder)

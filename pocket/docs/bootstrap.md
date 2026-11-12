@@ -11,9 +11,10 @@ write and read back all 2 GB, then uses native 0xFFFF to flash the matching
 kernel. No SD card is involved.
 
 The kit builder runs on a Linux host or VM with administrator access. It packs
-an already staged Debian root, matching kernel package, RAM-installer output,
-Pocket release runtime, MBX module, and Mesa build; it does not create those
-build inputs from an empty checkout. It stages the GPU desktop for `nokia`.
+an already staged Debian root, matching kernel package, Pocket release runtime,
+MBX module, and Mesa build. A RAM-installer output is optional for its separate
+development path. The builder does not create those build inputs from an empty
+checkout. It stages the GPU desktop for `nokia`.
 
 ## Use the app
 
@@ -39,14 +40,13 @@ taps for each target on that tablet before starting Pocket.
 The RAM-installer actions below remain available for development, but their
 physical install has not been accepted.
 
-1. Prepare the root, kernel package, RAM installer, and GPU build directories described
+1. Prepare the root, kernel package, and GPU build directories described
    below, then save a private plan such as:
 
    ```json
    {
      "root": "/build/debian/rootfs",
      "kernel_package": "/build/n810-kernel/package",
-     "recovery": "/build/n810-ram-installer",
      "gpu_runtime": "/build/pocket-runtime-release",
      "gpu_module_package": "/build/n810-mbx-module",
      "gpu_mesa_package": "/build/n810-mesa/package",
@@ -54,12 +54,16 @@ physical install has not been accepted.
    }
    ```
 
+   Include `"recovery": "/build/n810-ram-installer"` only when preparing the
+   separate RAM-installer route. The macOS Maemo USB storage route needs no RAM
+   boot image.
+
 2. Enter that plan in the first field and a **new** private kit folder in the
    second. Select **Build internal kit**. On Linux, authorize the build in the
    launching terminal first with `sudo -v`; Setup invokes only the builder as
    root, not the Pocket desktop.
-3. Setup verifies the root image, installed desktop, permanent kernel,
-   installer kernel and initramfs manifests. It then selects the generated
+3. Setup verifies the root image, installed desktop, and permanent kernel.
+   It also verifies the RAM-installer inputs when supplied. It then selects the generated
    `INSTALLATION.json` automatically. Choose **Check files** to rerun the full
    local kit check.
 4. Choose **Build host flasher**, then **Detect target**. The read-only check
@@ -127,22 +131,25 @@ names the JSON input above, and `INTERNAL_KIT` selects a new output folder:
 sudo -v
 sudo make n810-build-internal INTERNAL_PLAN=/path/internal-plan.json INTERNAL_KIT=/path/new-kit
 make n810-check INTERNAL_KIT=/path/new-kit
-make n810-identify
-make n810-install INTERNAL_KIT=/path/new-kit
+make n810-write-macos-internal INTERNAL_KIT=/path/new-kit N810_DISK=/dev/diskN N810_USB_LOCATION=0x02100000
+sudo make n810-write-macos-internal INTERNAL_KIT=/path/new-kit N810_DISK=/dev/diskN N810_USB_LOCATION=0x02100000 N810_ERASE=1
+# Return only that N810 to update mode.
+make n810-flash-kernel INTERNAL_KIT=/path/new-kit
 ```
 
-The build plan's input folders come from the Debian root, kernel, RAM installer,
-MBX module, Mesa, and Pocket release-runtime build steps. `build_internal_image.py`
-requires all six paths; `size_mib` is optional and defaults to 1536. The kernel package must
-use `PARTUUID=<8 lowercase hex digits>-01`, and the RAM installer must use the
-same kernel image and release. The Debian root must already contain the matching
+The build plan's input folders come from the Debian root, kernel, MBX module,
+Mesa, and Pocket release-runtime build steps. `build_internal_image.py`
+requires those five paths; `recovery` and `size_mib` are optional. The latter
+defaults to 1536. The kernel package must
+use `PARTUUID=<8 lowercase hex digits>-01`. If included, the RAM installer must
+use the matching kernel source. The Debian root must already contain the matching
 modules, N810 firmware, Pocket runtime, and enabled `pocket-desktop.service`.
 These source-input build steps still need to be composed into a fresh-checkout
 one-command builder.
 
-The Install action and `make n810-install` run the device stages in order. After
-root readback, they power off the new tablet and wait for you to hold Home while
-powering it on into update mode. The permanent kernel flash then completes.
+The Install action and `make n810-install` use the optional RAM-installer route.
+After root readback, they power off the new tablet and wait for you to hold Home
+while powering it on into update mode. The permanent kernel flash then completes.
 The USB installer uses `169.254.81.1` to keep its connection separate from an
 existing tablet at `192.168.10.1`. The Mac USB Ethernet service must allow a
 self-assigned link-local address. A saved root-write receipt allows resuming
@@ -152,8 +159,8 @@ without repeating the storage write.
 
 The automatic internal writer and kernel-flash gates are implemented and covered
 with synthetic local fixtures. The remaining acceptance work is to produce the
-matching Debian, kernel, firmware, Pocket and RAM-installer inputs from a clean
-Linux builder, then run the guided install and verify first boot on a second
+matching Debian, kernel, firmware, and Pocket inputs from a clean Linux builder,
+then run the guided install and verify first boot on a second
 N810. No tablet install or first-boot acceptance is implied by host tests.
 
 ## Validation
