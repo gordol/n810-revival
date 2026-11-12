@@ -42,7 +42,10 @@ RUN git init -q pocket && git -C pocket add shell graphics \
     && python3 pocket/tools/stage_runtime.py --profile release \
        --frontend /build/frontend/frontend.json --source-commit "$SOURCE_COMMIT" \
        --output /build/runtime
-RUN python3 -c 'from pathlib import Path; import os; root=Path("/opt/arm-sysroot"); links=[p for p in root.rglob("*") if p.is_symlink() and os.readlink(p).startswith("/")]; [(p.unlink(),p.symlink_to(os.path.relpath(root/os.readlink(p).lstrip("/"),p.parent))) for p in links]' \
+RUN test -f /opt/arm-sysroot/lib/arm-linux-gnueabi/libusb-0.1.so.4.4.4 \
+    && rm -f /opt/arm-sysroot/usr/lib/arm-linux-gnueabi/libusb.so \
+    && cp /opt/arm-sysroot/lib/arm-linux-gnueabi/libusb-0.1.so.4.4.4 \
+          /opt/arm-sysroot/usr/lib/arm-linux-gnueabi/libusb.so \
     && python3 platform/flasher/build.py --output /build/flasher \
     --target armel --cc arm-linux-gnueabi-gcc \
     --usb-flags '-I/opt/arm-sysroot/usr/include -L/opt/arm-sysroot/usr/lib/arm-linux-gnueabi -lusb'
