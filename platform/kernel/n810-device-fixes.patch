@@ -1,0 +1,23 @@
+--- a/drivers/input/keyboard/lm8323.c
++++ b/drivers/input/keyboard/lm8323.c
+@@ -782,14 +782,17 @@
+ 	/* Nothing's set up to service the IRQ yet, so just spin for max.
+ 	 * 100ms until we can configure. */
+ 	tmo = jiffies + msecs_to_jiffies(100);
+-	while (lm8323_read(lm, LM8323_CMD_READ_INT, data, 1) == 1) {
+-		if (data[0] & INT_NOINIT)
++	for (;;) {
++		/* The controller may NACK reads while its reset is in progress.
++		 * Do not send configuration until it reports INT_NOINIT. */
++		if (lm8323_read(lm, LM8323_CMD_READ_INT, data, 1) == 1 &&
++		    (data[0] & INT_NOINIT))
+ 			break;
+ 
+ 		if (time_after(jiffies, tmo)) {
+ 			dev_err(&client->dev,
+ 				"timeout waiting for initialisation\n");
+-			break;
++			return -ETIMEDOUT;
+ 		}
+ 
+ 		msleep(1);

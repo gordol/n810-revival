@@ -24,6 +24,12 @@ def digest(path: Path) -> str:
     return h.hexdigest()
 
 
+def package_hashes(package: Path) -> dict[str, str]:
+    """Hash packaged outputs, excluding the manifest left by a resumed build."""
+    return {p.relative_to(package).as_posix(): digest(p)
+            for p in sorted(package.rglob('*')) if p.is_file() and p != package / 'BUILD.json'}
+
+
 def main() -> None:
     """Build from repository inputs and emit a manifest with verification results."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -83,6 +89,13 @@ def main() -> None:
         run(['patch', '--batch', '--fuzz=0', '-p1', '-i', str(HERE / 'n810-480mhz.patch')],
             'cpu-480mhz-patch', source)
     expected_files.update(json.loads((HERE / 'cpu-source-files.json').read_text()))
+    if not args.resume:
+        for name, expected in expected_files.items():
+            if digest(source / name) != expected:
+                raise RuntimeError(f'Reconstructed CPU profile differs: {name}')
+        run(['patch', '--batch', '--fuzz=0', '-p1', '-i', str(HERE / 'n810-device-fixes.patch')],
+            'device-fixes-patch', source)
+    expected_files.update(json.loads((HERE / 'device-source-files.json').read_text()))
     for name, expected in expected_files.items():
         if digest(source / name) != expected:
             raise RuntimeError(f'Reconstructed source differs from maintained revision: {name}')
@@ -153,6 +166,7 @@ def main() -> None:
               'maintained_commit': lock['maintained_commit'],
               'cpu_profile': 'n810-330-480mhz',
               'cpu_patch_sha256': digest(HERE / 'n810-480mhz.patch'),
+              'device_patch_sha256': digest(HERE / 'n810-device-fixes.patch'),
               'upstream_sha256': lock['sha256'], 'source_lock_sha256': digest(HERE / 'source.lock.json'),
               'build_script_sha256': digest(Path(__file__)), 'verified_source_files': len(expected_files),
               'compiler': compiler, 'build_timestamp': env['KBUILD_BUILD_TIMESTAMP'],
@@ -161,7 +175,7 @@ def main() -> None:
               'external_module_crc_checks': len(crcs), 'external_module_vermagic': info,
               'image_bytes': image.stat().st_size, 'image_limit': lock['image_limit'],
               'device_action': False,
-              'files': {p.relative_to(package).as_posix(): digest(p) for p in sorted(package.rglob('*')) if p.is_file()}}
+              'files': package_hashes(package)}
     (package / 'BUILD.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps({k: report[k] for k in ['release', 'kernel_modules', 'external_module_crc_checks', 'image_bytes', 'device_action']}, indent=2))
     print(f'Build complete: {package}')
