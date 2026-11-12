@@ -278,3 +278,25 @@ esac
     finally:
         daemon.terminate();daemon.wait(timeout=3)
         for fd in fds:os.close(fd)
+
+    # Fresh Debian keeps only the slider logic while its separate key daemon
+    # owns Power and brightness. A graphics VT must still accept slider edges.
+    (root/'config').write_text('enabled=1\nlock_only=1\nidle_enabled=0\n')
+    for path in (root/'input').iterdir(): path.unlink()
+    fds=[]
+    physical,power=[device(i) for i in range(2)]
+    for path in (root/'screen').iterdir(): path.unlink()
+    clear()
+    daemon=subprocess.Popen([str(root/'daemon')])
+    try:
+        lock_press();wait('lock');clear()
+        power_press();event(physical,1,225,1);time.sleep(.3)
+        assert not actions(), 'lock-only helper handled Power or brightness'
+        lock_press();wait('unlock');clear()
+        time.sleep(2.2)
+        assert not actions(), 'lock-only helper invoked idle policy'
+        print('PASS: lock-only slider works on graphics VT without competing for Power')
+    finally:
+        daemon.terminate();daemon.wait(timeout=3)
+        for fd in fds:os.close(fd)
+        os.close(lock_fd)

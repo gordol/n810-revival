@@ -40,7 +40,7 @@ def configure_keyboard(root, binary=None):
         link.symlink_to('../' + name)
 
 
-def configure_power_indicators(root, backlight_binary=None):
+def configure_power_indicators(root, backlight_binary=None, wake_binary=None):
     """Install the old tablet's source-backed battery, LED and key-light policy."""
     root = Path(root)
     platform = Path(__file__).resolve().parents[1]
@@ -55,12 +55,28 @@ def configure_power_indicators(root, backlight_binary=None):
         header = stream.read(20)
     if header[:5] != b'\x7fELF\x01' or header[18:20] != b'\x28\x00':
         raise ValueError('Backlight helper must be a 32-bit ARM ELF binary')
+    wake = root / 'usr/local/sbin/n810-wake'
+    have_wake = wake_binary is not None or wake.is_file()
+    if wake_binary is not None:
+        wake.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(wake_binary, wake)
+        wake.chmod(0o755)
+    if have_wake:
+        if wake.is_symlink() or not wake.is_file():
+            raise ValueError('Fresh root is missing the ARM n810-wake helper')
+        with wake.open('rb') as stream:
+            header = stream.read(20)
+        if header[:5] != b'\x7fELF\x01' or header[18:20] != b'\x28\x00':
+            raise ValueError('Wake helper must be a 32-bit ARM ELF binary')
     for source, destination, mode in (
         (platform / 'scripts/n810-powerd', root / 'usr/local/sbin/n810-powerd', 0o755),
         (platform / 'scripts/n810-ledd', root / 'usr/local/sbin/n810-ledd', 0o755),
         (platform / 'scripts/n810-powerctl', root / 'usr/local/bin/n810-powerctl', 0o755),
         (platform / 'scripts/n810-ledctl', root / 'usr/local/bin/n810-ledctl', 0o755),
+        (platform / 'scripts/n810-power', root / 'usr/local/bin/n810-power', 0o755),
+        (platform / 'scripts/n810-screen', root / 'usr/local/sbin/n810-screen', 0o755),
         (platform / 'device/n810-backlight.conf', root / 'etc/n810-backlight.conf', 0o644),
+        (platform / 'device/n810-display.conf', root / 'etc/n810-display.conf', 0o644),
         (platform / 'device/n810-led.conf', root / 'etc/n810-led.conf', 0o644),
         (platform / 'device/n810-backlightd.service', root / 'etc/systemd/system/n810-backlightd.service', 0o644),
         (platform / 'device/n810-powerd.service', root / 'etc/systemd/system/n810-powerd.service', 0o644),
@@ -72,17 +88,28 @@ def configure_power_indicators(root, backlight_binary=None):
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, destination)
         destination.chmod(mode)
+    if have_wake:
+        for source, destination in (
+            (platform / 'device/n810-debian-lock.conf', root / 'etc/n810-idle.conf'),
+            (platform / 'device/n810-wake.service', root / 'etc/systemd/system/n810-wake.service'),
+        ):
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, destination)
+            destination.chmod(0o644)
     wants = root / 'etc/systemd/system/multi-user.target.wants'
     wants.mkdir(parents=True, exist_ok=True)
-    for name in ('n810-backlightd.service', 'n810-powerd.service', 'n810-ledd.service',
-                 'n810-display-keys.service'):
+    services = ['n810-backlightd.service', 'n810-powerd.service', 'n810-ledd.service',
+                'n810-display-keys.service']
+    if have_wake:
+        services.append('n810-wake.service')
+    for name in services:
         link = wants / name
         if link.exists() or link.is_symlink():
             link.unlink()
         link.symlink_to('../' + name)
 
 
-def configure_first_boot(root, keyboard_binary=None, backlight_binary=None):
+def configure_first_boot(root, keyboard_binary=None, backlight_binary=None, wake_binary=None):
     root = Path(root)
     here = Path(__file__).resolve().parent
     # Calibration describes one physical touchscreen. A reusable image must
@@ -112,7 +139,7 @@ def configure_first_boot(root, keyboard_binary=None, backlight_binary=None):
         shutil.copyfile(here / source, target)
         target.chmod(0o644)
     configure_keyboard(root, keyboard_binary)
-    configure_power_indicators(root, backlight_binary)
+    configure_power_indicators(root, backlight_binary, wake_binary)
 
     # These are Debian's standard privileged account tools. Staged copies must
     # retain ownership and setuid permissions before they enter an ext4 image.

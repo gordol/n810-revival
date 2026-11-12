@@ -88,11 +88,18 @@ def main():
                         short = time.monotonic() - pressed < 1.5
                         pressed = None
                         if short and (menu is None or menu.poll() is not None):
-                            menu = subprocess.Popen(['/usr/bin/openvt', '-s', '-w', '--',
-                                                     '/usr/local/sbin/n810-power-overlay'],
-                                                    stdin=subprocess.DEVNULL)
+                            screen = Path('/run/n810-screen')
+                            if (screen / 'locked').exists():
+                                subprocess.run(['/usr/local/sbin/n810-screen',
+                                                'on' if (screen / 'blanked').exists() else 'off'],
+                                               check=False)
+                            else:
+                                menu = subprocess.Popen(['/usr/bin/openvt', '-s', '-w', '--',
+                                                         '/usr/local/sbin/n810-power-overlay'],
+                                                        stdin=subprocess.DEVNULL)
                 elif name != 'retu-pwrbutton' and value == 1 and code in (KEY_BRIGHTNESSUP, KEY_BRIGHTNESSDOWN):
-                    brightness_change(backlight, code)
+                    if not Path('/run/n810-screen/locked').exists():
+                        brightness_change(backlight, code)
         for event, (fd, _) in list(opened.items()):
             if not (Path('/dev/input') / event).exists():
                 poller.unregister(fd)

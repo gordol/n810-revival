@@ -132,6 +132,8 @@ def build(root,package,recovery,output,size_mib,gpu=None):
     # Refresh first-boot integration even when reusing a staged Debian root.
     from first_boot import configure_first_boot
     configure_first_boot(root)
+    if not (root/'etc/systemd/system/multi-user.target.wants/n810-wake.service').is_symlink():
+        raise ValueError('Internal root needs the source-built lock-slider service')
     output.mkdir(exist_ok=False,mode=0o700)
     release=report['release']
     modules_root=root/'lib/modules'
@@ -176,6 +178,7 @@ def build(root,package,recovery,output,size_mib,gpu=None):
         'root_filesystem_uuid': filesystem_uuid,
         'keyboard_remapper_sha256': sha256(root/'usr/local/sbin/n810-fn-remap'),
         'keyboard_backlight_sha256': sha256(root/'usr/local/sbin/n810-backlightd'),
+        'lock_slider_sha256': sha256(root/'usr/local/sbin/n810-wake'),
         'enabled_n810_services': sorted(path.name for path in
             (root/'etc/systemd/system/multi-user.target.wants').iterdir()
             if path.name.startswith(('n810-', 'pocket-'))),
@@ -211,11 +214,12 @@ def build(root,package,recovery,output,size_mib,gpu=None):
                   root_bytes=root_bytes,root_sha256=root_digest,
                   compressed_root_sha256=sha256(compressed),desktop_ready=True,desktop=install,
                   kernel_package_manifest_sha256=sha256(package/'BUILD.json'),
-                  first_boot=dict(profile='n810-internal-v3',
+                  first_boot=dict(profile='n810-internal-v4',
                       root_manifest_sha256=sha256(installed),
                       enabled_services=first_boot_record['enabled_n810_services'],
                       keyboard_remapper_sha256=first_boot_record['keyboard_remapper_sha256'],
-                      keyboard_backlight_sha256=first_boot_record['keyboard_backlight_sha256']),
+                      keyboard_backlight_sha256=first_boot_record['keyboard_backlight_sha256'],
+                      lock_slider_sha256=first_boot_record['lock_slider_sha256']),
                   device_action=False,hardware_acceptance=False)
     if recovery:
         manifest.update(installer_kernel_release=recovery_report['kernel_release'],

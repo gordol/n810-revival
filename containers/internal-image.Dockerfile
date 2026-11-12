@@ -56,6 +56,8 @@ RUN install -d /opt/n810-touch/touch-runtime \
        platform/scripts/n810-fn-remap.c -o /opt/n810-touch/n810-fn-remap \
     && arm-linux-gnueabi-gcc -Os -static -march=armv6 -marm -mfloat-abi=soft -Wall -Wextra -Werror \
        platform/scripts/n810-backlightd.c -o /opt/n810-touch/n810-backlightd \
+    && arm-linux-gnueabi-gcc -Os -static -march=armv6 -marm -mfloat-abi=soft -Wall -Wextra -Werror \
+       platform/scripts/n810-wake.c -o /opt/n810-touch/n810-wake \
     && cp platform/scripts/n810-touch-fit.py /opt/n810-touch/ \
     && cp pocket/shell/touch.py pocket/shell/touch_evdev.py pocket/shell/touch_diagnostics.py \
           pocket/shell/pointer_events.py /opt/n810-touch/touch-runtime/

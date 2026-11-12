@@ -59,6 +59,20 @@ class KeyboardStaging(unittest.TestCase):
                 self.assertTrue((root / 'etc/systemd/system/multi-user.target.wants' / name).is_symlink())
             configure_power_indicators(root)
 
+    def test_internal_root_stages_lock_slider_without_old_idle_policy(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / 'root'
+            arm = Path(folder) / 'arm'
+            arm.write_bytes(b'\x7fELF\x01' + b'\0' * 13 + b'\x28\0' + b'\0' * 16)
+            configure_power_indicators(root, arm, arm)
+            self.assertEqual((root / 'usr/local/sbin/n810-wake').read_bytes(), arm.read_bytes())
+            self.assertTrue((root / 'etc/systemd/system/multi-user.target.wants/n810-wake.service').is_symlink())
+            lock = (root / 'etc/n810-idle.conf').read_text()
+            self.assertIn('lock_only=1', lock)
+            self.assertIn('idle_enabled=0', lock)
+            self.assertIn('topoff', (root / 'usr/local/sbin/n810-power-overlay').read_text())
+            configure_power_indicators(root)
+
     def test_lcd_brightness_keys_are_bounded(self):
         script = Path(__file__).resolve().parents[1] / 'scripts/n810-display-keys.py'
         spec = importlib.util.spec_from_file_location('n810_display_keys', script)

@@ -180,7 +180,7 @@ int main(int argc, char **argv)
     if (argc == 2 && !strcmp(argv[1], "--version")) { puts("n810-wake 3"); return 0; }
     int trace_lock = argc == 2 && !strcmp(argv[1], "--trace-lock");
     if (argc != 1 && !trace_lock) return 2;
-    unsigned enabled = 0, idle_enabled = 0, keyboard_wake = 1, slide_wake = 1;
+    unsigned enabled = 0, idle_enabled = 0, keyboard_wake = 1, slide_wake = 1, lock_only = 0;
     unsigned dim_seconds = 60, off_seconds = 300;
     FILE *config = fopen(CONFIG_PATH, "r");
     if (config) {
@@ -191,19 +191,21 @@ int main(int argc, char **argv)
             else if (!strcmp(key, "idle_enabled")) idle_enabled = value;
             else if (!strcmp(key, "keyboard_wake")) keyboard_wake = value;
             else if (!strcmp(key, "slide_wake")) slide_wake = value;
+            else if (!strcmp(key, "lock_only")) lock_only = value;
             else if (!strcmp(key, "dim_seconds")) dim_seconds = value;
             else if (!strcmp(key, "off_seconds")) off_seconds = value;
         }
         fclose(config);
     }
-    if (enabled > 1 || idle_enabled > 1 || keyboard_wake > 1 || slide_wake > 1 || !dim_seconds || off_seconds <= dim_seconds || off_seconds > 86400) {
+    if (enabled > 1 || idle_enabled > 1 || keyboard_wake > 1 || slide_wake > 1 || lock_only > 1 || !dim_seconds || off_seconds <= dim_seconds || off_seconds > 86400) {
         fputs("Invalid idle settings\n", stderr); return 2;
     }
     if (!enabled) { puts("Display idle/wake disabled pending hardware validation"); return 0; }
     char inhibit[512];
     snprintf(inhibit, sizeof(inhibit), "%s/power-only", SCREEN_DIR);
-    if (keyboard_wake) unlink(inhibit);
-    else {
+    /* The Debian key service owns Power and brightness in lock-only mode. */
+    if (!lock_only && keyboard_wake) unlink(inhibit);
+    else if (!lock_only) {
         if (mkdir(SCREEN_DIR, 0755) < 0 && errno != EEXIST) { perror(SCREEN_DIR); return 1; }
         FILE *f = fopen(inhibit, "w");
         if (!f) { perror(inhibit); return 1; }
@@ -217,7 +219,7 @@ int main(int argc, char **argv)
     int idle_state = 0;
     while (!stopping) {
         double time = now();
-        if (time >= scan) { discover(); scan = time + 2; }
+        if (!lock_only && time >= scan) { discover(); scan = time + 2; }
         if (menu && waitpid(menu, NULL, WNOHANG) == menu) {
             menu = 0; activity = time;
         }
@@ -249,12 +251,13 @@ int main(int argc, char **argv)
             }
         }
         lock_actions += lock_settle(&lock_state, now());
-        if (!graphics && !marker("quiet-charging")) while (lock_actions-- > 0) {
+        if ((!graphics || lock_only) && !marker("quiet-charging")) while (lock_actions-- > 0) {
             const char *action = marker("locked") ? "unlock" : "lock";
             if (trace_lock) fprintf(stderr, "lock action %.6f %s\n", now(), action);
             screen(action);
             activity = now(); idle_state = 0;
         }
+        if (lock_only) continue;
         for (int i = count - 1; i >= 0; i--) {
             if (!fds[i].revents) continue;
             struct input_event event;
@@ -333,7 +336,7 @@ int main(int argc, char **argv)
             else retry = time + 5;
         }
     }
-    unlink(inhibit);
+    if (!lock_only) unlink(inhibit);
     if (lock_fd >= 0) close(lock_fd);
     for (int i = 0; i < count; i++) close(devices[i].fd);
     return stopping ? 0 : 1;

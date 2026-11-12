@@ -5,14 +5,31 @@
 set -eu
 TERM=linux
 export TERM
-choice=$(whiptail --title 'N810 power' --menu 'Choose an action' 15 60 5 \
-    return 'Return to Pocket' restart 'Restart' shutdown 'Shut down' \
-    3>&1 1>&2 2>&3) || exit 0
-case "$choice" in
-    return) exit 0 ;;
-    restart|shutdown)
-        if whiptail --title 'Confirm power action' --yesno "${choice} the N810?" 10 55; then
-            if test "$choice" = restart; then exec /usr/bin/systemctl reboot; fi
-            exec /usr/bin/systemctl poweroff
-        fi ;;
-esac
+while :; do
+    status=$(/usr/local/bin/n810-power --tmux 2>/dev/null || echo 'Battery status unavailable')
+    choice=$(whiptail --title 'N810 power' --menu "$status" 20 72 11 \
+        return 'Return to Pocket' \
+        brighter 'LCD brighter' dimmer 'LCD dimmer' auto 'Auto brightness' \
+        off 'Turn display off' on 'Turn display on' \
+        topoff 'Top off battery (85-95%)' longevity 'Battery longevity (55-80%)' \
+        restart 'Restart' shutdown 'Shut down' \
+        3>&1 1>&2 2>&3) || exit 0
+    case "$choice" in
+        return) exit 0 ;;
+        brighter|dimmer|auto|off|on)
+            if ! /usr/local/sbin/n810-screen "$choice"; then
+                whiptail --title 'Display action failed' --msgbox 'Check the display service over USB SSH.' 9 58
+            fi
+            case "$choice" in off|on) exit 0;; esac ;;
+        topoff|longevity)
+            if ! result=$(/usr/local/bin/n810-power "$choice" 2>&1); then
+                whiptail --title 'Charging control unavailable' --msgbox "$result" 10 65
+            fi ;;
+        restart|shutdown)
+            if whiptail --title 'Confirm power action' --yesno "${choice} the N810?" 10 55; then
+                if test "$choice" = restart; then exec /usr/bin/systemctl reboot; fi
+                exec /usr/bin/systemctl poweroff
+            fi ;;
+        *) exit 2 ;;
+    esac
+done

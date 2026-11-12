@@ -29,6 +29,7 @@ FIRST_BOOT_SERVICES = {
     'n810-powerd.service', 'n810-ledd.service', 'n810-display-keys.service',
     'pocket-desktop.service',
 }
+LOCK_SLIDER_SERVICE = 'n810-wake.service'
 
 
 def digest(path):
@@ -175,13 +176,17 @@ def verify_local_kit(kit):
     if desktop.get('desktop_user') != 'nokia' or desktop.get('autostart') is not True:
         raise ValueError('Kit does not autostart Pocket as user nokia')
     first_boot = manifest.get('first_boot')
-    if not isinstance(first_boot, dict) or first_boot.get('profile') != 'n810-internal-v3':
+    if not isinstance(first_boot, dict) or first_boot.get('profile') not in ('n810-internal-v3', 'n810-internal-v4'):
         raise ValueError('Kit predates the verified keyboard and power first-boot profile; rebuild it')
+    current_profile = first_boot['profile'] == 'n810-internal-v4'
     services = first_boot.get('enabled_services')
     if (not isinstance(services, list) or any(not isinstance(name, str) for name in services)
-            or len(services) != len(set(services)) or not FIRST_BOOT_SERVICES <= set(services)):
+            or len(services) != len(set(services)) or not FIRST_BOOT_SERVICES <= set(services)
+            or (current_profile and LOCK_SLIDER_SERVICE not in services)):
         raise ValueError('Kit lacks required first-boot services')
-    for name in ('root_manifest_sha256', 'keyboard_remapper_sha256', 'keyboard_backlight_sha256'):
+    checks = ['root_manifest_sha256', 'keyboard_remapper_sha256', 'keyboard_backlight_sha256']
+    if current_profile:checks.append('lock_slider_sha256')
+    for name in checks:
         if not isinstance(first_boot.get(name), str) or not re.fullmatch(r'[0-9a-f]{64}', first_boot[name]):
             raise ValueError('Kit lacks first-boot source and helper checksums')
     if desktop.get('renderer') != 'native-mbx-gpu' or any(

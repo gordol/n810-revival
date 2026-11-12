@@ -132,6 +132,8 @@ def main() -> None:
                  'n810-touch-fit.py', 'touch-runtime/touch_evdev.py'):
         if not (args.touch_tools / name).is_file():
             parser.error('Missing touch tools; use make sd-image or supply --touch-tools.')
+    if args.root_only and not (args.touch_tools / 'n810-wake').is_file():
+        parser.error('Internal root needs the ARM n810-wake lock-slider helper.')
     from firmware import validate
     firmware_lock = json.loads(Path(__file__).with_name('firmware.lock.json').read_text())['files']
     for name, record in firmware_lock.items():
@@ -223,7 +225,9 @@ def main() -> None:
     (wants / 'n810-setup-touch.service').symlink_to('../n810-setup-touch.service')
     (wants / 'n810-zram.service').symlink_to('../n810-zram.service')
     from first_boot import configure_first_boot
-    configure_first_boot(root, args.touch_tools / 'n810-fn-remap', args.touch_tools / 'n810-backlightd')
+    configure_first_boot(root, args.touch_tools / 'n810-fn-remap',
+                         args.touch_tools / 'n810-backlightd',
+                         args.touch_tools / 'n810-wake' if args.root_only else None)
     state = root / 'home' / args.user / '.local/state/current-world'
     state.mkdir(parents=True, exist_ok=True)
     (state / 'touch-calibration.json').symlink_to('/etc/n810/touch-calibration.json')

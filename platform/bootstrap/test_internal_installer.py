@@ -177,6 +177,26 @@ class CompressedKit(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'predates the verified keyboard'):
                 verify_local_kit(root)
 
+    def test_new_profile_requires_lock_slider_service(self):
+        with tempfile.TemporaryDirectory() as folder:
+            _, manifest = self.kit(folder)
+            root = Path(folder)
+            manifest['first_boot']['profile'] = 'n810-internal-v4'
+            manifest['first_boot']['lock_slider_sha256'] = 'f' * 64
+            for enabled in (False, True):
+                if enabled:
+                    manifest['first_boot']['enabled_services'].append('n810-wake.service')
+                (root/'INTERNAL.json').write_text(json.dumps(manifest))
+                rows = json.loads((root/'INSTALLATION.json').read_text())
+                plan_row = next(row for row in rows['files'] if row['role']=='install-plan')
+                plan_row['sha256'] = hashlib.sha256((root/'INTERNAL.json').read_bytes()).hexdigest()
+                plan_row['bytes'] = (root/'INTERNAL.json').stat().st_size
+                (root/'INSTALLATION.json').write_text(json.dumps(rows))
+                if enabled:self.assertEqual(verify_local_kit(root)[1]['first_boot']['profile'], 'n810-internal-v4')
+                else:
+                    with self.assertRaisesRegex(ValueError,'first-boot services'):
+                        verify_local_kit(root)
+
     def test_cpu_desktop_kit_is_refused(self):
         with tempfile.TemporaryDirectory() as folder:
             _, manifest = self.kit(folder)

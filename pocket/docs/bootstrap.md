@@ -39,6 +39,13 @@ location are examples; read them again for each installation. The root image
 does not contain a touchscreen calibration. First boot collects two matching
 taps for each target on that tablet before starting Pocket.
 
+The internal image stages the source-built Fn keyboard map, a debounced lock
+slider, LCD brightness keys, and a Power menu with battery status, display
+controls, charging thresholds when the kernel exposes them, and confirmed
+restart or shutdown. The lock service leaves Power and brightness to the key
+service and does not enable the older idle timer. These controls still need a
+physical check alongside the GPU desktop on the target tablet.
+
 The RAM-installer actions below remain available for development, but their
 physical install has not been accepted. **Build from plan** is an advanced path
 for reviewed prebuilt Linux inputs:
@@ -177,7 +184,7 @@ The automatic internal writer and kernel-flash gates are implemented and covered
 with synthetic local fixtures. A tracked-source container build produced an
 internal kit whose expanded root and manifests passed `make n810-check` locally.
 The graphical Setup source-build path still needs an interactive host check, and
-the kit needs a full GPU first-boot check on the new N810. Host build and check
+the v4 kit needs a full GPU first-boot and Power/input check on the new N810. Host build and check
 results do not establish tablet boot or input acceptance.
 
 ## Validation
