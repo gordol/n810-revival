@@ -37,15 +37,28 @@ if [ "$#" = 2 ] && [ "$1" = --configure-network ]; then
  exec /sbin/ifconfig "$2" inet 169.254.81.2 netmask 255.255.0.0 up
 fi
 case "$#" in
-  1) test "$1" = -I ;;
+  1) test "$1" = -I; limit=25 ;;
   6) test "$1" = -m; case "$2" in kernel:/*) ;; *) exit 64;; esac
      test "$3" = -m; case "$4" in initfs:/*) ;; *) exit 64;; esac
-     test "$5" = -l; test "$6" = -b ;;
+     test "$5" = -l; test "$6" = -b; limit=165 ;;
   4) test "$1" = -m; case "$2" in kernel:/*) ;; *) exit 64;; esac
-     case "$3:$4" in -f:-r|-l:-b) ;; *) exit 64;; esac ;;
+     case "$3:$4" in -f:-r|-l:-b) limit=165 ;; *) exit 64;; esac ;;
   *) exit 64 ;;
 esac
-exec /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin '''+DEST+'''/0xFFFF "$@"
+/usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin '''+DEST+'''/0xFFFF "$@" &
+flasher=$!
+(
+ /bin/sleep "$limit"
+ /bin/kill -TERM "$flasher" 2>/dev/null || :
+) &
+watchdog=$!
+set +e
+wait "$flasher"
+status=$?
+set -e
+/bin/kill -TERM "$watchdog" 2>/dev/null || :
+wait "$watchdog" 2>/dev/null || :
+exit "$status"
 '''
     (output/'helper').write_text(helper)
     (output/'helper').chmod(0o755)

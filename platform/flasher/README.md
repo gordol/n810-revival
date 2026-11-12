@@ -85,6 +85,10 @@ The helper accepts only identification, kernel-plus-initramfs RAM boot, and
 kernel flash with reboot. Setup and the shared installer CLI select it
 automatically when its original binary identity matches the local build. Only
 this helper receives passwordless sudo; the desktop runs as the ordinary user.
+Its watchdog stops a stalled 0xFFFF child before the installer timeout, so a
+timed-out flash cannot remain armed for a later update-mode connection. After
+updating the helper source, prepare a new bundle and install it with the
+printed `--replace` command before another USB operation.
 The helper permits those USB operations whenever invoked by that user, so retain
 it only while that ongoing access is wanted. Existing installations are refused
 rather than overwritten.
