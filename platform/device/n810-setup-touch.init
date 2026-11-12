@@ -13,7 +13,14 @@ start)
     test ! -s /etc/n810/touch-calibration.json || exit 0
     chvt 1
     kbd_mode -u -C /dev/tty1
-    timeout 320 /usr/local/sbin/n810-setup-touch --first-boot </dev/tty1 >/dev/tty1 2>&1
+    if setsid --ctty --wait timeout 320 /usr/local/sbin/n810-setup-touch --first-boot \
+        </dev/tty1 >/var/log/n810-touch-setup.log 2>&1; then
+        :
+    else
+        status=$?
+        cat /var/log/n810-touch-setup.log >/dev/tty1
+        exit "$status"
+    fi
     ;;
 stop) :;;
 status) test -s /etc/n810/touch-calibration.json;;

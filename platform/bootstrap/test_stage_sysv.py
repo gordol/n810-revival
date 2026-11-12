@@ -6,11 +6,40 @@ import unittest
 import shutil
 import sys
 import time
+import os
+import pty
 
 from stage_sysv import START, stage
 
 
 class StageSysVTest(unittest.TestCase):
+    @unittest.skipUnless(sys.platform=='linux' and shutil.which('setsid'),
+                         'Requires Linux controlling-terminal support')
+    def test_first_boot_calibrator_gets_a_controlling_terminal(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);marker=root/'tty-opened';helper=root/'calibrate'
+            helper.write_text('#!'+sys.executable+'\nimport os\n'
+                              'fd=os.open("/dev/tty",os.O_RDWR)\n'
+                              'os.close(fd)\n'
+                              'open('+repr(str(marker))+',"w").write("ok")\n')
+            helper.chmod(0o755)
+            master,slave=pty.openpty()
+            try:
+                script=(Path(__file__).resolve().parents[1]/'device/n810-setup-touch.init').read_text()
+                script=script.replace('/etc/n810/touch-calibration.json',str(root/'missing-calibration'))
+                script=script.replace('chvt 1',':').replace('kbd_mode -u -C /dev/tty1',':')
+                script=script.replace('/usr/local/sbin/n810-setup-touch',str(helper))
+                script=script.replace('/dev/tty1',os.ttyname(slave))
+                script=script.replace('/var/log/n810-touch-setup.log',str(root/'setup.log'))
+                init=root/'touch.init';init.write_text(script)
+                launcher='import subprocess,sys; sys.exit(subprocess.call(["sh",sys.argv[1],"start"]))'
+                result=subprocess.run([sys.executable,'-c',launcher,str(init)],start_new_session=True,
+                                      capture_output=True,text=True,timeout=5)
+                self.assertEqual(result.returncode,0,result.stderr+(root/'setup.log').read_text())
+                self.assertTrue(marker.is_file())
+            finally:
+                os.close(master);os.close(slave)
+
     @unittest.skipUnless(sys.platform=='linux' and shutil.which('start-stop-daemon'),
                          'Requires the real Debian service launcher')
     def test_shell_daemons_launch_with_debian_start_stop_daemon(self):
