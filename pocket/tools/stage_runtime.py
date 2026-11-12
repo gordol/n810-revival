@@ -33,6 +33,9 @@ def stage(destination, profile='release', frontend=None):
     aliases = {}
     if frontend:
         config = json.loads(frontend.read_text())
+        build = frontend.parent / 'BUILD.json'
+        if build.is_file():
+            files['build/graphics/BUILD.json'] = build.read_bytes()
         for key, value in list(config.items()):
             if profile == 'release' and key == 'renderer_library':
                 del config[key]  # Used only by the isolated fixture frontend.

@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Unit]
+Description=N810 low-battery watchdog and power status
+After=systemd-udev-settle.service
+ConditionPathExists=/sys/class/power_supply/tahvo-charger/online
+ConditionPathExists=/sys/class/power_supply/n8x0-battery/capacity
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/n810-powerd
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -50,6 +50,7 @@ def save(profile, output):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--recalibrate',action='store_true')
+    parser.add_argument('--first-boot',action='store_true',help='Start touch targets without a keyboard prompt')
     parser.add_argument('--pointercal',type=Path)
     args=parser.parse_args()
     output=Path('/etc/n810/touch-calibration.json')
@@ -68,7 +69,7 @@ def main():
         try:Calibration.load(output,device,display(800,480));return
         except (ValueError,OSError):pass
     candidates=[args.pointercal] if args.pointercal else [Path('/etc/pointercal'),Path('/mnt/maemo/etc/pointercal'),Path('/media/maemo/etc/pointercal')]
-    if not args.recalibrate:
+    if not args.recalibrate and not args.first_boot:
         for path in candidates:
             try:
                 if not path.exists():continue
@@ -93,11 +94,11 @@ def main():
                     save(profile,output);return
             except (OSError,ValueError,subprocess.CalledProcessError) as error:
                 print('Saved touch mapping unavailable: '+str(error))
-    print('Touch setup: tap each of the five white crosses. Use the keyboard to continue.',flush=True)
-    if input('Press Enter to calibrate, or type skip for a later login: ').strip().lower()=='skip':return
+    print('Touch setup: tap each of the five white crosses.',flush=True)
+    if not args.first_boot and input('Press Enter to calibrate, or type skip for a later login: ').strip().lower()=='skip':return
     with tempfile.TemporaryDirectory(prefix='n810-touch-') as tmp:
         targets=Path(tmp)/'targets.csv'
-        subprocess.run([str(HERE/'n810-touch-calibrate'),str(targets)],check=True)
+        subprocess.run([str(HERE/'n810-touch-calibrate'),str(targets)],check=True,timeout=310 if args.first_boot else None)
         result=subprocess.check_output([sys.executable,str(HERE/'n810-touch-fit.py'),str(targets)],text=True)
         pixel=json.loads(result)
         profile=from_pixels(pixel['x']+pixel['y'],device)
@@ -108,4 +109,4 @@ def main():
 
 if __name__=='__main__':
     try:main()
-    except (EOFError,KeyboardInterrupt):print('\nTouch setup deferred; run sudo n810-setup-touch later.')
+    except (EOFError,KeyboardInterrupt,subprocess.TimeoutExpired):print('\nTouch setup deferred; run sudo n810-setup-touch later.')

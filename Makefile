@@ -91,6 +91,10 @@ flasher:
 flasher-help: flasher
 	"$(FLASHER_OUTPUT)/0xFFFF" -h
 
+.PHONY: flasher-helper-prepare
+flasher-helper-prepare: flasher
+	python3 platform/flasher/prepare_macos_helper.py --build "$(FLASHER_OUTPUT)" --output "$(FLASHER_OUTPUT)-helper"
+
 FLASHER_PREFIX ?= /usr/local
 .PHONY: flasher-install
 flasher-install: flasher
@@ -99,3 +103,33 @@ flasher-install: flasher
 	install -m 644 "$(FLASHER_OUTPUT)/BUILD.json" "$(FLASHER_OUTPUT)/source.tar.gz" "$(DESTDIR)$(FLASHER_PREFIX)/share/doc/0xffff/"
 	@if test -f "$(FLASHER_OUTPUT)/COPYING"; then install -m 644 "$(FLASHER_OUTPUT)/COPYING" "$(DESTDIR)$(FLASHER_PREFIX)/share/doc/0xffff/"; fi
 	install -m 644 platform/flasher/usb-host.patch platform/flasher/macos-nolo.patch "$(DESTDIR)$(FLASHER_PREFIX)/share/doc/0xffff/"
+
+# Guided internal-storage installation stages share one backend with Pocket Setup.
+INTERNAL_KIT ?= $(CURDIR)/dist/n810-internal
+INTERNAL_PLAN ?=
+N810_FLASHER ?= $(FLASHER_OUTPUT)/0xFFFF
+N810_INSTALLER_HOST ?= 169.254.81.1
+N810_INSTALLER_KEY ?=
+N810_INSTALLER ?= python3 platform/bootstrap/internal_installer.py
+.PHONY: n810-build-internal n810-check n810-identify n810-boot-installer n810-write-internal n810-flash-kernel
+n810-build-internal:
+	@test -n "$(INTERNAL_PLAN)" || { echo 'Set INTERNAL_PLAN to the private internal build-plan JSON.' >&2; exit 1; }
+	python3 platform/bootstrap/build_internal_image.py --plan "$(INTERNAL_PLAN)" --output "$(INTERNAL_KIT)"
+.PHONY: n810-install
+n810-install: flasher
+	$(N810_INSTALLER) install --kit "$(INTERNAL_KIT)" --flasher "$(N810_FLASHER)" --host "$(N810_INSTALLER_HOST)" $(if $(strip $(N810_INSTALLER_KEY)),--key "$(N810_INSTALLER_KEY)")
+n810-check:
+	$(N810_INSTALLER) check --kit "$(INTERNAL_KIT)"
+n810-identify: flasher
+	$(N810_INSTALLER) identify --flasher "$(N810_FLASHER)"
+n810-boot-installer: flasher
+	$(N810_INSTALLER) boot --kit "$(INTERNAL_KIT)" --flasher "$(N810_FLASHER)"
+n810-write-internal:
+	$(N810_INSTALLER) write --kit "$(INTERNAL_KIT)" --host "$(N810_INSTALLER_HOST)" $(if $(strip $(N810_INSTALLER_KEY)),--key "$(N810_INSTALLER_KEY)")
+n810-flash-kernel: flasher
+	$(N810_INSTALLER) flash-kernel --kit "$(INTERNAL_KIT)" --flasher "$(N810_FLASHER)"
+
+.PHONY: n810-write-macos-internal
+n810-write-macos-internal:
+	@test -n "$(N810_DISK)" -a -n "$(N810_USB_LOCATION)" || { echo 'Set N810_DISK and N810_USB_LOCATION from the identified new tablet.'; exit 1; }
+	python3 platform/bootstrap/write_macos_internal.py --kit "$(INTERNAL_KIT)" --disk "$(N810_DISK)" --usb-location "$(N810_USB_LOCATION)" $(if $(filter 1,$(N810_ERASE)),--write)

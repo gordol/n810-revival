@@ -1,0 +1,8 @@
+{
+  "native": {"POCKET_SCENE_PAGE_GROUPS": "1"},
+  "pocket_module": {
+    "gpu_dma_damage_mapping": 1,
+    "gpu_dma_reuse_channel": 1,
+    "gpu_verification_mode": 1
+  }
+}

@@ -28,12 +28,16 @@ The saved value `gpu` selects the graphical desktop. Graphics releases live unde
 
 ## Startup after boot
 
-The enabled `rc.local` service runs `/etc/boot.d/90-n810-pocket`, which starts
-the supervisor with the saved renderer selection. This chain was inspected on
-the N810 without rebooting. Check the installed entry:
+On SysV installations, `rc.local` runs the Pocket boot hook when it is
+installed. Check the hook and saved renderer before relying on automatic
+startup:
 
 ```sh
-sudo cat /etc/boot.d/90-n810-pocket
+test -x /etc/boot.d/90-n810-pocket && cat /etc/boot.d/90-n810-pocket
+cat /usr/local/lib/n810-pocket/renderer
 ```
+
+The fresh internal image uses `pocket-desktop.service` under systemd instead.
+Check its active state and the running desktop on that tablet after boot.
 
 For building the driver, use [Build MBX and Mesa](build-graphics.md).

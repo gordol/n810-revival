@@ -1,32 +1,88 @@
 # N810 Setup
 
-Run `make setup` from the Pocket directory to open **N810 Setup** in the portable
-Pocket desktop. It is also available in the application menu on a configured
-Nokia. Existing `make` / `make n810` commands continue to launch the desktop.
+Run `make setup` from the Pocket directory to open **N810 Setup**. The setup
+screen is also available in the application menu. Start it directly through
+either frontend with `make tui EXTRA=--setup` or `make gui EXTRA=--setup`.
 
-This app prepares **local installation kits**. It does not install Debian,
-execute an installer, write a tablet disk, change boot configuration, reboot,
-flash, download files or contact services. “Files verified” and “Kit prepared”
-are preparation states; neither means a tablet is installed.
+N810 Setup builds and checks a private internal-install kit and identifies the
+tablet. Its RAM-installer route has not completed a physical installation. The
+tested macOS route uses the tablet's stock Maemo USB mass-storage export to
+write and read back all 2 GB, then uses native 0xFFFF to flash the matching
+kernel. No SD card is involved.
+
+The kit builder runs on a Linux host or VM with administrator access. It packs
+an already staged Debian root, matching kernel package, RAM-installer output,
+Pocket release runtime, MBX module, and Mesa build; it does not create those
+build inputs from an empty checkout. It stages the GPU desktop for `nokia`.
 
 ## Use the app
 
-1. Obtain a reviewed kit manifest and its files. Verify its publisher and release
-   separately: checksums supplied alongside files detect changed bytes, not a
-   malicious publisher.
-2. Enter the local `INSTALLATION.json` path. Tab moves to the destination field,
-   then **Check files**. Press Enter on that action to verify the inputs.
-3. Enter a **new** ordinary local folder for the kit. Its parent must exist and
-   have enough free space. Existing destinations are refused.
-4. Tab to **Prepare local kit**, then press Enter. It checks and copies the files
-   on a worker, verifies the copied bytes and includes a preparation receipt.
-5. Read the kit's included boot/install guide. Device selection and privileged
-   device actions are separate from this app and need their own authorization.
+For a physical installation on macOS, boot stock Maemo on the target and export
+its internal USB storage. In Setup, enter the target's `/dev/diskN` whole disk
+and USB location in the two Mac fields. Select **Check Mac N810 disk**, then
+**Write Mac N810 disk**. The writer checks the disk model, exact 2 GB capacity,
+and USB location, writes the image, and reads back the entire disk. Return that
+tablet to update mode and select **Flash kernel and reboot**. The same actions
+are available through the shared CLI and Make target:
 
-Tab and Shift-Tab move between inputs, Check files, Prepare local kit, Cancel and
-Setup steps. Arrow/page/Home/End keys scroll the focused steps. Input keeps
-literal shortcut characters. Cancel stops local hashing/copying; closing the app
-also requests cancellation. Temporary partial kits are removed on failure.
+```sh
+python3 platform/bootstrap/write_macos_internal.py --kit dist/n810-internal --disk /dev/diskN --usb-location 0x02100000
+sudo python3 platform/bootstrap/write_macos_internal.py --kit dist/n810-internal --disk /dev/diskN --usb-location 0x02100000 --write
+```
+
+The first command only checks the selected disk. The second erases it and
+verifies the entire disk before recording a receipt. The disk number and USB
+location are examples; read them again for each installation. The root image
+does not contain a touchscreen calibration. First boot collects two matching
+taps for each target on that tablet before starting Pocket.
+
+The RAM-installer actions below remain available for development, but their
+physical install has not been accepted.
+
+1. Prepare the root, kernel package, RAM installer, and GPU build directories described
+   below, then save a private plan such as:
+
+   ```json
+   {
+     "root": "/build/debian/rootfs",
+     "kernel_package": "/build/n810-kernel/package",
+     "recovery": "/build/n810-ram-installer",
+     "gpu_runtime": "/build/pocket-runtime-release",
+     "gpu_module_package": "/build/n810-mbx-module",
+     "gpu_mesa_package": "/build/n810-mesa/package",
+     "size_mib": 1536
+   }
+   ```
+
+2. Enter that plan in the first field and a **new** private kit folder in the
+   second. Select **Build internal kit**. On Linux, authorize the build in the
+   launching terminal first with `sudo -v`; Setup invokes only the builder as
+   root, not the Pocket desktop.
+3. Setup verifies the root image, installed desktop, permanent kernel,
+   installer kernel and initramfs manifests. It then selects the generated
+   `INSTALLATION.json` automatically. Choose **Check files** to rerun the full
+   local kit check.
+4. Choose **Build host flasher**, then **Detect target**. The read-only check
+   accepts exactly one Nokia N810 RX-44 in update mode. On macOS, run `sudo -v`
+   in the launching terminal before USB actions.
+5. Choose **Boot RAM installer**. This loads its matching kernel and initramfs
+   in memory and leaves internal storage unchanged.
+6. Choose **Erase and write internal storage**. It checks the RAM installer and
+   the unique internal MMC, writes the root image, and verifies its complete
+   SHA-256 readback. The kit records a private receipt for that exact root and
+   kernel.
+7. Return the **same physical tablet** to Nokia update mode, then choose **Flash
+   kernel and reboot**. The action rechecks RX-44 and the write receipt before
+   flashing the matching kernel. Observe the first boot separately; a successful
+   flasher exit does not establish that Pocket started correctly.
+
+The kit contains a local password hash, SSH access material, and personal
+configuration. Keep the plan, build root, recovery image, and kit private.
+
+Tab and Shift-Tab move between inputs and actions. Arrow/page/Home/End keys
+scroll the steps. Cancel stops local checks, copies, and kit builds. Closing the
+app requests cancellation. A cancelled or failed image build may leave a private
+partial output folder; remove or rename it before another build.
 
 ## Manifest contract, version 1
 
@@ -64,36 +120,45 @@ A prepared directory contains the verified files, a self-contained
 `README.txt` pointing to the included guide. Rechecking the prepared manifest
 works without the original source directory.
 
-The same model is available without the desktop:
+The shared Make and CLI stages are available without the desktop. `INTERNAL_PLAN`
+names the JSON input above, and `INTERNAL_KIT` selects a new output folder:
 
 ```sh
-PYTHONPATH=shell python3 -m n810_bootstrap check /path/INSTALLATION.json
-PYTHONPATH=shell python3 -m n810_bootstrap prepare /path/INSTALLATION.json /path/new-kit
+sudo -v
+sudo make n810-build-internal INTERNAL_PLAN=/path/internal-plan.json INTERNAL_KIT=/path/new-kit
+make n810-check INTERNAL_KIT=/path/new-kit
+make n810-identify
+make n810-install INTERNAL_KIT=/path/new-kit
 ```
 
-## Remaining first-install inputs
+The build plan's input folders come from the Debian root, kernel, RAM installer,
+MBX module, Mesa, and Pocket release-runtime build steps. `build_internal_image.py`
+requires all six paths; `size_mib` is optional and defaults to 1536. The kernel package must
+use `PARTUUID=<8 lowercase hex digits>-01`, and the RAM installer must use the
+same kernel image and release. The Debian root must already contain the matching
+modules, N810 firmware, Pocket runtime, and enabled `pocket-desktop.service`.
+These source-input build steps still need to be composed into a fresh-checkout
+one-command builder.
 
-The repo has kernel build tools, target runtime scripts, Pocket app packaging and
-an installed-Nokia-to-empty-mounted-root copy tool. It does **not yet provide a
-complete redistributable first-install system kit**. That still needs:
+The Install action and `make n810-install` run the device stages in order. After
+root readback, they power off the new tablet and wait for you to hold Home while
+powering it on into update mode. The permanent kernel flash then completes.
+The USB installer uses `169.254.81.1` to keep its connection separate from an
+existing tablet at `192.168.10.1`. The Mac USB Ethernet service must allow a
+self-assigned link-local address. A saved root-write receipt allows resuming
+without repeating the storage write.
 
-- A reproducible Debian armel root filesystem and its package/source manifest.
-- A reviewed firmware inclusion/distribution policy and per-tablet calibration.
-- A matching kernel/modules pair and a tested boot/recovery procedure.
-- A reviewed target storage layout and a general host/recovery installation path.
-- First-boot identity/setup and complete installation acceptance on another N810.
+## Remaining acceptance work
 
-The historical partition writer is tied to one prepared image and disk layout;
-it is not invoked or presented as a general installer here. The on-device
-`pocket-install` tool copies an already installed system to a separately mounted
-empty target; it is not a standalone RAM recovery image or host bootstrapping
-path.
+The automatic internal writer and kernel-flash gates are implemented and covered
+with synthetic local fixtures. The remaining acceptance work is to produce the
+matching Debian, kernel, firmware, Pocket and RAM-installer inputs from a clean
+Linux builder, then run the guided install and verify first boot on a second
+N810. No tablet install or first-boot acceptance is implied by host tests.
 
 ## Validation
 
 Local tests use synthetic artifacts, not OS images or live devices. They cover
-checksum failures, required roles, path traversal, symlinks, duplicate manifest
-keys, existing destination preservation, cancellation, changed-source cleanup,
-literal text entry, shared navigation, and idle rendering. The real `make setup`
-terminal path is exercised separately with a synthetic manifest and new temporary
-kit directory. These establish preparation behavior, not tablet installation.
+the internal kit manifests, RAM boot arguments, target selection, receipt-gated
+kernel flash, build-plan validation, Setup actions, cancellation, navigation and
+rendering. They establish host behavior, not a tablet installation.

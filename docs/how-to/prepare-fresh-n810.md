@@ -5,12 +5,15 @@ boot the N810 temporarily with the matching kernel. Keep the stock boot route
 available during initial checks.
 
 The image contains Debian, kernel modules, device firmware, USB networking,
-touch setup and zram. Pocket, its graphics release, and desktop autostart are
-still separate installation steps. Building this image does not establish a
+touch setup, the internal keyboard layer, power indicators, and zram. Pocket,
+its graphics release, and desktop autostart are still separate installation
+steps. Building this image does not establish a
 complete first-install Pocket desktop.
 
-The Makefile runs the builder. The N810 Setup app can verify and copy the
-exported kit; it does not yet run the build, card writer, or kernel flasher.
+The Makefile runs the SD builder and guarded card writer. For an install
+without an SD card, use the tested macOS writer and kernel-flash steps in
+[N810 Setup](../pocket/bootstrap.md). The app's RAM-installer route still
+needs hardware acceptance.
 
 ## Before you begin
 

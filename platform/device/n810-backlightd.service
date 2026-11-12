@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Unit]
+Description=N810 keyboard backlight policy
+After=systemd-udev-settle.service n810-fn-remap.service
+ConditionPathExists=/sys/class/leds/n810::keyboard/brightness
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/n810-backlightd
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

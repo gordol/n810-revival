@@ -29,6 +29,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work', type=Path, required=True, help='New directory for source, build, logs, and package')
     parser.add_argument('--archive', type=Path, help='Optional previously downloaded, checksum-matched upstream archive')
+    parser.add_argument('--resume', action='store_true', help='Revalidate inputs and resume an existing interrupted build')
+    parser.add_argument('--ram-installer', action='store_true', help='build the temporary NOLO initramfs installer kernel')
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--root-device', default='/dev/mmcblk0p2', help='Root device or PARTUUID= value for the intended filesystem')
     args = parser.parse_args()
@@ -45,9 +47,9 @@ def main() -> None:
         if shutil.which(tool) is None:
             raise RuntimeError(f'Required build tool is missing: {tool}')
     work = args.work.resolve()
-    work.mkdir(parents=True, exist_ok=False)
-    logs = work / 'logs'; logs.mkdir()
-    package = work / 'package'; package.mkdir()
+    work.mkdir(parents=True, exist_ok=args.resume)
+    logs = work / 'logs'; logs.mkdir(exist_ok=args.resume)
+    package = work / 'package'; package.mkdir(exist_ok=args.resume)
     env = os.environ.copy()
     for key in list(env):
         if key.startswith(('KBUILD_', 'KCONFIG_')) or key in ('MAKEFLAGS', 'MFLAGS', 'ARCH', 'CROSS_COMPILE', 'CC', 'HOSTCC', 'LOCALVERSION'):
@@ -69,27 +71,37 @@ def main() -> None:
              '--output', str(archive), lock['url']], 'download')
     if digest(archive) != lock['sha256']:
         raise RuntimeError('Upstream source archive checksum mismatch.')
-    run(['tar', '-xJf', str(archive), '-C', str(work)], 'extract')
     source = work / ('linux-' + lock['version'])
-    run(['patch', '--batch', '--fuzz=0', '-p1', '-i', str(HERE / 'n810-5.15.224.patch')], 'patch', source)
+    if not args.resume:
+        run(['tar', '-xJf', str(archive), '-C', str(work)], 'extract')
+        run(['patch', '--batch', '--fuzz=0', '-p1', '-i', str(HERE / 'n810-5.15.224.patch')], 'patch', source)
     expected_files = json.loads((HERE / 'source-files.json').read_text())
     for name, expected in expected_files.items():
         if digest(source / name) != expected:
             raise RuntimeError(f'Reconstructed source differs from maintained revision: {name}')
-    build = work / 'build'; build.mkdir()
+    build = work / 'build'; build.mkdir(exist_ok=args.resume)
     shutil.copyfile(HERE / 'n810.config', build / '.config')
-    cmdline = f'root={args.root_device} rootfstype=ext4 rw rootwait console=ttyS2,115200 console=tty0 omap2fb.auto_update=y loglevel=4 vt.rgb=1'
-    run([str(source / 'scripts/config'), '--file', str(build / '.config'),
-         '--set-str', 'UNUSED_KSYMS_WHITELIST', str(HERE / 'binding-api-whitelist.txt'),
-         '--set-str', 'CMDLINE', cmdline], 'configure')
+    cmdline = (f'root={args.root_device} rootfstype=ext4 rw rootwait' if not args.ram_installer else
+               'root=/dev/ram0 rw rdinit=/init') + \
+              ' console=ttyS2,115200 console=tty0 omap2fb.auto_update=y loglevel=4 vt.rgb=1'
+    config = [str(source / 'scripts/config'), '--file', str(build / '.config'),
+              '--set-str', 'UNUSED_KSYMS_WHITELIST', str(HERE / 'binding-api-whitelist.txt'),
+              '--set-str', 'CMDLINE', cmdline]
+    if args.ram_installer:
+        config += ['--set-str', 'LOCALVERSION', '-n810-installer2', '--enable', 'BLK_DEV_INITRD',
+                   '--enable', 'RD_XZ',
+                   '--disable', 'EXT4_FS', '--disable', 'PM_DEBUG', '--disable', 'PM_SLEEP_DEBUG',
+                   '--disable', 'DEBUG_BUGVERBOSE']
+    run(config, 'configure')
     base = ['make', '-C', str(source), 'O=' + str(build), 'ARCH=arm',
             'CROSS_COMPILE=arm-linux-gnueabihf-', 'CC=arm-linux-gnueabihf-gcc', 'HOSTCC=gcc', 'LOCALVERSION=']
     run(base + ['olddefconfig'], 'olddefconfig')
     run(base + [f'-j{args.jobs}', 'zImage', 'modules', 'omap2420-n810.dtb'], 'kernel-and-modules')
     release = (build / 'include/config/kernel.release').read_text().strip()
-    if release != lock['release']:
+    expected_release = lock['version'] + '-n810-installer2' if args.ram_installer else lock['release']
+    if release != expected_release:
         raise RuntimeError(f'Unexpected release: {release}')
-    module = work / 'clock-module'; shutil.copytree(HERE / 'clock-module', module)
+    module = work / 'clock-module'; shutil.copytree(HERE / 'clock-module', module, dirs_exist_ok=args.resume)
     run(base + ['M=' + str(module), 'modules'], 'clock-module')
     exports = {line.split()[1]: line.split()[0] for line in (build / 'Module.symvers').read_text().splitlines()}
     required = set((HERE / 'binding-api-whitelist.txt').read_text().splitlines())
@@ -103,6 +115,9 @@ def main() -> None:
     info = subprocess.check_output(['modinfo', '-F', 'vermagic', str(ko)], env=env, text=True).strip()
     if not info.startswith(release + ' '):
         raise RuntimeError('External module release mismatch.')
+    module_root = package / 'root/lib/modules'
+    if module_root.exists():
+        shutil.rmtree(module_root)
     run(base + ['INSTALL_MOD_PATH=' + str(package / 'root'), 'modules_install'], 'stage-modules')
     # Kbuild creates development symlinks; the package retains relocatable files.
     for name in ['build', 'source']:
@@ -110,8 +125,11 @@ def main() -> None:
         if link.is_symlink():
             link.unlink()
     modules = list((package / 'root').rglob('*.ko'))
-    if len(modules) != lock['expected_modules']:
-        raise RuntimeError(f'Expected {lock["expected_modules"]} configured modules; got {len(modules)}.')
+    # External initramfs decompression links five compression helpers into the
+    # recovery kernel that are modules in the permanent build.
+    expected_modules = lock['expected_modules'] - 5 if args.ram_installer else lock['expected_modules']
+    if len(modules) != expected_modules:
+        raise RuntimeError(f'Expected {expected_modules} configured modules; got {len(modules)}.')
     for relative, name in [('arch/arm/boot/zImage', 'zImage'),
                            ('arch/arm/boot/dts/omap2420-n810.dtb', 'omap2420-n810.dtb'),
                            ('Module.symvers', 'Module.symvers'), ('.config', 'kernel.config')]:
@@ -124,11 +142,13 @@ def main() -> None:
     (package / 'module-version-crcs.txt').write_text(versions)
     (package / 'KERNELRELEASE').write_text(release + '\n')
     compiler = subprocess.check_output(['arm-linux-gnueabihf-gcc', '--version'], text=True, env=env).splitlines()[0]
-    report = {'release': release, 'maintained_commit': lock['maintained_commit'],
+    report = {'release': release, 'kind': 'n810-ram-installer-kernel' if args.ram_installer else 'n810-permanent-kernel',
+              'maintained_commit': lock['maintained_commit'],
               'upstream_sha256': lock['sha256'], 'source_lock_sha256': digest(HERE / 'source.lock.json'),
               'build_script_sha256': digest(Path(__file__)), 'verified_source_files': len(expected_files),
               'compiler': compiler, 'build_timestamp': env['KBUILD_BUILD_TIMESTAMP'],
-              'root_device': args.root_device, 'kernel_modules': len(modules),
+              'root_device': 'initramfs:/init' if args.ram_installer else args.root_device,
+              'kernel_modules': len(modules),
               'external_module_crc_checks': len(crcs), 'external_module_vermagic': info,
               'image_bytes': image.stat().st_size, 'image_limit': lock['image_limit'],
               'device_action': False,

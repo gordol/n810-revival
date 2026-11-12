@@ -1,0 +1,18 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+# A temporary console leaves the foreground Pocket VT intact.
+set -eu
+TERM=linux
+export TERM
+choice=$(whiptail --title 'N810 power' --menu 'Choose an action' 15 60 5 \
+    return 'Return to Pocket' restart 'Restart' shutdown 'Shut down' \
+    3>&1 1>&2 2>&3) || exit 0
+case "$choice" in
+    return) exit 0 ;;
+    restart|shutdown)
+        if whiptail --title 'Confirm power action' --yesno "${choice} the N810?" 10 55; then
+            if test "$choice" = restart; then exec /usr/bin/systemctl reboot; fi
+            exec /usr/bin/systemctl poweroff
+        fi ;;
+esac

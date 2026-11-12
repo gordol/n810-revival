@@ -53,9 +53,42 @@ Never pass flash or reboot flags just to check connectivity.
 
 ## Wizard status
 
-Pocket's N810 Setup screen includes **Build host flasher**, which runs this same
-Make build without opening a USB device. It also verifies manifests and prepares local kits. Its
-complete build, USB detection, RAM installer boot, internal storage write and
-permanent kernel flash flow is still under integration. Those actions are not
-performed by Check files or Prepare local kit. Installing this flasher alone
-does not complete that wizard.
+Pocket's N810 Setup screen and the root Makefile share the internal installer
+backend. Setup builds and checks kits and identifies one RX-44. Its automatic
+RAM-installer path has not completed physical acceptance. The verified macOS
+route exports internal MMC from stock Maemo and uses
+`platform/bootstrap/write_macos_internal.py` for a full-disk write and readback.
+The same stages are `make n810-build-internal`,
+`n810-check`, `n810-identify`, `n810-boot-installer`, `n810-write-internal` and
+`n810-flash-kernel`. The kit-pack step consumes staged Debian, kernel and
+RAM-installer directories; composing those inputs from a fresh Linux build and
+accepting first boot on a second N810 remain outstanding.
+
+## One-time macOS USB authorization
+
+Builds run in Linux/Docker; USB operations run natively on macOS. No Docker USB
+passthrough is required. To prepare the reusable helper installer:
+
+```sh
+make flasher-helper-prepare
+sudo /bin/sh dist/flasher-helper/install.sh
+```
+
+Preparation requires the macOS command-line tools and the normal flasher build
+prerequisites. It bundles the verified flasher and its USB libraries, rewrites
+library paths to the bundled copies, and signs the binaries locally. The
+installer checks the bundle hashes, installs root-owned files under
+`/Library/PrivilegedHelperTools/org.n810-revival.flasher`, and validates a sudoers
+rule for the invoking local user. Installation does not access a tablet.
+
+The helper accepts only identification, kernel-plus-initramfs RAM boot, and
+kernel flash with reboot. Setup and the shared installer CLI select it
+automatically when its original binary identity matches the local build. Only
+this helper receives passwordless sudo; the desktop runs as the ordinary user.
+The helper permits those USB operations whenever invoked by that user, so retain
+it only while that ongoing access is wanted. Existing installations are refused
+rather than overwritten.
+
+To revoke access, remove `/etc/sudoers.d/n810-revival-flasher` using administrator
+privileges. The helper directory can then be removed as well. A changed flasher
+build requires a reviewed replacement installation.

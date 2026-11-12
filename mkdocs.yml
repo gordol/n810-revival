@@ -124,6 +124,7 @@ nav:
   - Run the APRS map and tmux demo: how-to/aprs-demo.md
   - Install Pocket: pocket/install.md
   - Prepare an N810 installation kit: pocket/bootstrap.md
+  - Prepare a fresh N810 SD card: how-to/prepare-fresh-n810.md
   - Select map areas and build elevation: pocket/map-data.md
   - Connect services: pocket/connections.md
   - Send messages: pocket/messaging.md
@@ -137,6 +138,8 @@ nav:
   - Kernel checkpoints: reference/kernels.md
   - Kernel build inputs: reference/kernel-build-inputs.md
   - Kernel build verification: reference/kernel-build-verification.md
+  - N810 radio firmware sources: reference/firmware.md
+  - N810 first-boot inputs: reference/first-boot-inputs.md
   - Journal source index: reference/journal-sources.md
   - Component build verification: reference/component-build-verification.md
   - HTIT source inputs: reference/htit-inputs.md

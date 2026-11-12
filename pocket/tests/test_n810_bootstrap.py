@@ -1,16 +1,19 @@
 # SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
 # SPDX-License-Identifier: GPL-2.0-or-later
 import hashlib,json,sys,tempfile,threading,unittest
+import io
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'platform'/'bootstrap'))
 import n810_bootstrap as bootstrap
-from native_setup import N810Setup
+from native_setup import N810Setup,_build_internal_kit,_mac_storage
 from native_navigation import native_key,navigation
 
 class SetupTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
+        isolated=patch('native_setup.REPOSITORY',self.root);isolated.start();self.addCleanup(isolated.stop)
     def manifest(self,kind='n810-system'):
         files=[]
         for role in bootstrap.KINDS[kind]:
@@ -71,13 +74,14 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(form.manifest.text,'pvc');self.assertIsNone(form.pool)
         native_key(form,'\t');self.assertEqual(navigation(form).target,'destination')
         native_key(form,'backtab');self.assertEqual(navigation(form).target,'manifest')
-        native_key(form,'\t');native_key(form,'\t');self.assertEqual(navigation(form).target,'check')
+        for _ in range(4):native_key(form,'\t')
+        self.assertEqual(navigation(form).target,'check')
         native_key(form,'\r')
         self.assertIsNotNone(form.pool)
     def test_flasher_action_uses_shared_builder_without_manifest(self):
         form=N810Setup();self.addCleanup(form.close)
         with patch('n810_flasher.build',return_value={'state':'flasher_built','binary':'/fixture/0xFFFF','source_revision':'fixture'}) as build:
-            for _ in range(5):native_key(form,'\t')
+            for _ in range(8):native_key(form,'\t')
             self.assertEqual(navigation(form).target,'flasher')
             native_key(form,'\r')
             form.pending.result(timeout=2);form.poll()
@@ -86,12 +90,87 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(form.tool_result['state'],'flasher_built')
         self.assertIn('No tablet was accessed',form.status)
 
+    def test_device_stages_are_registered_and_use_shared_backend(self):
+        form=N810Setup();self.addCleanup(form.close)
+        actions={target.key for target in form.navigation_targets()}
+        self.assertTrue({'kit','identify','boot','write','mac-check','mac-write','flash'}<=actions)
+        plan=self.root/'build-plan.json';plan.write_text('{}')
+        output=self.root/'verified-kit'
+        form.manifest.text=str(plan);form.destination.text=str(output)
+        with patch('native_setup._setup_work',return_value={'state':'internal_kit_built',
+                'kind':'n810-internal','destination':str(output)}) as build:
+            form.start('kit');form.pending.result(timeout=2);form.poll()
+            build.assert_called_once()
+        self.assertEqual(form.manifest.text,str(output/'INSTALLATION.json'))
+        form.manifest.text=str(self.root/'INSTALLATION.json')
+        results=(('identify',{'state':'device_identified','model':'RX-44'}),
+                 ('boot',{'state':'ram_installer_booted','model':'RX-44','internal_storage_changed':False}),
+                 ('write',{'state':'rootfs_written','rootfs_written':True}),
+                 ('flash',{'state':'kernel_flashed_reboot_requested','model':'RX-44'}))
+        with patch('native_setup._setup_work',side_effect=[row for _,row in results]) as work:
+            for action,_ in results:
+                form.start(action);form.pending.result(timeout=2);form.poll()
+                self.assertIsNone(form.pending)
+                self.assertTrue(form.status)
+                form.lines()
+        self.assertEqual([call.args[0] for call in work.call_args_list],[name for name,_ in results])
+        self.assertTrue(any('return the same tablet to Nokia update mode' in line
+                            for line in form.help_pages()[0][1]))
+
+    def test_mac_storage_actions_use_identified_disk_and_shared_writer(self):
+        process=type('Process',(),{'stdout':io.StringIO('Check only. Nothing written.\n'),
+                                    'wait':lambda self:0})()
+        with patch('native_setup.sys.platform','darwin'), \
+             patch('native_setup.subprocess.Popen',return_value=process) as popen:
+            result=_mac_storage('mac-check',self.root,'/dev/disk5','0x02100000',None)
+        self.assertEqual(result['state'],'mac_disk_checked')
+        command=popen.call_args.args[0]
+        self.assertNotIn('sudo',command)
+        self.assertNotIn('--write',command)
+        self.assertEqual(command[command.index('--disk')+1],'/dev/disk5')
+        self.assertEqual(command[command.index('--usb-location')+1],'0x2100000')
+        process.stdout=io.StringIO('Full disk readback verified.\n')
+        with patch('native_setup.sys.platform','darwin'), \
+             patch('native_setup.subprocess.Popen',return_value=process) as popen:
+            result=_mac_storage('mac-write',self.root,'/dev/disk5','0x02100000',None)
+        self.assertTrue(result['rootfs_readback_verified'])
+        self.assertEqual(popen.call_args.args[0][:2],['sudo','-n'])
+        self.assertIn('--write',popen.call_args.args[0])
+        with patch('native_setup.sys.platform','darwin'),self.assertRaisesRegex(ValueError,'whole disk'):
+            _mac_storage('mac-write',self.root,'/dev/disk5s1','0x02100000',None)
+
+    def test_internal_kit_ui_uses_plan_builder_and_verifies_output(self):
+        plan=self.root/'build-plan.json';plan.write_text('{}')
+        output=self.root/'private-kit'
+        process=type('Process',(),{'stdout':io.StringIO(''), 'poll':lambda self:None,
+                                   'wait':lambda self:0})()
+        process.poll=lambda:next(polls)
+        polls=iter((None,0))
+        kit_manifest=dict(release='fixture-internal',files=[])
+        internal=dict(kernel_release='fixture-kernel')
+        files={}
+        with patch('native_setup.sys.platform','linux'),patch('native_setup.os.geteuid',return_value=0), \
+                patch('native_setup.subprocess.Popen',return_value=process) as popen, \
+                patch('native_setup.select.select',return_value=([process.stdout],[],[])), \
+                patch('internal_installer.verify_local_kit',return_value=(kit_manifest,internal,files)):
+            result=_build_internal_kit(plan,output,None,threading.Event())
+        self.assertEqual(result['state'],'internal_kit_built')
+        command=popen.call_args.args[0]
+        self.assertIn('--plan',command);self.assertIn(str(plan.resolve()),command)
+        self.assertIn('--output',command);self.assertIn(str(output),command)
+
     def test_open_render_and_help_do_not_start_work(self):
         form=N810Setup();self.addCleanup(form.close)
         for width,height in ((40,14),(80,24),(110,36)):
             form.width=width;form.height=height
             self.assertEqual(len(form.lines()),height)
             self.assertTrue(all(len(row)<=width for row in form.lines()))
+        form.width=80;form.height=14
+        self.assertTrue(any('Check files' in row for row in form.lines()))
+        form.field='disk'
+        self.assertTrue(any('New N810 disk' in row for row in form.lines()))
+        form.field='mac-write'
+        self.assertTrue(any('Write Mac N810 disk' in row for row in form.lines()))
         form.help_pages();self.assertIsNone(form.pool);self.assertIsNone(form.pending)
 
 if __name__=='__main__':unittest.main()

@@ -49,7 +49,7 @@ class TouchSetupTests(unittest.TestCase):
    fitter=ROOT/'platform/scripts/n810-touch-fit.py'
    if not fitter.exists():fitter=Path('/opt/n810-touch/n810-touch-fit.py')
    def fit(command,**kwargs):return real_output([sys.executable,str(fitter),command[-1]],**kwargs)
-   with patch.object(setup,'Path',side_effect=local_path),patch.object(setup,'EventReader',Reader),patch.object(sys,'argv',['n810-setup-touch']),patch('builtins.input',return_value=''),patch.object(setup.subprocess,'run',side_effect=collect),patch.object(setup.subprocess,'check_output',side_effect=fit):
+   with patch.object(setup,'Path',side_effect=local_path),patch.object(setup,'EventReader',Reader),patch.object(sys,'argv',['n810-setup-touch','--first-boot']),patch('builtins.input',side_effect=AssertionError('first boot must not require keyboard input')),patch.object(setup.subprocess,'run',side_effect=collect),patch.object(setup.subprocess,'check_output',side_effect=fit):
     setup.main()
    cal=setup.Calibration.load(root/'etc/n810/touch-calibration.json',DEVICE,setup.display(800,480))
    u,v=cal.normalized(2100,2200)

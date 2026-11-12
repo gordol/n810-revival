@@ -17,6 +17,7 @@
 #include <sys/mman.h>
 #include <time.h>
 #include <unistd.h>
+#include "n810-touch-confirm.h"
 
 static volatile sig_atomic_t stopped;
 static void stop(int sig) { (void)sig; stopped=1; }
@@ -43,6 +44,54 @@ static void pixel(unsigned char *mem,const struct fb_fix_screeninfo *f,
 {
     if(x>=0 && x<800 && y>=0 && y<480)
         memcpy(mem+(size_t)(y+v->yoffset)*f->line_length+(size_t)(x+v->xoffset)*2,&value,2);
+}
+/* The shipped console font supplies the same legible glyphs as Pocket. */
+static unsigned char font[256][64];
+static unsigned font_width, font_height, font_stride;
+static int load_font(const char *path)
+{
+    FILE *file=fopen(path,"rb"); unsigned char header[32];
+    if(!file) return -1;
+    if(fread(header,1,32,file)!=32) {fclose(file);return -1;}
+    unsigned offset, size;
+    if(header[0]==0x36 && header[1]==0x04) {
+        offset=4; font_width=8; font_height=header[3]; size=font_height;
+    } else {
+        uint32_t h[8]; memcpy(h,header,32);
+        if(h[0]!=0x864ab572 || h[4]<256) {fclose(file);return -1;}
+        offset=h[2]; size=h[5]; font_height=h[6]; font_width=h[7];
+    }
+    font_stride=(font_width+7)/8;
+    if(!font_width || font_width>16 || !font_height || font_height>32 ||
+       size>64 || size<font_stride*font_height || offset>4096) {fclose(file);return -1;}
+    if(fseek(file,offset,SEEK_SET)) {fclose(file);return -1;}
+    for(int i=0;i<256;i++) if(fread(font[i],1,size,file)!=size) {fclose(file);return -1;}
+    fclose(file); return 0;
+}
+static void text(unsigned char *mem,const struct fb_fix_screeninfo *f,
+                 const struct fb_var_screeninfo *v,int x,int y,const char *label,uint16_t color)
+{
+    for(const unsigned char *c=(const unsigned char *)label;*c;c++,x+=(int)font_width*2)
+        for(unsigned row=0;row<font_height;row++) for(unsigned col=0;col<font_width;col++)
+            if(font[*c][row*font_stride+col/8] & (0x80>>(col%8)))
+                for(int dy=0;dy<2;dy++) for(int dx=0;dx<2;dx++)
+                    pixel(mem,f,v,x+col*2+dx,y+row*2+dy,color);
+}
+static int target_screen(int fb,unsigned char *mem,const struct fb_fix_screeninfo *f,
+                         const struct fb_var_screeninfo *v,int tx,int ty,int index,int pending)
+{
+    for(int y=0;y<480;y++) for(int x=0;x<800;x++) pixel(mem,f,v,x,y,0x0841);
+    uint16_t color=pending>0?0xffe0:0xffff;
+    for(int k=-18;k<=18;k++) for(int d=-1;d<=1;d++) {
+        pixel(mem,f,v,tx+k,ty+d,color); pixel(mem,f,v,tx+d,ty+k,color);
+    }
+    char heading[40];snprintf(heading,sizeof(heading),"TOUCH SETUP - POINT %d OF 5",index+1);
+    text(mem,f,v,40,140,heading,0xffff);
+    text(mem,f,v,40,185,pending<0?"TAPS DID NOT MATCH. TRY AGAIN.":pending?"TAP THE SAME CROSS AGAIN":"TAP THE WHITE CROSS",color);
+    text(mem,f,v,40,225,pending>0?"TO CONFIRM. LIFT BETWEEN TAPS.":"TAP THE CROSS TWICE, LIFTING EACH TIME.",0xffff);
+    text(mem,f,v,40,285,"MISSED? TAP THE CROSS TWICE.",0xbdf7);
+    text(mem,f,v,40,325,"WAIT FOR THE CROSS TO MOVE.",0xbdf7);
+    return refresh(fb);
 }
 static int pointer_test(int fb,int in,unsigned char *mem,
                         const struct fb_fix_screeninfo *f,const struct fb_var_screeninfo *v,
@@ -114,10 +163,11 @@ int main(int argc,char **argv)
     unsigned char *mem=MAP_FAILED,*saved=NULL;
     struct fb_fix_screeninfo f; struct fb_var_screeninfo v;
     FILE *out=NULL;
+    int shared=argc==3 && !strcmp(argv[1],"--shared-framebuffer");
     int pointer=argc==3 && !strcmp(argv[1],"--pointer");
     double coefficients[6]={0};
     const int targets[5][2]={{80,48},{720,48},{720,432},{80,432},{400,240}};
-    if(argc!=2 && !pointer) { fprintf(stderr,"Usage: n810-touch-calibrate OUTPUT.csv (run on a temporary VT)\n"); return 2; }
+    if(argc!=2 && !pointer && !shared) { fprintf(stderr,"Usage: n810-touch-calibrate OUTPUT.csv (run on a temporary VT)\n"); return 2; }
     if(pointer) {
         FILE *config=fopen(argv[2],"r");
         if(!config) {perror("mapping");return 1;}
@@ -127,8 +177,8 @@ int main(int argc,char **argv)
         if(n!=6 || extra!=EOF) {fprintf(stderr,"Mapping requires six coefficients\n");return 1;}
         for(int i=0;i<6;i++) if(!isfinite(coefficients[i]) || fabs(coefficients[i])>10000) return 1;
     }
-    fb=open("/dev/fb0",O_RDWR|O_CLOEXEC);in=input_open();tty=open("/dev/tty",O_RDWR|O_CLOEXEC);
-    if(fb<0 || in<0 || tty<0 || ioctl(fb,FBIOGET_FSCREENINFO,&f)<0 || ioctl(fb,FBIOGET_VSCREENINFO,&v)<0 || ioctl(tty,KDGETMODE,&oldmode)<0) { perror("device");goto done; }
+    fb=open("/dev/fb0",O_RDWR|O_CLOEXEC);in=input_open();if(!shared) tty=open("/dev/tty",O_RDWR|O_CLOEXEC);
+    if(fb<0 || in<0 || (!shared && tty<0) || ioctl(fb,FBIOGET_FSCREENINFO,&f)<0 || ioctl(fb,FBIOGET_VSCREENINFO,&v)<0 || (!shared && ioctl(tty,KDGETMODE,&oldmode)<0)) { perror("device");goto done; }
     if(v.xres!=800 || v.yres!=480 || v.bits_per_pixel!=16 || f.visual!=FB_VISUAL_TRUECOLOR ||
        v.red.offset!=11 || v.red.length!=5 || v.green.offset!=5 || v.green.length!=6 || v.blue.offset!=0 || v.blue.length!=5 ||
        (uint64_t)(v.xoffset+800)*2>f.line_length || (uint64_t)(v.yoffset+480)*f.line_length>f.smem_len) {
@@ -137,21 +187,26 @@ int main(int argc,char **argv)
     saved=malloc(f.smem_len); if(!saved) goto done;
     mem=mmap(NULL,f.smem_len,PROT_READ|PROT_WRITE,MAP_SHARED,fb,0); if(mem==MAP_FAILED) {perror("mmap");goto done;}
     memcpy(saved,mem,f.smem_len);
-    if(!pointer) {out=fopen(argv[1],"wx"); if(!out) {perror("output (choose a new file)");goto done;}}
+    if(!pointer) {out=fopen(argv[shared?2:1],"wx"); if(!out) {perror("output (choose a new file)");goto done;}}
     signal(SIGINT,stop);signal(SIGTERM,stop);signal(SIGHUP,stop);
-    if(ioctl(tty,KDSETMODE,KD_GRAPHICS)<0) {perror("graphics");goto done;} graphics=1;
+    if(!shared && ioctl(tty,KDSETMODE,KD_GRAPHICS)<0) {perror("graphics");goto done;} graphics=1;
     if(pointer) {result=pointer_test(fb,in,mem,&f,&v,coefficients);goto done;}
     fprintf(out,"screen_x,screen_y,raw_x,raw_y,samples\n");fflush(out);
+    const char *font_path=getenv("N810_CALIBRATION_FONT");
+    if(load_font(font_path?font_path:"/usr/local/share/pocket/build/graphics/console-font.psf")<0) {
+        fprintf(stderr,"Cannot load calibration instruction font\n");goto done;
+    }
+    struct input_absinfo ax,ay;
+    if(ioctl(in,EVIOCGABS(ABS_X),&ax)<0 || ioctl(in,EVIOCGABS(ABS_Y),&ay)<0) goto done;
+    double tolerance_x=fmax(8,(ax.maximum-ax.minimum)*0.03);
+    double tolerance_y=fmax(8,(ay.maximum-ay.minimum)*0.03);
     long deadline=elapsed()+300;
     for(int target=0;target<5 && !stopped;target++) {
-        for(int y=0;y<480;y++) for(int x=0;x<800;x++) pixel(mem,&f,&v,x,y,0x0841);
         int tx=targets[target][0],ty=targets[target][1];
-        for(int k=-18;k<=18;k++) for(int thickness=-1;thickness<=1;thickness++) {
-            pixel(mem,&f,&v,tx+k,ty+thickness,0xffff);pixel(mem,&f,&v,tx+thickness,ty+k,0xffff);
-        }
-        for(int k=0;k<=target;k++) for(int y=12;y<18;y++) for(int x=12+k*12;x<18+k*12;x++) pixel(mem,&f,&v,x,y,0x07ff);
-        if(refresh(fb)<0) {perror("display refresh");goto done;}
-        fprintf(stderr,"Target %d/5: tap the white cross\n",target+1);
+        struct touch_confirmation confirmation={0};
+        int confirmed=0, retry=0;
+        while(!confirmed && !stopped && elapsed()<deadline) {
+        if(target_screen(fb,mem,&f,&v,tx,ty,target,retry?-1:confirmation.pending)<0) goto done;
         int x=-1,y=-1,down=0,n=0,released=0; long sx=0,sy=0;
         struct input_event e;
         while(!stopped && elapsed()<deadline && !released) {
@@ -168,12 +223,17 @@ int main(int argc,char **argv)
             if(e.type==EV_SYN && e.code==SYN_REPORT && down && x>=0 && y>=0) {sx+=x;sy+=y;n++;}
         }
         if(!released) {fprintf(stderr,"Cancelled or timed out; calibration incomplete\n");goto done;}
-        fprintf(out,"%d,%d,%.3f,%.3f,%d\n",tx,ty,(double)sx/n,(double)sy/n,n);fflush(out);
-        struct timespec pause={.tv_nsec=250000000};nanosleep(&pause,NULL);
+        int confirmation_result=confirm_touch(&confirmation,(double)sx/n,(double)sy/n,tolerance_x,tolerance_y);
+        confirmed=confirmation_result==1; retry=confirmation_result<0;
+        if(confirmed) {
+            fprintf(out,"%d,%d,%.3f,%.3f,%d\n",tx,ty,confirmation.x,confirmation.y,n);fflush(out);
+        }
+        }
+        if(!confirmed) goto done;
     }
     if(!stopped) {result=0;fprintf(stderr,"Five targets collected. Calibration is not yet applied.\n");}
  done:
-    if(graphics) {memcpy(mem,saved,f.smem_len);refresh(fb);ioctl(tty,KDSETMODE,oldmode);}
+    if(graphics) {memcpy(mem,saved,f.smem_len);refresh(fb);if(!shared) ioctl(tty,KDSETMODE,oldmode);}
     if(out) fclose(out);
     if(mem!=MAP_FAILED) munmap(mem,f.smem_len);
     free(saved);if(tty>=0)close(tty);if(in>=0)close(in);if(fb>=0)close(fb);

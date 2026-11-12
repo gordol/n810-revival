@@ -62,7 +62,7 @@ the same checksum verification.
 | `build.py` | Download, verification, compilation, module staging and result manifest. |
 
 The builder produces `package/zImage-omap2420-n810`, the generated device tree,
-199 configured kernel modules under `package/root/lib/modules/`, and the separate
+198 configured kernel modules under `package/root/lib/modules/`, and the separate
 clock trial module. It checks the combined image against the recorded
 2,095,104-byte NOLO budget, verifies the external module's symbol CRCs and release,
 and writes `package/BUILD.json` with output hashes. Kernel, device tree and
@@ -80,3 +80,11 @@ This builder supplies their compilation and packaging role.
 Compilation produces a local candidate. Installation and boot acceptance use the
 intended tablet's storage layout, firmware, calibration and recovery procedure.
 The builder performs source and compiler operations locally.
+
+The bootstrap configuration enables external initramfs and XZ initrd support.
+XZ decompression is built into the kernel, so the module inventory is 198.
+The bootstrap release keeps the maintained board and GPU changes and disables
+optional PM debug output and verbose BUG descriptions to retain the NOLO size
+budget. `--resume` revalidates the archive, locked inputs and maintained source
+files before repeating configuration, compilation and packaging in an existing
+build directory.

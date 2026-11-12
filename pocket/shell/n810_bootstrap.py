@@ -16,7 +16,8 @@ import tempfile
 
 KINDS={'n810-system':('system-image','kernel','modules','boot-guide'),
        'pocket-update':('payload','installer','install-guide'),
-       'n810-internal':('root-filesystem','kernel','installer-kernel','installer-filesystem','install-plan','installer-host-key','install-guide')}
+       'n810-internal':('root-filesystem','kernel','installer-kernel','installer-filesystem','install-plan',
+                        'kernel-build-manifest','installer-build-manifest','installer-host-key','install-guide')}
 MAX_MANIFEST=65536
 MAX_FILES=64
 
