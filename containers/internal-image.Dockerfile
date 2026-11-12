@@ -17,17 +17,24 @@ RUN dpkg --add-architecture armel && apt-get update && apt-get install -y --no-i
 RUN python3 -m venv /opt/mesa-tools && /opt/mesa-tools/bin/pip install \
     meson==1.5.2 Mako==1.3.5 packaging==24.1 PyYAML==6.0.2 setuptools==75.1.0
 WORKDIR /src
-COPY . .
+COPY platform/kernel/ platform/kernel/
 ARG DISK_ID
-ARG SOURCE_COMMIT
-RUN test "${#DISK_ID}" = 8 && test "${#SOURCE_COMMIT}" = 40 \
+RUN test "${#DISK_ID}" = 8 \
     && python3 platform/kernel/build.py --work /build/kernel \
        --root-device "PARTUUID=${DISK_ID}-01" --jobs 4
+COPY graphics/mbx/ graphics/mbx/
 RUN python3 graphics/mbx/build.py module --work /build/module \
     --kernel-source /build/kernel/linux-5.15.224 --kernel-build /build/kernel/build
 RUN --mount=type=cache,id=n810-internal-mesa-inputs,target=/cache/mesa-inputs,sharing=locked \
     PATH=/opt/mesa-tools/bin:$PATH python3 graphics/mbx/build.py mesa \
     --work /build/mesa --jobs 4 --osmesa --download-cache /cache/mesa-inputs
+COPY pocket/ pocket/
+COPY platform/bootstrap/ platform/bootstrap/
+COPY platform/scripts/ platform/scripts/
+COPY platform/device/ platform/device/
+COPY platform/flasher/ platform/flasher/
+ARG SOURCE_COMMIT
+RUN test "${#SOURCE_COMMIT}" = 40
 RUN python3 platform/bootstrap/build_internal_frontend.py \
     --mesa-package /build/mesa/package --arm-headers /opt/arm-sysroot/usr/include \
     --output /build/frontend
@@ -35,7 +42,8 @@ RUN git init -q pocket && git -C pocket add shell graphics \
     && python3 pocket/tools/stage_runtime.py --profile release \
        --frontend /build/frontend/frontend.json --source-commit "$SOURCE_COMMIT" \
        --output /build/runtime
-RUN python3 platform/flasher/build.py --output /build/flasher \
+RUN python3 -c 'from pathlib import Path; import os; root=Path("/opt/arm-sysroot"); links=[p for p in root.rglob("*") if p.is_symlink() and os.readlink(p).startswith("/")]; [(p.unlink(),p.symlink_to(os.path.relpath(root/os.readlink(p).lstrip("/"),p.parent))) for p in links]' \
+    && python3 platform/flasher/build.py --output /build/flasher \
     --target armel --cc arm-linux-gnueabi-gcc \
     --usb-flags '-I/opt/arm-sysroot/usr/include -L/opt/arm-sysroot/usr/lib/arm-linux-gnueabi -lusb'
 RUN install -d /opt/n810-touch/touch-runtime \
