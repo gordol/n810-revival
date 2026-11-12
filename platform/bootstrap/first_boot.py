@@ -118,8 +118,6 @@ def configure_first_boot(root, keyboard_binary=None, backlight_binary=None, wake
     if calibration.exists() or calibration.is_symlink():
         calibration.unlink()
     files = {
-        'etc/systemd/system/ssh.service.d/10-generate-host-keys.conf':
-            '[Service]\nExecStartPre=\nExecStartPre=/usr/bin/ssh-keygen -A\nExecStartPre=/usr/sbin/sshd -t\n',
         'etc/systemd/journald.conf.d/10-first-boot.conf':
             '[Journal]\nStorage=persistent\nSystemMaxUse=16M\nRuntimeMaxUse=8M\n',
         'etc/systemd/logind.conf.d/10-n810-power-key.conf':
@@ -138,6 +136,10 @@ def configure_first_boot(root, keyboard_binary=None, backlight_binary=None, wake
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(here / source, target)
         target.chmod(0o644)
+    ssh = root / 'etc/systemd/system/ssh.service.d/99-n810-host-key.conf'
+    ssh.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(here.parent / 'device/n810-ssh-host-key.conf', ssh)
+    ssh.chmod(0o644)
     configure_keyboard(root, keyboard_binary)
     configure_power_indicators(root, backlight_binary, wake_binary)
 

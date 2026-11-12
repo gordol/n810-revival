@@ -179,8 +179,6 @@ def main() -> None:
     write_file(root, '/etc/fstab', f'UUID={fs_uuid} / ext4 defaults,noatime 0 1\n')
     write_file(root, '/etc/ssh/sshd_config.d/10-n810-first-install.conf',
                'PermitRootLogin no\nPasswordAuthentication no\nKbdInteractiveAuthentication no\n')
-    write_file(root, '/etc/systemd/system/ssh.service.d/10-generate-host-keys.conf',
-               '[Service]\nExecStartPre=\nExecStartPre=/usr/bin/ssh-keygen -A\nExecStartPre=/usr/sbin/sshd -t\n')
     (root / 'etc/machine-id').write_text('')
     for seed in (root / 'var/lib/systemd/random-seed', root / 'var/lib/dbus/machine-id'):
         seed.unlink(missing_ok=True)

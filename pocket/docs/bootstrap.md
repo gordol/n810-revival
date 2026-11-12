@@ -41,7 +41,9 @@ attended write, readback, and kernel flash as Setup. After a completed write,
 rerun it with the same kit to resume waiting for update mode. The disk number
 and USB location are examples; read them again for each installation. The root image
 does not contain a touchscreen calibration. First boot collects two matching
-taps for each target on that tablet before starting Pocket.
+taps for each target on that tablet before starting Pocket. SSH creates a unique
+Ed25519 host key on first boot; the image does not generate an RSA host key on
+the tablet.
 
 The internal image stages the source-built Fn keyboard map, a debounced lock
 slider, LCD brightness keys, and a Power menu with battery status, display
@@ -188,9 +190,12 @@ without repeating the storage write.
 The automatic internal writer and kernel-flash gates are implemented and covered
 with synthetic local fixtures. A tracked-source container build produced an
 internal kit whose expanded root and manifests passed `make n810-check` locally.
-The graphical Setup source-build path still needs an interactive host check, and
-the v4 kit needs a full GPU first-boot and Power/input check on the new N810. Host build and check
-results do not establish tablet boot or input acceptance.
+The graphical Setup source-build path still needs an interactive host check.
+The November 12 install of the v4 kit passed full-disk readback and booted
+Debian, but RSA host-key generation timed out in the old SSH drop-in, and the
+keyboard driver logged I²C errors. GPU Pocket and input need a physical check
+after those startup faults are resolved. Host build and check results do not
+establish tablet acceptance.
 
 ## Validation
 

@@ -92,6 +92,9 @@ The publication checker examines tracked files and requires a reviewed, staged
 tree. Review the diff, stage only intended files, then run it. The site build
 checks links and renders documentation; inspect affected pages and media too.
 Use the component build guides for kernel, graphics, HTIT, and map-data changes.
+For N810 image changes, inspect the first physical boot journal and service
+deadlines. A host build cannot prove that on-tablet setup, including SSH host-key
+generation, finishes before systemd's start timeout.
 
 GUI interaction checks must wait for rendered state and fail if the sequence
 does not complete within a bounded timeout. Verify graphics harness changes
