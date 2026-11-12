@@ -76,6 +76,13 @@ def main() -> None:
         run(['tar', '-xJf', str(archive), '-C', str(work)], 'extract')
         run(['patch', '--batch', '--fuzz=0', '-p1', '-i', str(HERE / 'n810-5.15.224.patch')], 'patch', source)
     expected_files = json.loads((HERE / 'source-files.json').read_text())
+    if not args.resume:
+        for name, expected in expected_files.items():
+            if digest(source / name) != expected:
+                raise RuntimeError(f'Reconstructed maintained source differs: {name}')
+        run(['patch', '--batch', '--fuzz=0', '-p1', '-i', str(HERE / 'n810-480mhz.patch')],
+            'cpu-480mhz-patch', source)
+    expected_files.update(json.loads((HERE / 'cpu-source-files.json').read_text()))
     for name, expected in expected_files.items():
         if digest(source / name) != expected:
             raise RuntimeError(f'Reconstructed source differs from maintained revision: {name}')
@@ -144,6 +151,8 @@ def main() -> None:
     compiler = subprocess.check_output(['arm-linux-gnueabihf-gcc', '--version'], text=True, env=env).splitlines()[0]
     report = {'release': release, 'kind': 'n810-ram-installer-kernel' if args.ram_installer else 'n810-permanent-kernel',
               'maintained_commit': lock['maintained_commit'],
+              'cpu_profile': 'n810-330-480mhz',
+              'cpu_patch_sha256': digest(HERE / 'n810-480mhz.patch'),
               'upstream_sha256': lock['sha256'], 'source_lock_sha256': digest(HERE / 'source.lock.json'),
               'build_script_sha256': digest(Path(__file__)), 'verified_source_files': len(expected_files),
               'compiler': compiler, 'build_timestamp': env['KBUILD_BUILD_TIMESTAMP'],

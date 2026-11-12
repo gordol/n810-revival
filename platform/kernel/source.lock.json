@@ -30,6 +30,8 @@
     "clock-module/n810_mbx_clock_trial.c": "c18de982f850099413472b454e7e096fca5f11f964d9b0a86d9ea2ab80f3796a",
     "n810-5.15.224.patch": "daf8e4ae00500d33e55d275680711e6c8ea82b8b47a58a7a17b1dc767f5383c2",
     "n810.config": "8c765e23449f6f61211b854bd93d6e886187fbbf9ccb0e02c1cefecf111a80e2",
-    "source-files.json": "719b0ee883cc850a5acdb53d630cb406257308bc1287fd303c0a223fd5d5dfa2"
+    "source-files.json": "719b0ee883cc850a5acdb53d630cb406257308bc1287fd303c0a223fd5d5dfa2",
+    "n810-480mhz.patch": "832fa3a9805262d7f435935767ff368ea7d3b603c0ef77ea51e65233f517f59b",
+    "cpu-source-files.json": "e89ffcd8641c7c9a6b1c2472ed6a0739a580ddae34383ca03672f6769db6996e"
   }
 }

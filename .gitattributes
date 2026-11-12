@@ -16,3 +16,4 @@ platform/symbian/eka2l1.patch -whitespace
 
 # Preserve upstream whitespace in unified patch context.
 platform/flasher/*.patch -whitespace
+platform/kernel/*.patch -whitespace

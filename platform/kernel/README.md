@@ -6,6 +6,13 @@ The builder downloads the exact Linux 5.15.224 release from kernel.org, verifies
 its SHA-256, applies the complete maintained kernel-source delta, and checks all
 55 changed source files against the maintained revision.
 
+The builder then applies `n810-480mhz.patch` and verifies its seven source files
+against `cpu-source-files.json`. This recovers the CPUFreq implementation used
+by the original tablet: the 19.2 MHz PRCM tables, 330/400/420/440/460.8/480 MHz
+operating points, OMAP CPUFreq registration, and restoration of the boot clock
+before a warm restart. The performance governor selects 480 MHz. Kernel and
+modules are rebuilt together; the build manifest records the CPU patch hash.
+
 The input lock records upstream commit
 `700e62ea909a70b9f72692d8b7a192ac7ebde0aa` and maintained commit
 `6bd43ee8d27b207c958808368251d55ec0475f9e`. The N810 board support originates in
@@ -56,13 +63,14 @@ the same checksum verification.
 | `source.lock.json` | Upstream URL and checksum, source revisions, input hashes, image budget and expected module count. |
 | `n810-5.15.224.patch` | All 55 maintained kernel build-source changes relative to Linux 5.15.224. |
 | `source-files.json` | SHA-256 for each reconstructed changed source file. |
+| `n810-480mhz.patch`, `cpu-source-files.json` | CPU profile overlay and hashes of its seven resulting source files. |
 | `n810.config` | Saved candidate configuration with a generic root path and build-time export-whitelist location. |
 | `binding-api-whitelist.txt` | Exports retained for separately built clock/GPU modules. |
 | `clock-module/` | Source for the matching clock module used to check kernel symbol versions. |
 | `build.py` | Download, verification, compilation, module staging and result manifest. |
 
 The builder produces `package/zImage-omap2420-n810`, the generated device tree,
-198 configured kernel modules under `package/root/lib/modules/`, and the separate
+199 configured kernel modules under `package/root/lib/modules/`, and the separate
 clock trial module. It checks the combined image against the recorded
 2,095,104-byte NOLO budget, verifies the external module's symbol CRCs and release,
 and writes `package/BUILD.json` with output hashes. Kernel, device tree and
@@ -82,7 +90,8 @@ intended tablet's storage layout, firmware, calibration and recovery procedure.
 The builder performs source and compiler operations locally.
 
 The bootstrap configuration enables external initramfs and XZ initrd support.
-XZ decompression is built into the kernel, so the module inventory is 198.
+XZ decompression is built into the kernel. The permanent module inventory is 199;
+the RAM installer links five compression helpers into the kernel and has 194.
 The bootstrap release keeps the maintained board and GPU changes and disables
 optional PM debug output and verbose BUG descriptions to retain the NOLO size
 budget. `--resume` revalidates the archive, locked inputs and maintained source
