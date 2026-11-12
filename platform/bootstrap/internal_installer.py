@@ -636,6 +636,17 @@ def checked_write_receipt(root, manifest):
     return receipt
 
 
+def _save_install_receipt(root, receipt):
+    temporary = root / '.INSTALL-STATE.json.tmp'
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, 'w') as stream:
+        json.dump(receipt, stream, indent=2)
+        stream.write('\n')
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, root / 'INSTALL-STATE.json')
+
+
 def flash_kernel(kit, flasher=DEFAULT_FLASHER, progress=None):
     _, manifest, files = verify_local_kit(kit)
     root = Path(kit).expanduser().resolve()
@@ -646,18 +657,19 @@ def flash_kernel(kit, flasher=DEFAULT_FLASHER, progress=None):
             identity.get('usb_location') != receipt['usb_location']):
         raise ValueError('Update-mode tablet is on a different USB port than the verified internal write')
     if progress:
-        progress('Flashing the matching kernel and rebooting the N810…')
-    _run_flasher(flasher, ['-m', 'kernel:' + str(files['kernel']), '-f', '-r'], 180,
+        progress('Flashing the matching kernel…')
+    _run_flasher(flasher, ['-m', 'kernel:' + str(files['kernel']), '-f'], 180,
                  root / 'USB-OPERATIONS.log')
-    receipt.update(state='kernel_flashed_reboot_requested', kernel_flashing_pending=False)
-    temporary = root / '.INSTALL-STATE.json.tmp'
-    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(descriptor, 'w') as stream:
-        json.dump(receipt, stream, indent=2)
-        stream.write('\n')
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temporary, receipt_path)
+    receipt.update(state='kernel_flashed', kernel_flashing_pending=False)
+    _save_install_receipt(root, receipt)
+    if progress:
+        progress('Kernel flash completed. Requesting reboot…')
+    try:
+        _run_flasher(flasher, ['-r'], 30, root / 'USB-OPERATIONS.log')
+    except RuntimeError as error:
+        raise RuntimeError('Kernel flash completed and was recorded, but NOLO reboot failed; do not flash again. ' + str(error)) from error
+    receipt['state'] = 'kernel_flashed_reboot_requested'
+    _save_install_receipt(root, receipt)
     return {'state': 'kernel_flashed_reboot_requested', 'model': 'RX-44',
             'kernel_release': manifest['kernel_release'], 'rootfs_readback_verified': True}
 
