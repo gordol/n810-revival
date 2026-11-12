@@ -657,18 +657,21 @@ def flash_kernel(kit, flasher=DEFAULT_FLASHER, progress=None):
             identity.get('usb_location') != receipt['usb_location']):
         raise ValueError('Update-mode tablet is on a different USB port than the verified internal write')
     if progress:
-        progress('Flashing the matching kernel…')
-    _run_flasher(flasher, ['-m', 'kernel:' + str(files['kernel']), '-f'], 180,
-                 root / 'USB-OPERATIONS.log')
-    receipt.update(state='kernel_flashed', kernel_flashing_pending=False)
-    _save_install_receipt(root, receipt)
-    if progress:
-        progress('Kernel flash completed. Requesting reboot…')
+        progress('Flashing the matching kernel and rebooting the N810…')
     try:
-        _run_flasher(flasher, ['-r'], 30, root / 'USB-OPERATIONS.log')
+        _run_flasher(flasher, ['-m', 'kernel:' + str(files['kernel']), '-f', '-r'], 180,
+                     root / 'USB-OPERATIONS.log')
     except RuntimeError as error:
-        raise RuntimeError('Kernel flash completed and was recorded, but NOLO reboot failed; do not flash again. ' + str(error)) from error
-    receipt['state'] = 'kernel_flashed_reboot_requested'
+        # Keep the installed helper's admitted combined operation. Only the
+        # exact post-flash reboot failure establishes this partial result.
+        output = str(error)
+        if (re.search(r'Flashing image\.\.\.\s+Done\s+Rebooting device\.\.\.', output)
+                and re.findall(r'Error:[^\r\n]*', output) == ['Error: NOLO_REBOOT failed']):
+            receipt.update(state='kernel_flashed_reboot_unconfirmed', kernel_flashing_pending=False)
+            _save_install_receipt(root, receipt)
+            raise RuntimeError('NOLO reported the kernel flash complete, but reboot confirmation failed; do not flash again') from error
+        raise
+    receipt.update(state='kernel_flashed_reboot_requested', kernel_flashing_pending=False)
     _save_install_receipt(root, receipt)
     return {'state': 'kernel_flashed_reboot_requested', 'model': 'RX-44',
             'kernel_release': manifest['kernel_release'], 'rootfs_readback_verified': True}

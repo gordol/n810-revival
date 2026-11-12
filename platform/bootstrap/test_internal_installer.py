@@ -327,19 +327,18 @@ class CompressedKit(unittest.TestCase):
                 rootfs_readback_verified=True,kernel_flashing_pending=True)
             (root/'INSTALL-STATE.json').write_text(json.dumps(receipt))
             with patch('internal_installer.identify_device',return_value={'model':'RX-44'}), \
-                    patch('internal_installer._run_flasher',side_effect=['flashed','rebooted']) as run:
+                    patch('internal_installer._run_flasher',return_value='flashed') as run:
                 result=flash_kernel(root,'/fixture/flasher')
             self.assertEqual(result['state'],'kernel_flashed_reboot_requested')
-            self.assertEqual(run.call_args_list[0].args[1][-1:],['-f'])
-            self.assertEqual(run.call_args_list[1].args[1],['-r'])
+            self.assertEqual(run.call_args.args[1][-2:],['-f','-r'])
             self.assertFalse(json.loads((root/'INSTALL-STATE.json').read_text())['kernel_flashing_pending'])
             (root/'INSTALL-STATE.json').write_text(json.dumps(receipt))
             with patch('internal_installer.identify_device',return_value={'model':'RX-44'}), \
-                    patch('internal_installer._run_flasher',side_effect=['flashed',RuntimeError('NOLO_REBOOT failed')]):
+                    patch('internal_installer._run_flasher',side_effect=RuntimeError('Flashing image...\nDone\nRebooting device...\nError: NOLO_REBOOT failed')):
                 with self.assertRaisesRegex(RuntimeError,'do not flash again'):
                     flash_kernel(root,'/fixture/flasher')
             saved=json.loads((root/'INSTALL-STATE.json').read_text())
-            self.assertEqual(saved['state'],'kernel_flashed')
+            self.assertEqual(saved['state'],'kernel_flashed_reboot_unconfirmed')
             self.assertFalse(saved['kernel_flashing_pending'])
     @patch('internal_installer._update_mode_locations', return_value=[0x02000000])
     def test_read_only_detection_accepts_only_n810_model(self, locations):
