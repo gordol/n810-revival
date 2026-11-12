@@ -189,14 +189,15 @@ without repeating the storage write.
 ## Remaining acceptance work
 
 The automatic internal writer and kernel-flash gates are implemented and covered
-with synthetic local fixtures. A tracked-source container build produced an
-internal kit whose expanded root and manifests passed `make n810-check` locally.
+with synthetic local fixtures. A tracked-source container build produced a v5
+internal kit whose expanded root, manifest, SysV packages, and startup links
+passed local checks.
 The graphical Setup source-build path still needs an interactive host check.
 The November 12 install of the v4 kit passed full-disk readback and booted
 Debian, but RSA host-key generation timed out in the old SSH drop-in, and the
-keyboard driver logged I²C errors. GPU Pocket and input need a physical check
-after those startup faults are resolved. Host build and check results do not
-establish tablet acceptance.
+keyboard driver logged I²C errors. The v5 kit has not been installed; GPU
+Pocket, SSH, and input still need a physical check on the new tablet. Host build
+and check results do not establish tablet acceptance.
 
 ## Validation
 
