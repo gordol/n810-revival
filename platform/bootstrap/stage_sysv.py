@@ -34,6 +34,10 @@ def stage(root, disk_id):
         raise ValueError('Internal root must not select systemd as PID 1')
     if not (root / 'etc/init.d/ssh').is_file():
         raise ValueError('Debian SSH init script is missing')
+    # Debian rc otherwise uses startpar's package-generated .depend files,
+    # which do not contain the platform scripts staged below. Select the
+    # sequential S/K link order explicitly, including host keys before ssh.
+    (root / 'etc/init.d/.legacy-bootordering').touch()
     installed = root / 'etc/init.d'
     for runlevel in (2, 3, 4, 5):
         directory = root / f'etc/rc{runlevel}.d'

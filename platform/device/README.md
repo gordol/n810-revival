@@ -16,7 +16,9 @@ complete installer; check the exact target release before placing a file on
 the tablet.
 
 The internal Debian builder uses SysV init like the original Debian tablet and
-keeps D-Bus. It starts `n810-console-ux` for the Fn translator and keymap,
+keeps D-Bus. It selects sequential SysV startup through `.legacy-bootordering`
+so Debian's package-generated dependency files cannot skip the staged N810
+services. It starts `n810-console-ux` for the Fn translator and keymap,
 generates a unique Ed25519 SSH host key before Debian's `ssh` service, then
 runs touch setup before the GPU Pocket desktop. `n810-debian-lock.conf` keeps
 `n810-wake` in slider-only mode; `n810-display-keys` owns Power and brightness.

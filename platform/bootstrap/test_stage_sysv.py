@@ -17,9 +17,11 @@ class StageSysVTest(unittest.TestCase):
                 'Package: sysvinit-core\nStatus: install ok installed\n\n'
                 'Package: openssh-server\nStatus: install ok installed\n')
             (root / 'etc/init.d/ssh').write_text('#!/bin/sh\n')
+            (root / 'etc/init.d/.depend.start').write_text('TARGETS = ssh dbus\n')
             (root / 'etc/rc2.d/S01ssh').symlink_to('../init.d/ssh')
             (root / 'etc/ssh/sshd_config.d/10-n810-first-install.conf').write_text('PermitRootLogin no\n')
             self.assertEqual(stage(root, '1a2b3c4d'), sorted(START))
+            self.assertTrue((root / 'etc/init.d/.legacy-bootordering').is_file())
             self.assertTrue((root / 'etc/rc2.d/S00n810-ssh-hostkeys').is_symlink())
             self.assertTrue((root / 'etc/rc2.d/S04n810-setup-touch').is_symlink())
             self.assertTrue((root / 'etc/rc2.d/S05pocket-desktop').is_symlink())
