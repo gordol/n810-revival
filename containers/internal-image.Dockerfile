@@ -8,11 +8,11 @@ RUN dpkg --add-architecture armel && apt-get update && apt-get install -y --no-i
     xz-utils patch gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf \
     gcc-arm-linux-gnueabi g++-arm-linux-gnueabi binutils-arm-linux-gnueabi \
     ninja-build pkg-config dpkg-dev mmdebstrap qemu-user-static binfmt-support \
-    arch-test e2fsprogs liblzo2-2 libusb-dev:armel \
-    && apt-get download libpython3.11-dev:armel \
-    && mkdir -p /opt/arm-headers \
-    && dpkg-deb -x libpython3.11-dev_*_armel.deb /opt/arm-headers \
-    && rm -f libpython3.11-dev_*_armel.deb \
+    arch-test e2fsprogs liblzo2-2 \
+    && apt-get download libpython3.11-dev:armel libusb-dev:armel libusb-0.1-4:armel \
+    && mkdir -p /opt/arm-sysroot \
+    && for package in ./*_armel.deb; do dpkg-deb -x "$package" /opt/arm-sysroot; done \
+    && rm -f ./*_armel.deb \
     && rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv /opt/mesa-tools && /opt/mesa-tools/bin/pip install \
     meson==1.5.2 Mako==1.3.5 packaging==24.1 PyYAML==6.0.2 setuptools==75.1.0
@@ -29,7 +29,7 @@ RUN --mount=type=cache,id=n810-internal-mesa-inputs,target=/cache/mesa-inputs,sh
     PATH=/opt/mesa-tools/bin:$PATH python3 graphics/mbx/build.py mesa \
     --work /build/mesa --jobs 4 --osmesa --download-cache /cache/mesa-inputs
 RUN python3 platform/bootstrap/build_internal_frontend.py \
-    --mesa-package /build/mesa/package --arm-headers /opt/arm-headers/usr/include \
+    --mesa-package /build/mesa/package --arm-headers /opt/arm-sysroot/usr/include \
     --output /build/frontend
 RUN git init -q pocket && git -C pocket add shell graphics \
     && python3 pocket/tools/stage_runtime.py --profile release \
@@ -37,7 +37,7 @@ RUN git init -q pocket && git -C pocket add shell graphics \
        --output /build/runtime
 RUN python3 platform/flasher/build.py --output /build/flasher \
     --target armel --cc arm-linux-gnueabi-gcc \
-    --usb-flags '-lusb'
+    --usb-flags '-I/opt/arm-sysroot/usr/include -L/opt/arm-sysroot/usr/lib/arm-linux-gnueabi -lusb'
 RUN install -d /opt/n810-touch/touch-runtime \
     && arm-linux-gnueabi-gcc -Os -static -march=armv6 -marm -mfloat-abi=soft -Wall -Wextra -Werror \
        platform/scripts/n810-touch-calibrate.c -lm -o /opt/n810-touch/n810-touch-calibrate \
