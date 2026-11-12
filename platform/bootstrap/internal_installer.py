@@ -607,7 +607,7 @@ def install_macos(kit, disk, usb_location, flasher=DEFAULT_FLASHER, progress=Non
     while True:
         checkpoint()
         try:
-            identity = identify_device(flasher, timeout=5)
+            identity = identify_device(flasher, timeout=30)
         except ValueError as error:
             if 'Expected exactly one macOS USB update-mode N810; detected 0' not in str(error):
                 raise

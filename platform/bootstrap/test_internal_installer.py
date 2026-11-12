@@ -241,6 +241,7 @@ class CompressedKit(unittest.TestCase):
             self.assertEqual(result['state'],'kernel_flashed_reboot_requested')
             self.assertIn('--write',launch.call_args.args[0])
             identify.assert_called_once()
+            self.assertEqual(identify.call_args.kwargs['timeout'],30)
             flash.assert_called_once()
             with patch('internal_installer.sys.platform','darwin'), \
                  patch('internal_installer.identify_device',return_value={'usb_location':0x00100000}), \
