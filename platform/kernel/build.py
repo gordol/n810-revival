@@ -154,6 +154,11 @@ def main() -> None:
                            ('arch/arm/boot/dts/omap2420-n810.dtb', 'omap2420-n810.dtb'),
                            ('Module.symvers', 'Module.symvers'), ('.config', 'kernel.config')]:
         shutil.copyfile(build / relative, package / name)
+    # Preserve the running-kernel identity exposed by /sys/kernel/notes.
+    # A release string or installed module tree can belong to another build.
+    run(['arm-linux-gnueabihf-objcopy', '--dump-section',
+         '.notes=' + str(package / 'kernel.notes'), str(build / 'vmlinux'), '/dev/null'],
+        'kernel-notes')
     image = package / 'zImage-omap2420-n810'
     image.write_bytes((package / 'zImage').read_bytes() + (package / 'omap2420-n810.dtb').read_bytes())
     if image.stat().st_size > lock['image_limit']:
@@ -171,6 +176,7 @@ def main() -> None:
               'build_script_sha256': digest(Path(__file__)), 'verified_source_files': len(expected_files),
               'compiler': compiler, 'build_timestamp': env['KBUILD_BUILD_TIMESTAMP'],
               'root_device': 'initramfs:/init' if args.ram_installer else args.root_device,
+              'vmlinux_sha256': digest(build / 'vmlinux'),
               'kernel_modules': len(modules),
               'external_module_crc_checks': len(crcs), 'external_module_vermagic': info,
               'image_bytes': image.stat().st_size, 'image_limit': lock['image_limit'],

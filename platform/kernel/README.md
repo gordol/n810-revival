@@ -73,7 +73,10 @@ The builder produces `package/zImage-omap2420-n810`, the generated device tree,
 199 configured kernel modules under `package/root/lib/modules/`, and the separate
 clock trial module. It checks the combined image against the recorded
 2,095,104-byte NOLO budget, verifies the external module's symbol CRCs and release,
-and writes `package/BUILD.json` with output hashes. Kernel, device tree and
+and writes `package/BUILD.json` with output hashes. The package also includes
+`kernel.notes`, extracted from `vmlinux`, and records the `vmlinux` hash. Compare
+`kernel.notes` with a read-only capture of `/sys/kernel/notes` to identify the
+running build independently of its release string or installed modules. Kernel, device tree and
 modules all come from this build.
 
 The build identity and timestamp are fixed in the script. The toolchain version,
