@@ -205,6 +205,8 @@ static void put_handles(struct context *c)
     while(held_clock_handles){unsigned int i=--held_clock_handles;clk_put(c->clocks[i]);c->clocks[i]=NULL;}
 }
 static int set_committed_rate(struct context *,unsigned int,unsigned int);
+static unsigned int initial_divider(const struct context *c)
+{return c->initial.select&7U;}
 static int cleanup_owned_clocks(struct context *c)
 {
     unsigned int index;
@@ -212,20 +214,20 @@ static int cleanup_owned_clocks(struct context *c)
     cleanup_phase=CLEANUP_CHECK;
     error=verify_owned_state(c,enabled_references,active_divider);
     if(error)return error;
-    if(active_divider!=DIVIDER_BASELINE){
+    if(active_divider!=initial_divider(c)){
         /* Keep interface access and the exclusive shared claim until both
          * sibling caches and the complete original divider word are verified. */
         cleanup_phase=CLEANUP_BEFORE_RATE;
         error=verify_owned_state(c,enabled_references,active_divider);
         if(error)return error;
         divider_restore_attempts=1;
-        divider_restoration_error=set_committed_rate(c,active_divider,DIVIDER_BASELINE);
+        divider_restoration_error=set_committed_rate(c,active_divider,initial_divider(c));
         if(divider_restoration_error>0)divider_restoration_error=-EIO;
         cleanup_phase=CLEANUP_AFTER_RATE;
-        error=verify_owned_state(c,enabled_references,DIVIDER_BASELINE);
+        error=verify_owned_state(c,enabled_references,initial_divider(c));
         if(divider_restoration_error)return divider_restoration_error;
         if(error){divider_restoration_error=error;return error;}
-        active_divider=DIVIDER_BASELINE;
+        active_divider=initial_divider(c);
     }
     while(enabled_references>1U){
         index=enabled_references-1U;
@@ -243,16 +245,16 @@ static int cleanup_owned_clocks(struct context *c)
 
     if(enabled_references){
         cleanup_phase=CLEANUP_BEFORE_INTERFACE;
-        error=verify_owned_state(c,enabled_references,DIVIDER_BASELINE);
+        error=verify_owned_state(c,enabled_references,initial_divider(c));
         if(error)return error;
         --enabled_references;
         clk_disable_unprepare(c->clocks[0]);
         cleanup_phase=CLEANUP_AFTER_INTERFACE;
-        error=verify_owned_state(c,0,DIVIDER_BASELINE);
+        error=verify_owned_state(c,0,initial_divider(c));
         if(error)return error;
     }
     cleanup_phase=CLEANUP_FINAL;
-    error=verify_owned_state(c,0,DIVIDER_BASELINE);
+    error=verify_owned_state(c,0,initial_divider(c));
     if(error)return error;
     put_handles(c);
     cleanup_phase=CLEANUP_COMPLETE;
@@ -290,7 +292,7 @@ static int set_committed_rate(struct context *c,unsigned int from,unsigned int t
     if(r.error||r.restoration_error)return r.restoration_error?r.restoration_error:r.error;
     /* Both composite clock handles are exclusively owned. This kernel's
      * round-rate op rejects this valid divider. Keep its nominal caches
-     * unchanged during this bounded diagnostic, then restore raw divider1
+     * unchanged during this bounded diagnostic, then restore the initial raw divider
      * before releasing either handle. No other GPU consumer may run. */
     error=readl(c->prcm+SELECT)==((c->initial.select&~7U)|to)?0:-EIO;
     return error;
@@ -320,8 +322,9 @@ static int observe(struct platform_device *device)
     error=take_snapshot(c,&c->initial);if(error)return error;
     log_snapshot("initial",&c->initial);
     if((c->initial.fclk&6U)||(c->initial.iclk&1U)||c->initial.control!=1U||
-       (c->initial.select&7U)!=DIVIDER_BASELINE||(c->initial.power&0x100000U)||
+       ((c->initial.select&7U)!=DIVIDER_BASELINE&&(c->initial.select&7U)!=DIVIDER_HYPOTHESIS)||(c->initial.power&0x100000U)||
        (c->initial.power&3U)==2U)return -EBUSY;
+    active_divider=initial_divider(c);
     for(i=0;i<3;++i){
         struct clk *clock=clk_get(NULL,names[i]);
         if(IS_ERR(clock)){error=PTR_ERR(clock);goto before_mutation;}
@@ -340,12 +343,16 @@ static int observe(struct platform_device *device)
     error=clk_rate_exclusive_get(c->clocks[1]);
     if(error)goto before_mutation;
     sibling_rate_claimed=1;
-    error=verify_owned_state(c,0,DIVIDER_BASELINE);
+    error=verify_owned_state(c,0,initial_divider(c));
     if(error)goto before_mutation;
-    /* Nokia startup order: commit divider while all GFX gates are off. */
-    divider_change_attempted=1;
-    divider_operation_error=set_committed_rate(c,DIVIDER_BASELINE,target_divider);
-    if(divider_operation_error){retain_fault(divider_operation_error);return 0;}
+    /* Commit only an actual transition, while all GFX gates are off. A kernel
+     * may already leave the idle GPU at the verified execution divider2.
+     * Preserve that exact initial state on cleanup; never force divider1. */
+    if(initial_divider(c)!=target_divider){
+        divider_change_attempted=1;
+        divider_operation_error=set_committed_rate(c,initial_divider(c),target_divider);
+        if(divider_operation_error){retain_fault(divider_operation_error);return 0;}
+    }
     error=verify_owned_state(c,enabled_references,target_divider);
     if(error){retain_fault(error);return 0;}
     active_divider=target_divider;

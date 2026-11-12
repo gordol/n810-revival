@@ -169,12 +169,14 @@ finally:
     if shared_map is not None:shared_map.close()
     if fd is not None:os.close(fd)
     if base.exists() and not keep_service:
+        original_divider=json.loads((out/'identity/receipt.json').read_text())['initial_divider']
+        assert type(original_divider) is int and original_divider in (1,2)
         before=snapshot();(out/'before-stop.json').write_text(json.dumps(before,indent=2)+'\n')
         if before.get('lifetime_pinned'):
             (base/'recover').write_text('1\n')
         after=snapshot();(out/'after-stop.json').write_text(json.dumps(after,indent=2)+'\n')
         for k,v in {'lifetime_pinned':0,'resident_fault':0,'gpu_dma_stage':0,'enabled_references':0,
-                    'held_clock_handles':0,'active_divider':1,'cleanup_phase':11}.items():assert after[k]==v,(k,after[k])
+                    'held_clock_handles':0,'active_divider':original_divider,'cleanup_phase':11}.items():assert after[k]==v,(k,after[k])
         subprocess.run(['/sbin/rmmod','n810_mbx_gpu_probe'],check=True)
     if not base.exists() or keep_service:mode.write_text('1\n')
     report['module_removed']=not base.exists()
