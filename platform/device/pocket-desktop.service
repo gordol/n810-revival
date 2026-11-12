@@ -3,7 +3,7 @@
 [Unit]
 Description=Pocket graphical desktop
 Wants=n810-setup-touch.service
-After=systemd-user-sessions.service systemd-udev-settle.service n810-setup-touch.service
+After=systemd-user-sessions.service systemd-udev-settle.service n810-setup-touch.service n810-keyboard.service
 ConditionPathExists=/usr/local/share/pocket/graphics/nokia.py
 
 [Service]
