@@ -83,6 +83,30 @@ def child_tty():
  except BaseException as error:
   os.write(2,('desktop_spawn_failure phase='+phase+' error='+str(error)+'\n').encode());raise
 
+def restore_display(fb,tty,console,vt,old_kd,original,mode,original_mode,saved_frame,switched):
+ """Try every display restoration step, including after a failed VT ioctl."""
+ errors=[]
+ def attempt(action):
+  try:action()
+  except OSError as error:errors.append(error)
+ attempt(lambda: fcntl.ioctl(fb,0x4f25))
+ def restore_frame():
+  if os.pwrite(fb,saved_frame,0)!=len(saved_frame):raise OSError('Short framebuffer restore')
+ attempt(restore_frame)
+ attempt(lambda: fcntl.ioctl(fb,0x40444f36,struct.pack('17I',0,0,800,480,0,0,0,800,480,*([0]*8))))
+ attempt(lambda: fcntl.ioctl(fb,0x4f25))
+ if switched:
+  attempt(lambda: os.close(tty))
+  try:tty=os.open('/dev/tty'+str(vt),os.O_RDWR|os.O_NOCTTY|os.O_CLOEXEC)
+  except OSError as error:errors.append(error);tty=None
+  if tty is not None:attempt(lambda: fcntl.ioctl(tty,0x4b3a,old_kd))
+  attempt(lambda: fcntl.ioctl(console,0x5606,int(original[3:])))
+  attempt(lambda: fcntl.ioctl(console,0x5607,int(original[3:])))
+ attempt(lambda: mode.write_text(original_mode))
+ for fd in (fb,tty,console):
+  if fd is not None:attempt(lambda fd=fd: os.close(fd))
+ return errors
+
 try:
  mode.write_text('2\n');fcntl.ioctl(fb,0x4f25)
  fcntl.ioctl(tty,0x4b3a,1);fcntl.ioctl(console,0x5606,vt);fcntl.ioctl(console,0x5607,vt);switched=True
@@ -152,15 +176,11 @@ try:
    if launches:launches.close()
  report['status']=('OFFSCREEN_PROBE_FINISHED' if options.probe else 'VISIBLE_COMPARISON_FINISHED') if child.returncode==0 else 'COMPARISON_FAILED'
 finally:
+ cleanup_errors=[]
  if child is None or child.poll() is not None:
-  fcntl.ioctl(fb,0x4f25)
-  assert os.pwrite(fb,saved_frame,0)==768000
-  fcntl.ioctl(fb,0x40444f36,struct.pack('17I',0,0,800,480,0,0,0,800,480,*([0]*8)));fcntl.ioctl(fb,0x4f25)
-  if switched:
-   os.close(tty);tty=os.open('/dev/tty'+str(vt),os.O_RDWR|os.O_NOCTTY|os.O_CLOEXEC);fcntl.ioctl(tty,0x4b3a,old_kd);fcntl.ioctl(console,0x5606,int(original[3:]));fcntl.ioctl(console,0x5607,int(original[3:]))
-  mode.write_text(original_mode)
-  os.close(fb);os.close(tty);os.close(console)
+  cleanup_errors=restore_display(fb,tty,console,vt,old_kd,original,mode,original_mode,saved_frame,switched)
   report.update(vt_restored=active.read_text().strip()==original,mode_restored=mode.read_text()==original_mode,boot_unchanged=Path('/proc/sys/kernel/random/boot_id').read_text()==boot)
+  if cleanup_errors:report['display_restore_errors']=[str(error) for error in cleanup_errors]
  (root/('owner-'+suffix+'.json')).write_text(json.dumps(report,indent=2)+'\n')
  if render_fd is not None:os.close(render_fd)
  if job_lock_fd is not None:os.close(job_lock_fd)
@@ -171,4 +191,5 @@ finally:
  archives.chmod(0o700)
  assert not (archives/root.name).exists()
  shutil.move(str(root),str(archives/root.name))
+ if cleanup_errors:raise RuntimeError('Display restoration failed') from cleanup_errors[0]
 raise SystemExit(report.get('returncode',1))
