@@ -18,10 +18,12 @@ import sys
 import tarfile
 import uuid
 
-PACKAGES = (
-    'systemd-sysv,dbus,udev,ifupdown,iproute2,openssh-server,sudo,'
+BASE_PACKAGES = (
+    'dbus,udev,ifupdown,iproute2,openssh-server,sudo,'
     'ca-certificates,kmod,passwd,python3,python3-venv,make,git,tmux,whiptail,kbd,bluez,wpasupplicant,iw,wireless-regdb,isc-dhcp-client,util-linux,mount,libusb-0.1-4'
 )
+PACKAGES = 'systemd-sysv,' + BASE_PACKAGES
+INTERNAL_PACKAGES = 'sysvinit-core,initscripts,sysvinit-utils,' + BASE_PACKAGES
 SOURCES = (
     'deb https://deb.debian.org/debian bookworm main',
     'deb https://security.debian.org/debian-security bookworm-security main',
@@ -144,8 +146,9 @@ def main() -> None:
     work.mkdir(mode=0o700, parents=True)
     root = work / 'rootfs'
     print('Building Debian Bookworm armel root filesystem', flush=True)
+    packages = INTERNAL_PACKAGES if args.root_only else PACKAGES
     run('mmdebstrap', '--mode=root', '--architectures=armel', '--variant=minbase',
-        f'--include={PACKAGES}', 'bookworm', str(root), *SOURCES)
+        f'--include={packages}', 'bookworm', str(root), *SOURCES)
     # A cross-architecture chroot needs the static emulator inside the new root.
     emulator = root / 'usr/bin/qemu-arm-static'
     if not native_armel:
@@ -238,6 +241,7 @@ def main() -> None:
             'kernel_release': release,
             'kernel_build_manifest_sha256': sha256(args.kernel_package / 'BUILD.json'),
             'root_device': json.loads((args.kernel_package / 'BUILD.json').read_text())['root_device'],
+            'init_system': 'sysvinit', 'packages_requested': packages.split(','),
             'user': args.user, 'ssh_public_key_sha256': hashlib.sha256(key.encode()).hexdigest(),
             'firmware': json.loads((work / 'FIRMWARE.json').read_text()),
             'debian_package_database_sha256': sha256(root / 'var/lib/dpkg/status'),
@@ -286,7 +290,7 @@ def main() -> None:
         'suite': 'bookworm', 'architecture': 'armel', 'kernel_release': release,
         'builder_sha256': sha256(Path(__file__)),
         'kernel_build_manifest_sha256': sha256(args.kernel_package / 'BUILD.json'),
-        'apt_sources': SOURCES, 'packages_requested': PACKAGES.split(','),
+        'apt_sources': SOURCES, 'packages_requested': packages.split(','),
         'kernel_image_sha256': sha256(boot_image),
         'firmware': json.loads((work/'FIRMWARE.json').read_text()),
         'root_device': '/dev/mmcblk0p1', 'user': args.user,

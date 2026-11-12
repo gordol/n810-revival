@@ -15,8 +15,9 @@ alternatives from different platform revisions. This source slice is not a
 complete installer; check the exact target release before placing a file on
 the tablet.
 
-The internal Debian builder installs `n810-debian-lock.conf` as
-`/etc/n810-idle.conf` and starts `n810-wake.service` in slider-only mode. The
-separate `n810-display-keys.service` owns Power and brightness. The older SysV
-idle and Power menu scripts are retained for the original system; they are not
-copied into the Debian service path.
+The internal Debian builder uses SysV init like the original Debian tablet and
+keeps D-Bus. It starts `n810-console-ux` for the Fn translator and keymap,
+generates a unique Ed25519 SSH host key before Debian's `ssh` service, then
+runs touch setup before the GPU Pocket desktop. `n810-debian-lock.conf` keeps
+`n810-wake` in slider-only mode; `n810-display-keys` owns Power and brightness.
+The older idle and Power menu scripts remain separate from that GPU path.

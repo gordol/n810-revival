@@ -27,8 +27,8 @@ while :; do
             fi ;;
         restart|shutdown)
             if whiptail --title 'Confirm power action' --yesno "${choice} the N810?" 10 55; then
-                if test "$choice" = restart; then exec /usr/bin/systemctl reboot; fi
-                exec /usr/bin/systemctl poweroff
+                if test "$choice" = restart; then exec /sbin/reboot; fi
+                exec /sbin/poweroff
             fi ;;
         *) exit 2 ;;
     esac

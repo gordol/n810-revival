@@ -30,6 +30,11 @@ FIRST_BOOT_SERVICES = {
     'pocket-desktop.service',
 }
 LOCK_SLIDER_SERVICE = 'n810-wake.service'
+SYSV_FIRST_BOOT_SERVICES = {
+    'n810-ssh-hostkeys', 'n810-console-ux', 'n810-backlightd',
+    'n810-powerd', 'n810-ledd', 'n810-display-keys', 'n810-wake',
+    'n810-setup-touch', 'pocket-desktop', 'pocket-expand-internal-root',
+}
 
 
 def digest(path):
@@ -176,13 +181,17 @@ def verify_local_kit(kit):
     if desktop.get('desktop_user') != 'nokia' or desktop.get('autostart') is not True:
         raise ValueError('Kit does not autostart Pocket as user nokia')
     first_boot = manifest.get('first_boot')
-    if not isinstance(first_boot, dict) or first_boot.get('profile') not in ('n810-internal-v3', 'n810-internal-v4'):
+    if not isinstance(first_boot, dict) or first_boot.get('profile') not in ('n810-internal-v3', 'n810-internal-v4', 'n810-internal-v5'):
         raise ValueError('Kit predates the verified keyboard and power first-boot profile; rebuild it')
-    current_profile = first_boot['profile'] == 'n810-internal-v4'
+    current_profile = first_boot['profile'] in ('n810-internal-v4', 'n810-internal-v5')
+    sysv_profile = first_boot['profile'] == 'n810-internal-v5'
     services = first_boot.get('enabled_services')
     if (not isinstance(services, list) or any(not isinstance(name, str) for name in services)
-            or len(services) != len(set(services)) or not FIRST_BOOT_SERVICES <= set(services)
-            or (current_profile and LOCK_SLIDER_SERVICE not in services)):
+            or len(services) != len(set(services))
+            or (sysv_profile and (first_boot.get('init_system') != 'sysvinit'
+                                  or not SYSV_FIRST_BOOT_SERVICES <= set(services)))
+            or (not sysv_profile and (not FIRST_BOOT_SERVICES <= set(services)
+                                     or (current_profile and LOCK_SLIDER_SERVICE not in services)))):
         raise ValueError('Kit lacks required first-boot services')
     checks = ['root_manifest_sha256', 'keyboard_remapper_sha256', 'keyboard_backlight_sha256']
     if current_profile:checks.append('lock_slider_sha256')

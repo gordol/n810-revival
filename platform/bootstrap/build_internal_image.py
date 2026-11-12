@@ -160,6 +160,8 @@ def build(root,package,recovery,output,size_mib,gpu=None):
     wants=root/'etc/systemd/system/multi-user.target.wants/pocket-expand-internal-root.service'
     if wants.exists() or wants.is_symlink():wants.unlink()
     wants.symlink_to('../pocket-expand-internal-root.service')
+    from stage_sysv import stage as stage_sysv
+    enabled_services = stage_sysv(root, disk_id)
     installed = root / 'etc/n810-image/bootstrap.json'
     installed.parent.mkdir(parents=True, exist_ok=True)
     installed.parent.chmod(0o755)
@@ -173,17 +175,17 @@ def build(root,package,recovery,output,size_mib,gpu=None):
         'pocket_profile': install['profile'],
         'desktop_user': install['desktop_user'],
         'renderer': install['renderer'],
+        'init_system': 'sysvinit',
         'gpu_module_sha256': install['module_sha256'],
         'gpu_mesa_sha256': install['mesa_sha256'],
         'root_filesystem_uuid': filesystem_uuid,
         'keyboard_remapper_sha256': sha256(root/'usr/local/sbin/n810-fn-remap'),
         'keyboard_backlight_sha256': sha256(root/'usr/local/sbin/n810-backlightd'),
         'lock_slider_sha256': sha256(root/'usr/local/sbin/n810-wake'),
-        'enabled_n810_services': sorted(path.name for path in
-            (root/'etc/systemd/system/multi-user.target.wants').iterdir()
-            if path.name.startswith(('n810-', 'pocket-'))),
+        'enabled_n810_services': enabled_services,
         'builder_sha256': sha256(Path(__file__)),
         'first_boot_sha256': sha256(Path(__file__).with_name('first_boot.py')),
+        'sysv_stage_sha256': sha256(Path(__file__).with_name('stage_sysv.py')),
     },indent=2)+'\n')
     installed.chmod(0o644)
     first_boot_record=json.loads(installed.read_text())
@@ -214,7 +216,7 @@ def build(root,package,recovery,output,size_mib,gpu=None):
                   root_bytes=root_bytes,root_sha256=root_digest,
                   compressed_root_sha256=sha256(compressed),desktop_ready=True,desktop=install,
                   kernel_package_manifest_sha256=sha256(package/'BUILD.json'),
-                  first_boot=dict(profile='n810-internal-v4',
+                  first_boot=dict(profile='n810-internal-v5',init_system='sysvinit',
                       root_manifest_sha256=sha256(installed),
                       enabled_services=first_boot_record['enabled_n810_services'],
                       keyboard_remapper_sha256=first_boot_record['keyboard_remapper_sha256'],

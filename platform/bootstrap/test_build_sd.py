@@ -17,6 +17,11 @@ spec.loader.exec_module(build_sd)
 
 
 class SDBuilderTest(unittest.TestCase):
+    def test_internal_root_uses_original_sysv_init_with_dbus(self) -> None:
+        self.assertIn('sysvinit-core', build_sd.INTERNAL_PACKAGES.split(','))
+        self.assertIn('dbus', build_sd.INTERNAL_PACKAGES.split(','))
+        self.assertNotIn('systemd-sysv', build_sd.INTERNAL_PACKAGES.split(','))
+
     def test_mbr_root_partition_matches_kernel_layout(self) -> None:
         record = build_sd.mbr(2048 * 1024 * 1024 // 512, 0x12345678)
         self.assertEqual(len(record), 512)

@@ -4,7 +4,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock,patch
 from internal_installer import (internal_target,partition_table,Installer,verify_local_kit,
-                                boot_installer,configure_installer_network,flash_kernel,_run_flasher)
+                                boot_installer,configure_installer_network,flash_kernel,_run_flasher,
+                                SYSV_FIRST_BOOT_SERVICES)
 from build_internal_image import load_plan
 from internal_installer import install_device,install_macos
 
@@ -195,6 +196,28 @@ class CompressedKit(unittest.TestCase):
                 if enabled:self.assertEqual(verify_local_kit(root)[1]['first_boot']['profile'], 'n810-internal-v4')
                 else:
                     with self.assertRaisesRegex(ValueError,'first-boot services'):
+                        verify_local_kit(root)
+
+    def test_sysv_profile_requires_ssh_hostkeys_before_boot(self):
+        with tempfile.TemporaryDirectory() as folder:
+            _, manifest = self.kit(folder)
+            root = Path(folder)
+            manifest['first_boot'].update(profile='n810-internal-v5', init_system='sysvinit',
+                                          lock_slider_sha256='f' * 64,
+                                          enabled_services=sorted(SYSV_FIRST_BOOT_SERVICES))
+            for enabled in (True, False):
+                if not enabled:
+                    manifest['first_boot']['enabled_services'].remove('n810-ssh-hostkeys')
+                (root/'INTERNAL.json').write_text(json.dumps(manifest))
+                rows = json.loads((root/'INSTALLATION.json').read_text())
+                plan_row = next(row for row in rows['files'] if row['role']=='install-plan')
+                plan_row['sha256'] = hashlib.sha256((root/'INTERNAL.json').read_bytes()).hexdigest()
+                plan_row['bytes'] = (root/'INTERNAL.json').stat().st_size
+                (root/'INSTALLATION.json').write_text(json.dumps(rows))
+                if enabled:
+                    self.assertEqual(verify_local_kit(root)[1]['first_boot']['profile'], 'n810-internal-v5')
+                else:
+                    with self.assertRaisesRegex(ValueError, 'first-boot services'):
                         verify_local_kit(root)
 
     def test_macos_install_waits_for_same_written_usb_port(self):

@@ -41,9 +41,9 @@ attended write, readback, and kernel flash as Setup. After a completed write,
 rerun it with the same kit to resume waiting for update mode. The disk number
 and USB location are examples; read them again for each installation. The root image
 does not contain a touchscreen calibration. First boot collects two matching
-taps for each target on that tablet before starting Pocket. SSH creates a unique
-Ed25519 host key on first boot; the image does not generate an RSA host key on
-the tablet.
+taps for each target on that tablet before starting Pocket. The internal image
+uses SysV init and D-Bus like the original Debian tablet. It creates a unique
+Ed25519 host key before starting SSH; RSA key generation is disabled.
 
 The internal image stages the source-built Fn keyboard map, a debounced lock
 slider, LCD brightness keys, and a Power menu with battery status, display
@@ -169,7 +169,8 @@ requires those five paths; `recovery` and `size_mib` are optional. The latter
 defaults to 1536. The kernel package must
 use `PARTUUID=<8 lowercase hex digits>-01`. If included, the RAM installer must
 use the matching kernel source. The Debian root must already contain the matching
-modules, N810 firmware, Pocket runtime, and enabled `pocket-desktop.service`.
+modules, N810 firmware, Pocket runtime, and staged `pocket-desktop.service`;
+the internal image builder selects the SysV boot script for the installed root.
 The source-input build path runs inside `containers/internal-image.Dockerfile`.
 The five directories named by a private plan remain available for advanced
 builds and review.
