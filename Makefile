@@ -159,3 +159,7 @@ n810-flash-kernel: flasher
 n810-write-macos-internal:
 	@test -n "$(N810_DISK)" -a -n "$(N810_USB_LOCATION)" || { echo 'Set N810_DISK and N810_USB_LOCATION from the identified new tablet.'; exit 1; }
 	python3 platform/bootstrap/write_macos_internal.py --kit "$(INTERNAL_KIT)" --disk "$(N810_DISK)" --usb-location "$(N810_USB_LOCATION)" $(if $(filter 1,$(N810_ERASE)),--write)
+
+.PHONY: n810-install-macos
+n810-install-macos: flasher
+	$(N810_INSTALLER) install-macos --kit "$(INTERNAL_KIT)" --disk "$(N810_DISK)" --usb-location "$(or $(N810_USB_LOCATION),0)" --flasher "$(N810_FLASHER)"

@@ -1,12 +1,12 @@
 import unittest
-import gzip,hashlib,json,tempfile
+import gzip,hashlib,io,json,tempfile,threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock,patch
 from internal_installer import (internal_target,partition_table,Installer,verify_local_kit,
                                 boot_installer,configure_installer_network,flash_kernel,_run_flasher)
 from build_internal_image import load_plan
-from internal_installer import install_device
+from internal_installer import install_device,install_macos
 
 class InternalTarget(unittest.TestCase):
     def row(self,name='mmcblk0',kind='MMC',sectors=3900000,cid='a'*32):
@@ -196,6 +196,51 @@ class CompressedKit(unittest.TestCase):
                 else:
                     with self.assertRaisesRegex(ValueError,'first-boot services'):
                         verify_local_kit(root)
+
+    def test_macos_install_waits_for_same_written_usb_port(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.kit(folder)
+            root=Path(folder)
+            manifest=json.loads((root/'INTERNAL.json').read_text())
+            def writer(*args,**kwargs):
+                (root/'INSTALL-STATE.json').write_text(json.dumps(dict(
+                    version=1,state='rootfs_written',transport='maemo-usb-mass-storage',
+                    device='/dev/disk5',usb_location=0x02100000,rootfs_readback_verified=True,
+                    kernel_flashing_pending=True,root_sha256=manifest['root_sha256'],
+                    kernel_sha256=manifest['kernel_sha256'])))
+                return SimpleNamespace(stdout=io.StringIO('Full disk readback verified.\n'),wait=lambda:0)
+            with patch('internal_installer.sys.platform','darwin'), \
+                 patch('internal_installer.os.geteuid',return_value=0), \
+                 patch('internal_installer.subprocess.Popen',side_effect=writer) as launch, \
+                 patch('internal_installer.identify_device',return_value={'usb_location':0x02100000}) as identify, \
+                 patch('internal_installer.flash_kernel',return_value={'state':'kernel_flashed_reboot_requested'}) as flash:
+                result=install_macos(root,'/dev/disk5',0x02100000,Path('/fixture/0xFFFF'))
+            self.assertEqual(result['state'],'kernel_flashed_reboot_requested')
+            self.assertIn('--write',launch.call_args.args[0])
+            identify.assert_called_once()
+            flash.assert_called_once()
+            with patch('internal_installer.sys.platform','darwin'), \
+                 patch('internal_installer.identify_device',return_value={'usb_location':0x00100000}), \
+                 patch('internal_installer.flash_kernel') as flash:
+                with self.assertRaisesRegex(ValueError,'different USB port'):
+                    install_macos(root,'',0,Path('/fixture/0xFFFF'))
+            flash.assert_not_called()
+            with patch('internal_installer.sys.platform','darwin'), \
+                 patch('internal_installer.identify_device') as identify:
+                with self.assertRaisesRegex(ValueError,'Selected disk differs'):
+                    install_macos(root,'/dev/disk6',0,Path('/fixture/0xFFFF'))
+            identify.assert_not_called()
+            receipt=json.loads((root/'INSTALL-STATE.json').read_text())
+            receipt['kernel_sha256']='0'*64
+            (root/'INSTALL-STATE.json').write_text(json.dumps(receipt))
+            with patch('internal_installer.sys.platform','darwin'), \
+                 patch('internal_installer.identify_device') as identify:
+                with self.assertRaisesRegex(ValueError,'does not match this kit'):
+                    install_macos(root,'',0,Path('/fixture/0xFFFF'))
+            identify.assert_not_called()
+            cancelled=threading.Event();cancelled.set()
+            with patch('internal_installer.sys.platform','darwin'),self.assertRaises(InterruptedError):
+                install_macos(root,'',0,cancelled=cancelled)
 
     def test_cpu_desktop_kit_is_refused(self):
         with tempfile.TemporaryDirectory() as folder:

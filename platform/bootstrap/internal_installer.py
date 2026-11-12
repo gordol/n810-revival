@@ -550,9 +550,70 @@ def install_device(kit, flasher=DEFAULT_FLASHER, host='169.254.81.1', key=None, 
     return flash_kernel(root, flasher, progress)
 
 
-def flash_kernel(kit, flasher=DEFAULT_FLASHER, progress=None):
-    _, manifest, files = verify_local_kit(kit)
+def install_macos(kit, disk, usb_location, flasher=DEFAULT_FLASHER, progress=None, cancelled=None):
+    """Write through Maemo USB storage, then wait for the same port in update mode."""
+    if sys.platform != 'darwin':
+        raise RuntimeError('Maemo USB storage installation requires macOS')
     root = Path(kit).expanduser().resolve()
+    _, manifest, _ = verify_local_kit(root)
+    receipt = root / 'INSTALL-STATE.json'
+    def checkpoint():
+        if cancelled is not None and cancelled.is_set():
+            raise InterruptedError('Install paused between device operations; inspect the saved kit receipt')
+    checkpoint()
+    if not receipt.exists():
+        if not re.fullmatch(r'/dev/disk[0-9]+', disk):
+            raise ValueError('Select the new N810 whole disk as /dev/diskN')
+        if type(usb_location) is not int or not 0 < usb_location <= 0xffffffff:
+            raise ValueError('Select the new N810 USB location as 0x...')
+        command = [sys.executable, str(Path(__file__).with_name('write_macos_internal.py')),
+                   '--kit', str(root), '--disk', disk, '--usb-location', hex(usb_location), '--write']
+        if os.geteuid() != 0:
+            command = ['sudo', '-n', *command]
+        if progress:progress('Checking the selected Maemo USB disk and writing the complete internal image…')
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        lines = []
+        for line in process.stdout:
+            message = line.rstrip()
+            lines.append(message)
+            if progress:progress(message[:180])
+        if process.wait():
+            raise RuntimeError('Internal write failed; inspect the selected disk before retrying. '+
+                               '\n'.join(lines[-6:])[-400:])
+        if not receipt.is_file():
+            raise RuntimeError('The writer did not save a full-readback receipt; kernel flash is blocked')
+    record = checked_write_receipt(root, manifest)
+    if record.get('transport') != 'maemo-usb-mass-storage':
+        raise ValueError('This install receipt belongs to a different transport')
+    if (not re.fullmatch(r'/dev/disk[0-9]+', record.get('device', '')) or
+            type(record.get('usb_location')) is not int or not 0 < record['usb_location'] <= 0xffffffff):
+        raise ValueError('Internal-write receipt has no valid Mac disk and USB identity')
+    if disk and record['device'] != disk:
+        raise ValueError('Selected disk differs from the verified write receipt')
+    if usb_location and record.get('usb_location') != usb_location:
+        raise ValueError('Selected USB location differs from the verified write receipt')
+    checkpoint()
+    if progress:progress('Root readback verified. Return only the new tablet to update mode; waiting for that same USB port…')
+    deadline = time.monotonic() + 600
+    while True:
+        checkpoint()
+        try:
+            identity = identify_device(flasher, timeout=5)
+        except ValueError as error:
+            if 'Expected exactly one macOS USB update-mode N810; detected 0' not in str(error):
+                raise
+            if time.monotonic() >= deadline:
+                raise RuntimeError('Root is installed; return the new tablet to update mode and resume Install')
+            time.sleep(2)
+            continue
+        if identity.get('usb_location') != record['usb_location']:
+            raise ValueError('Update-mode N810 is on a different USB port; kernel flash is blocked')
+        break
+    checkpoint()
+    return flash_kernel(root, flasher, progress)
+
+
+def checked_write_receipt(root, manifest):
     receipt_path = root / 'INSTALL-STATE.json'
     if receipt_path.is_symlink() or not receipt_path.is_file():
         raise ValueError('Write and verify the internal root before flashing its kernel')
@@ -563,6 +624,14 @@ def flash_kernel(kit, flasher=DEFAULT_FLASHER, progress=None):
             receipt.get('kernel_sha256') != manifest['kernel_sha256'] or
             receipt.get('kernel_flashing_pending') is not True):
         raise ValueError('Internal-write receipt does not match this kit')
+    return receipt
+
+
+def flash_kernel(kit, flasher=DEFAULT_FLASHER, progress=None):
+    _, manifest, files = verify_local_kit(kit)
+    root = Path(kit).expanduser().resolve()
+    receipt_path = root / 'INSTALL-STATE.json'
+    receipt = checked_write_receipt(root, manifest)
     identity = identify_device(flasher, progress)
     if ('usb_location' in receipt and
             identity.get('usb_location') != receipt['usb_location']):
@@ -606,6 +675,11 @@ def main(argv=None):
     install.add_argument('--flasher', type=Path, default=DEFAULT_FLASHER)
     install.add_argument('--host', default='169.254.81.1')
     install.add_argument('--key', type=Path)
+    mac_install = sub.add_parser('install-macos', help='write Maemo USB storage and flash after attended update mode')
+    mac_install.add_argument('--kit', required=True, type=Path)
+    mac_install.add_argument('--disk', default='')
+    mac_install.add_argument('--usb-location', type=lambda value: int(value, 0), default=0)
+    mac_install.add_argument('--flasher', type=Path, default=DEFAULT_FLASHER)
     args = parser.parse_args(argv)
     try:
         if args.action == 'check':
@@ -623,6 +697,9 @@ def main(argv=None):
         elif args.action == 'install':
             result = install_device(args.kit, args.flasher, args.host, args.key,
                                     progress=lambda message: print(message, flush=True))
+        elif args.action == 'install-macos':
+            result = install_macos(args.kit, args.disk, args.usb_location, args.flasher,
+                                   progress=lambda message: print(message, flush=True))
         else:
             result = flash_kernel(args.kit, args.flasher)
     except (OSError, ValueError, RuntimeError, gzip.BadGzipFile) as error:

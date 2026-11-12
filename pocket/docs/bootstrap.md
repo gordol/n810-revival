@@ -20,22 +20,26 @@ is optional for its separate development path.
 
 ## Use the app
 
-For a physical installation on macOS, boot stock Maemo on the target and export
-its internal USB storage. In Setup, enter the target's `/dev/diskN` whole disk
-and USB location in the two Mac fields. Select **Check Mac N810 disk**, then
-**Write Mac N810 disk**. The writer checks the disk model, exact 2 GB capacity,
-and USB location, writes the image, and reads back the entire disk. Return that
-tablet to update mode and select **Flash kernel and reboot**. The same actions
-are available through the shared CLI and Make target:
+For a physical installation on macOS, boot stock Maemo on the new tablet and
+export its internal USB storage. Run `sudo -v` in the terminal that launches
+Setup. Enter that tablet's `/dev/diskN` whole disk and USB location in the Mac
+fields, then choose **Install Debian + Pocket**. Setup checks the disk model,
+exact 2 GB capacity, and USB location, writes the image, and reads back the
+entire disk. It builds the pinned host flasher before writing, then waits for
+you to return **that tablet** to update mode and
+flashes the matching kernel. The install resumes from its verified write receipt
+if you reopen Setup before the kernel flash. To check the disk without writing,
+choose **Check Mac N810 disk**. The shared CLI and Make commands are:
 
 ```sh
-python3 platform/bootstrap/write_macos_internal.py --kit dist/n810-internal --disk /dev/diskN --usb-location 0x02100000
-sudo python3 platform/bootstrap/write_macos_internal.py --kit dist/n810-internal --disk /dev/diskN --usb-location 0x02100000 --write
+make n810-write-macos-internal INTERNAL_KIT=/path/new-kit N810_DISK=/dev/diskN N810_USB_LOCATION=0x02100000
+make n810-install-macos INTERNAL_KIT=/path/new-kit N810_DISK=/dev/diskN N810_USB_LOCATION=0x02100000
 ```
 
-The first command only checks the selected disk. The second erases it and
-verifies the entire disk before recording a receipt. The disk number and USB
-location are examples; read them again for each installation. The root image
+The first command only checks the selected disk. The second performs the same
+attended write, readback, and kernel flash as Setup. After a completed write,
+rerun it with the same kit to resume waiting for update mode. The disk number
+and USB location are examples; read them again for each installation. The root image
 does not contain a touchscreen calibration. First boot collects two matching
 taps for each target on that tablet before starting Pocket.
 
@@ -149,14 +153,12 @@ selects reviewed prebuilt input directories when that workflow is needed. The
 Setup source-build action supplies the local password through stdin to the same
 Make target, so the graphical frontend does not need a terminal. The password
 is not passed in process arguments or stored in the Setup session. The kit
-install commands then use the new kit folder:
+install command then uses the new kit folder:
 
 ```sh
 sudo -v
-make n810-write-macos-internal INTERNAL_KIT=/path/new-kit N810_DISK=/dev/diskN N810_USB_LOCATION=0x02100000
-sudo make n810-write-macos-internal INTERNAL_KIT=/path/new-kit N810_DISK=/dev/diskN N810_USB_LOCATION=0x02100000 N810_ERASE=1
-# Return only that N810 to update mode.
-make n810-flash-kernel INTERNAL_KIT=/path/new-kit
+make n810-install-macos INTERNAL_KIT=/path/new-kit N810_DISK=/dev/diskN N810_USB_LOCATION=0x02100000
+# When prompted, return only that N810 to update mode.
 ```
 
 The build plan's input folders come from the Debian root, kernel, MBX module,
@@ -170,9 +172,12 @@ The source-input build path runs inside `containers/internal-image.Dockerfile`.
 The five directories named by a private plan remain available for advanced
 builds and review.
 
-The Install action and `make n810-install` use the optional RAM-installer route.
-After root readback, they power off the new tablet and wait for you to hold Home
-while powering it on into update mode. The permanent kernel flash then completes.
+On macOS, the Install action and `make n810-install-macos` use the Maemo USB
+storage route. On Linux, the Install action and `make n810-install` use the
+optional RAM-installer route. The latter powers off the new tablet after root
+readback; hold Home while powering it on into update mode. On macOS, return the
+new tablet to update mode after the whole-disk readback. The permanent kernel
+flash then completes.
 The USB installer uses `169.254.81.1` to keep its connection separate from an
 existing tablet at `192.168.10.1`. The Mac USB Ethernet service must allow a
 self-assigned link-local address. A saved root-write receipt allows resuming

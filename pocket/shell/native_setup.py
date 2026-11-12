@@ -181,8 +181,14 @@ def _setup_work(action,manifest,destination,progress,cancelled,disk='',usb_locat
     sys.path.insert(0,str(BOOTSTRAP))
     if action in ('mac-check','mac-write'):
         return _mac_storage(action,Path(manifest).expanduser().parent,disk,usb_location,progress)
-    from internal_installer import boot_installer,flash_kernel,install_root,install_device
+    from internal_installer import boot_installer,flash_kernel,install_root,install_device,install_macos
     kit=Path(manifest).expanduser().parent
+    if action=='install' and sys.platform=='darwin':
+        try:location=int(usb_location,0) if usb_location else 0
+        except ValueError as error:raise ValueError('Enter the new tablet USB location as 0x...') from error
+        from n810_flasher import build
+        build(progress,cancelled)
+        return install_macos(kit,disk,location,FLASHER,progress,cancelled)
     if action=='boot':return boot_installer(kit,FLASHER,progress)
     if action=='write':return install_root(kit,progress=progress)
     if action=='flash':return flash_kernel(kit,FLASHER,progress)
@@ -240,6 +246,9 @@ class N810Setup:
             self.error='Enter an Ed25519 public key path and local nokia password first';return True
         if action in ('mac-check','mac-write') and (not self.disk.text.strip() or not self.usb_location.text.strip()):
             self.error='Enter the new N810 whole disk and USB location first';return True
+        if action=='install' and sys.platform=='darwin' and not (Path(self.manifest.text).expanduser().parent/'INSTALL-STATE.json').is_file():
+            if not self.disk.text.strip() or not self.usb_location.text.strip():
+                self.error='Enter the new N810 whole disk and USB location before Install';return True
         self.error='';self.result=None;self.cancelled.clear()
         self.active_action=action
         labels={'check':'Verifying installation files…','prepare':'Preparing a local copy; tablet unchanged…',
@@ -349,7 +358,7 @@ class N810Setup:
         if not result or result.get('kind')=='n810-internal':
             return rows+['N810 INTERNAL INSTALLATION',
                 'Install Debian and Pocket on internal MMC. No SD card is needed.',
-                'Choose Check files. On macOS, use the Mac disk steps below and then Flash kernel.',
+                'Choose Check files. On macOS, Install writes the selected Maemo USB disk, waits for update mode, then flashes the matching kernel.',
                 'For a new kit, enter a new output folder, SSH public key and local password; choose Build kit from source.',
                 'Build from plan accepts reviewed prebuilt Linux inputs as an advanced path.',
                 'For an existing kit, enter its INSTALLATION.json and choose Check files.',
@@ -384,7 +393,7 @@ class N810Setup:
     def lines(self):
         self.poll();c=Canvas(self.width,self.height);self._hits=[];self._spans=[]
         c.put(0,0,'N810 Setup · host / tablet installation preparation');self._spans.append((0,0,self.width,'toolbar'))
-        mac_fields=self.field in ('disk','usb_location','mac-check','mac-write')
+        mac_fields=self.field in ('disk','usb_location','mac-check','mac-write') or (self.field=='install' and sys.platform=='darwin')
         source_fields=self.field in ('ssh_key','password','source-kit')
         fields=((1,'disk','New N810 disk (macOS /dev/diskN)',self.disk),
                 (3,'usb_location','New N810 USB port (0x...)',self.usb_location)) if mac_fields else ((
@@ -444,6 +453,7 @@ class N810Setup:
                  'Prepare local kit makes a verified copy. Build host flasher runs the pinned make flasher build and does not open USB.',
                  'Build kit from source runs on macOS or Linux with Docker. Build from plan runs on Linux; run sudo -v in the launching terminal first. On macOS, run sudo -v before Detect target, Boot RAM installer or Flash kernel. Detection uses read-only 0xFFFF -I and accepts RX-44 only.',
                  'On macOS, stock Maemo can export its internal MMC as a whole USB disk. Enter /dev/diskN and the new tablet USB location shown by macOS; Check Mac N810 disk performs identity checks. Write Mac N810 disk erases and fully reads back that disk, then saves a receipt for Flash kernel. Run sudo -v in the launching terminal first.',
+                 'On macOS, Install Debian + Pocket runs that guarded write and full readback, waits for you to return the same tablet to update mode, then flashes the matching kernel. A saved receipt lets Install resume after an interrupted wait.',
                  'Boot RAM installer loads the verified kernel and initramfs with 0xFFFF -l -b. It does not flash internal storage.',
                  'Erase and write internal storage replaces the target N810 MMC. The installer verifies the MMC model, capacity and CID, then reads back the root image checksum.',
                  'After the root write, return the same tablet to Nokia update mode. Flash kernel writes the matching kernel with 0xFFFF -f -r and reboots it.',

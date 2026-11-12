@@ -7,7 +7,7 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'platform'/'bootstrap'))
 import n810_bootstrap as bootstrap
-from native_setup import N810Setup,_build_internal_kit,_build_internal_source_kit,_mac_storage
+from native_setup import N810Setup,_build_internal_kit,_build_internal_source_kit,_mac_storage,_setup_work
 from native_navigation import native_key,navigation
 
 class SetupTests(unittest.TestCase):
@@ -146,6 +146,22 @@ class SetupTests(unittest.TestCase):
         self.assertIn('--write',popen.call_args.args[0])
         with patch('native_setup.sys.platform','darwin'),self.assertRaisesRegex(ValueError,'whole disk'):
             _mac_storage('mac-write',self.root,'/dev/disk5s1','0x02100000',None)
+
+    def test_mac_install_uses_same_guarded_cli_operation(self):
+        manifest=self.root/'INSTALLATION.json';manifest.write_text('{}')
+        form=N810Setup();form.manifest.text=str(manifest)
+        with patch('native_setup.sys.platform','darwin'):
+            form.start('install')
+            self.assertIn('whole disk',form.error)
+            self.assertIsNone(form.pending)
+            form.disk.text='/dev/disk5';form.usb_location.text='0x02100000'
+            with patch('n810_flasher.build') as build, \
+                 patch('internal_installer.install_macos',return_value={'state':'kernel_flashed_reboot_requested'}) as install:
+                result=_setup_work('install',str(manifest),'',None,threading.Event(),
+                                   form.disk.text,form.usb_location.text)
+            self.assertEqual(result['state'],'kernel_flashed_reboot_requested')
+            build.assert_called_once()
+            self.assertEqual(install.call_args.args[:3],(self.root, '/dev/disk5', 0x02100000))
 
     def test_internal_kit_ui_uses_plan_builder_and_verifies_output(self):
         plan=self.root/'build-plan.json';plan.write_text('{}')
