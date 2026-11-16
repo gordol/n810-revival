@@ -120,7 +120,12 @@ N810_INSTALLER_HOST ?= 169.254.81.1
 N810_INSTALLER_KEY ?=
 N810_INSTALLER ?= python3 platform/bootstrap/internal_installer.py
 .PHONY: n810-build-internal n810-check n810-identify n810-boot-installer n810-write-internal n810-flash-kernel
+# Keep both Docker compilation and root assembly output when a build fails.
+N810_BUILD_LOG ?=
 n810-build-internal:
+	@python3 platform/bootstrap/build_logged.py $(if $(N810_BUILD_LOG),--log "$(N810_BUILD_LOG)") -- $(MAKE) n810-build-internal-run
+.PHONY: n810-build-internal-run
+n810-build-internal-run:
 	@case "$(N810_STORAGE)" in internal|sd) ;; *) echo "Choose N810_STORAGE=internal or sd" >&2; exit 2;; esac
 	@if test -n "$(INTERNAL_PLAN)"; then \
 		python3 platform/bootstrap/build_internal_image.py --plan "$(INTERNAL_PLAN)" --output "$(INTERNAL_KIT)"; \

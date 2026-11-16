@@ -1,4 +1,11 @@
-# Prepare a fresh N810 SD card
+# Build the minimal Debian SD image
+
+For a complete Pocket system on SD or internal storage, start with
+[N810 Setup](../pocket/bootstrap.md). That guide uses `n810-build-sd` and
+`n810-build-internal`, with a kernel matched to each kit's partition identity.
+The commands on this page build the older **minimal Debian image**, with
+different output files and a separate desktop installation. Do not mix the
+minimal image's write/boot commands with a complete Pocket kit.
 
 Build a personalized Debian armel SD image, write it to a removable card, and
 boot the N810 temporarily with the matching kernel. Keep the stock boot route

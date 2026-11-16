@@ -4,16 +4,54 @@ Run `make setup` from the Pocket directory to open **N810 Setup**. The setup
 screen is also available in the application menu. Start it directly through
 either frontend with `make tui EXTRA=--setup` or `make gui EXTRA=--setup`.
 
-N810 Setup builds and checks a private internal-install kit and identifies the
-tablet. Its RAM-installer route has not completed a physical installation. The
-tested macOS route uses the tablet's stock Maemo USB mass-storage export to
-write and read back all 2 GB, then uses native 0xFFFF to flash the matching
-kernel. No SD card is involved.
+N810 Setup builds complete Debian/Pocket kits for internal storage or a removable
+SD card. Building a kit, writing storage, and flashing a tablet are separate
+operations. A successful build does not establish first-boot hardware acceptance.
 
-Use a repository checkout, Make, Python 3, and Docker with ARM Linux emulation.
-On macOS, install the command-line compiler tools and the native flasher's
-dependencies. USB operations run natively on macOS; Docker does not need USB
-passthrough. From the repository root, prepare the restricted USB helper once:
+## Host requirements and platform support
+
+The build toolchain lives in `containers/internal-image.Dockerfile`. You do not
+need an ARM compiler installed on your laptop. The kernel builder checks GCC
+**12.2.0** and binutils **2.40**; installing GCC 14 on the host does not change
+that selection. Kernel and modules must come from the same kit.
+
+For either complete kit, use:
+
+- A clean, committed Git checkout, Python **3.11 or newer**, GNU Make, Bash,
+  and tar with `--null`/`-T` support. Run the commands from the repository root.
+- Docker with a running **Linux** engine, BuildKit, and working ARM Linux
+  `binfmt` emulation for the armel chroot. The build runs ARM programs as well
+  as cross-compiling them. Docker Desktop supplies emulation on our macOS host;
+  a Linux host must provide it too.
+- Network access for the first build, space for compiler/kernel/Mesa layers and
+  the Debian root, and a new output directory below an existing parent directory.
+- An Ed25519 SSH **public** key. The private key stays on your computer.
+
+The base container digest and kernel/toolchain checks are pinned. Debian package
+repositories still supply updates, so this is not yet a byte-for-byte
+reproducible distribution from a dated package snapshot.
+
+| Host | Complete kit build | Storage and USB installation |
+|---|---|---|
+| macOS | Docker Linux builder; exercised on Apple Silicon | Native internal writer and SD writer; native NOLO flasher. The new complete SD route still needs physical acceptance. |
+| Linux | Same Docker builder; requires ARM binfmt emulation; full fresh-host validation pending | Native flasher build exists. The complete-kit guarded card writer is not implemented for Linux. RAM-installer route remains experimental. |
+| Windows | No native PowerShell build path. A Linux VM/WSL environment is a candidate, not a validated recipe. | No supported native writer/flasher integration. USB and disk access require separate host support. |
+| BSD | No native full-kit build path. A Linux VM is a candidate, not a validated recipe. | No supported guarded writer/flasher integration. |
+
+A remote Docker engine is not interchangeable with a local one here: the build
+bind-mounts your public key and output folder from the engine's host. Do not
+assume a container can access a laptop's USB ports or card reader.
+
+Building a kit does **not** require the Pocket graphical frontend or a host C
+compiler. Running Pocket's terminal frontend requires Python and Make. Building
+its graphical frontend additionally requires a C compiler, Python development
+headers, SDL2 and OpenGL; see [the graphics guide](graphics.md). It renders on
+the computer running that frontend. The installed N810 uses its own native
+framebuffer/MBX graphics path, independently of a laptop.
+
+Flashing requires a native host tool and USB access. For the macOS route, install
+the command-line compiler tools and flasher dependencies, then prepare the
+restricted helper from the repository root:
 
 ```sh
 brew install libusb-compat pkg-config
@@ -21,8 +59,11 @@ make flasher-helper-prepare
 sudo /bin/sh dist/flasher-helper/install.sh
 ```
 
-The helper installation itself accesses no tablet. Allow space for the Linux
-build image, kernel/Mesa builds, Debian root, and private output kit.
+The helper installation accesses no tablet. Linux native flasher builds need a
+C compiler, Make, pkg-config and libusb development files. Neither host flasher
+uses the kernel's pinned cross-compiler.
+
+## Build a complete kit
 
 **Build kit from source** in Setup runs `make n810-build-internal` with Docker.
 A fresh clone has no private installation kit. Setup suggests an output folder
@@ -39,12 +80,20 @@ Pocket release runtime, and Debian root from tracked source, then packs and
 verifies the internal kit. It does not access a tablet. A RAM-installer output
 is optional for its separate development path.
 
-The shared source build command is:
+Create the output parent with `mkdir -p dist` in a fresh checkout. The shared
+source build command is:
 
 ```sh
 make n810-build-internal SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" \
     INTERNAL_KIT="$PWD/dist/n810-internal"
 ```
+
+Both build targets print a log filename under `dist/build-logs/`. The log retains
+Docker compilation and the subsequent root-filesystem assembly output, including
+the exit status. Set `N810_BUILD_LOG=/absolute/path/new.log` to select a new log
+file. A Docker image build completing is only the first stage; wait for the kit
+export and successful exit. Inspect the last error in that log before retrying.
+Logs are private files; review them before sharing.
 
 Use your own public key. If you need a new SSH login key, create one on your
 computer with `ssh-keygen -t ed25519` first. Only the public key enters the image.
