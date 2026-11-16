@@ -10,7 +10,10 @@ The builder then applies `n810-480mhz.patch` and verifies its seven source files
 against `cpu-source-files.json`. This recovers the CPUFreq implementation used
 by the original tablet: the 19.2 MHz PRCM tables, 330/400/420/440/460.8/480 MHz
 operating points, OMAP CPUFreq registration, and restoration of the boot clock
-before a warm restart. The performance governor selects 480 MHz. Kernel and
+before a warm restart. The built-in powersave governor boots at 330 MHz, matching the working original
+unit. The 480 MHz operating point remains available through an explicit
+privileged selection with n810-cpu-policy performance; the helper guards the
+display during CPU policy changes. Kernel and
 modules are rebuilt together; the build manifest records the CPU patch hash.
 
 The input lock records upstream commit
@@ -24,7 +27,9 @@ The clock trial module declares GPL licensing in its source.
 
 ## Build on Linux
 
-On Debian, install the build dependencies:
+Use Debian 12 Bookworm's ARM GCC 12.2.0 and binutils 2.40, matching the
+identified original kernel. The builder rejects other compiler/linker versions
+before downloading or compiling. Install the build dependencies:
 
 ```sh
 sudo apt-get install build-essential gcc-arm-linux-gnueabihf \
@@ -40,7 +45,8 @@ python3 platform/kernel/build.py --work /tmp/n810-kernel-build --jobs 4
 
 The work directory must be new. Allow at least 3 GiB of free space. The source
 archive is about 122 MiB. Build outputs and logs stay under the work directory.
-The build uses the installed ARM cross-compiler and records its version.
+The build checks the installed ARM cross-compiler and linker against the locked
+versions and records the compiler identity.
 The verification report identifies the toolchain used in the clean build.
 
 The default command line selects `/dev/mmcblk0p2` as an example SD-root layout.
@@ -70,7 +76,7 @@ the same checksum verification.
 | `build.py` | Download, verification, compilation, module staging and result manifest. |
 
 The builder produces `package/zImage-omap2420-n810`, the generated device tree,
-199 configured kernel modules under `package/root/lib/modules/`, and the separate
+198 configured kernel modules under `package/root/lib/modules/`, and the separate
 clock trial module. It checks the combined image against the recorded
 2,095,104-byte NOLO budget, verifies the external module's symbol CRCs and release,
 and writes `package/BUILD.json` with output hashes. The package also includes
@@ -93,8 +99,8 @@ intended tablet's storage layout, firmware, calibration and recovery procedure.
 The builder performs source and compiler operations locally.
 
 The bootstrap configuration enables external initramfs and XZ initrd support.
-XZ decompression is built into the kernel. The permanent module inventory is 199;
-the RAM installer links five compression helpers into the kernel and has 194.
+XZ decompression is built into the kernel. The permanent module inventory is 198;
+the RAM installer links five compression helpers into the kernel and has 193.
 The bootstrap release keeps the maintained board and GPU changes and disables
 optional PM debug output and verbose BUG descriptions to retain the NOLO size
 budget. `--resume` revalidates the archive, locked inputs and maintained source

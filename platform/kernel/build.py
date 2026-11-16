@@ -30,6 +30,14 @@ def package_hashes(package: Path) -> dict[str, str]:
             for p in sorted(package.rglob('*')) if p.is_file() and p != package / 'BUILD.json'}
 
 
+def check_toolchain(lock, env):
+    gcc = subprocess.check_output(['arm-linux-gnueabihf-gcc', '-dumpfullversion'], text=True, env=env).strip()
+    ld = subprocess.check_output(['arm-linux-gnueabihf-ld', '--version'], text=True, env=env).splitlines()[0]
+    want = lock['toolchain']
+    if gcc != want['gcc_version'] or not ld.endswith(' ' + want['binutils_version']):
+        raise RuntimeError(f"Use the OG toolchain: GCC {want['gcc_version']} and binutils {want['binutils_version']}; found GCC {gcc}, {ld}")
+
+
 def main() -> None:
     """Build from repository inputs and emit a manifest with verification results."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -49,7 +57,7 @@ def main() -> None:
         if digest(HERE / name) != expected:
             raise RuntimeError(f'Repository input changed: {name}; review and update source.lock.json.')
     for tool in ['curl', 'tar', 'xz', 'patch', 'make', 'gcc', 'flex', 'bison', 'bc',
-                 'arm-linux-gnueabihf-gcc', 'arm-linux-gnueabihf-readelf', 'modprobe', 'modinfo', 'depmod']:
+                 'arm-linux-gnueabihf-gcc', 'arm-linux-gnueabihf-ld', 'arm-linux-gnueabihf-readelf', 'modprobe', 'modinfo', 'depmod']:
         if shutil.which(tool) is None:
             raise RuntimeError(f'Required build tool is missing: {tool}')
     work = args.work.resolve()
@@ -63,6 +71,8 @@ def main() -> None:
     env.update(LC_ALL='C', TZ='UTC', KBUILD_BUILD_USER='builder', KBUILD_BUILD_HOST='n810-build',
                KBUILD_BUILD_VERSION='1', KBUILD_BUILD_TIMESTAMP='Wed Nov 4 00:00:00 UTC 2026',
                SOURCE_DATE_EPOCH='1793750400')
+
+    check_toolchain(lock, env)
 
     def run(command: list[str], label: str, cwd: Path | None = None) -> None:
         print(label, flush=True)
@@ -116,6 +126,9 @@ def main() -> None:
     base = ['make', '-C', str(source), 'O=' + str(build), 'ARCH=arm',
             'CROSS_COMPILE=arm-linux-gnueabihf-', 'CC=arm-linux-gnueabihf-gcc', 'HOSTCC=gcc', 'LOCALVERSION=']
     run(base + ['olddefconfig'], 'olddefconfig')
+    effective_config = (build / '.config').read_text().splitlines()
+    if not {'CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE=y', 'CONFIG_CPU_FREQ_GOV_POWERSAVE=y'} <= set(effective_config):
+        raise RuntimeError('Kernel must boot with the OG built-in powersave governor.')
     run(base + [f'-j{args.jobs}', 'zImage', 'modules', 'omap2420-n810.dtb'], 'kernel-and-modules')
     release = (build / 'include/config/kernel.release').read_text().strip()
     expected_release = lock['version'] + '-n810-installer2' if args.ram_installer else lock['release']
@@ -169,7 +182,7 @@ def main() -> None:
     compiler = subprocess.check_output(['arm-linux-gnueabihf-gcc', '--version'], text=True, env=env).splitlines()[0]
     report = {'release': release, 'kind': 'n810-ram-installer-kernel' if args.ram_installer else 'n810-permanent-kernel',
               'maintained_commit': lock['maintained_commit'],
-              'cpu_profile': 'n810-330-480mhz',
+              'cpu_profile': 'n810-330-480mhz', 'cpu_boot_governor': 'powersave',
               'cpu_patch_sha256': digest(HERE / 'n810-480mhz.patch'),
               'device_patch_sha256': digest(HERE / 'n810-device-fixes.patch'),
               'upstream_sha256': lock['sha256'], 'source_lock_sha256': digest(HERE / 'source.lock.json'),
