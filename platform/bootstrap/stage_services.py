@@ -136,7 +136,7 @@ def environments(root, wheels=Path('/build/service-wheels'), requirements=Path('
                             '/opt/n810-service-wheels/requirements/' + lock], check=True)
         adapt_meshcore_debian(root)
         for directory, imports in (('/opt/n810-mesh', 'import RNS,LXMF,urwid,qrcode,serial,cryptography'),
-                                   ('/opt/pocket-htit', 'import meshcore,serial_asyncio_fast,pycayennelpp,bleak,Cryptodome; from Cryptodome.Cipher import AES; assert AES.new(bytes(16), AES.MODE_ECB).encrypt(bytes(16)).hex() == "66e94bd4ef8a2c3b884cfa59ca342b2e"')):
+                                   ('/opt/pocket-htit', 'import meshcore,serial_asyncio_fast,cayennelpp,bleak,Cryptodome; from Cryptodome.Cipher import AES; assert AES.new(bytes(16), AES.MODE_ECB).encrypt(bytes(16)).hex() == "66e94bd4ef8a2c3b884cfa59ca342b2e"')):
             subprocess.run(['chroot', str(root), directory + '/bin/python', '-c', imports], check=True)
     finally:
         if owned:
