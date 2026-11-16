@@ -8,9 +8,9 @@ managed desktop launcher. Keep the tablet's charger connected during installatio
 Start by preserving the original system and device-specific calibration.
 [N810 Setup](pocket/bootstrap.md) builds complete Debian/Pocket kits for internal
 storage or SD, including the matching kernel and modules. Read its host support
-matrix and prerequisites before building. The guarded storage writers currently
-require macOS; Windows, Linux and BSD do not yet have equivalent complete install
-workflows. Physical acceptance of the new complete SD route remains outstanding.
+matrix and prerequisites before building. Guarded storage writers are available for macOS and Linux. Windows and BSD
+need a Linux environment with storage/USB access; native installation adapters
+are not provided. Physical acceptance of the new complete SD route remains outstanding.
 
 The [minimal SD image guide](how-to/prepare-fresh-n810.md) is a separate developer
 route and does not include the complete Pocket desktop.

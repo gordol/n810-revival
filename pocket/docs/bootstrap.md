@@ -27,14 +27,31 @@ For either complete kit, use:
   the Debian root, and a new output directory below an existing parent directory.
 - An Ed25519 SSH **public** key. The private key stays on your computer.
 
-The base container digest and kernel/toolchain checks are pinned. Debian package
-repositories still supply updates, so this is not yet a byte-for-byte
-reproducible distribution from a dated package snapshot.
+The base container digest, kernel toolchain, source revisions and archive hashes
+are pinned. Debian build and root packages come from the **2026-11-15 UTC
+snapshot**, with repository signatures still checked. Python build tools and
+optional-service wheels are version/hash locked, including transitive build-tool
+dependencies. Kits include `debian.sources.list`, `builder-requirements.lock`,
+`BUILDER-PACKAGES.tsv` and `ROOT-PACKAGES.tsv`. Updating dependencies is an explicit
+source change followed by rebuilding both kits. Personalized disk IDs, filesystem
+UUIDs and account inputs mean two kits need not be byte-identical.
+
+Reserve **30 GiB free inside Docker** and **5 GiB free in the output filesystem**
+for a default 1536 MiB kit. Reserve **8 GiB of output space** to retain both kits
+and their build logs. With Docker Desktop, reserve **40 GiB free on the host**
+for virtual-disk growth and outputs; if Docker's virtual disk is on another
+volume, that volume also needs room to grow. Larger roots require at least twice
+the selected root size plus 2 GiB output space. Docker needs at least **4 GiB RAM**;
+**8 GiB and four CPU cores** are recommended. The source checkout is about 55 MiB,
+excluding Git history, build outputs and downloaded offline data. The Make targets
+check output and engine space before compilation. Build caches accumulate across
+source revisions; these figures are free-space allowances for the requested build,
+not a maximum lifetime cache size.
 
 | Host | Complete kit build | Storage and USB installation |
 |---|---|---|
 | macOS | Docker Linux builder; exercised on Apple Silicon | Native internal writer and SD writer; native NOLO flasher. The new complete SD route still needs physical acceptance. |
-| Linux | Same Docker builder; requires ARM binfmt emulation; full fresh-host validation pending | Native flasher build exists. The complete-kit guarded card writer is not implemented for Linux. RAM-installer route remains experimental. |
+| Linux | Same pinned Docker builder; requires ARM binfmt emulation | Guarded internal/SD writer and native flasher. Readback and port-bound receipts are required; physical tablet acceptance is separate. |
 | Windows | No native PowerShell build path. A Linux VM/WSL environment is a candidate, not a validated recipe. | No supported native writer/flasher integration. USB and disk access require separate host support. |
 | BSD | No native full-kit build path. A Linux VM is a candidate, not a validated recipe. | No supported guarded writer/flasher integration. |
 
@@ -87,6 +104,8 @@ source build command is:
 make n810-build-internal SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" \
     INTERNAL_KIT="$PWD/dist/n810-internal"
 ```
+
+The commands below build on macOS or Linux. Windows/BSD users need a Linux environment with explicit storage/USB access for installation; native Windows/BSD writers are not provided.
 
 Both build targets print a log filename under `dist/build-logs/`. The log retains
 Docker compilation and the subsequent root-filesystem assembly output, including
@@ -175,6 +194,89 @@ In Pocket Setup, **Check target disk** performs the card check; **Write target
 disk** or **Install Debian + Pocket** writes and verifies the SD card. Then
 insert it into the tablet and use **Flash kernel** separately. Internal mode
 retains the existing attended Maemo-write/return-to-update-mode sequence.
+
+## Install on Linux
+
+Build `0xFFFF` on the Linux host with `make flasher` (a C compiler, Make,
+`pkg-config` and libusb development files are required). Building the kit in
+Docker does not give the container access to your USB ports; run installation
+commands on the native Linux host.
+
+First identify the target tablet in Nokia update mode:
+
+```sh
+sudo -v
+make n810-identify
+```
+
+The result includes `usb_port`, for example `1-2.3`. Keep the tablet on that
+physical port, including the same hub connection. Only one Nokia USB device may
+be connected when identifying or flashing. For internal installation, return the
+tablet to stock Maemo and export internal storage over USB. For SD installation,
+insert the card in the host reader instead. Identify the whole disk using
+`lsblk -o NAME,SIZE,MODEL,TRAN,RM,MOUNTPOINTS`. Unmount its mounted partitions and
+disable any swap on that selected disk before proceeding.
+
+Set the kit, current whole-disk path and tablet port explicitly:
+
+```sh
+make n810-write-linux INTERNAL_KIT="$PWD/dist/n810-internal-new" \
+    N810_DISK=/dev/sdX N810_USB_PORT=1-2.3
+
+sudo python3 platform/bootstrap/linux_storage.py \
+    --kit "$PWD/dist/n810-internal-new" --disk /dev/sdX --usb-port 1-2.3 --write
+```
+
+For SD, use your SD kit directory instead. Native card slots may use
+`/dev/mmcblkN`. The writer refuses mounted/claimed disks, partitions, host fixed
+storage and mismatched N810 identity. It takes an exclusive block-device handle,
+checks identity again, writes the partition table and root, flushes Linux block
+buffers, and reads back the written region. It does not securely erase unused
+sectors. It saves a receipt only after successful verification.
+
+Disconnect the exported storage after completion. Insert the SD card if applicable
+and put the target tablet in update mode on the recorded port:
+
+```sh
+sudo -v
+make n810-flash-kernel INTERNAL_KIT="$PWD/dist/n810-internal-new"
+```
+
+Flashing requires a matching write receipt and the same USB topology port.
+Changing hosts or ports invalidates that binding; do not edit the receipt to
+bypass it. In laptop Pocket Setup, the disk check/write controls use this same
+Linux writer. **Install** writes and verifies storage; **Flash kernel** is a
+separate explicit step after returning the tablet to update mode.
+
+## Provision another N810 from an N810
+
+New images include `n810-provision`, the Linux writer, and the verified ARM
+flasher with its provenance. Supply an already-built complete kit on storage
+accessible to the provisioning tablet. The provisioning tablet needs space for
+the compressed kit (currently about 200 MB; allow **512 MiB** for the default kit)
+and logs. It streams decompression during writing, so it does not need a second
+uncompressed 1.5 GiB copy. Larger/custom kits require their actual compressed size
+plus headroom. Docker and a compiler are not required on that tablet.
+
+The provisioning tablet must be in USB **host** mode, with a suitable OTG host
+connection and adequate power for the other device/card reader. Software alone
+cannot supply USB power or change a peripheral-only cable into a host cable.
+The USB host, power and two-tablet flashing combination still needs a physical
+test. Keep an independent recovery route available.
+
+```sh
+n810-provision check --kit /path/to/kit
+sudo n810-provision identify
+sudo n810-provision write --kit /path/to/kit --disk /dev/sdX --usb-port 1-1
+# After inspecting the selected disk, explicitly write it:
+sudo n810-provision write --kit /path/to/kit --disk /dev/sdX --usb-port 1-1 --erase
+# Return the target to update mode on the same port:
+sudo n810-provision flash --kit /path/to/kit
+```
+
+The host tablet's own mounted root is rejected by the disk checks. Its internal
+MMC is not a removable SD card and is rejected as an SD target. Verify host-mode enumeration on the provisioning tablet before attempting any
+write to a second tablet.
 
 ## Use the app
 

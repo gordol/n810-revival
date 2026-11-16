@@ -245,6 +245,8 @@ def _flasher_command(flasher, args):
                 raise ValueError('Installed USB helper differs from this flasher build')
             return ['sudo', '-n', str(helper), *args]
         command = ['sudo', '-n', *command]
+    if platform.system() == 'Linux' and os.geteuid() != 0:
+        command = ['sudo', '-n', *command]
     return command
 
 
@@ -299,12 +301,21 @@ def identify_device(flasher=DEFAULT_FLASHER, progress=None, timeout=30):
     locations = _update_mode_locations()
     if platform.system() == 'Darwin' and len(locations) != 1:
         raise ValueError('Expected exactly one macOS USB update-mode N810; detected ' + str(len(locations)))
+    ports = []
+    if platform.system() == 'Linux':
+        from linux_storage import nokia_ports
+        ports = nokia_ports()
+        if len(ports) != 1:
+            raise ValueError('Connect exactly one Nokia USB device for identification/flashing')
     output = _run_flasher(flasher, ['-I'], timeout)
     models = set(re.findall(r'^(?:Detected USB device|Device):\s*(RX-[0-9]+)\b', output, re.MULTILINE))
     if models != {'RX-44'}:
         raise ValueError('Expected exactly one Nokia N810 RX-44 in update mode; detected: ' +
                          (', '.join(sorted(models)) or 'no supported model'))
     result = {'state': 'device_identified', 'model': 'RX-44'}
+    if ports:
+        if nokia_ports() != ports:raise ValueError('Nokia USB topology changed during identification')
+        result['usb_port'] = ports[0]
     if locations:
         result['usb_location'] = locations[0]
     return result
@@ -325,7 +336,8 @@ def boot_installer(kit, flasher=DEFAULT_FLASHER, progress=None):
                  root / 'USB-OPERATIONS.log')
     return {'state': 'ram_installer_booted', 'model': 'RX-44',
             'kernel_release': manifest['kernel_release'], 'internal_storage_changed': False,
-            **({'usb_location': identity['usb_location']} if 'usb_location' in identity else {})}
+            **({'usb_location': identity['usb_location']} if 'usb_location' in identity else {}),
+            **({'usb_port': identity['usb_port']} if 'usb_port' in identity else {})}
 
 
 def configure_installer_network(previous_interfaces, progress=None, timeout=45):
@@ -536,6 +548,8 @@ def install_device(kit, flasher=DEFAULT_FLASHER, host='169.254.81.1', key=None, 
                 time.sleep(2)
         checkpoint()
         install_root(root, host, key, progress)
+        if 'usb_port' in boot_result:
+            receipt_data['usb_port'] = boot_result['usb_port']
         if 'usb_location' in boot_result:
             receipt_data = json.loads(receipt.read_text())
             receipt_data['usb_location'] = boot_result['usb_location']
@@ -673,6 +687,10 @@ def flash_kernel(kit, flasher=DEFAULT_FLASHER, progress=None):
     if ('usb_location' in receipt and
             identity.get('usb_location') != receipt['usb_location']):
         raise ValueError('Update-mode tablet is on a different USB port than the verified internal write')
+    if 'usb_port' in receipt and identity.get('usb_port') != receipt['usb_port']:
+        raise ValueError('Update-mode tablet is on a different Linux USB port than the verified write')
+    if platform.system() == 'Linux' and 'usb_port' not in receipt:
+        raise ValueError('Linux flashing requires a Linux write receipt with a pinned tablet USB port')
     if progress:
         progress('Flashing the matching kernel and rebooting the N810…')
     try:

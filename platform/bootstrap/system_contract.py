@@ -5,6 +5,7 @@ from pathlib import Path
 
 # Deliberately excludes personal state, identities, pairing records and map data.
 COMMANDS = {
+ '/usr/local/sbin/n810-provision',
  '/usr/local/sbin/n810-wake', '/usr/local/sbin/n810-console-power-menu',
  '/usr/local/sbin/n810-power-overlay', '/usr/local/sbin/n810-screen',
  '/usr/local/sbin/n810-mode', '/usr/local/sbin/n810-radio',

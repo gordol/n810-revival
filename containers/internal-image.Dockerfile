@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Build all five inputs for the internal MMC kit from one tracked source tree.
 FROM python:3.13-bookworm@sha256:cc55e4ded9c95f6ce2133b3d096db43f214d280c2a8af65d83e246c8fa7d168c
+COPY platform/bootstrap/debian.sources.list /etc/apt/sources.list
+RUN rm -f /etc/apt/sources.list.d/*
+
 RUN dpkg --add-architecture armel && apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake libbz2-dev git flex bison bc libssl-dev libelf-dev kmod curl ca-certificates \
     xz-utils patch gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf \
@@ -14,8 +17,9 @@ RUN dpkg --add-architecture armel && apt-get update && apt-get install -y --no-i
     && for package in ./*_armel.deb; do dpkg-deb -x "$package" /opt/arm-sysroot; done \
     && rm -f ./*_armel.deb \
     && rm -rf /var/lib/apt/lists/*
-RUN python3 -m venv /opt/mesa-tools && /opt/mesa-tools/bin/pip install \
-    meson==1.5.2 Mako==1.3.5 packaging==24.1 PyYAML==6.0.2 setuptools==75.1.0
+COPY platform/bootstrap/builder-requirements.lock /build/builder-requirements.lock
+RUN python3 -m venv /opt/mesa-tools && /opt/mesa-tools/bin/pip install --only-binary=:all: --require-hashes --no-deps -r /build/builder-requirements.lock
+RUN dpkg-query -W > /build/BUILDER-PACKAGES.tsv
 WORKDIR /src
 COPY platform/config/n810-mesh*-requirements.txt /build/requirements/
 RUN /opt/mesa-tools/bin/pip download --only-binary=:all: --no-deps --require-hashes \

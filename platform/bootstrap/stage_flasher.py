@@ -37,6 +37,25 @@ def stage(root, build):
     for name in ('BUILD.json', 'source.tar.gz', 'usb-host.patch', 'COPYING'):
         shutil.copyfile(build / name, docs / name)
         (docs / name).chmod(0o644)
+    # Standalone Linux provisioning CLI, usable on the N810 without a compiler.
+    bundle = root / 'usr/local/lib/n810-installer'
+    (bundle/'bootstrap').mkdir(parents=True, exist_ok=True)
+    (bundle/'flasher').mkdir(exist_ok=True)
+    for name in ('internal_installer.py', 'linux_storage.py', 'write_sd_card.py',
+                 'storage_target.py', 'provision.py'):
+        shutil.copyfile(Path(__file__).with_name(name), bundle/'bootstrap'/name)
+        (bundle/'bootstrap'/name).chmod(0o644)
+    for name in ('0xFFFF', 'BUILD.json'):
+        shutil.copyfile(build/name, bundle/'flasher'/name)
+    shutil.copyfile(Path(__file__).resolve().parents[1]/'flasher/source.lock.json',
+                    bundle/'flasher/source.lock.json')
+    for path in (bundle, *bundle.rglob('*')):
+        path.chmod(0o755 if path.is_dir() else 0o644)
+    (bundle/'flasher/0xFFFF').chmod(0o755)
+    launcher = root/'usr/local/sbin/n810-provision'
+    launcher.parent.mkdir(parents=True, exist_ok=True)
+    launcher.write_text('#!/bin/sh\nexec /usr/bin/python3 /usr/local/lib/n810-installer/bootstrap/provision.py "$@"\n')
+    launcher.chmod(0o755)
     return {'binary_sha256': record['binary_sha256'], 'source_revision': identity['source_revision']}
 
 

@@ -2,6 +2,9 @@
 # SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
 # SPDX-License-Identifier: GPL-2.0-or-later
 FROM python:3.13-bookworm@sha256:cc55e4ded9c95f6ce2133b3d096db43f214d280c2a8af65d83e246c8fa7d168c
+COPY platform/bootstrap/debian.sources.list /etc/apt/sources.list
+RUN rm -f /etc/apt/sources.list.d/*
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential flex bison bc libssl-dev libelf-dev kmod curl ca-certificates \
     xz-utils patch gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf \

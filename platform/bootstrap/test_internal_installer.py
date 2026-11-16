@@ -70,6 +70,10 @@ class BuildPlan(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'Duplicate'):load_plan(plan)
 
 class CompressedKit(unittest.TestCase):
+    def setUp(self):
+        ports = patch('linux_storage.nokia_ports', return_value=['1-2'])
+        ports.start(); self.addCleanup(ports.stop)
+
     def test_maemo_storage_kit_needs_no_ram_installer(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
@@ -345,7 +349,7 @@ class CompressedKit(unittest.TestCase):
     def test_ram_boot_loads_kernel_and_initfs_without_flash_flags(self):
         with tempfile.TemporaryDirectory() as folder:
             installer,_=self.kit(folder)
-            with patch('internal_installer.identify_device',return_value={'model':'RX-44'}), \
+            with patch('internal_installer.identify_device',return_value={'model':'RX-44','usb_port':'1-2'}), \
                     patch('internal_installer._run_flasher',return_value='booted') as run:
                 result=boot_installer(folder,'/fixture/flasher')
             self.assertEqual(result['state'],'ram_installer_booted')
@@ -366,17 +370,17 @@ class CompressedKit(unittest.TestCase):
             root=Path(folder);self.kit(root)
             _,manifest,_=verify_local_kit(root)
             receipt=dict(version=1,state='rootfs_written',root_sha256=manifest['root_sha256'],
-                kernel_sha256=manifest['kernel_sha256'],target_cid='a'*32,
+                kernel_sha256=manifest['kernel_sha256'],target_cid='a'*32,usb_port='1-2',
                 rootfs_readback_verified=True,kernel_flashing_pending=True)
             (root/'INSTALL-STATE.json').write_text(json.dumps(receipt))
-            with patch('internal_installer.identify_device',return_value={'model':'RX-44'}), \
+            with patch('internal_installer.identify_device',return_value={'model':'RX-44','usb_port':'1-2'}), \
                     patch('internal_installer._run_flasher',return_value='flashed') as run:
                 result=flash_kernel(root,'/fixture/flasher')
             self.assertEqual(result['state'],'kernel_flashed_reboot_requested')
             self.assertEqual(run.call_args.args[1][-2:],['-f','-r'])
             self.assertFalse(json.loads((root/'INSTALL-STATE.json').read_text())['kernel_flashing_pending'])
             (root/'INSTALL-STATE.json').write_text(json.dumps(receipt))
-            with patch('internal_installer.identify_device',return_value={'model':'RX-44'}), \
+            with patch('internal_installer.identify_device',return_value={'model':'RX-44','usb_port':'1-2'}), \
                     patch('internal_installer._run_flasher',side_effect=RuntimeError('Flashing image...\nDone\nRebooting device...\nError: NOLO_REBOOT failed')):
                 with self.assertRaisesRegex(RuntimeError,'do not flash again'):
                     flash_kernel(root,'/fixture/flasher')

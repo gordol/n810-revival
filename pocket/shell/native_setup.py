@@ -151,6 +151,18 @@ def _build_internal_source_kit(destination,ssh_key,password,progress,cancelled,s
 
 
 def _mac_storage(action,kit,disk,usb_location,progress):
+    if sys.platform.startswith('linux'):
+        argv=[sys.executable,str(BOOTSTRAP/'linux_storage.py'),'--kit',str(kit),
+              '--disk',disk,'--usb-port',usb_location]
+        if action=='mac-write':argv=['sudo','-n',*argv,'--write']
+        process=subprocess.Popen(argv,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+        lines=[]
+        for line in process.stdout:
+            lines.append(line.rstrip())
+            if progress:progress(line.rstrip()[:180])
+        if process.wait():raise RuntimeError('Linux storage step failed: '+'\n'.join(lines[-6:]))
+        return dict(state='linux_disk_checked' if action=='mac-check' else 'rootfs_written',
+                    device=disk,usb_port=usb_location,rootfs_readback_verified=action=='mac-write')
     if sys.platform!='darwin':raise RuntimeError('Maemo USB storage installation requires macOS')
     if not re.fullmatch(r'/dev/disk[0-9]+',disk):
         raise ValueError('Enter the new tablet whole disk as /dev/diskN')
@@ -202,6 +214,8 @@ def _setup_work(action,manifest,destination,progress,cancelled,disk='',usb_locat
     from internal_installer import boot_installer,flash_kernel,install_root,install_device,install_macos
     kit=Path(manifest).expanduser().parent
     if action=='install' and json.loads((kit/'INTERNAL.json').read_text()).get('storage_target')=='sd':
+        return _mac_storage('mac-write',kit,disk,usb_location,progress)
+    if action=='install' and sys.platform.startswith('linux'):
         return _mac_storage('mac-write',kit,disk,usb_location,progress)
     if action=='install' and sys.platform=='darwin':
         try:location=int(usb_location,0) if usb_location else 0
@@ -359,9 +373,10 @@ class N810Setup:
             self.status={
                 'kit_prepared':'Local kit prepared. The tablet is not installed.',
                 'internal_kit_built':'Kit built and verified. The tablet is not installed.',
-                'files_verified':'Kit verified. Choose the Mac storage or RAM-installer path for the target.',
+                'files_verified':'Kit verified. Check and write the selected storage, then flash the matching kernel.',
                 'device_identified':'One Nokia N810 RX-44 is in update mode.',
                 'mac_disk_checked':'The selected disk checks passed. No data was written.',
+                'linux_disk_checked':'The selected disk checks passed. No data was written.',
                 'ram_installer_booted':'RAM installer booted; internal storage is unchanged. Choose Erase and write.',
                 'rootfs_written':'Root image was read back successfully. Return this tablet to update mode, then flash its matching kernel.',
                 'kernel_flashed_reboot_requested':'Matching kernel flash and reboot command completed. Watch the tablet for first boot.',
@@ -443,8 +458,8 @@ class N810Setup:
                 ('destination','New local kit folder',self.destination),
                 ('ssh_key','Ed25519 public key file',self.ssh_key),
                 ('password','Local nokia password (hidden)',self.password),
-                ('disk','New N810 disk (macOS /dev/diskN)',self.disk),
-                ('usb_location','New N810 USB port (0x...)',self.usb_location))
+                ('disk','Target whole disk (/dev/sdX)' if sys.platform.startswith('linux') else 'New N810 disk (macOS /dev/diskN)',self.disk),
+                ('usb_location','Tablet USB port (1-2.3)' if sys.platform.startswith('linux') else 'New N810 USB port (0x...)',self.usb_location))
         rows=[];spans=[];hits=[];focus=0
         for key,label,field in fields:
             if self.field==key:focus=len(rows)
@@ -525,7 +540,7 @@ class N810Setup:
             if key=='destination' and not value:continue
             if isinstance(value,str) and len(value)<=2048:setattr(self,key,TextInput(value,limit=2048))
     def help_pages(self):
-        return (('N810 Setup',('For SD installation, choose SD in Storage, Wi-Fi and startup choices before building. Select the removable card reader disk and pin the new tablet USB location. Install prepares and verifies the card; insert it into that tablet before Flash kernel. SD does not require Maemo USB storage. For an internal Mac installation, boot stock Maemo on the new tablet and export its internal USB storage. Run sudo -v in the launching terminal, select the kit manifest, enter the whole disk and USB port, then choose Check Mac N810 disk and Install Debian + Pocket. Keep the battery installed and charger connected. Install erases internal storage, verifies the full disk, waits for that same tablet in update mode, then flashes its matching kernel.',
+        return (('N810 Setup',('For SD installation, choose SD in Storage, Wi-Fi and startup choices before building. Select the removable card reader disk and pin the new tablet USB location. Install prepares and verifies the card; insert it into that tablet before Flash kernel. SD does not require Maemo USB storage. On Linux, enter the whole disk and tablet topology port (for example 1-2.3). Install writes and verifies storage; Flash kernel is a separate step after returning that tablet to update mode. For an internal Mac installation, boot stock Maemo on the new tablet and export its internal USB storage. Run sudo -v in the launching terminal, select the kit manifest, enter the whole disk and USB port, then choose Check Mac N810 disk and Install Debian + Pocket. Keep the battery installed and charger connected. Install erases internal storage, verifies the full disk, waits for that same tablet in update mode, then flashes its matching kernel.',
                  'Setup finds internal-install manifests in this checkout\'s dist subfolders and initially selects the most recently written one. Choose another local kit cycles through other candidates. Restored sessions retain an existing selection. Check files verifies the selected kit before use.',
                  'A fresh clone has no private installation image. Install Python 3.11 or newer, Make and Docker with ARM Linux build support; start Docker. On macOS, the native flasher also needs the command-line compiler tools, pkg-config and libusb-compat. Build kit from source creates the image and installation manifest.',
                  'Choose your SSH public key file. If none exists, run ssh-keygen -t ed25519 in your terminal, then use its .pub file here. Keep the private key on your computer. The tablet generates its own unique SSH server key on first boot.',

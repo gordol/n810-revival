@@ -264,6 +264,16 @@ def build(root,package,recovery,output,size_mib,gpu=None):
                       'installer-filesystem':'installer-initramfs.cpio.xz',
                       'installer-build-manifest':'INSTALLER-BUILD.json',
                       'installer-host-key':'installer-known-hosts'})
+    for name in ('debian.sources.list', 'builder-requirements.lock'):
+        shutil.copyfile(Path(__file__).with_name(name), output/name)
+        roles['build-input-' + name] = name
+    builder_packages = Path('/build/BUILDER-PACKAGES.tsv')
+    if builder_packages.is_file():
+        shutil.copyfile(builder_packages, output/'BUILDER-PACKAGES.tsv')
+        roles['builder-packages'] = 'BUILDER-PACKAGES.tsv'
+    with (output/'ROOT-PACKAGES.tsv').open('w') as package_list:
+        subprocess.run(['chroot', str(root), 'dpkg-query', '-W'], stdout=package_list, check=True)
+    roles['root-packages'] = 'ROOT-PACKAGES.tsv'
     (output/'INSTALLATION.json').write_text(json.dumps(dict(version=1,kind='n810-internal',
         release='bookworm-'+target+'-'+release,kernel_release=release,
         files=[dict(role=role,path=name,bytes=(output/name).stat().st_size,sha256=sha256(output/name))

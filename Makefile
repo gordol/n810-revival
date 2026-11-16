@@ -133,6 +133,7 @@ n810-build-internal-run:
 		test -n "$(SSH_PUBLIC_KEY)" -a -f "$(SSH_PUBLIC_KEY)" || { echo 'Set SSH_PUBLIC_KEY to an Ed25519 public key file.' >&2; exit 1; }; \
 		test -d "$(abspath $(dir $(INTERNAL_KIT)))" -a ! -e "$(INTERNAL_KIT)" || { echo 'Choose a new INTERNAL_KIT below an existing directory.' >&2; exit 1; }; \
 		git diff --quiet HEAD && git diff --cached --quiet || { echo 'Commit source changes before building an identified kit.' >&2; exit 1; }; \
+		python3 platform/bootstrap/build_preflight.py --output "$(INTERNAL_KIT)" --size-mib "$(INTERNAL_SIZE_MIB)" || exit; \
 		disk_id=$$(python3 -c 'import secrets; print(secrets.token_hex(4))'); \
 		bash -o pipefail -c 'python3 tools/package-source.py --list-context | COPYFILE_DISABLE=1 tar --null -T - -czf - | docker build $(INTERNAL_DOCKER_FLAGS) --progress=plain --file containers/internal-image.Dockerfile --build-arg DISK_ID=$$1 --build-arg SOURCE_COMMIT=$$2 -t $(INTERNAL_DOCKER_IMAGE) -' -- "$$disk_id" "$$(git rev-parse HEAD)" || exit; \
 		set --; if test -n "$(MAEMO_BACKUP)"; then set -- --mount "type=bind,src=$$(cd "$(MAEMO_BACKUP)" && pwd),dst=/backup,readonly"; fi; \
@@ -180,3 +181,8 @@ n810-build-sd:
 SD_KIT ?= $(CURDIR)/dist/n810-sd
 n810-write-sd:
 	python3 platform/bootstrap/write_sd_card.py --kit "$(SD_KIT)" --disk "$(N810_DISK)" --usb-location "$(N810_USB_LOCATION)" $(if $(filter 1,$(N810_ERASE)),--write)
+
+# Native Linux, including an N810 acting as the provisioning host.
+.PHONY: n810-write-linux
+n810-write-linux:
+	python3 platform/bootstrap/linux_storage.py --kit "$(INTERNAL_KIT)" --disk "$(N810_DISK)" --usb-port "$(N810_USB_PORT)" $(if $(filter 1,$(N810_ERASE)),--write)

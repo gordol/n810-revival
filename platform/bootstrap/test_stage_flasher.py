@@ -30,6 +30,9 @@ class FlasherStagingTests(unittest.TestCase):
             build = self.fixture(folder)
             root = folder / 'root'
             stage(root, build)
+            self.assertTrue((root/'usr/local/sbin/n810-provision').is_file())
+            self.assertTrue((root/'usr/local/lib/n810-installer/flasher/BUILD.json').is_file())
+            self.assertTrue((root/'usr/local/lib/n810-installer/bootstrap/linux_storage.py').is_file())
             self.assertEqual((root / 'usr/local/bin/0xFFFF').stat().st_mode & 0o7777, 0o755)
             self.assertEqual((root / 'usr/local/share/doc/0xffff/source.tar.gz').read_bytes(), b'source')
 

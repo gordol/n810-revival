@@ -24,11 +24,8 @@ BASE_PACKAGES = (
 )
 PACKAGES = 'systemd-sysv,' + BASE_PACKAGES
 INTERNAL_PACKAGES = 'sysvinit-core,initscripts,sysvinit-utils,' + BASE_PACKAGES
-SOURCES = (
-    'deb https://deb.debian.org/debian bookworm main',
-    'deb https://security.debian.org/debian-security bookworm-security main',
-    'deb https://deb.debian.org/debian bookworm-updates main',
-)
+SOURCES = tuple(Path(__file__).with_name('debian.sources.list').read_text().splitlines())
+
 SECTOR = 512
 OFFSET = 1024 * 1024
 
