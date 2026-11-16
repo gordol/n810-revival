@@ -336,6 +336,20 @@ class CompressedKit(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'not the verified RAM initramfs'):
                 installer.inspect()
             self.assertEqual(installer.remote.call_count,1)
+    def test_dependency_inventory_roles_are_hashed_and_unknown_roles_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);self.kit(root)
+            metadata=root/'ROOT-PACKAGES.tsv';metadata.write_text('fixture\t1.0\n')
+            path=root/'INSTALLATION.json';record=json.loads(path.read_text())
+            record['files'].append(dict(role='root-packages',path=metadata.name,
+                bytes=metadata.stat().st_size,sha256=hashlib.sha256(metadata.read_bytes()).hexdigest()))
+            path.write_text(json.dumps(record));verify_local_kit(root)
+            metadata.write_text('changed\t2.0\n')
+            with self.assertRaises(ValueError):verify_local_kit(root)
+            metadata.write_text('fixture\t1.0\n')
+            record['files'][-1]['role']='unknown-input';path.write_text(json.dumps(record))
+            with self.assertRaisesRegex(ValueError,'unexpected'):verify_local_kit(root)
+
     def test_corruption_and_expansion_size_fail_without_contacting_tablet(self):
         for mode in ('corrupt','expanded'):
             with self.subTest(mode=mode),tempfile.TemporaryDirectory() as folder:

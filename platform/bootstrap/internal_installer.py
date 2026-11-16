@@ -21,6 +21,8 @@ REPOSITORY = Path(__file__).resolve().parents[2]
 DEFAULT_FLASHER = REPOSITORY / 'dist/flasher/0xFFFF'
 REQUIRED_ROLES = {'root-filesystem', 'kernel', 'install-plan',
                   'kernel-build-manifest', 'install-guide'}
+BUILD_INPUT_ROLES = {'build-input-debian.sources.list', 'build-input-builder-requirements.lock',
+                     'builder-packages', 'root-packages'}
 RECOVERY_ROLES = {'installer-kernel', 'installer-filesystem',
                   'installer-build-manifest', 'installer-host-key'}
 FIRST_BOOT_SERVICES = {
@@ -106,7 +108,7 @@ def verify_local_kit(kit):
     missing = REQUIRED_ROLES - set(files)
     if missing:
         raise ValueError('Internal kit is incomplete: ' + ', '.join(sorted(missing)))
-    if set(files) not in (REQUIRED_ROLES, REQUIRED_ROLES | RECOVERY_ROLES):
+    if set(files) - BUILD_INPUT_ROLES not in (REQUIRED_ROLES, REQUIRED_ROLES | RECOVERY_ROLES):
         raise ValueError('Internal kit has incomplete or unexpected RAM-installer artifacts')
     has_recovery = RECOVERY_ROLES <= set(files)
 
