@@ -39,7 +39,7 @@ def main():
         from extend_font import extend
         extend(HERE.parent/'shell/vendor/fonts/choices/console-8x16.psf',out/'console-font.psf')
     inputs=['present.c' ,'present.h','cells.c','cells.h','nokia.c']+(['mbx_cells.c','pixel_target.h','pixel_target_impl.h','room_draw.h','terminal.c','game.c','room_pixels.c','map_pixels.c'] if args.mesa_include else [])
-    if args.scene_gl:inputs+=['gpu_scene.c','scene_backend_gl.h']
+    if args.scene_gl:inputs+=['gpu_scene.c','scene_backend_gl.h','scene_texture_coordinate.h']
     (out/'BUILD.json').write_text(json.dumps({'scene_gl':args.scene_gl,'mesa_sha256':hashlib.sha256(args.mesa_library.read_bytes()).hexdigest() if args.mesa_library else None,'gpu_renderer':bool(args.mesa_include),'status':'CROSS_BUILT_NOT_DEVICE_TESTED','sources':{n:hashlib.sha256((native/n).read_bytes()).hexdigest() for n in inputs},'artifacts':{n:hashlib.sha256((out/n).read_bytes()).hexdigest() for n in (('cells.so','window.so','renderer.so') if args.mesa_include else ('cells.so','window.so'))}},indent=2)+'\n')
     print('Cross-built framebuffer frontend libraries; no device access.')
 if __name__=='__main__':main()

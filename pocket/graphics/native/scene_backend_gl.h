@@ -12,6 +12,7 @@
 #include <sys/resource.h>
 #include "present.h"
 #include <dlfcn.h>
+#include "scene_texture_coordinate.h"
 #include "../driver/mbx/common/mbx_owned_surface.h"
 static int (*scene_surface_begin)(void),(*scene_surface_end)(struct mbx_owned_surface *),(*scene_surface_copy)(const struct mbx_surface_sink *),(*scene_surface_release)(void);
 static int (*scene_surface_dma_copy)(const struct mbx_surface_dma_sink *);
@@ -191,9 +192,9 @@ static struct scene_geometry *scene_gl_compile(Scene_Renderer *r,Scene_Texture *
   }
   if(source){float u=(v[first].tex_coord.x+v[first+1].tex_coord.x+v[first+2].tex_coord.x)*source->w/3,t=(v[first].tex_coord.y+v[first+1].tex_coord.y+v[first+2].tex_coord.y)*source->h/3;
    for(unsigned i=0;i<source->n;i++){struct scene_gl_tile *q=source->tiles+i;if(u<q->x||u>=q->x+q->w||t<q->y||t>=q->y+q->h)continue;b->page=i;
-    for(unsigned k=0;k<3;k++){float x=v[first+k].tex_coord.x*source->w-q->x,y=v[first+k].tex_coord.y*source->h-q->y;
-     if(x<-.01f||x>q->w+.01f||y<-.01f||y>q->h+.01f)b->uv_valid=0;
-     b->uv[k*4]=x/q->pw;b->uv[k*4+1]=q->fbo?1-y/q->ph:y/q->ph;b->uv[k*4+2]=0;b->uv[k*4+3]=1;
+    for(unsigned k=0;k<3;k++){if(!scene_texture_coordinate(v[first+k].tex_coord.x,source->w,q->x,q->w,q->pw,0,&b->uv[k*4])||
+        !scene_texture_coordinate(v[first+k].tex_coord.y,source->h,q->y,q->h,q->ph,!!q->fbo,&b->uv[k*4+1]))b->uv_valid=0;
+     b->uv[k*4+2]=0;b->uv[k*4+3]=1;
     }break;
    }
   }
@@ -307,7 +308,7 @@ static int scene_gl_geometry_now(Scene_Renderer *r,Scene_Texture *source,const S
      continue;
     }
     for(unsigned k=0;k<3;k++){unsigned vk=rotate?(k+1)%3:k;const Scene_Vertex *a=vertices+first+vk;if(pre){positions[used*9+k*3]=a->position.x;positions[used*9+k*3+1]=a->position.y;positions[used*9+k*3+2]=0;memcpy(colors+used*12+k*4,pre->colors+vk*4,4*sizeof(float));if(q){if(!pre->uv_valid)return -1;memcpy(uv+used*12+k*4,pre->uv+vk*4,4*sizeof(float));}continue;}positions[used*9+k*3]=a->position.x;positions[used*9+k*3+1]=a->position.y;positions[used*9+k*3+2]=0;colors[used*12+k*4]=r->color_float[a->color.r];colors[used*12+k*4+1]=r->color_float[a->color.g];colors[used*12+k*4+2]=r->color_float[a->color.b];colors[used*12+k*4+3]=r->color_float[a->color.a];
-     if(q){float u=a->tex_coord.x*source->w-q->x,t=a->tex_coord.y*source->h-q->y;if(u<-.01f||u>q->w+.01f||t<-.01f||t>q->h+.01f)return -1;uv[used*12+k*4]=u/q->pw;uv[used*12+k*4+1]=q->fbo?1-t/q->ph:t/q->ph;uv[used*12+k*4+2]=0;uv[used*12+k*4+3]=1;}}
+     if(q){if(!scene_texture_coordinate(a->tex_coord.x,source->w,q->x,q->w,q->pw,0,&uv[used*12+k*4])||!scene_texture_coordinate(a->tex_coord.y,source->h,q->y,q->h,q->ph,!!q->fbo,&uv[used*12+k*4+1]))return -1;uv[used*12+k*4+2]=0;uv[used*12+k*4+3]=1;}}
     ++used;
     if(used==256){glVertexPointer(3,GL_FLOAT,0,positions);glColorPointer(4,GL_FLOAT,0,colors);if(q)glTexCoordPointer(4,GL_FLOAT,0,uv);scene_gl_draw_arrays(r,used*3);used=0;}
    }
