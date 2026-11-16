@@ -213,8 +213,8 @@ def build(root,package,recovery,output,size_mib,gpu=None):
                     '-E','lazy_itable_init=0,lazy_journal_init=0',str(image)],check=True)
     subprocess.run(['e2fsck','-fn',str(image)],check=True)
     compressed=output/'root.ext4.gz'
-    with image.open('rb') as source,compressed.open('wb') as target:
-        with gzip.GzipFile(fileobj=target,mode='wb',compresslevel=1,mtime=0,filename='') as archive:
+    with image.open('rb') as source,compressed.open('wb') as compressed_stream:
+        with gzip.GzipFile(fileobj=compressed_stream,mode='wb',compresslevel=1,mtime=0,filename='') as archive:
             shutil.copyfileobj(source,archive,4*1024*1024)
     compressed.chmod(0o600)
     root_bytes=image.stat().st_size
@@ -224,9 +224,9 @@ def build(root,package,recovery,output,size_mib,gpu=None):
     shutil.copyfile(package/'BUILD.json',output/'KERNEL-BUILD.json')
     if recovery:
         shutil.copyfile(recovery/'BUILD.json',output/'INSTALLER-BUILD.json')
-        for source,target in (('kernel.bin','installer-kernel.bin'),('initramfs.cpio.xz','installer-initramfs.cpio.xz'),
+        for source_name,destination_name in (('kernel.bin','installer-kernel.bin'),('initramfs.cpio.xz','installer-initramfs.cpio.xz'),
                               ('installer-known-hosts','installer-known-hosts')):
-            shutil.copyfile(recovery/source,output/target)
+            shutil.copyfile(recovery/source_name,output/destination_name)
     manifest=dict(kind='n810-internal',storage_target=target,disk_id=disk_id,filesystem_uuid=filesystem_uuid,
                   kernel_release=release,kernel_sha256=sha256(output/'kernel.bin'),
                   install_transport='sd-card-reader' if target=='sd' else 'maemo-usb-mass-storage' if not recovery else 'ram-installer-or-maemo-usb',
