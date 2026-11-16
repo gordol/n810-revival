@@ -1,8 +1,14 @@
 # MBX driver source
 
-The PowerVR MBX driver source lives in `graphics/mbx/` in the repository.
-It provides GPU command encoding, a Linux submission module and Mesa integration
-for the N810.
+The portable build starts with the integration in `graphics/mbx/` and applies
+the maintained driver files from `pocket/graphics/driver/mbx/`. Both the kernel
+module and Mesa use that same assembled source tree. `source_tree.py` records
+this precedence explicitly; `package/BUILD.json` hashes the effective inputs.
+Historical builds selected with `--checkpoint` retain their frozen sources.
+
+The driver provides GPU command encoding, a Linux submission module and Mesa
+integration for the N810. The installer and release containers include both
+source directories.
 
 | Path under `graphics/mbx/` | Contents |
 | --- | --- |

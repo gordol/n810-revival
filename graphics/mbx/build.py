@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the original MBX module and Mesa integration using explicit local outputs."""
+"""Build matching maintained MBX and Mesa sources using explicit local outputs."""
 from pathlib import Path
 import argparse,hashlib,json,os,re,shutil,subprocess,sys
 HERE=Path(__file__).resolve().parent
@@ -22,6 +22,9 @@ def main():
         subprocess.run([sys.executable,source_root/'verify.py'],check=True)
     work=a.work.resolve();work.mkdir(parents=True,exist_ok=False)
     logs=work/'logs';logs.mkdir();out=work/'package';out.mkdir()
+    if not a.checkpoint:
+        from source_tree import assemble
+        source_root=assemble(HERE,work/'driver-source')
     def run(args,label,cwd=None,env=None):
         print(label,flush=True)
         with (logs/(label+'.log')).open('wb') as f:r=subprocess.run(list(map(str,args)),cwd=cwd,env=env,stdout=f,stderr=subprocess.STDOUT)
@@ -29,11 +32,11 @@ def main():
     if a.target=='module':
         if not a.kernel_source or not a.kernel_build:p.error('module needs --kernel-source and --kernel-build from the completed kernel build')
         source=a.kernel_source.resolve();build=a.kernel_build.resolve();module=work/'module'
-        kernel=source_root/'experiments/vgp-service-20261104/kernel' if a.checkpoint else HERE/'kernel'
+        kernel=source_root/'experiments/vgp-service-20261104/kernel' if a.checkpoint else source_root/'kernel'
         shutil.copytree(kernel,module)
         if not a.checkpoint:
             for name in ('mbx_packets.c','mbx_packets.h','mbx_context.c','mbx_context.h','mbx_vertex_program.c','mbx_vertex_program.h'):
-                shutil.copyfile(HERE/'common'/name,module/name)
+                shutil.copyfile(source_root/'common'/name,module/name)
         run(['make','-C',source,'O='+str(build),'ARCH=arm','CROSS_COMPILE=arm-linux-gnueabihf-','LOCALVERSION=','M='+str(module),'modules'],'module')
         ko=module/'n810_mbx_gpu_probe.ko';release=(build/'include/config/kernel.release').read_text().strip()
         versions=subprocess.check_output(['modprobe','--dump-modversions',str(ko)],text=True)
@@ -76,6 +79,9 @@ def main():
             if f.suffix in ('.c','.h') and not (integration/f.name).exists():
                 shutil.copyfile(f,integration/f.name)
         mesa=work/('mesa-'+lock['mesa']['version']);run([sys.executable,integration/'prepare_mesa.py',mesa],'prepare-mesa')
+        recipe=mesa/'src/gallium/drivers/softpipe/meson.build'
+        text=recipe.read_text().replace('include_directories : [inc_gallium_aux,','include_directories : [inc_mapi, inc_mesa, inc_gallium_aux,')
+        recipe.write_text(text)
         cross=work/'armel.cross';cross.write_text((HERE/'mesa/armel.cross.in').read_text().replace('@SYSROOT@',str(sysroot)))
         options=['-Dbuildtype=release','-Db_ndebug=true','-Dglx=xlib','-Dgallium-drivers=swrast','-Dvulkan-drivers=',
                  '-Dllvm=disabled','-Dshared-glapi=disabled','-Degl=disabled','-Dgbm=disabled','-Dplatforms=x11',
@@ -87,7 +93,7 @@ def main():
             symbols=target/'osmesa.sym'
             text=symbols.read_text()
             if text.count('global:')!=1:raise RuntimeError('Unexpected OSMesa export list')
-            symbols.write_text(text.replace('global:', 'global:\n\t\tn810_mbx_surface_*;'))
+            symbols.write_text(text.replace('global:', 'global:\n\t\tn810_mbx_surface_*;\n\t\tn810_mbx_window_*;\n\t\tn810_mbx_transaction_*;'))
             shutil.copyfile(HERE/'mesa/osmesa_frontend.c',target/'mbx_frontend.c')
             recipe=target/'meson.build';text=recipe.read_text()
             if text.count("  'target.c',")!=1:raise RuntimeError('Unexpected OSMesa target recipe')

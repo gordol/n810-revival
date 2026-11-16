@@ -347,12 +347,66 @@ static int scene_gl_damaged(const Scene_Texture *t,const struct scene_gl_tile *q
  const Scene_Rect *d=&t->damage;
  return d->x<(int)(q->x+q->w)&&d->y<(int)(q->y+q->h)&&d->x+d->w>(int)q->x&&d->y+d->h>(int)q->y;
 }
+/* Bound a complete GPU submission, not merely each glDrawArrays call.
+ * Conservatively count triangle bounding boxes through retained batches. No
+ * pixels are shaded here; every surviving primitive is replayed in original
+ * order by the GPU into disjoint output tiles. Keep the kernel limits intact.
+ * 768 leaves room for masks, window composition and driver bookkeeping. */
+#define SCENE_TILE_TRIANGLES 768U
+static unsigned scene_tile_triangles(const Scene_Texture *t,const struct scene_gl_tile *q,int dx,int dy,unsigned depth){
+ if(depth>16)return SCENE_TILE_TRIANGLES+1;
+ unsigned total=0;
+ for(size_t j=0;j<t->count;j++){
+  const struct scene_command *c=t->commands+j;
+  if(c->source&&c->source->room_region)return SCENE_TILE_TRIANGLES+1;
+  if(c->source&&c->source->recorded_scene){
+   total+=scene_tile_triangles(c->source,q,dx+c->dx,dy+c->dy,depth+1);
+  }else for(int i=0;i<c->count;i+=3){
+   const Scene_Vertex *v=t->stream+c->first+i;
+   float left=v[0].position.x,right=left,top=v[0].position.y,bottom=top;
+   for(int k=1;k<3;k++){float x=v[k].position.x,y=v[k].position.y;if(x<left)left=x;if(x>right)right=x;if(y<top)top=y;if(y>bottom)bottom=y;}
+   if(right+dx+c->dx>q->x&&left+dx+c->dx<q->x+q->w&&bottom+dy+c->dy>q->y&&top+dy+c->dy<q->y+q->h)++total;
+   if(total>SCENE_TILE_TRIANGLES)return total;
+  }
+  if(total>SCENE_TILE_TRIANGLES)return total;
+ }
+ return total;
+}
+static int scene_tile_storage(Scene_Renderer *r,struct scene_gl_tile *q){
+ q->pw=(q->w+15)&~15U;q->ph=(q->h+15)&~15U;
+ glGenTextures(1,&q->color);glBindTexture(GL_TEXTURE_2D,q->color);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+ glTexImage2D(GL_TEXTURE_2D,0,GL_RGB565,q->pw,q->ph,0,GL_RGBA,GL_UNSIGNED_BYTE,NULL);
+ glGenFramebuffers(1,&q->fbo);scene_gl_bind(r,q->fbo);glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,q->color,0);
+ return glCheckFramebufferStatus(GL_FRAMEBUFFER)==GL_FRAMEBUFFER_COMPLETE&&glGetError()==GL_NO_ERROR?0:-1;
+}
+static int scene_bound_output(Scene_Renderer *r,Scene_Texture *t){
+ if(!r->sink_dma||t->format!=Scene_PIXELFORMAT_RGB565||!t->clear_pending)return 0;
+ for(unsigned i=0;i<t->n;){
+  struct scene_gl_tile q=t->tiles[i];
+  if(q.depth)return 0; /* 3D retains its independently bounded depth path. */
+  if(scene_tile_triangles(t,&q,0,0,0)<=SCENE_TILE_TRIANGLES){++i;continue;}
+  if(q.w<=16&&q.h<=16){fprintf(stderr,"Pocket scene exceeds bounded GPU tile density at %u,%u\n",q.x,q.y);return -1;}
+  struct scene_gl_tile a={.x=q.x,.y=q.y,.w=q.w,.h=q.h},b=a;
+  if(q.w>=q.h&&q.w>16){unsigned half=((q.w/2)/16)*16;if(!half)half=16;a.w=half;b.x+=half;b.w-=half;}
+  else{unsigned half=((q.h/2)/16)*16;if(!half)half=16;a.h=half;b.y+=half;b.h-=half;}
+  if(scene_tile_storage(r,&a)||scene_tile_storage(r,&b)){glDeleteFramebuffers(1,&a.fbo);glDeleteTextures(1,&a.color);glDeleteFramebuffers(1,&b.fbo);glDeleteTextures(1,&b.color);return -1;}
+  struct scene_gl_tile *tiles=realloc(t->tiles,(t->n+1)*sizeof(*tiles));
+  if(!tiles){glDeleteFramebuffers(1,&a.fbo);glDeleteTextures(1,&a.color);glDeleteFramebuffers(1,&b.fbo);glDeleteTextures(1,&b.color);return -1;}
+  t->tiles=tiles;t->tiles[i]=a;t->tiles[t->n++]=b;
+  glDeleteFramebuffers(1,&q.fbo);glDeleteTextures(1,&q.color);
+  t->damage_valid=0;r->matrix_valid=0;
+ }
+ return 0;
+}
 static int scene_gl_flush(Scene_Renderer *r,Scene_Texture *t){
  if(!t||(!t->count&&!t->clear_pending))return 0;
  Scene_Texture *old=r->target;Scene_Rect clip=r->clip;int clipped=r->clipped;Scene_BlendMode blend=r->blend;
  unsigned first=r->tile_first,end=r->tile_end;int result=0;r->target=t;r->matrix_valid=0;
  unsigned rooms=0;for(size_t j=0;j<t->count;j++)if(t->commands[j].source&&t->commands[j].source->room_region)rooms++;
  if(rooms>1|| (rooms&&!t->clear_pending)){r->target=old;return -1;}
+ if(!rooms&&scene_bound_output(r,t)){r->target=old;return -1;}
  if(r->sink_pixels){
   r->sink_forward=r->sink_dma&&!rooms&&getenv("POCKET_DMA_FORWARD")&&!strcmp(getenv("POCKET_DMA_FORWARD"),"1");
   if(r->last_sink_forward!=r->sink_forward)t->damage_valid=0;

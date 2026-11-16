@@ -31,6 +31,7 @@ RUN test "${#DISK_ID}" = 8 \
     && python3 platform/kernel/build.py --work /build/kernel \
        --root-device "PARTUUID=${DISK_ID}-01" --jobs 4
 COPY graphics/mbx/ graphics/mbx/
+COPY pocket/graphics/driver/mbx/ pocket/graphics/driver/mbx/
 RUN python3 graphics/mbx/build.py module --work /build/module \
     --kernel-source /build/kernel/linux-5.15.224 --kernel-build /build/kernel/build
 RUN --mount=type=cache,id=n810-internal-mesa-inputs,target=/cache/mesa-inputs,sharing=locked \

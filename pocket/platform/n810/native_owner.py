@@ -38,6 +38,7 @@ assets=Path('/usr/local/share/pocket-gui/managed-native/assets')
 # Optional preparation accelerators belong to the same immutable release.
 # Older releases retain their existing native library and replay policy.
 native_library=(release if '_cellengine.abi3.so' in manifest['files'] else assets)/'_cellengine.abi3.so'
+renderer_library=(release if 'renderer.so' in manifest['files'] else assets)/'renderer.so'
 page_groups=json.loads((release/'defaults.json').read_text()).get('native',{}).get('POCKET_SCENE_PAGE_GROUPS','0')
 assert page_groups in ('0','1')
 base=Path('/sys/module/n810_mbx_gpu_probe/parameters')
@@ -114,7 +115,7 @@ try:
   env.update(HOME=account.pw_dir,USER='nokia',LOGNAME='nokia',POCKET_NATIVE_PIXELS='1',POCKET_GL_TARGET='direct',POCKET_SCENE_BATCHES='1',POCKET_SCENE_PARTIAL='1',POCKET_SCENE_MOVE_REUSE='1',POCKET_SCENE_COMPILED='1',POCKET_SCENE_MATRIX_CACHE='1',POCKET_SCENE_DMA_DAMAGE='1',POCKET_SCENE_WINDOW_IMAGES='1',POCKET_SCENE_WINDOW_WARMUP='8',POCKET_SCENE_OVERLAP='1',POCKET_SCENE_OUTPUT_TILE='800x480',POCKET_DMA_SINK='1',POCKET_DMA_FORWARD='1',N810_MBX_TEXTURE_SUBSET='1',N810_MBX_TEXTURE_RESIDENCY='1',N810_MBX_WINDOW_IMAGES='1',N810_MBX_RESOURCE_REFERENCES='1',N810_MBX_DESKTOP_TARGET='1',LD_LIBRARY_PATH=str(release)+':'+str(assets),LD_PRELOAD=str(release/'libOSMesa.so.8'))
   env['POCKET_SCENE_PAGE_GROUPS']=page_groups
   env['POCKET_SCENE_DAMAGE_CULL']='0'
-  command=[sys.executable,str(source/'graphics/nokia.py'),'--framebuffer-fd',str(fb),'--font',str(assets/'console-font.psf'),'--renderer-library',str(assets/'renderer.so'),'--display-library',str(release/'window.so'),'--native-library',str(native_library),'--state','/home/nokia/.local/state/current-world','--device-radio','--native-stations','--station-db','/home/nokia/.local/state/n810-aprs/directory.sqlite3','--touch-device','/dev/input/n810-touch','--touch-calibration','/home/nokia/.local/state/current-world/touch-calibration.json','--touch-display','800x480','--touch-rotation','0']
+  command=[sys.executable,str(source/'graphics/nokia.py'),'--framebuffer-fd',str(fb),'--font',str(assets/'console-font.psf'),'--renderer-library',str(renderer_library),'--display-library',str(release/'window.so'),'--native-library',str(native_library),'--state','/home/nokia/.local/state/current-world','--device-radio','--native-stations','--station-db','/home/nokia/.local/state/n810-aprs/directory.sqlite3','--touch-device','/dev/input/n810-touch','--touch-calibration','/home/nokia/.local/state/current-world/touch-calibration.json','--touch-display','800x480','--touch-rotation','0']
   render_fd=os.open(device,os.O_RDWR|os.O_CLOEXEC);env['N810_MBX_RENDER_FD']=str(render_fd)
   window_mode=env.get('POCKET_SYMBIAN_WINDOWS')=='1'
   if window_mode:

@@ -80,6 +80,7 @@ def stage(root, runtime, module_package, mesa_package, kernel_package):
         'n810_mbx_gpu_probe.ko': binary,
         'libOSMesa.so.8': osmesa,
         'window.so': staged / 'build/graphics/window.so',
+        'renderer.so': staged / 'build/graphics/renderer.so',
         '_cellengine.abi3.so': staged / 'build/graphics/_cellengine.abi3.so',
     }
     hashes = {}
