@@ -42,7 +42,7 @@ def stage(root, build):
     (bundle/'bootstrap').mkdir(parents=True, exist_ok=True)
     (bundle/'flasher').mkdir(exist_ok=True)
     for name in ('internal_installer.py', 'linux_storage.py', 'write_sd_card.py',
-                 'storage_target.py', 'provision.py'):
+                 'storage_target.py', 'system_contract.py', 'provision.py'):
         shutil.copyfile(Path(__file__).with_name(name), bundle/'bootstrap'/name)
         (bundle/'bootstrap'/name).chmod(0o644)
     for name in ('0xFFFF', 'BUILD.json'):
