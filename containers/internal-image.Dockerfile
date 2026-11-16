@@ -4,12 +4,12 @@
 # Build all five inputs for the internal MMC kit from one tracked source tree.
 FROM python:3.13-bookworm@sha256:cc55e4ded9c95f6ce2133b3d096db43f214d280c2a8af65d83e246c8fa7d168c
 RUN dpkg --add-architecture armel && apt-get update && apt-get install -y --no-install-recommends \
-    build-essential git flex bison bc libssl-dev libelf-dev kmod curl ca-certificates \
+    build-essential cmake libbz2-dev git flex bison bc libssl-dev libelf-dev kmod curl ca-certificates \
     xz-utils patch gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf \
     gcc-arm-linux-gnueabi g++-arm-linux-gnueabi binutils-arm-linux-gnueabi \
     ninja-build pkg-config dpkg-dev mmdebstrap qemu-user-static binfmt-support \
     arch-test e2fsprogs liblzo2-2 \
-    && apt-get download libpython3.11-dev:armel libusb-dev:armel libusb-0.1-4:armel \
+    && apt-get download libpython3.11-dev:armel libusb-dev:armel libusb-0.1-4:armel libbz2-dev:armel libbz2-1.0:armel \
     && mkdir -p /opt/arm-sysroot \
     && for package in ./*_armel.deb; do dpkg-deb -x "$package" /opt/arm-sysroot; done \
     && rm -f ./*_armel.deb \
@@ -17,6 +17,10 @@ RUN dpkg --add-architecture armel && apt-get update && apt-get install -y --no-i
 RUN python3 -m venv /opt/mesa-tools && /opt/mesa-tools/bin/pip install \
     meson==1.5.2 Mako==1.3.5 packaging==24.1 PyYAML==6.0.2 setuptools==75.1.0
 WORKDIR /src
+COPY platform/config/n810-mesh*-requirements.txt /build/requirements/
+RUN /opt/mesa-tools/bin/pip download --only-binary=:all: --no-deps --require-hashes \
+    -r /build/requirements/n810-mesh-requirements.txt \
+    -r /build/requirements/n810-meshcore-requirements.txt -d /build/service-wheels
 COPY platform/kernel/ platform/kernel/
 ARG DISK_ID
 RUN test "${#DISK_ID}" = 8 \
@@ -38,9 +42,11 @@ RUN test "${#SOURCE_COMMIT}" = 40
 RUN python3 platform/bootstrap/build_internal_frontend.py \
     --mesa-package /build/mesa/package --arm-headers /opt/arm-sysroot/usr/include \
     --output /build/frontend
+RUN python3 pocket/shell/native/reticulum/build.py /build/reticulum --arm \
+    --bzip2-library /opt/arm-sysroot/usr/lib/arm-linux-gnueabi/libbz2.a
 RUN git init -q pocket && git -C pocket add shell graphics \
     && python3 pocket/tools/stage_runtime.py --profile release \
-       --frontend /build/frontend/frontend.json --source-commit "$SOURCE_COMMIT" \
+       --frontend /build/frontend/frontend.json --native-reticulum /build/reticulum/build --source-commit "$SOURCE_COMMIT" \
        --output /build/runtime
 RUN test -f /opt/arm-sysroot/lib/arm-linux-gnueabi/libusb-0.1.so.4.4.4 \
     && rm -f /opt/arm-sysroot/usr/lib/arm-linux-gnueabi/libusb.so \

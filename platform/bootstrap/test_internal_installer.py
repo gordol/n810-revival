@@ -198,6 +198,49 @@ class CompressedKit(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError,'first-boot services'):
                         verify_local_kit(root)
 
+    def test_v6_profile_requires_the_menu_dependency_contract(self):
+        from system_contract import COMMANDS, FILES
+        with tempfile.TemporaryDirectory() as folder:
+            _, manifest = self.kit(folder)
+            root = Path(folder)
+            manifest['first_boot'].update(profile='n810-internal-v6', init_system='sysvinit',
+                lock_slider_sha256='f'*64, enabled_services=sorted(SYSV_FIRST_BOOT_SERVICES),
+                system_dependencies={name:'a'*64 for name in COMMANDS|FILES})
+            for complete in (True,False):
+                if not complete:manifest['first_boot']['system_dependencies'].pop('/usr/local/sbin/n810-console-power-menu')
+                plan=root/'INTERNAL.json';plan.write_text(json.dumps(manifest))
+                installation=root/'INSTALLATION.json';rows=json.loads(installation.read_text())
+                row=next(row for row in rows['files'] if row['role']=='install-plan')
+                row.update(sha256=hashlib.sha256(plan.read_bytes()).hexdigest(),bytes=plan.stat().st_size)
+                installation.write_text(json.dumps(rows))
+                if complete:self.assertEqual(verify_local_kit(root)[1]['first_boot']['profile'],'n810-internal-v6')
+                else:
+                    with self.assertRaisesRegex(ValueError,'dependency contract'):verify_local_kit(root)
+
+    def test_sd_target_requires_reader_transport_and_matching_receipt(self):
+        from internal_installer import checked_write_receipt
+        with tempfile.TemporaryDirectory() as folder:
+            _, manifest=self.kit(folder);root=Path(folder)
+            manifest.update(storage_target='sd',install_transport='sd-card-reader')
+            installation=root/'INSTALLATION.json';rows=json.loads(installation.read_text())
+            rows['files']=[row for row in rows['files'] if row['role'] not in ('installer-kernel','installer-filesystem','installer-build-manifest','installer-host-key')]
+            installation.write_text(json.dumps(rows))
+            def update():
+                plan=root/'INTERNAL.json';plan.write_text(json.dumps(manifest))
+                installation=root/'INSTALLATION.json';rows=json.loads(installation.read_text())
+                row=next(row for row in rows['files'] if row['role']=='install-plan')
+                row.update(sha256=hashlib.sha256(plan.read_bytes()).hexdigest(),bytes=plan.stat().st_size)
+                installation.write_text(json.dumps(rows))
+            update();self.assertEqual(verify_local_kit(root)[1]['storage_target'],'sd')
+            manifest['install_transport']='maemo-usb-mass-storage';update()
+            with self.assertRaisesRegex(ValueError,'transport'):verify_local_kit(root)
+            receipt=dict(version=1,state='rootfs_written',rootfs_readback_verified=True,
+                root_sha256=manifest['root_sha256'],kernel_sha256=manifest['kernel_sha256'],kernel_flashing_pending=True)
+            (root/'INSTALL-STATE.json').write_text(json.dumps(receipt))
+            with self.assertRaisesRegex(ValueError,'sd storage kit'):checked_write_receipt(root,manifest)
+            receipt['storage_target']='sd';(root/'INSTALL-STATE.json').write_text(json.dumps(receipt))
+            self.assertEqual(checked_write_receipt(root,manifest)['storage_target'],'sd')
+
     def test_sysv_profile_requires_ssh_hostkeys_before_boot(self):
         with tempfile.TemporaryDirectory() as folder:
             _, manifest = self.kit(folder)

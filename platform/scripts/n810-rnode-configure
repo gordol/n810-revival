@@ -1,0 +1,40 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+"""Save explicit RNode endpoint policy; never pair, bind or open a radio."""
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+
+sys.path.insert(0, '/usr/local/lib/n810-platform')
+from rnode_spp_prepare import validate_configuration
+
+
+def configure(raw, parent=Path('/etc/n810')):
+    if len(raw) > 4096:raise ValueError('RNode setup exceeds limit')
+    value=validate_configuration(json.loads(raw))
+    result=subprocess.run(['/usr/bin/bluetoothctl','show'],capture_output=True,text=True,timeout=8,
+                          env={'PATH':'/usr/bin:/bin','LC_ALL':'C'})
+    if result.returncode or not re.search(r'^Controller '+value['controller']+r'(?:\s|$)',result.stdout,re.M):
+        raise ValueError('Select this tablet controller; pair the peripheral separately')
+    parent.mkdir(parents=True, exist_ok=True, mode=0o755)
+    info=parent.lstat()
+    import stat
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+        raise ValueError('RNode configuration directory must be protected and root-owned')
+    fd,name=tempfile.mkstemp(prefix='.rnode-',dir=parent)
+    try:
+        with os.fdopen(fd,'w') as stream:json.dump(value,stream);stream.write('\n')
+        os.replace(name,parent/'rnode-spp.json')
+    finally:
+        if os.path.exists(name):os.unlink(name)
+    return 'Endpoint saved. Pair the device before preparing rfcomm0 in Connections.'
+
+
+if __name__=='__main__':
+    if os.geteuid()!=0 or sys.argv[1:]!=['--stdin']:raise SystemExit('Usage: sudo n810-rnode-configure --stdin')
+    try:print(configure(sys.stdin.buffer.read(4097)))
+    except (OSError, ValueError, subprocess.SubprocessError) as error:raise SystemExit(str(error))

@@ -7,6 +7,7 @@ import threading
 import time
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'shell'))
 from service_selection import Selection
@@ -27,7 +28,7 @@ class SelectionTests(unittest.TestCase):
             self.assertFalse(calls)
 
     def test_local_auto_attaches_idle_local_owner_without_connect_request(self):
-        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp, patch('service_policy.enabled', return_value=True):
             Path(tmp,'reticulum-owner.json').write_text(json.dumps(dict(mode='local',state=tmp+'/owner',interpreter=sys.executable,station='test',carriers=[dict(type='tcp',host='127.0.0.1',port=7777)])))
             calls=[];requests=[]
             provider=SimpleNamespace(close=lambda:None,request=lambda *args:requests.append(args))

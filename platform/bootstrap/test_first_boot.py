@@ -17,6 +17,7 @@ class KeyboardStaging(unittest.TestCase):
             configure_first_boot(root, Path(folder) / 'n810-fn-remap',
                                  Path(folder) / 'n810-backlightd')
             logind = (root / 'etc/systemd/logind.conf.d/10-n810-power-key.conf').read_text()
+            self.assertEqual((root / 'etc/default/chrony').read_text(), 'DAEMON_OPTS="-4 -F 0"\n')
             self.assertIn('HandlePowerKey=ignore', logind)
             self.assertIn('HandlePowerKeyLongPress=ignore', logind)
             ssh = (root / 'etc/systemd/system/ssh.service.d/99-n810-host-key.conf').read_text()
@@ -63,7 +64,7 @@ class KeyboardStaging(unittest.TestCase):
                 self.assertTrue((root / 'etc/systemd/system/multi-user.target.wants' / name).is_symlink())
             configure_power_indicators(root)
 
-    def test_internal_root_stages_lock_slider_without_old_idle_policy(self):
+    def test_internal_root_stages_og_idle_policy_with_one_key_owner(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / 'root'
             arm = Path(folder) / 'arm'
@@ -72,8 +73,16 @@ class KeyboardStaging(unittest.TestCase):
             self.assertEqual((root / 'usr/local/sbin/n810-wake').read_bytes(), arm.read_bytes())
             self.assertTrue((root / 'etc/systemd/system/multi-user.target.wants/n810-wake.service').is_symlink())
             lock = (root / 'etc/n810-idle.conf').read_text()
-            self.assertIn('lock_only=1', lock)
-            self.assertIn('idle_enabled=0', lock)
+            self.assertNotIn('lock_only=1', lock)
+            self.assertIn('idle_enabled=1', lock)
+            self.assertIn('dim_seconds=60', lock)
+            self.assertIn('off_seconds=300', lock)
+            wants = root / 'etc/systemd/system/multi-user.target.wants'
+            self.assertFalse((wants / 'n810-display-keys.service').exists())
+            self.assertTrue((wants / 'n810-displayd.service').is_symlink())
+            self.assertTrue((wants / 'n810-boot-mode.service').is_symlink())
+            for helper in ('n810-mode', 'n810-bootreason', 'n810-cpu-policy', 'n810-displayd'):
+                self.assertTrue((root / 'usr/local/sbin' / helper).stat().st_mode & 0o111)
             self.assertIn('topoff', (root / 'usr/local/sbin/n810-power-overlay').read_text())
             configure_power_indicators(root)
 

@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The wake daemon calls this fixed root entry; openvt restores the original VT.
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+TERM=linux
+export TERM
+test "$#" = 0 && test "$(id -u)" = 0 || { echo 'This menu entry requires root and no arguments.' >&2; exit 2; }
+exec 9>/run/lock/n810-power-menu.lock
+flock -n 9 || exit 0
+exec openvt -s -w -- /usr/local/sbin/n810-power-overlay

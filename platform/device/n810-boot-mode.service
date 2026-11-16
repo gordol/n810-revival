@@ -1,0 +1,10 @@
+[Unit]
+Description=N810 NOLO charger boot policy
+After=n810-wake.service n810-displayd.service n810-wifi.service
+Before=pocket-desktop.service n810-setup-touch.service
+[Service]
+Type=oneshot
+ExecStart=/etc/init.d/n810-boot-mode start
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target

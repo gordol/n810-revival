@@ -5,7 +5,7 @@
 # Required-Stop:     $local_fs
 # Default-Start:     2 3 4 5
 # Default-Stop:
-# Short-Description: Expand the installed internal root once
+# Short-Description: Expand the installed root partition once
 ### END INIT INFO
 set -eu
 case "${1:-}" in

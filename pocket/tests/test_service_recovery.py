@@ -24,7 +24,7 @@ class RecoveryTests(unittest.TestCase):
     def test_catalogue_readiness_survives_timeouts_without_duplicate_owner(self):
         ready=dict(implementation=device_services.identity(),release=__import__('build_identity').IDENTITY['release_id'],services=[{'id':'system'}])
         process=SimpleNamespace(poll=lambda:None)
-        with tempfile.TemporaryDirectory(dir='/tmp') as root, patch.object(device_services,'exchange',side_effect=[FileNotFoundError(),TimeoutError(),dict(ready,services=[]),ConnectionError("frame interrupted"),ready]), patch.object(subprocess,'Popen',return_value=process) as spawn:
+        with tempfile.TemporaryDirectory(dir='/tmp') as root, patch('service_policy.enabled', return_value=True), patch.object(device_services,'exchange',side_effect=[FileNotFoundError(),TimeoutError(),dict(ready,services=[]),ConnectionError("frame interrupted"),ready]), patch.object(subprocess,'Popen',return_value=process) as spawn:
             result=device_services.ensure(root,timeout=4)
             self.assertEqual(result['socket'],str(Path(root)/'owner.sock'))
             self.assertEqual(spawn.call_count,1)
@@ -45,12 +45,12 @@ class RecoveryTests(unittest.TestCase):
 
     def test_slow_existing_owner_is_not_replaced(self):
         ready=dict(implementation=device_services.identity(),release=__import__('build_identity').IDENTITY['release_id'],services=[{'id':'system'}])
-        with tempfile.TemporaryDirectory(dir='/tmp') as root, patch.object(device_services,'exchange',side_effect=[BlockingIOError(11,'backlog full'),TimeoutError(),ready]), patch.object(subprocess,'Popen') as spawn:
+        with tempfile.TemporaryDirectory(dir='/tmp') as root, patch('service_policy.enabled', return_value=True), patch.object(device_services,'exchange',side_effect=[BlockingIOError(11,'backlog full'),TimeoutError(),ready]), patch.object(subprocess,'Popen') as spawn:
             device_services.ensure(root,timeout=3)
             spawn.assert_not_called()
 
     def test_failed_child_reports_exit_without_waiting_full_deadline(self):
-        with tempfile.TemporaryDirectory(dir='/tmp') as root, patch.object(device_services,'exchange',side_effect=FileNotFoundError()), patch.object(subprocess,'Popen',return_value=SimpleNamespace(poll=lambda:1)):
+        with tempfile.TemporaryDirectory(dir='/tmp') as root, patch('service_policy.enabled', return_value=True), patch.object(device_services,'exchange',side_effect=FileNotFoundError()), patch.object(subprocess,'Popen',return_value=SimpleNamespace(poll=lambda:1)):
             with self.assertRaisesRegex(RuntimeError,'exited'):device_services.ensure(root,timeout=30)
 
     def test_directory_defers_workers_until_first_response_and_closes_unstarted(self):
@@ -83,7 +83,7 @@ class RecoveryTests(unittest.TestCase):
             options.append(kwargs)
             started.set();release.wait(5)
             return SimpleNamespace(snapshot=lambda:dict(owner_online=True),path='/tmp/test-owner',bind_wakeup=lambda cb:None,close=lambda:None)
-        with tempfile.TemporaryDirectory(dir='/tmp') as root, patch.object(device_services,'OWNER_IDS',('reticulum',)), patch.object(device_services,'saved_owner',return_value=dict(mode='local',state=root)), patch.object(device_services,'owner_factory',return_value=factory):
+        with tempfile.TemporaryDirectory(dir='/tmp') as root, patch('service_policy.enabled', return_value=True), patch.object(device_services,'OWNER_IDS',('reticulum',)), patch.object(device_services,'saved_owner',return_value=dict(mode='local',state=root)), patch.object(device_services,'owner_factory',return_value=factory):
             owner=device_services.DeviceOwner(Path(root)/'state','device')
             owner.response_sent()
             try:
@@ -102,7 +102,7 @@ class RecoveryTests(unittest.TestCase):
         def slow_selection(*args):
             entered.set();release.wait(5);return None
         def slow_sample(owner):release.wait(5)
-        with tempfile.TemporaryDirectory(dir='/tmp') as root, patch.object(device_services,'saved_owner',side_effect=slow_selection), patch.object(device_services.DeviceOwner,'sample',slow_sample):
+        with tempfile.TemporaryDirectory(dir='/tmp') as root, patch('service_policy.enabled', return_value=True), patch.object(device_services,'saved_owner',side_effect=slow_selection), patch.object(device_services.DeviceOwner,'sample',slow_sample):
             owner=device_services.DeviceOwner(Path(root)/'state','device')
             owner.response_sent()
             try:

@@ -67,6 +67,8 @@ def image_blocks(manifest, root_image, capacity=CAPACITY):
 
 def install(kit, disk, location, write=False):
     root, manifest, files = verify_local_kit(kit)
+    from storage_target import require_target
+    require_target(manifest,'internal')
     root = Path(kit).resolve()
     receipt = root / 'INSTALL-STATE.json'
     if receipt.exists() or receipt.is_symlink():

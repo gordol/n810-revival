@@ -273,7 +273,7 @@ def main(platform=None,argv=None):
         selected_socket=args.reticulum_socket
         selected_local=args.reticulum_local
         local_options=None
-        if selected_socket is None and selected_local is None and not args.shell:
+        if selected_socket is None and selected_local is None and not args.shell and __import__('service_policy').enabled('reticulum'):
             selection=saved_reticulum_selection(app_state)
             if selection is not None:
                 if selection['mode']=='external':selected_socket=selection['socket']
@@ -311,7 +311,7 @@ def main(platform=None,argv=None):
             rect=source.rect if source else app.rect
             windows.append(Window(app.name,*rect,visible=False,opened=False))
     if native_defaults:
-        for name in ('Messages','Nets','Services','APRS Walk Logs','CW','N810 Setup','ULS Lookup','Radio Feed','Heard'):
+        for name in ('Messages','Nets','Services','APRS Walk Logs','Offline Data','CW','N810 Setup','ULS Lookup','Radio Feed','Heard'):
             if not any(w.name==name for w in windows):windows.append(Window(name,1,1,min(86,width-1),min(28,height-1),visible=False,opened=False))
     def local_domain_installed(name):
         here=Path(__file__).resolve().parent
@@ -366,7 +366,7 @@ def main(platform=None,argv=None):
         return create
     native_specs=(('Messages','native_messages','Messages',None),('Services','native_services','Services','service_view'),
                   ('Nets','native_nets','Nets','net_view'),('APRS Walk Logs','native_walk','Walk','walk_view'),
-                  ('CW','native_cw','CW',None),('N810 Setup','native_setup','N810Setup',None),('ULS Lookup','native_uls','ULSLookup',None),
+                  ('Offline Data','native_data_setup','OfflineData',None),('CW','native_cw','CW',None),('N810 Setup','native_setup','N810Setup',None),('ULS Lookup','native_uls','ULSLookup',None),
                   ('Radio Feed','native_feed','RadioFeed','feed_view'),
                   ('Heard','native_heard','Heard','heard_view'))
     if native_defaults:

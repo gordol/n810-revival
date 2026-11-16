@@ -60,9 +60,10 @@ route exports internal MMC from stock Maemo and uses
 `platform/bootstrap/write_macos_internal.py` for a full-disk write and readback.
 The same stages are `make n810-build-internal`,
 `n810-check`, `n810-identify`, `n810-boot-installer`, `n810-write-internal` and
-`n810-flash-kernel`. The kit-pack step consumes staged Debian, kernel and
-RAM-installer directories; composing those inputs from a fresh Linux build and
-accepting first boot on a second N810 remain outstanding.
+`n810-flash-kernel`. `make n810-build-internal` composes Debian, the matching
+kernel/modules, Mesa, MBX module and Pocket from tracked sources in Docker.
+A RAM installer is an optional separate path. Complete first-boot acceptance
+on a second N810 remains outstanding.
 
 ## One-time macOS USB authorization
 

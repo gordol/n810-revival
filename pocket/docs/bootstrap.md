@@ -10,13 +10,122 @@ tested macOS route uses the tablet's stock Maemo USB mass-storage export to
 write and read back all 2 GB, then uses native 0xFFFF to flash the matching
 kernel. No SD card is involved.
 
+Use a repository checkout, Make, Python 3, and Docker with ARM Linux emulation.
+On macOS, install the command-line compiler tools and the native flasher's
+dependencies. USB operations run natively on macOS; Docker does not need USB
+passthrough. From the repository root, prepare the restricted USB helper once:
+
+```sh
+brew install libusb-compat pkg-config
+make flasher-helper-prepare
+sudo /bin/sh dist/flasher-helper/install.sh
+```
+
+The helper installation itself accesses no tablet. Allow space for the Linux
+build image, kernel/Mesa builds, Debian root, and private output kit.
+
 **Build kit from source** in Setup runs `make n810-build-internal` with Docker.
-Enter a new local kit folder, an Ed25519 public key file, and a local `nokia`
-password in the guided fields. The password is hidden and cleared from the form
+A fresh clone has no private installation kit. Setup suggests an output folder
+and guides you to **Build kit from source**. Select your Ed25519 public key file.
+Existing kits are discovered under `dist/`; Setup initially selects the most
+recently written manifest, or restores a saved selection that still exists.
+Use **Choose another local kit** to cycle through other discovered kits, then
+**Check files** to verify the selected kit. The installation guide is in **? Help**.
+The console account
+defaults to user `nokia`, password `nokia`; the password field accepts an override.
+The password is hidden and cleared from the form
 when the build starts. The Make target builds the kernel, MBX module, Mesa,
 Pocket release runtime, and Debian root from tracked source, then packs and
 verifies the internal kit. It does not access a tablet. A RAM-installer output
 is optional for its separate development path.
+
+The shared source build command is:
+
+```sh
+make n810-build-internal SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" \
+    INTERNAL_KIT="$PWD/dist/n810-internal"
+```
+
+Use your own public key. If you need a new SSH login key, create one on your
+computer with `ssh-keygen -t ed25519` first. Only the public key enters the image.
+Each tablet generates its own SSH server host key at first boot. Change its
+console password later with `passwd`, or supply an override through Setup or
+`INTERNAL_PASSWORD_STDIN=1` when building. Firmware is acquired and checked by
+the build tools; no calibration or configuration from another tablet is needed.
+
+## Choose internal storage or an SD card
+
+Both targets build the complete lean Debian/Pocket system, native GPU runtime,
+matching kernel/modules, system helpers and optional radio runtimes. They do
+not copy the OG home, identities or offline datasets. In laptop Setup, open
+**Storage, Wi-Fi and startup choices**, select **internal MMC** or **SD card**,
+then choose **Build kit from source** with a new output folder.
+
+The shared kit format records `storage_target`. Internal writes reject SD kits;
+the removable-card writer rejects internal kits. Each kit has a new MBR disk ID
+and a matching kernel that forces `root=PARTUUID=<disk-id>-01`. Both layouts
+use one ext4 root partition beginning at 1 MiB. This is a new matched kit, not
+an unchanged OG kernel expecting the OG card's partition-2 identity. Keep each
+kernel with its own prepared root/card; do not duplicate disk identities among
+attached media. The root expands within that partition at first boot.
+
+For SD, build from the repository root:
+
+```sh
+make n810-build-sd SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" \
+    SD_KIT="$PWD/dist/n810-sd-new"
+```
+
+Internal builds continue to use `make n810-build-internal`. Both accept the
+private Wi-Fi/startup input options described below. SD root image sizes may be
+1024–8191 MiB through `INTERNAL_SIZE_MIB`; internal roots remain limited to
+1024–1900 MiB. The prepared image must fit the selected card.
+
+### Prepare an SD card on macOS
+
+Insert the card in the laptop reader. Identify its whole disk with
+`diskutil list`; do not reuse a disk number from an earlier connection. The
+writer requires a physical, writable disk marked as removable by macOS. The
+USB location below is the **new N810's update-mode port**, not the card reader.
+It pins the subsequent kernel flash to that port.
+
+```sh
+# Check the kit and card without writing anything.
+make n810-write-sd SD_KIT="$PWD/dist/n810-sd-new" \
+    N810_DISK=/dev/diskN N810_USB_LOCATION=0x02100000
+
+# Explicitly erase the partition table and write the new root image.
+sudo python3 platform/bootstrap/write_sd_card.py \
+    --kit "$PWD/dist/n810-sd-new" --disk /dev/diskN \
+    --usb-location 0x02100000 --write
+```
+
+The writer rechecks media identity after unmounting, writes the MBR and root,
+and verifies the complete written region by readback. It does not zero the
+unused remainder of a large card or claim secure erasure of prior card data.
+A failed readback produces no flash receipt. A successful write saves a
+kit-specific receipt and ejects the card. The writer currently uses macOS
+`diskutil`; the source image builder remains Linux/Docker.
+
+Insert the verified card into the new N810, put that tablet in Nokia update
+mode, and flash the matching kernel:
+
+```sh
+sudo -v
+make n810-flash-kernel INTERNAL_KIT="$PWD/dist/n810-sd-new"
+```
+
+This uses the existing shared flash command; `INTERNAL_KIT` is its retained
+Make variable name for either storage target. It checks the SD write receipt,
+kernel hash and pinned tablet USB location. The N810 internal MMC is not
+written by this route. A card-reader installation does not require a Maemo
+mass-storage export. Observe first boot, keyboard, display and radio behavior
+separately from a successful write or flash command.
+
+In Pocket Setup, **Check target disk** performs the card check; **Write target
+disk** or **Install Debian + Pocket** writes and verifies the SD card. Then
+insert it into the tablet and use **Flash kernel** separately. Internal mode
+retains the existing attended Maemo-write/return-to-update-mode sequence.
 
 ## Use the app
 
@@ -45,11 +154,32 @@ taps for each target on that tablet before starting Pocket. The internal image
 uses SysV init and D-Bus like the original Debian tablet. It creates a unique
 Ed25519 host key before starting SSH; RSA key generation is disabled.
 
+The kernel builder includes the recovered 330–480 MHz CPU profile and records
+its source patch hash. The default powersave governor starts at 330 MHz; the guarded CPU policy can select up to 480 MHz. The kernel,
+modules, Mesa and native pixel Pocket runtime are built together. This source
+profile still requires first-boot acceptance on the destination tablet.
+
+Keep other tablets out of update mode. Disk numbers can change after ejection
+or reconnection; read `diskutil list` again instead of reusing an old number.
+The writer also requires the selected tablet's exact USB location. A failed
+identity check writes nothing. If NOLO reports the kernel flash complete but
+its reboot request fails, inspect the saved operation log and receipt before
+doing anything else; repeating the flash is not a connectivity check.
+
+This initial installation path starts with working stock Maemo and its USB
+storage export. It does not need another tablet's filesystem, calibration,
+SSH keys, or private development directories. Reinstallation after replacing
+the kernel needs a recovery boot first. Preserve an owner-supplied stock Maemo
+kernel and its provenance for that purpose; it is a separate recovery input,
+not part of the source-built Debian kit. The guided automatic Maemo recovery
+step has not been completed.
+
 The internal image stages the source-built Fn keyboard map, a debounced lock
 slider, LCD brightness keys, and a Power menu with battery status, display
 controls, charging thresholds when the kernel exposes them, and confirmed
-restart or shutdown. The lock service leaves Power and brightness to the key
-service and does not enable the older idle timer. These controls still need a
+restart or shutdown. The wake service owns the slider, idle dim/off and keyboard wake. Displayd owns
+Power and brightness; the duplicate display-keys service is disabled. Charger
+boot detection runs before touch setup and the graphical desktop. These controls still need a
 physical check alongside the GPU desktop on the target tablet.
 
 The RAM-installer actions below remain available for development, but their
@@ -103,6 +233,133 @@ Tab and Shift-Tab move between inputs and actions. Arrow/page/Home/End keys
 scroll the steps. Cancel stops local checks, copies, and kit builds. Closing the
 app requests cancellation. A cancelled or failed image build may leave a private
 partial output folder; remove or rename it before another build.
+
+## Wi-Fi and optional services
+
+Before **Build kit from source**, open **Wi-Fi and startup choices**. Leave the
+SSID blank to configure networking later, or enter the access point SSID,
+passphrase and two-letter country. This joins an existing Wi-Fi access point;
+it does not make the N810 host an access point. The password is masked, passed
+through stdin, cleared when the build starts and omitted from saved UI sessions
+and public build receipts. The root image contains a protected WPA key and must
+remain private.
+
+**APRS receive**, **HTIT / MeshCore**, and **Reticulum** default off. Their code,
+locked dependencies and native microReticulum library are installed regardless
+of startup choices. An enabled service still needs this tablet's own endpoint
+configuration. Pairing, firmware flashing and radio transmission are separate
+explicit actions. The image never copies another tablet's identities or bonds.
+
+The Make interface accepts the same choices with `INTERNAL_SETUP_STDIN=1` and
+one JSON line on stdin. For example, to opt into APRS receive after configuring
+the receiver on the tablet:
+
+```sh
+printf '%s\n' '{"startup":{"receive":true}}' | make n810-build-internal \
+    SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" \
+    INTERNAL_KIT="$PWD/dist/n810-internal-new" INTERNAL_SETUP_STDIN=1
+```
+
+A private profile may also contain
+`"wifi":{"ssid":"network","passphrase":"...","country":"US"}`. Use the masked
+UI or a protected input file for credentials. When `INTERNAL_PASSWORD_STDIN=1`
+is also set, supply the console password on the first line and the JSON profile
+on the second line. Source changes must be committed before building an
+identified kit; use a new output folder for each build.
+
+## Recreate system behavior without copying the old home
+
+The source build installs system services and their helper dependencies. It does
+not import another tablet's home, identities, Bluetooth bonds, shell history or
+offline data. Keep those outside the base installation. Maps and identity
+import remain optional tools, not prerequisites for installing Pocket.
+
+Power and brightness use the wake helper. Its Power menu opens on a temporary
+console and returns to the native Pocket session when closed. The menu includes
+quiet charging, airplane mode, CPU policy and charging controls. The installer
+stages the associated fixed helpers and bounded privilege policies. A dependency
+check rejects missing commands, privilege groups or duplicate key-event owners
+before generating the root image.
+
+## Finish setup on the new tablet
+
+On an installed N810, **N810 Setup** opens Device Setup rather than the laptop
+image builder. Finish these steps after the base installation:
+
+1. In **Wi-Fi**, enter the network details and choose **Save and join Wi-Fi**.
+   USB networking also works without Wi-Fi. Wi-Fi changes use a restricted
+   helper; passwords travel over stdin.
+2. Pair the UV-Pro and HTIT with this tablet. From its terminal, run
+   `sudo n810-bluetooth on`, `sudo n810-bluetooth discover 20`, then
+   `sudo n810-bluetooth pair ADDRESS`. Confirm the PIN in the terminal and on
+   the peripheral when required. Use the discovered address for this device.
+3. In **Radio**, enter the station callsign and explicit endpoints, then choose
+   **Save radio profiles**. The UV-Pro uses its Bluetooth address. A serial
+   MeshCore peripheral uses `/dev/ttyUSB0`; a shared HTIT companion uses its
+   configured `htit://...` endpoint. An RNode uses its serial path or a configured
+   `hub://...` LoRa service. Enter the allowed RNode transmit-power bounds for
+   your hardware; saving the profile does not select a transmit frequency or
+   start transmission. Configure any RFCOMM binding for this tablet rather
+   than reusing another tablet's controller address. These fields save Pocket's
+   profiles; they do not program the UV-Pro's own callsign, channels or RF policy.
+   For a Classic Bluetooth RNode, pair first, then save this tablet's addresses
+   with the fixed setup helper. These are fictional example addresses:
+
+   ```sh
+   printf '%s\n' '{"controller":"02:00:00:00:00:01","address":"02:00:00:00:00:02"}' | sudo n810-rnode-configure --stdin
+   ```
+
+   Replace `controller` with the address reported by `bluetoothctl show` on the
+   new tablet and `address` with its paired RNode. This saves a protected endpoint
+   policy; it does not pair, bind or open a radio. Choose `/dev/rfcomm0` in Device
+   Setup and save the radio profile. Connections then invokes the no-argument
+   preparation helper, which verifies the controller, bond and unused mapping
+   before a radio connection. USB and shared-hub endpoints skip this helper.
+4. Select **Startup** choices and save. Saving changes the next startup; it does
+   not stop an existing service. **Start APRS now** is a separate action.
+   Use **Connections** to start or attach Reticulum and MeshCore explicitly,
+   and their radio controls to connect the selected peripheral. The native
+   Reticulum owner starts idle; starting the owner alone does not open RF.
+5. Use **Identity** to import a 64-byte Reticulum private identity before
+   connecting a new local session, or export the generated identity to a new
+   private file. Import requires stopped owners and preserves an existing
+   identity. Disable startup and reboot before restoring when an owner is
+   still active. Local identity state lives in
+   `~/.local/state/pocket-reticulum/identity`; external executor identities
+   remain on their own board. Keep backups private.
+6. Build and flash HTIT firmware separately on the laptop, following the
+   [HTIT build guide](../../docs/how-to/build-htit.md). Choose hub firmware for
+   multiplexed companion services or executor firmware for onboard
+   microReticulum. Preserve the generated private PIN header. From the built
+   source directory, PlatformIO's explicit upload action is
+   `pio run -e ENVIRONMENT -t upload --upload-port SERIAL_PORT`; use the
+   environment from that build and verify the selected board and serial port.
+   The N810 installer never flashes a connected HTIT automatically.
+7. Prepare regional maps and terrain on the laptop using **Offline Data**.
+   Run `make maps-deps` once from `pocket/`, enter your bounds, matching OSM
+   extract URL and output folder, then choose **Plan**. Planning does not
+   download. **Download and build** performs the existing geography and fine
+   elevation pipeline and reuses completed inputs. Closing requests cancellation.
+   See [map data](map-data.md) for the CLI and storage details. Legacy Map Library
+   resources are separate compatibility inputs, not the regional acquisition
+   path.
+8. Transfer prepared runtime data into `/usr/share/pocket/data` on the new
+   tablet, or set `POCKET_DATA_ROOT` for its launcher. Keep raw OSM/GeoTIFF
+   downloads on the laptop. Include the selected `elevation.json` catalogue and
+   its referenced fine/overview packs. The internal MMC is only 2 GB, so select
+   a small area or wait for SD storage before copying large collections.
+9. In **ULS Lookup**, explicitly choose **Download/update FCC data** if desired.
+   The base image does not download the national database or regional map data.
+   Confirm storage first. **Connections** reports owner and radio status;
+   verify receive and an intended peer exchange separately.
+
+The shared receive code is installed under `/usr/local/lib/n810-radio`, with
+state under `~/.local/state/n810-aprs`. It no longer depends on loose Python
+scripts in `/home/nokia`. Startup preferences live in
+`~/.config/pocket/services.json`; radio profiles and Wi-Fi credentials remain
+private. Reticulum and HTIT runtimes live in `/opt/n810-mesh` and
+`/opt/pocket-htit`. Advanced build plans must supply those prepared runtimes as
+well as the verified desktop and native library.
 
 ## Manifest contract, version 1
 

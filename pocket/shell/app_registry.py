@@ -81,7 +81,7 @@ def validate_reticulum_selection(value):
     if 'prepare_nokia_spp' in value:
         if type(value['prepare_nokia_spp']) is not bool:
             raise ValueError('Reticulum prepare_nokia_spp must be a boolean')
-        if value['prepare_nokia_spp'] and (value['station'],value['connection'],value['port'])!=('n810','bluetooth','/dev/rfcomm0'):
+        if value['prepare_nokia_spp'] and (value['connection'],value['port'])!=('bluetooth','/dev/rfcomm0'):
             raise ValueError('Reticulum SPP preparation requires the explicit Nokia Bluetooth device')
     if 'startup_timeout' in value:
         timeout=value['startup_timeout']

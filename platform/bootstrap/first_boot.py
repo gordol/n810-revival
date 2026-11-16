@@ -69,6 +69,14 @@ def configure_power_indicators(root, backlight_binary=None, wake_binary=None):
         if header[:5] != b'\x7fELF\x01' or header[18:20] != b'\x28\x00':
             raise ValueError('Wake helper must be a 32-bit ARM ELF binary')
     for source, destination, mode in (
+        (platform / 'scripts/n810-cpu-policy', root / 'usr/local/sbin/n810-cpu-policy', 0o755),
+        (platform / 'device/n810-boot-mode.init', root / 'etc/init.d/n810-boot-mode', 0o755),
+        (platform / 'scripts/n810-native-power-menu', root / 'usr/local/sbin/n810-console-power-menu', 0o755),
+        (platform / 'scripts/n810-radio', root / 'usr/local/sbin/n810-radio', 0o755),
+        (platform / 'scripts/n810-mode', root / 'usr/local/sbin/n810-mode', 0o755),
+        (platform / 'scripts/n810-bootreason', root / 'usr/local/sbin/n810-bootreason', 0o755),
+        (platform / 'scripts/n810-displayd', root / 'usr/local/sbin/n810-displayd', 0o755),
+        (platform / 'device/n810-displayd.service', root / 'etc/systemd/system/n810-displayd.service', 0o644),
         (platform / 'scripts/n810-powerd', root / 'usr/local/sbin/n810-powerd', 0o755),
         (platform / 'scripts/n810-ledd', root / 'usr/local/sbin/n810-ledd', 0o755),
         (platform / 'scripts/n810-powerctl', root / 'usr/local/bin/n810-powerctl', 0o755),
@@ -89,8 +97,13 @@ def configure_power_indicators(root, backlight_binary=None, wake_binary=None):
         shutil.copyfile(source, destination)
         destination.chmod(mode)
     if have_wake:
+        for unit in ('pocket-desktop.service', 'n810-setup-touch.service'):
+            dropin = root / 'etc/systemd/system' / (unit + '.d/20-n810-boot-mode.conf')
+            dropin.parent.mkdir(parents=True, exist_ok=True)
+            dropin.write_text('[Unit]\nAfter=n810-boot-mode.service\n[Service]\nExecCondition=/bin/sh -c \'test "$(/usr/local/sbin/n810-mode status)" != charging\'\n')
         for source, destination in (
-            (platform / 'device/n810-debian-lock.conf', root / 'etc/n810-idle.conf'),
+            (platform / 'device/n810-idle.conf', root / 'etc/n810-idle.conf'),
+            (platform / 'device/n810-boot-mode.service', root / 'etc/systemd/system/n810-boot-mode.service'),
             (platform / 'device/n810-wake.service', root / 'etc/systemd/system/n810-wake.service'),
         ):
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -101,7 +114,11 @@ def configure_power_indicators(root, backlight_binary=None, wake_binary=None):
     services = ['n810-backlightd.service', 'n810-powerd.service', 'n810-ledd.service',
                 'n810-display-keys.service']
     if have_wake:
-        services.append('n810-wake.service')
+        services.remove('n810-display-keys.service')
+        services.extend(('n810-wake.service', 'n810-boot-mode.service'))
+        # Reused roots must not keep a second Power/brightness event owner.
+        (wants / 'n810-display-keys.service').unlink(missing_ok=True)
+    services.append('n810-displayd.service')
     for name in services:
         link = wants / name
         if link.exists() or link.is_symlink():
@@ -118,6 +135,8 @@ def configure_first_boot(root, keyboard_binary=None, backlight_binary=None, wake
     if calibration.exists() or calibration.is_symlink():
         calibration.unlink()
     files = {
+        # Match the OG chronyd invocation: IPv4, no seccomp filter on ARMv6.
+        'etc/default/chrony': 'DAEMON_OPTS="-4 -F 0"\n',
         'etc/systemd/journald.conf.d/10-first-boot.conf':
             '[Journal]\nStorage=persistent\nSystemMaxUse=16M\nRuntimeMaxUse=8M\n',
         'etc/systemd/logind.conf.d/10-n810-power-key.conf':

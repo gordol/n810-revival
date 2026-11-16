@@ -50,8 +50,8 @@ class SessionOwner(LXMFBackend):
         self.store = ProfileStore(state, station, radio, connection, port, minimum, maximum, seed)
         self.connection = self.store.endpoint.connection
         self.prepare_nokia_spp = prepare_nokia_spp
-        if prepare_nokia_spp and station != 'n810':
-            raise ValueError('The fixed SPP helper is only for the configured Nokia Bluetooth endpoint')
+        if prepare_nokia_spp and (connection != 'bluetooth' or port != '/dev/rfcomm0'):
+            raise ValueError('The system SPP helper requires the configured Bluetooth rfcomm0 endpoint')
         from external_node import load
         self.node_preferences=load(state/'external-node.msgpack')
         self.node_state=dict(state='unconfigured',offload_ready=False)

@@ -104,4 +104,27 @@ assert p.host._native is not None, p.host.native_error
             self.assertEqual(result.returncode,0,result.stderr.decode())
 
 
+
+    def test_installer_runtime_packages_setup_and_native_reticulum(self):
+        from unittest.mock import patch
+        import hashlib
+        paths=subprocess.check_output(['git','ls-files','shell','graphics'],cwd=ROOT,text=True).splitlines()
+        extra=['shell/'+name for name in ('native_device_setup.py','native_data_setup.py','optional_services.py','peripheral_setup.py','setup_choices.py','service_policy.py')]
+        with tempfile.TemporaryDirectory(dir='/tmp') as directory:
+            root=Path(directory);native=root/'native';native.mkdir()
+            library=b'fixture library; not executable'
+            (native/'libpocket_rns.so').write_bytes(library)
+            (native/'provenance.json').write_text(json.dumps(dict(abi=2,platform='Linux-armv6l',library_sha256=hashlib.sha256(library).hexdigest())))
+            original=subprocess.check_output
+            def tracked(argv,**kwargs):
+                if argv==['git','ls-files','shell','graphics']:return '\n'.join(sorted(set(paths+extra)))
+                return original(argv,**kwargs)
+            with patch('stage_runtime.subprocess.check_output',side_effect=tracked):
+                files=stage(root/'runtime',source_commit='a'*40,native_reticulum=native)
+            for path in extra:self.assertIn(path,files)
+            self.assertEqual(json.loads(files['shell/build-info.json'])['platform'],'n810')
+            manifest=json.loads((root/'runtime/runtime-profile.json').read_text())
+            self.assertEqual(manifest['files']['shell/vendor/native/libpocket_rns.so'],hashlib.sha256(library).hexdigest())
+
+
 if __name__ == '__main__':unittest.main()

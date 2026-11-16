@@ -187,6 +187,7 @@ class Navigation:
         return bool(getattr(f,'search_edit',False)) or getattr(f,'self_editor',None) is not None or bool(getattr(f,'filter_open',False)) or bool(self.layout() and self.layout().resizing) or getattr(f,'entry',None) is not None or getattr(f,'review',None) is not None or bool(getattr(f,'editing',False)) or (name=='Messages' and f.composing) or (name=='System' and f.page==1 and (f.links.choosing or f.links.review))
     def key(self,key):
         f=self.form;name=type(f).__name__;target=self.current()
+        if key in getattr(f,'navigation_help_keys',()):return False
         from keybindings import current
         listing,_=self.listing()
         editing=self.modal() or target.kind=='input' or self.input() is not None or listing is not None and listing.searching

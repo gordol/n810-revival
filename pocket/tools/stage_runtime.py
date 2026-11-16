@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GRAPHICS_BUILD_TOOLS = {'build.py', 'build_nokia.py', 'check.py', 'check_full.py', 'gui.py', 'generate_room.py', 'extend_font.py'}
 
 
-def stage(destination, profile='release', frontend=None, source_commit=None):
+def stage(destination, profile='release', frontend=None, source_commit=None, native_reticulum=None):
     if destination.exists():
         raise ValueError('output must be a new directory')
     paths = subprocess.check_output(['git', 'ls-files', 'shell', 'graphics'], cwd=ROOT, text=True).splitlines()
@@ -67,13 +67,19 @@ def stage(destination, profile='release', frontend=None, source_commit=None):
             if source.is_symlink() and target in files:aliases[name]=Path(target).name
             else:files[name]=source.read_bytes()
         files['build/graphics/frontend.json'] = (json.dumps(config, indent=2) + '\n').encode()
+    if native_reticulum:
+        from package_nokia import require_native_reticulum
+        payload = {'vendor/native/libpocket_rns.so': (native_reticulum / 'libpocket_rns.so').read_bytes(),
+                   'vendor/native/libpocket_rns.provenance.json': (native_reticulum / 'provenance.json').read_bytes()}
+        require_native_reticulum(payload)
+        files.update({'shell/' + name: raw for name, raw in payload.items()})
     revision=subprocess.run(['git','rev-parse','HEAD'],cwd=ROOT,capture_output=True,text=True)
     commit=source_commit or (revision.stdout.strip() if revision.returncode==0 else None)
     if source_commit and not re.fullmatch(r'[0-9a-f]{40}', source_commit):
         raise ValueError('source_commit must be a full Git SHA-1')
     content_hash=hashlib.sha256(b''.join(name.encode()+hashlib.sha256(raw).digest() for name,raw in sorted(files.items()))).hexdigest()
     files['shell/build-info.json']=(json.dumps(dict(schema_version=1,release_id=commit[:12] if commit else 'UNKNOWN',
-        framework_commit=commit,domain_commit=commit,build_profile=profile,platform='native-gui',backend='native pixels',
+        framework_commit=commit,domain_commit=commit,build_profile=profile,platform='n810' if native_reticulum else 'native-gui',backend='native pixels',
         artifact_sha256=content_hash,touch_acquisition_default='process',product_version=(ROOT/'VERSION').read_text().strip()),indent=2)+'\n').encode()
     destination.mkdir(parents=True)
     for name, raw in files.items():
@@ -93,8 +99,9 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--frontend', type=Path, help='optional built target frontend.json')
     parser.add_argument('--source-commit', help='full source commit when building from a Git-free source archive')
+    parser.add_argument('--native-reticulum', type=Path, help='Built ARM microReticulum library and provenance directory')
     args = parser.parse_args()
-    files = stage(args.output, args.profile, args.frontend, args.source_commit)
+    files = stage(args.output, args.profile, args.frontend, args.source_commit, args.native_reticulum)
     print(json.dumps({'profile': args.profile, 'files': len(files), 'bytes': sum(map(len, files.values()))}))
 
 

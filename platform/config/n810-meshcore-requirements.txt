@@ -1,0 +1,4 @@
+# Native ARM dependencies (bleak, pycryptodome, pyserial) come from Debian.
+meshcore==2.3.17 --hash=sha256:d8ba29b7eeecd7c6e7a4036bdcbbcf8533cb925dc884985ac664026830535357
+pyserial-asyncio-fast==0.16 --hash=sha256:88939d94e341a04c0c8bc3c1ed4e874439cb5a1e21ccfb0fd7315a8e45df1687
+pycayennelpp==2.4.0 --hash=sha256:a3e69ea4da9e2971a44d1e275d5555617b2345eea752325f28c0356f64901d62

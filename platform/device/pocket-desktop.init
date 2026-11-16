@@ -11,6 +11,7 @@ set -eu
 pidfile=/run/pocket-desktop.pid
 case "${1:-}" in
 start)
+    test "$(/usr/local/sbin/n810-mode status)" != charging || exit 0
     start-stop-daemon --start --quiet --background --make-pidfile --pidfile "$pidfile" \
         --startas /usr/bin/python3 -- -I /usr/local/lib/n810-pocket/native_owner.py
     ;;

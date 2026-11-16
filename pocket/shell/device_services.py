@@ -67,6 +67,8 @@ class DeviceOwner(ServiceOwner):
         self.implementation=identity()
         from build_identity import release_id
         self.release=release_id()
+        from service_policy import enabled
+        self.startup={name:enabled(name) for name in OWNER_IDS}
         self.providers={};self.telemetry={};self.radio_catalog=None;self.radio_catalog_manifest=None
         self.services=[dict(id='system',available=True,state='ready'),
                        dict(id='receive',available=False,state='starting')]+[
@@ -130,6 +132,9 @@ class DeviceOwner(ServiceOwner):
             services.append(dict(id='receive',available=online,state='ready' if online else 'unavailable'))
             for name in OWNER_IDS:
                 try:
+                    if name not in self.providers and not self.startup[name]:
+                        services.append(dict(id=name, available=False, state='disabled', reason='Startup disabled; enable in Device Setup or connect explicitly'))
+                        continue
                     selection=saved_owner(name,configuration())
                     if selection is None or selection['mode']!='local':
                         services.append(dict(id=name,available=False,state='unavailable',reason='No local owner configured'));continue

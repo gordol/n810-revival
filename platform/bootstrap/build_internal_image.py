@@ -19,6 +19,11 @@ def checked_package(package):
     report=json.loads((package/'BUILD.json').read_text())
     match=re.fullmatch(r'PARTUUID=([0-9a-f]{8})-01',report['root_device'])
     if not match:raise ValueError('Internal kernel must boot its stable PARTUUID partition')
+    config = (package / 'kernel.config').read_text().splitlines()
+    if (report.get('cpu_boot_governor') != 'powersave' or
+            not {'CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE=y',
+                 'CONFIG_CPU_FREQ_GOV_POWERSAVE=y'} <= set(config)):
+        raise ValueError('Rebuild the kernel package with the OG powersave boot policy')
     for name,digest in report['files'].items():
         relative=Path(name)
         if relative.is_absolute() or '..' in relative.parts:raise ValueError('Invalid kernel package path')
@@ -38,7 +43,7 @@ def load_plan(path):
         return result
     plan=json.loads(requested.read_text(),object_pairs_hook=unique)
     paths=('root','kernel_package','gpu_runtime','gpu_module_package','gpu_mesa_package')
-    if not isinstance(plan,dict) or not set(paths)<=plan.keys() or set(plan)-set(paths)-{'size_mib','recovery'}:
+    if not isinstance(plan,dict) or not set(paths)<=plan.keys() or set(plan)-set(paths)-{'size_mib','recovery','storage_target'}:
         raise ValueError('Build plan needs root, kernel, Pocket GPU runtime, MBX module and Mesa paths')
     for name in (*paths,*(['recovery'] if 'recovery' in plan else [])):
         value=plan[name]
@@ -47,8 +52,8 @@ def load_plan(path):
         if not path.is_dir():raise ValueError('Build-plan '+name+' must be an existing directory')
         plan[name]=path
     size=plan.get('size_mib',1536)
-    if type(size) is not int or not 1024<=size<=1900:
-        raise ValueError('Build plan size_mib must be 1024–1900')
+    from storage_target import validate_size
+    validate_size(plan.get('storage_target','internal'),size)
     plan['size_mib']=size
     return plan
 
@@ -66,7 +71,11 @@ def restore_owner(output):
 
 def build(root,package,recovery,output,size_mib,gpu=None):
     root=root.resolve();package=package.resolve();recovery=recovery.resolve() if recovery else None;output=output.expanduser().absolute()
-    if root==Path('/') or not 1024<=size_mib<=1900:
+    from storage_target import validate_size
+    target=(gpu or {}).get('storage_target','internal')
+    validate_size(target,size_mib)
+    if target=='sd' and recovery:raise ValueError('SD kits use a card reader, not the internal RAM installer')
+    if root==Path('/'):
         raise ValueError('Use a separate Debian build root and 1024–1900 MiB filesystem')
     if output==Path('/') or output==Path('/dev') or output.is_relative_to('/dev'):
         raise ValueError('Choose an ordinary local kit folder, not a device path')
@@ -76,6 +85,8 @@ def build(root,package,recovery,output,size_mib,gpu=None):
         from stage_desktop import stage as stage_desktop
         from stage_gpu import stage as stage_gpu
         stage_desktop(root,gpu['gpu_runtime'])
+        from stage_services import stage as stage_services
+        stage_services(root)
         stage_gpu(root,gpu['gpu_runtime'],gpu['gpu_module_package'],
                   gpu['gpu_mesa_package'],package)
     install=json.loads((root/'usr/local/share/pocket/INSTALL.json').read_text())
@@ -151,7 +162,7 @@ def build(root,package,recovery,output,size_mib,gpu=None):
     network.write_text(network.read_text().replace('address 192.168.10.1','address 169.254.81.1').replace('netmask 255.255.255.0','netmask 255.255.0.0'))
     marker=root/'var/lib/pocket';marker.mkdir(parents=True,exist_ok=True)
     service=root/'etc/systemd/system/pocket-expand-internal-root.service'
-    service.write_text('[Unit]\nDescription=Expand Pocket root filesystem to the internal MMC\n'
+    service.write_text('[Unit]\nDescription=Expand Pocket root filesystem to its target partition\n'
         'After=local-fs.target systemd-udev-settle.service\n'
         'ConditionPathExists=!/var/lib/pocket/internal-root-expanded\n\n'
         '[Service]\nType=oneshot\n'
@@ -162,12 +173,15 @@ def build(root,package,recovery,output,size_mib,gpu=None):
     wants.symlink_to('../pocket-expand-internal-root.service')
     from stage_sysv import stage as stage_sysv
     enabled_services = stage_sysv(root, disk_id)
+    from system_contract import validate as validate_system_contract
+    system_dependencies = validate_system_contract(root)
     installed = root / 'etc/n810-image/bootstrap.json'
     installed.parent.mkdir(parents=True, exist_ok=True)
     installed.parent.chmod(0o755)
     installed.write_text(json.dumps({
         'version': 1,
         'kind': 'n810-internal-root',
+        'storage_target': target,
         'kernel_release': release,
         'kernel_sha256': sha256(package/'zImage-omap2420-n810'),
         'kernel_source': source_identity,
@@ -186,6 +200,9 @@ def build(root,package,recovery,output,size_mib,gpu=None):
         'builder_sha256': sha256(Path(__file__)),
         'first_boot_sha256': sha256(Path(__file__).with_name('first_boot.py')),
         'sysv_stage_sha256': sha256(Path(__file__).with_name('stage_sysv.py')),
+        'system_dependencies': system_dependencies,
+        'optional_services_stage_sha256': sha256(Path(__file__).with_name('stage_services.py')),
+        'optional_services_defaults': {'receive': False, 'meshcore': False, 'reticulum': False},
     },indent=2)+'\n')
     installed.chmod(0o644)
     first_boot_record=json.loads(installed.read_text())
@@ -210,13 +227,14 @@ def build(root,package,recovery,output,size_mib,gpu=None):
         for source,target in (('kernel.bin','installer-kernel.bin'),('initramfs.cpio.xz','installer-initramfs.cpio.xz'),
                               ('installer-known-hosts','installer-known-hosts')):
             shutil.copyfile(recovery/source,output/target)
-    manifest=dict(kind='n810-internal',disk_id=disk_id,filesystem_uuid=filesystem_uuid,
+    manifest=dict(kind='n810-internal',storage_target=target,disk_id=disk_id,filesystem_uuid=filesystem_uuid,
                   kernel_release=release,kernel_sha256=sha256(output/'kernel.bin'),
-                  install_transport='maemo-usb-mass-storage' if not recovery else 'ram-installer-or-maemo-usb',
+                  install_transport='sd-card-reader' if target=='sd' else 'maemo-usb-mass-storage' if not recovery else 'ram-installer-or-maemo-usb',
                   root_bytes=root_bytes,root_sha256=root_digest,
                   compressed_root_sha256=sha256(compressed),desktop_ready=True,desktop=install,
                   kernel_package_manifest_sha256=sha256(package/'BUILD.json'),
-                  first_boot=dict(profile='n810-internal-v5',init_system='sysvinit',
+                  first_boot=dict(profile='n810-internal-v6',init_system='sysvinit',
+                      system_dependencies=system_dependencies,
                       root_manifest_sha256=sha256(installed),
                       enabled_services=first_boot_record['enabled_n810_services'],
                       keyboard_remapper_sha256=first_boot_record['keyboard_remapper_sha256'],
@@ -236,6 +254,7 @@ def build(root,package,recovery,output,size_mib,gpu=None):
         'The first-install renderer is the staged native MBX GPU service; verify it on the tablet.\n'
         'Write the root and verify its readback, then return the same tablet to Nokia update mode.\n'
         'Use the separately identified target to flash the matching permanent kernel and request reboot.\n')
+    if target=='sd':guide_text=('Pocket SD installation kit\n\nPrepare a removable card with write_sd_card.py and verify its readback.\nInsert it into the target N810, then flash this matching kernel.\nThe card has one ext4 root partition with a unique PARTUUID.\nInternal MMC is not written. The root expands to the card partition on first boot.\n')
     if recovery:guide_text+='This kit also contains the optional RAM installer.\n'
     guide.write_text(guide_text+'Keep the kit private: its filesystem contains the local account password hash.\n')
     roles={'root-filesystem':'root.ext4.gz','kernel':'kernel.bin','install-plan':'INTERNAL.json',
@@ -246,7 +265,7 @@ def build(root,package,recovery,output,size_mib,gpu=None):
                       'installer-build-manifest':'INSTALLER-BUILD.json',
                       'installer-host-key':'installer-known-hosts'})
     (output/'INSTALLATION.json').write_text(json.dumps(dict(version=1,kind='n810-internal',
-        release='bookworm-internal-'+release,kernel_release=release,
+        release='bookworm-'+target+'-'+release,kernel_release=release,
         files=[dict(role=role,path=name,bytes=(output/name).stat().st_size,sha256=sha256(output/name))
                for role,name in roles.items()]),indent=2)+'\n')
     restore_owner(output)

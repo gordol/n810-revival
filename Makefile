@@ -113,23 +113,25 @@ INTERNAL_DOCKER_IMAGE ?= n810-internal-builder:local
 INTERNAL_DOCKER_FLAGS ?=
 INTERNAL_FIRMWARE_CACHE ?= n810-internal-firmware
 INTERNAL_PASSWORD_STDIN ?= 0
+INTERNAL_SETUP_STDIN ?= 0
+N810_STORAGE ?= internal
 N810_FLASHER ?= $(FLASHER_OUTPUT)/0xFFFF
 N810_INSTALLER_HOST ?= 169.254.81.1
 N810_INSTALLER_KEY ?=
 N810_INSTALLER ?= python3 platform/bootstrap/internal_installer.py
 .PHONY: n810-build-internal n810-check n810-identify n810-boot-installer n810-write-internal n810-flash-kernel
 n810-build-internal:
+	@case "$(N810_STORAGE)" in internal|sd) ;; *) echo "Choose N810_STORAGE=internal or sd" >&2; exit 2;; esac
 	@if test -n "$(INTERNAL_PLAN)"; then \
 		python3 platform/bootstrap/build_internal_image.py --plan "$(INTERNAL_PLAN)" --output "$(INTERNAL_KIT)"; \
 	else \
-		if test "$(INTERNAL_PASSWORD_STDIN)" != 1; then test -t 0 || { echo 'Run in a terminal for the local nokia password prompt.' >&2; exit 1; }; fi; \
 		test -n "$(SSH_PUBLIC_KEY)" -a -f "$(SSH_PUBLIC_KEY)" || { echo 'Set SSH_PUBLIC_KEY to an Ed25519 public key file.' >&2; exit 1; }; \
 		test -d "$(abspath $(dir $(INTERNAL_KIT)))" -a ! -e "$(INTERNAL_KIT)" || { echo 'Choose a new INTERNAL_KIT below an existing directory.' >&2; exit 1; }; \
 		git diff --quiet HEAD && git diff --cached --quiet || { echo 'Commit source changes before building an identified kit.' >&2; exit 1; }; \
 		disk_id=$$(python3 -c 'import secrets; print(secrets.token_hex(4))'); \
 		bash -o pipefail -c 'python3 tools/package-source.py --list-context | COPYFILE_DISABLE=1 tar --null -T - -czf - | docker build $(INTERNAL_DOCKER_FLAGS) --progress=plain --file containers/internal-image.Dockerfile --build-arg DISK_ID=$$1 --build-arg SOURCE_COMMIT=$$2 -t $(INTERNAL_DOCKER_IMAGE) -' -- "$$disk_id" "$$(git rev-parse HEAD)" || exit; \
 		set --; if test -n "$(MAEMO_BACKUP)"; then set -- --mount "type=bind,src=$$(cd "$(MAEMO_BACKUP)" && pwd),dst=/backup,readonly"; fi; \
-		attach=-it; if test "$(INTERNAL_PASSWORD_STDIN)" = 1; then attach=-i; fi; \
+		attach=-i; \
 		docker run --rm "$$attach" "$$@" \
 			--mount "type=bind,src=$$(cd "$$(dirname "$(SSH_PUBLIC_KEY)")" && pwd)/$$(basename "$(SSH_PUBLIC_KEY)"),dst=/run/owner.pub,readonly" \
 			--mount "type=bind,src=$(abspath $(dir $(INTERNAL_KIT))),dst=/output" \
@@ -137,8 +139,9 @@ n810-build-internal:
 			-e SUDO_UID="$$(id -u)" -e SUDO_GID="$$(id -g)" \
 			"$(INTERNAL_DOCKER_IMAGE)" python3 platform/bootstrap/build_internal_sources.py \
 			--output "/output/$(notdir $(INTERNAL_KIT))" --ssh-key /run/owner.pub \
-			--firmware-cache /cache/firmware --size-mib "$(INTERNAL_SIZE_MIB)" \
+			--firmware-cache /cache/firmware --size-mib "$(INTERNAL_SIZE_MIB)" --storage-target "$(N810_STORAGE)" \
 			$$(if test "$(INTERNAL_PASSWORD_STDIN)" = 1; then printf '%s' '--password-stdin'; fi) \
+			$$(if test "$(INTERNAL_SETUP_STDIN)" = 1; then printf '%s' '--setup-stdin'; fi) \
 			$$(if test -n "$(MAEMO_BACKUP)"; then printf '%s' '--backup /backup'; fi) \
 			$$(if test "$(SD_FIRMWARE_OFFLINE)" = 1; then printf '%s' '--offline'; fi); \
 	fi
@@ -164,3 +167,11 @@ n810-write-macos-internal:
 .PHONY: n810-install-macos
 n810-install-macos: flasher
 	$(N810_INSTALLER) install-macos --kit "$(INTERNAL_KIT)" --disk "$(N810_DISK)" --usb-location "$(or $(N810_USB_LOCATION),0)" --flasher "$(N810_FLASHER)"
+
+# Both targets build the same complete root and matching kernel/module stack.
+.PHONY: n810-build-sd n810-write-sd
+n810-build-sd:
+	$(MAKE) n810-build-internal N810_STORAGE=sd INTERNAL_KIT="$(SD_KIT)"
+SD_KIT ?= $(CURDIR)/dist/n810-sd
+n810-write-sd:
+	python3 platform/bootstrap/write_sd_card.py --kit "$(SD_KIT)" --disk "$(N810_DISK)" --usb-location "$(N810_USB_LOCATION)" $(if $(filter 1,$(N810_ERASE)),--write)

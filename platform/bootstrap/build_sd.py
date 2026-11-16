@@ -19,8 +19,8 @@ import tarfile
 import uuid
 
 BASE_PACKAGES = (
-    'dbus,udev,ifupdown,iproute2,openssh-server,sudo,'
-    'ca-certificates,kmod,passwd,python3,python3-venv,make,git,tmux,whiptail,kbd,bluez,wpasupplicant,iw,wireless-regdb,isc-dhcp-client,util-linux,mount,libusb-0.1-4'
+    'dbus,udev,ifupdown,iproute2,openssh-server,sudo,chrony,ntpsec-ntpdate,psmisc,procps,rsync,usbutils,python3-serial,python3-dbus,python3-gi,python3-msgpack,python3-cryptography,python3-pycryptodome,python3-bleak,'
+    'ca-certificates,kmod,passwd,python3,python3-venv,make,git,tmux,whiptail,kbd,bluez,wpasupplicant,iw,wireless-regdb,isc-dhcp-client,util-linux,mount,libusb-0.1-4,libbz2-1.0'
 )
 PACKAGES = 'systemd-sysv,' + BASE_PACKAGES
 INTERNAL_PACKAGES = 'sysvinit-core,initscripts,sysvinit-utils,' + BASE_PACKAGES
@@ -156,8 +156,8 @@ def main() -> None:
     try:
         run('chroot', str(root), '/bin/true')
         run('chroot', str(root), 'useradd', '-m', '-s', '/bin/bash', '-G', 'sudo', args.user)
-        if args.password_stdin:
-            password = sys.stdin.readline().rstrip('\n')
+        if args.password_stdin or args.root_only:
+            password = sys.stdin.readline().rstrip('\n') if args.password_stdin else 'nokia'
             if not password or '\r' in password:
                 parser.error('Supply a nonempty local password on stdin')
             subprocess.run(['chroot', str(root), 'chpasswd'], input=f'{args.user}:{password}\n',
@@ -176,7 +176,7 @@ def main() -> None:
     write_file(root, '/etc/hostname', 'n810\n')
     write_file(root, '/etc/hosts', '127.0.0.1 localhost\n127.0.1.1 n810\n')
     write_file(root, '/etc/network/interfaces',
-               'auto lo\niface lo inet loopback\n\nallow-hotplug usb0\niface usb0 inet static\n'
+               'auto lo\niface lo inet loopback\n\nauto usb0\niface usb0 inet static\n'
                '    address 192.168.10.1\n    netmask 255.255.255.0\n')
     fs_uuid = str(uuid.uuid4())
     write_file(root, '/etc/fstab', f'UUID={fs_uuid} / ext4 defaults,noatime 0 1\n')

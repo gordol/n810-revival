@@ -1,0 +1,28 @@
+#!/usr/bin/python3 -I
+"""Apply one validated Wi-Fi profile from stdin; no caller paths or commands."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+
+if os.geteuid() != 0 or sys.argv[1:] != ['--stdin']:
+    raise SystemExit('Usage: sudo n810-setup-wifi --stdin')
+sys.path.insert(0, '/usr/local/lib/n810-setup')
+from setup_profile import validate, wpa_config
+raw = sys.stdin.buffer.read(8193)
+if len(raw) > 8192:
+    raise SystemExit('Wi-Fi profile too large')
+profile = validate({'wifi': json.loads(raw)})['wifi']
+parent = Path('/etc/wpa_supplicant')
+parent.mkdir(mode=0o755, exist_ok=True)
+fd, name = tempfile.mkstemp(prefix='.n810-wifi-', dir=parent)
+try:
+    with os.fdopen(fd, 'w') as stream:
+        stream.write(wpa_config(profile))
+    os.replace(name, parent / 'wpa_supplicant-wlan0.conf')
+finally:
+    if os.path.exists(name):os.unlink(name)
+subprocess.run(['/etc/init.d/n810-wifi', 'restart'], check=True,
+               env={'PATH':'/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'})

@@ -32,8 +32,8 @@ FIRST_BOOT_SERVICES = {
 LOCK_SLIDER_SERVICE = 'n810-wake.service'
 SYSV_FIRST_BOOT_SERVICES = {
     'n810-ssh-hostkeys', 'n810-console-ux', 'n810-backlightd',
-    'n810-powerd', 'n810-ledd', 'n810-display-keys', 'n810-wake',
-    'n810-setup-touch', 'pocket-desktop', 'pocket-expand-internal-root',
+    'n810-powerd', 'n810-ledd', 'n810-displayd', 'n810-boot-mode', 'n810-wake',
+    'n810-setup-touch', 'pocket-desktop', 'pocket-services', 'pocket-expand-internal-root',
 }
 
 
@@ -118,9 +118,12 @@ def verify_local_kit(kit):
         raise ValueError('Invalid install partition identity')
     if files['install-plan'] != internal_path:
         raise ValueError('Installation plan role must name INTERNAL.json')
+    from storage_target import validate_target
+    target=validate_target(manifest.get('storage_target','internal'))
+    if target=='sd' and has_recovery:raise ValueError('SD kits cannot use an internal RAM installer')
     image_size = manifest.get('root_bytes')
     image_sha = manifest.get('root_sha256')
-    if type(image_size) is not int or not 0 < image_size <= 1900 * 1024 ** 2:
+    if type(image_size) is not int or not 0 < image_size <= (1900 if target=='internal' else 8191) * 1024 ** 2:
         raise ValueError('Invalid root image size')
     if not isinstance(image_sha, str) or not re.fullmatch(r'[0-9a-f]{64}', image_sha):
         raise ValueError('Invalid root image checksum')
@@ -157,7 +160,7 @@ def verify_local_kit(kit):
         raise ValueError('Source build manifest checksum differs from the internal install plan')
     if has_recovery and manifest.get('ram_installer_manifest_sha256') != digest(files['installer-build-manifest']):
         raise ValueError('RAM installer manifest checksum differs from the internal install plan')
-    if not has_recovery and manifest.get('install_transport') != 'maemo-usb-mass-storage':
+    if not has_recovery and manifest.get('install_transport') != ('sd-card-reader' if target=='sd' else 'maemo-usb-mass-storage'):
         raise ValueError('Kit without a RAM installer requires the Maemo USB storage transport')
 
     root_image = files['root-filesystem']
@@ -181,10 +184,10 @@ def verify_local_kit(kit):
     if desktop.get('desktop_user') != 'nokia' or desktop.get('autostart') is not True:
         raise ValueError('Kit does not autostart Pocket as user nokia')
     first_boot = manifest.get('first_boot')
-    if not isinstance(first_boot, dict) or first_boot.get('profile') not in ('n810-internal-v3', 'n810-internal-v4', 'n810-internal-v5'):
+    if not isinstance(first_boot, dict) or first_boot.get('profile') not in ('n810-internal-v3', 'n810-internal-v4', 'n810-internal-v5', 'n810-internal-v6'):
         raise ValueError('Kit predates the verified keyboard and power first-boot profile; rebuild it')
-    current_profile = first_boot['profile'] in ('n810-internal-v4', 'n810-internal-v5')
-    sysv_profile = first_boot['profile'] == 'n810-internal-v5'
+    current_profile = first_boot['profile'] in ('n810-internal-v4', 'n810-internal-v5', 'n810-internal-v6')
+    sysv_profile = first_boot['profile'] in ('n810-internal-v5', 'n810-internal-v6')
     services = first_boot.get('enabled_services')
     if (not isinstance(services, list) or any(not isinstance(name, str) for name in services)
             or len(services) != len(set(services))
@@ -193,6 +196,12 @@ def verify_local_kit(kit):
             or (not sysv_profile and (not FIRST_BOOT_SERVICES <= set(services)
                                      or (current_profile and LOCK_SLIDER_SERVICE not in services)))):
         raise ValueError('Kit lacks required first-boot services')
+    if first_boot['profile'] == 'n810-internal-v6':
+        from system_contract import COMMANDS, FILES
+        dependencies = first_boot.get('system_dependencies')
+        if (not isinstance(dependencies, dict) or not COMMANDS | FILES <= dependencies.keys()
+                or any(not isinstance(v, str) or not re.fullmatch(r'[0-9a-f]{64}', v) for v in dependencies.values())):
+            raise ValueError('Kit lacks the system dependency contract; rebuild it')
     checks = ['root_manifest_sha256', 'keyboard_remapper_sha256', 'keyboard_backlight_sha256']
     if current_profile:checks.append('lock_slider_sha256')
     for name in checks:
@@ -304,6 +313,8 @@ def identify_device(flasher=DEFAULT_FLASHER, progress=None, timeout=30):
 def boot_installer(kit, flasher=DEFAULT_FLASHER, progress=None):
     root = Path(kit).expanduser().resolve()
     _, manifest, files = verify_local_kit(root)
+    from storage_target import require_target
+    require_target(manifest,'internal')
     if not RECOVERY_ROLES <= set(files):
         raise ValueError('This kit uses Maemo USB storage and contains no RAM installer')
     identity = identify_device(flasher, progress)
@@ -415,6 +426,8 @@ class Installer:
 
     def inspect(self):
         _, manifest, files = verify_local_kit(self.kit)
+        from storage_target import require_target
+        require_target(manifest,'internal')
         if not RECOVERY_ROLES <= set(files):
             raise ValueError('This kit uses Maemo USB storage and contains no RAM installer')
         self._manifest = manifest
@@ -565,6 +578,8 @@ def install_macos(kit, disk, usb_location, flasher=DEFAULT_FLASHER, progress=Non
         raise RuntimeError('Maemo USB storage installation requires macOS')
     root = Path(kit).expanduser().resolve()
     _, manifest, _ = verify_local_kit(root)
+    from storage_target import require_target
+    require_target(manifest,'internal')
     receipt = root / 'INSTALL-STATE.json'
     def checkpoint():
         if cancelled is not None and cancelled.is_set():
@@ -633,6 +648,8 @@ def checked_write_receipt(root, manifest):
             receipt.get('kernel_sha256') != manifest['kernel_sha256'] or
             receipt.get('kernel_flashing_pending') is not True):
         raise ValueError('Internal-write receipt does not match this kit')
+    from storage_target import require_target
+    require_target(receipt,manifest.get('storage_target','internal'))
     return receipt
 
 

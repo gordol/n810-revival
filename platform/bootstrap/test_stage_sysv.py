@@ -27,6 +27,7 @@ class StageSysVTest(unittest.TestCase):
             try:
                 script=(Path(__file__).resolve().parents[1]/'device/n810-setup-touch.init').read_text()
                 script=script.replace('/etc/n810/touch-calibration.json',str(root/'missing-calibration'))
+                script=script.replace('$(/usr/local/sbin/n810-mode status)', 'normal')
                 script=script.replace('chvt 1',':').replace('kbd_mode -u -C /dev/tty1',':')
                 script=script.replace('/usr/local/sbin/n810-setup-touch',str(helper))
                 script=script.replace('/dev/tty1',os.ttyname(slave))
@@ -81,12 +82,30 @@ class StageSysVTest(unittest.TestCase):
                           (root / 'etc/init.d/n810-bluetooth-address').read_text())
             self.assertTrue((root / 'etc/rc2.d/S04n810-setup-touch').is_symlink())
             self.assertTrue((root / 'etc/rc2.d/S05pocket-desktop').is_symlink())
+            self.assertTrue((root / 'etc/rc2.d/S03n810-displayd').is_symlink())
+            self.assertTrue((root / 'etc/rc2.d/S04n810-boot-mode').is_symlink())
+            self.assertFalse((root / 'etc/init.d/n810-display-keys').exists())
             self.assertIn('HostKey /etc/ssh/ssh_host_ed25519_key',
                           (root / 'etc/ssh/sshd_config.d/10-n810-first-install.conf').read_text())
             self.assertIn('/dev/disk/by-partuuid/1a2b3c4d-01',
                           (root / 'etc/init.d/pocket-expand-internal-root').read_text())
             for name in START:
                 subprocess.run(['sh', '-n', str(root / 'etc/init.d' / name)], check=True)
+
+    def test_charger_boot_defers_touch_and_desktop(self):
+        device = Path(__file__).resolve().parents[1] / 'device'
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for name in ('pocket-desktop.init', 'n810-setup-touch.init'):
+                script = (device / name).read_text().replace(
+                    '$(/usr/local/sbin/n810-mode status)', 'charging')
+                # Any startup operation after the guard must be unreachable.
+                script = script.replace('start-stop-daemon --start', 'exit 91 #')
+                script = script.replace('    chvt 1', '    exit 92')
+                target = root / name
+                target.write_text(script)
+                result = subprocess.run(['sh', str(target), 'start'], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_rejects_systemd_pid_one(self):
         with tempfile.TemporaryDirectory() as folder:

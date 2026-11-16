@@ -16,11 +16,13 @@ START = {
     'n810-console-ux': (2, 'n810-console-ux.init'),
     'n810-powerd': (2, 'n810-powerd.init'),
     'n810-wifi': (2, 'n810-wifi.init'),
-    'n810-display-keys': (3, 'n810-display-keys.init'),
+    'n810-displayd': (3, 'n810-displayd.init'),
+    'n810-boot-mode': (4, 'n810-boot-mode.init'),
     'n810-ledd': (3, 'n810-ledd.init'),
     'n810-wake': (3, 'n810-wake.init'),
     'n810-setup-touch': (4, 'n810-setup-touch.init'),
     'pocket-desktop': (5, 'pocket-desktop.init'),
+    'pocket-services': (6, 'pocket-services.init'),
 }
 
 
@@ -40,6 +42,10 @@ def stage(root, disk_id):
     # sequential S/K link order explicitly, including host keys before ssh.
     (root / 'etc/init.d/.legacy-bootordering').touch()
     installed = root / 'etc/init.d'
+    for directory in root.glob('etc/rc?.d'):
+        for link in directory.glob('[SK]??n810-display-keys'):
+            link.unlink()
+    (installed / 'n810-display-keys').unlink(missing_ok=True)
     for runlevel in (2, 3, 4, 5):
         directory = root / f'etc/rc{runlevel}.d'
         directory.mkdir(parents=True, exist_ok=True)
@@ -60,7 +66,7 @@ def stage(root, disk_id):
             if link.exists() or link.is_symlink():
                 link.unlink()
             link.symlink_to('../init.d/' + name)
-        if name not in ('n810-ssh-hostkeys', 'n810-bluetooth-address', 'n810-setup-touch', 'pocket-expand-internal-root'):
+        if name not in ('n810-ssh-hostkeys', 'n810-bluetooth-address', 'n810-setup-touch', 'pocket-expand-internal-root', 'pocket-services'):
             for runlevel in (0, 1, 6):
                 link = root / f'etc/rc{runlevel}.d/K{99-priority:02d}{name}'
                 link.parent.mkdir(parents=True, exist_ok=True)
