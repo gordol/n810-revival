@@ -278,6 +278,22 @@ The host tablet's own mounted root is rejected by the disk checks. Its internal
 MMC is not a removable SD card and is rejected as an SD target. Verify host-mode enumeration on the provisioning tablet before attempting any
 write to a second tablet.
 
+### Validate the Linux block writer without a tablet
+
+After building the Docker image, this opt-in test allocates a disposable 16 MiB
+loop device, checks mounted-disk exclusion, and exercises real block writes,
+Linux buffer flushing and readback. It detaches its fixture on completion.
+Run it in a disposable Linux VM/container, not against a real card:
+
+```sh
+docker run --rm --privileged -e N810_LOOP_TEST=1 \
+    --mount "type=bind,src=$PWD,dst=/validation,readonly" \
+    n810-internal-builder:local python3 -m unittest discover \
+    -s /validation/platform/bootstrap -p test_linux_block_device.py
+```
+
+This tests Linux block I/O; it does not replace physical N810 USB/flashing checks.
+
 ## Use the app
 
 For a physical installation on macOS, boot stock Maemo on the new tablet and

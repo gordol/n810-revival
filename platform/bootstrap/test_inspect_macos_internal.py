@@ -40,6 +40,7 @@ class InspectTest(unittest.TestCase):
                 stream.truncate(16 * 1024**2)
             subprocess.run([tool('mke2fs'), '-q', '-t', 'ext4', '-F', '-d', str(staging), str(image)], check=True)
             before = hashlib.sha256(image.read_bytes()).digest()
+            real_mkdtemp = tempfile.mkdtemp
             real_run = subprocess.run
             operations = []
 
@@ -53,9 +54,10 @@ class InspectTest(unittest.TestCase):
                 return real_run([*argv[:-1], str(image)], **kwargs)
 
             with patch.object(collector, 'disk_info', return_value={'DeviceTreePath': 'fixture'}), \
-                 patch.object(collector.subprocess, 'run', side_effect=run):
+                 patch.object(collector.subprocess, 'run', side_effect=run), \
+                 patch.object(collector.tempfile, 'mkdtemp', side_effect=lambda **kw: real_mkdtemp(prefix=kw['prefix'], dir=root)):
                 output = collector.inspect('/dev/disk99', 0x02100000, tool('debugfs'))
-            self.addCleanup(shutil.rmtree, output)
+            self.addCleanup(shutil.rmtree, output, ignore_errors=True)
             self.assertEqual((output / 'log/n810-fn-remap.log').read_text(), 'fixture boot failure\n')
             self.assertEqual(before, hashlib.sha256(image.read_bytes()).digest())
             self.assertEqual(operations, ['unmountDisk', 'eject'])

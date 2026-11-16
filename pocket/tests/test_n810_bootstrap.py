@@ -3,7 +3,7 @@
 import hashlib,json,sys,tempfile,threading,unittest
 import io
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'platform'/'bootstrap'))
 import n810_bootstrap as bootstrap
@@ -162,6 +162,19 @@ class SetupTests(unittest.TestCase):
         with patch('native_setup.sys.platform','darwin'),self.assertRaisesRegex(ValueError,'whole disk'):
             _mac_storage('mac-write',self.root,'/dev/disk5s1','0x02100000',None)
 
+    def test_linux_storage_actions_select_native_writer_and_explicit_port(self):
+        process=Mock();process.stdout=iter(['verified\n']);process.wait.return_value=0
+        with patch('native_setup.sys.platform','linux'), \
+             patch('native_setup.subprocess.Popen',return_value=process) as popen:
+            result=_mac_storage('mac-write',self.root,'/dev/sdz','1-2.3',None)
+        argv=popen.call_args.args[0]
+        self.assertEqual(argv[:2],['sudo','-n'])
+        self.assertIn('--write',argv)
+        self.assertIn('--usb-port',argv)
+        self.assertIn('1-2.3',argv)
+        self.assertTrue(any(str(value).endswith('linux_storage.py') for value in argv))
+        self.assertEqual(result['usb_port'],'1-2.3')
+
     def test_mac_install_uses_same_guarded_cli_operation(self):
         manifest=self.root/'INSTALLATION.json';manifest.write_text('{}')
         form=N810Setup();form.manifest.text=str(manifest)
@@ -254,7 +267,7 @@ class SetupTests(unittest.TestCase):
         navigation(form).select('check')
         self.assertTrue(any('Check files' in row for row in form.lines()))
         form.field='disk'
-        self.assertTrue(any('New N810 disk' in row for row in form.lines()))
+        self.assertTrue(any(('Target whole disk' if sys.platform.startswith('linux') else 'New N810 disk') in row for row in form.lines()))
         form.field='mac-write'
         self.assertTrue(any('Write target disk' in row for row in form.lines()))
         form.help_pages();self.assertIsNone(form.pool);self.assertIsNone(form.pending)
@@ -263,7 +276,9 @@ class SetupTests(unittest.TestCase):
         form=N810Setup();self.addCleanup(form.close)
         form.width=110;form.height=36
         labels=('Installation manifest','New local kit folder','Ed25519 public key',
-                'Local nokia password','New N810 disk','New N810 USB port')
+                'Local nokia password',
+                'Target whole disk' if sys.platform.startswith('linux') else 'New N810 disk',
+                'Tablet USB port' if sys.platform.startswith('linux') else 'New N810 USB port')
         before=form.session_state()
         for _ in range(6):
             rendered='\n'.join(form.lines())
