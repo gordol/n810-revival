@@ -1,6 +1,6 @@
-# Build the imported MBX and Mesa checkpoint
+# Build MBX and Mesa
 
-These commands build the earlier 4 November MBX/Mesa source checkpoint, including its packet encoders, kernel module, and Mesa integration. For the later command-reuse and FIFO changes that produced the repeated 30 FPS result, use the [30 FPS driver guide](build-gpu-30fps.md).
+These commands build the portable Mesa integration with the maintained Pocket driver overlay from `pocket/graphics/driver/mbx/`. The module and Mesa use the same assembled common interfaces, and their build records hash the effective inputs. Explicit historical checkpoints retain their frozen sources; for the repeated 30 FPS checkpoint, use the [30 FPS driver guide](build-gpu-30fps.md).
 
 Use a Debian Linux builder with at least 3 GiB of free space. Install the kernel prerequisites from the [kernel guide](build-kernel.md).
 
