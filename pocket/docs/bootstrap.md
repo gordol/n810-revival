@@ -147,7 +147,9 @@ make n810-build-sd SSH_PUBLIC_KEY="$HOME/.ssh/id_ed25519.pub" \
 Internal builds continue to use `make n810-build-internal`. Both accept the
 private Wi-Fi/startup input options described below. SD root image sizes may be
 1024–8191 MiB through `INTERNAL_SIZE_MIB`; internal roots remain limited to
-1024–1900 MiB. The prepared image must fit the selected card.
+1024–1900 MiB. The prepared image must fit the selected card. The default 1536 MiB root needs
+a card of at least **2 GB**; larger custom roots need the selected root size plus
+1 MiB for the partition offset. Offline maps and other data need additional space.
 
 ### Prepare an SD card on macOS
 
@@ -261,8 +263,10 @@ plus headroom. Docker and a compiler are not required on that tablet.
 The provisioning tablet must be in USB **host** mode, with a suitable OTG host
 connection and adequate power for the other device/card reader. Software alone
 cannot supply USB power or change a peripheral-only cable into a host cable.
-The USB host, power and two-tablet flashing combination still needs a physical
-test. Keep an independent recovery route available.
+Run provisioning from the tablet console or over Wi-Fi: its USB port will be
+occupied as the host connection, so USB gadget networking cannot remain the
+control connection. The USB host, power and two-tablet flashing combination still
+needs a physical test. Keep an independent recovery route available.
 
 ```sh
 n810-provision check --kit /path/to/kit
