@@ -6,7 +6,7 @@ import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
-from stage_services import REPO, stage, checked_environments
+from stage_services import REPO, stage, checked_environments, adapt_meshcore_debian
 
 class StageServicesTests(unittest.TestCase):
     def test_requires_runtimes_and_stages_complete_shared_backend(self):
@@ -43,3 +43,24 @@ class StageServicesTests(unittest.TestCase):
             self.assertTrue((root/'usr/local/lib/n810-platform/rnode_spp_prepare.py').is_file())
             self.assertFalse((root/'etc/n810/rnode-spp.json').exists())
             self.assertIn('BLUETOOTH_ENABLED=0',(root/'etc/default/bluetooth').read_text())
+
+
+class DebianCryptoTests(unittest.TestCase):
+    def test_only_meshcore_imports_are_adapted_and_recorded(self):
+        import json
+        import hashlib
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = root/'opt/pocket-htit/lib/python3.11/site-packages/meshcore'
+            package.mkdir(parents=True)
+            (package/'reader.py').write_text('from Crypto.Hash import SHA256\n')
+            (package/'meshcore_parser.py').write_text('from Crypto.Cipher import AES\nfrom Crypto.Hash import HMAC, SHA256\n')
+            original = (package/'reader.py').read_bytes()
+            adapt_meshcore_debian(root)
+            self.assertEqual((package/'reader.py').read_text(), 'from Cryptodome.Hash import SHA256\n')
+            record = json.loads((package.parent/'n810-meshcore-debian.json').read_text())
+            self.assertEqual(record['files']['reader.py']['upstream_sha256'], hashlib.sha256(original).hexdigest())
+            before = (package/'meshcore_parser.py').read_bytes()
+            with self.assertRaisesRegex(ValueError, 'imports changed'):
+                adapt_meshcore_debian(root)
+            self.assertEqual((package/'meshcore_parser.py').read_bytes(), before)

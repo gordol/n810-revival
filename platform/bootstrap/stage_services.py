@@ -1,6 +1,8 @@
 """Install shared radio code and offline optional runtimes into a fresh build root."""
 from pathlib import Path
 import os
+import hashlib
+import json
 import shutil
 import subprocess
 
@@ -80,6 +82,39 @@ def stage(root):
     return destination
 
 
+def adapt_meshcore_debian(root):
+    """Use Debian's Cryptodome namespace in the locked MeshCore distribution.
+
+    Debian ships pycryptodome as Cryptodome to avoid the obsolete PyCrypto
+    namespace. Keep this adaptation local to MeshCore, with before/after hashes.
+    """
+    matches = list((Path(root) / 'opt/pocket-htit/lib').glob('python*/site-packages/meshcore'))
+    if len(matches) != 1:
+        raise ValueError('Expected one installed MeshCore package')
+    package = matches[0]
+    changes = {'meshcore_parser.py': ('from Crypto.Cipher import AES',
+                                    'from Crypto.Hash import HMAC, SHA256'),
+               'reader.py': ('from Crypto.Hash import SHA256',)}
+    prepared = []
+    for name, imports in changes.items():
+        path = package / name
+        before = path.read_bytes()
+        text = before.decode('utf-8')
+        for line in imports:
+            if text.splitlines().count(line) != 1:
+                raise ValueError('MeshCore crypto imports changed: ' + name)
+            text = text.replace(line, line.replace('from Crypto.', 'from Cryptodome.'))
+        prepared.append((path, before, text.encode('utf-8')))
+    records = {}
+    for path, before, after in prepared:
+        path.write_bytes(after)
+        records[path.name] = {'upstream_sha256': hashlib.sha256(before).hexdigest(),
+                              'installed_sha256': hashlib.sha256(after).hexdigest()}
+    (package.parent / 'n810-meshcore-debian.json').write_text(json.dumps({
+        'adaptation': 'Debian pycryptodome Cryptodome namespace', 'files': records
+    }, indent=2) + '\n')
+
+
 def environments(root, wheels=Path('/build/service-wheels'), requirements=Path('/build/requirements')):
     """Run in the Linux source builder; never install software on a live tablet."""
     root = Path(root)
@@ -99,8 +134,9 @@ def environments(root, wheels=Path('/build/service-wheels'), requirements=Path('
                             '--no-index', '--only-binary=:all:', '--no-deps', '--require-hashes',
                             '--find-links=/opt/n810-service-wheels', '-r',
                             '/opt/n810-service-wheels/requirements/' + lock], check=True)
+        adapt_meshcore_debian(root)
         for directory, imports in (('/opt/n810-mesh', 'import RNS,LXMF,urwid,qrcode,serial,cryptography'),
-                                   ('/opt/pocket-htit', 'import meshcore,serial_asyncio_fast,pycayennelpp,bleak,Crypto')):
+                                   ('/opt/pocket-htit', 'import meshcore,serial_asyncio_fast,pycayennelpp,bleak,Cryptodome; from Cryptodome.Cipher import AES; assert AES.new(bytes(16), AES.MODE_ECB).encrypt(bytes(16)).hex() == "66e94bd4ef8a2c3b884cfa59ca342b2e"')):
             subprocess.run(['chroot', str(root), directory + '/bin/python', '-c', imports], check=True)
     finally:
         if owned:
