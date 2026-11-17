@@ -647,9 +647,12 @@ def main(platform=None,argv=None):
         for window in host.windows:window.opened=window.visible=False
         host.background_enabled=False
         def restore_recovery(name):
+            nonlocal resized
             store.load(host,panel)
             if store.error:return store.error
             if not store.loaded:return 'No saved desktop was found.'
+            # Loading replaces Panel objects; lay them out before the next frame.
+            resized=True
             restore_pending.clear()
             for app,form in host.app_forms.items():
                 if hasattr(form,'restore_session'):form.restore_session(getattr(host,'app_view_state',{}).get(app,{}))

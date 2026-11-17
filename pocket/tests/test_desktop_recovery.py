@@ -10,6 +10,22 @@ from panel import Panels
 from runtime_codec import pack
 
 class RecoveryTests(unittest.TestCase):
+    def test_restoring_saved_panels_requests_layout_before_render(self):
+        import ast
+        tree=ast.parse((Path(__file__).resolve().parents[1]/'shell/desktop.py').read_text())
+        callback=next(n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef) and n.name=='restore_recovery')
+        wrapper=ast.parse('def factory():\n resized=False\n def state():return resized\n return restore_recovery,state\n')
+        wrapper.body[0].body.insert(1,callback)
+        with tempfile.TemporaryDirectory() as folder:
+            host=Host(100,29,[Window('Station Map',0,0,60,20)])
+            host.app_forms={};panels=Panels('top');panels.layout(100,30)
+            path=Path(folder)/'desktop.msgpack';path.write_bytes(pack(capture(host,panels)))
+            namespace=dict(store=Store(path,enabled=False),host=host,panel=panels,restore_pending=[],registered_apps=SimpleNamespace(forms={}))
+            exec(compile(ast.fix_missing_locations(wrapper),'<recovery callback>','exec'),namespace)
+            restore,resized=namespace['factory']();restore('Station Map')
+            self.assertTrue(resized())
+            panels.layout(100,30);panels.render({})
+
     def test_recovery_choices_do_not_modify_saved_session(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);path=root/'desktop.msgpack'
