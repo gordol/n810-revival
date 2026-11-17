@@ -18,30 +18,37 @@ class SetupChoices:
         self.wifi_pass=SecretInput('', limit=63)
         self.wifi_country=TextInput('US', limit=2)
         self.startup=validate({});self.storage_target='internal'
+        self.reference_data=TextInput('',limit=1024);self.reference_maps=TextInput('',limit=1024)
         self._hits=[]; self._spans=[]
     def targets(self):
         from native_navigation import Target
         return [Target('storage-target','Root storage: internal, SD, or SD A/B','action','toggle-storage'),Target('wifi_ssid','Wi-Fi network name','input'),
                 Target('wifi_pass','Wi-Fi passphrase','input'),
-                Target('wifi_country','Wi-Fi country','input')]+[
+                Target('wifi_country','Wi-Fi country','input')]+([Target('reference_data','Offline maps and elevation folder','input'),
+                Target('reference_maps','Separate prepared map views folder (optional)','input')] if self.storage_target=='sd-ab' else [])+[
                 Target('toggle-'+name, title+' at boot','action','toggle-'+name)
                 for name,title in [('receive','UV-PRO APRS reception'),('meshcore','HTIT / MeshCore'),('reticulum','Reticulum')]]+[
                 Target('options-done','Use these choices','action','options-done')]
     def input(self, key):
-        return {'wifi_ssid':self.wifi_ssid,'wifi_pass':self.wifi_pass,'wifi_country':self.wifi_country}.get(key)
+        return {'wifi_ssid':self.wifi_ssid,'wifi_pass':self.wifi_pass,'wifi_country':self.wifi_country,'reference_data':self.reference_data,'reference_maps':self.reference_maps}.get(key)
     def profile(self):
         value={'startup':dict(self.startup),'storage_target':self.storage_target}
+        if self.storage_target=='sd-ab':
+            if self.reference_maps.text and not self.reference_data.text:raise ValueError('Choose the offline data folder before separate map views')
+            for name in ('reference_data','reference_maps'):
+                if self.input(name).text:value[name]=self.input(name).text
         if self.wifi_ssid.text:
             if not self.wifi_pass.text:
                 raise ValueError('Enter the Wi-Fi passphrase or leave Wi-Fi unconfigured')
             value['wifi']=dict(ssid=self.wifi_ssid.text,passphrase=self.wifi_pass.text,country=self.wifi_country.text.upper())
         return value
     def public_state(self):
-        return dict(storage_target=self.storage_target,startup=dict(self.startup),ssid=self.wifi_ssid.text,country=self.wifi_country.text)
+        return dict(storage_target=self.storage_target,startup=dict(self.startup),ssid=self.wifi_ssid.text,country=self.wifi_country.text,reference_data=self.reference_data.text,reference_maps=self.reference_maps.text)
     def restore(self,value):
         if not isinstance(value,dict):return
         self.storage_target=value.get('storage_target') if value.get('storage_target') in ('internal','sd','sd-ab') else 'internal'
         self.startup=validate(value.get('startup',{}))
+        for name in ('reference_data','reference_maps'):self.input(name).text=str(value.get(name,''))[:1024]
         self.wifi_ssid.text=str(value.get('ssid',''))[:32]
         self.wifi_country.text=str(value.get('country','US'))[:2]
     def key(self,key):
@@ -55,11 +62,11 @@ class SetupChoices:
         c.put(0,0,'Install options · optional Wi-Fi and service startup')
         c.put(0,2,'[Root storage: '+({'internal':'internal MMC','sd':'SD card (single root)','sd-ab':'SD A/B + internal recovery'}[self.storage_target])+']');self._hits.append((2,'storage-target'))
         row=4
-        for key,label in [('wifi_ssid','Wi-Fi network (blank = configure later)'),('wifi_pass','Wi-Fi passphrase (hidden)'),('wifi_country','Two-letter Wi-Fi country')]:
+        for key,label in [('wifi_ssid','Wi-Fi network (blank = configure later)'),('wifi_pass','Wi-Fi passphrase (hidden)'),('wifi_country','Two-letter Wi-Fi country')]+([('reference_data','Offline maps/elevation folder (optional)'),('reference_maps','Separate prepared map views folder (optional)')] if self.storage_target=='sd-ab' else []):
             c.put(0,row,label);row+=1
             text,roles=self.input(key).presentation(self.width,focused=self.field==key)
             c.put(0,row,text);self._hits.append((row,key))
-            self._spans.extend((row,x,n,role) for x,n,role in roles);row+=2
+            self._spans.extend((row,x,n,role) for x,n,role in roles);row+=1 if self.storage_target=='sd-ab' else 2
         for name,label in [('receive','UV-PRO APRS reception'),('meshcore','HTIT / MeshCore'),('reticulum','Reticulum')]:
             key='toggle-'+name;c.put(0,row,('> ' if self.field==key else '  ')+('[x] ' if self.startup[name] else '[ ] ')+label+' at boot')
             self._hits.append((row,key));row+=1

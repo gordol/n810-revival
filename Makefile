@@ -191,7 +191,7 @@ n810-write-linux:
 AB_KIT ?= $(CURDIR)/dist/n810-ab
 .PHONY: n810-build-ab n810-check-ab n810-write-ab
 n810-build-ab:
-	python3 platform/bootstrap/build_ab_host.py --output "$(AB_KIT)" --ssh-key "$(SSH_PUBLIC_KEY)" $(if $(filter 1,$(N810_CONFIGURE)),--configure)
+	python3 platform/bootstrap/build_ab_host.py --output "$(AB_KIT)" --ssh-key "$(SSH_PUBLIC_KEY)" $(if $(filter 1,$(N810_CONFIGURE)),--configure) $(if $(REFERENCE_DATA),--reference-data "$(REFERENCE_DATA)") $(if $(REFERENCE_MAPS),--reference-maps "$(REFERENCE_MAPS)")
 n810-check-ab:
 	python3 platform/bootstrap/ab_media.py --kit "$(AB_KIT)"
 n810-write-ab:

@@ -244,6 +244,32 @@ class SetupTests(unittest.TestCase):
         self.assertIn('INTERNAL_PASSWORD_STDIN=1',popen.call_args.args[0])
         verify.assert_called_once()
 
+    def test_ab_reference_paths_are_build_inputs_not_device_configuration(self):
+        from setup_choices import SetupChoices
+        choices=SetupChoices();choices.storage_target='sd-ab'
+        choices.reference_data.text=str(self.root/'offline data')
+        choices.reference_maps.text=str(self.root/'map views')
+        self.assertIn('reference_data',[target.key for target in choices.targets()])
+        choices.height=26
+        rendered='\n'.join(choices.lines())
+        self.assertIn('Offline maps/elevation',rendered)
+        self.assertIn('[Use these choices]',rendered)
+        restored=SetupChoices();restored.restore(choices.public_state())
+        self.assertEqual(restored.reference_data.text,choices.reference_data.text)
+        key=self.root/'key.pub';key.write_text('ssh-ed25519 synthetic-fixture\n')
+        class CaptureStdin(io.BytesIO):
+            def close(self):self.captured=self.getvalue();super().close()
+        with tempfile.TemporaryFile() as stream:
+            process=type('Process',(),{'stdin':CaptureStdin(),'stdout':stream,'poll':lambda self:0,'wait':lambda self:0})()
+            with patch('native_setup.subprocess.Popen',return_value=process) as popen, patch('native_setup._verify_built_kit',return_value={}):
+                _build_internal_source_kit(self.root/'new-kit',key,'fixture-secret',None,threading.Event(),choices.profile())
+        argv=popen.call_args.args[0]
+        self.assertEqual(argv[argv.index('--reference-data')+1],choices.reference_data.text)
+        self.assertEqual(argv[argv.index('--reference-maps')+1],choices.reference_maps.text)
+        profile=json.loads(process.stdin.captured.splitlines()[1])
+        self.assertNotIn('reference_data',profile);self.assertNotIn('reference_maps',profile)
+        self.assertEqual(profile['storage_target'],'sd-ab')
+
     def test_storage_option_routes_sd_build_and_card_writer(self):
         form=N810Setup();self.addCleanup(form.close);form.key('o')
         navigation(form).target='storage-target';native_key(form,'\r')

@@ -114,6 +114,10 @@ def _build_internal_kit(plan_path,destination,progress,cancelled):
 
 def _build_internal_source_kit(destination,ssh_key,password,progress,cancelled,setup=None):
     password = password or 'nokia'
+    setup=dict(setup or {})
+    reference={name:setup.pop(name,None) for name in ('reference_data','reference_maps')}
+    if any(reference.values()) and setup.get('storage_target')!='sd-ab':raise ValueError('Reference-data seeding requires an SD A/B kit')
+    if reference['reference_maps'] and not reference['reference_data']:raise ValueError('Choose the offline data folder before separate map views')
     output=Path(destination).expanduser().absolute()
     key=Path(ssh_key).expanduser().absolute()
     if output.parent==REPOSITORY/'dist':output.parent.mkdir(exist_ok=True)
@@ -127,6 +131,8 @@ def _build_internal_source_kit(destination,ssh_key,password,progress,cancelled,s
           'SSH_PUBLIC_KEY='+str(key),'INTERNAL_KIT='+str(output),'INTERNAL_PASSWORD_STDIN=1','INTERNAL_SETUP_STDIN=1','N810_STORAGE='+str((setup or {}).get('storage_target','internal'))]
     if (setup or {}).get('storage_target')=='sd-ab':
         argv=[sys.executable,str(BOOTSTRAP/'build_ab_host.py'),'--output',str(output),'--ssh-key',str(key),'--setup-stdin']
+        for name,value in reference.items():
+            if value:argv.extend(['--'+name.replace('_','-'),str(Path(value).expanduser().absolute())])
     if progress:progress('Building kernel, graphics, Debian and Pocket from tracked source…')
     process=subprocess.Popen(argv,cwd=REPOSITORY,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT,start_new_session=True)

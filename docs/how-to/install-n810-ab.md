@@ -164,7 +164,14 @@ Prepare regional data using [the map data guide](build-map-data.md). Keep raw GI
 imports on the build host. The tablet needs the generated `maps/`, geography,
 hydrography and selected elevation packs, rather than the raw downloads.
 
-To include prepared data in a fresh A/B kit, add
+In N810 Setup, open **Storage, Wi-Fi and startup choices**, select **SD A/B**,
+and enter the optional offline maps/elevation folder. Use the separate map views
+field only when those prepared files live outside that folder. Then choose
+**Build kit from source**. These host paths are build inputs; they are not saved
+in the tablet's configuration.
+
+For `make n810-build-ab`, set `REFERENCE_DATA` and, if needed, `REFERENCE_MAPS`
+to those folders. To invoke the builder directly, add
 `--reference-data /absolute/path/to/pocket/data` to
 `platform/bootstrap/build_ab_host.py`. If the prepared legacy map views are kept
 separately, also pass `--reference-maps /absolute/path/to/maps`. The builder
