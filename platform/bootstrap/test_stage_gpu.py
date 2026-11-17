@@ -23,7 +23,8 @@ class GpuInputs(unittest.TestCase):
             (kernel / 'BUILD.json').write_text(json.dumps({'release': '5.15.224-test'}))
             (module / 'n810_mbx_gpu_probe.ko').write_bytes(b'\x7fELF\x01' + b'\0' * 13 + b'\x28\0' + b'\0' * 16)
             build = {'target': 'module', 'kernel_release': '5.15.224-test', 'crc_checks': 87,
-                     'source_sha256': {'build-inputs/Module.symvers': sha(b'kernel symbols')}}
+                     'kernel_symvers_sha256': sha(b'kernel symbols'),
+                     'source_sha256': {'build-inputs/Module.symvers': sha(b'historical reference symbols')}}
             (module / 'BUILD.json').write_text(json.dumps(build))
             (mesa / 'libOSMesa.so.8').write_bytes(b'mesa')
             (mesa / 'BUILD.json').write_text(json.dumps({'target': 'mesa'}))
@@ -50,7 +51,7 @@ class GpuInputs(unittest.TestCase):
             self.assertEqual((selected/'room-pixels.so').readlink(),Path('renderer.so'))
             manifest=json.loads((selected/'MANIFEST.json').read_text())
             self.assertEqual(manifest['files']['room-pixels.so'],sha((selected/'room-pixels.so').read_bytes()))
-            build['source_sha256']['build-inputs/Module.symvers'] = sha(b'other symbols')
+            build['kernel_symvers_sha256'] = sha(b'other symbols')
             (module / 'BUILD.json').write_text(json.dumps(build))
             with self.assertRaisesRegex(ValueError, 'different kernel symbols'):
                 inputs(runtime, module, mesa, kernel)

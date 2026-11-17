@@ -36,7 +36,7 @@ def inputs(runtime, module_package, mesa_package, kernel_package):
         raise ValueError('Pocket frontend was not built with the GPU scene')
     if module.get('target') != 'module' or module.get('kernel_release') != release or module.get('crc_checks', 0) < 80:
         raise ValueError('MBX module does not match the image kernel')
-    if module['source_sha256']['build-inputs/Module.symvers'] != digest(kernel_package / 'Module.symvers'):
+    if module.get('kernel_symvers_sha256') != digest(kernel_package / 'Module.symvers'):
         raise ValueError('MBX module was built against different kernel symbols')
     if mesa.get('target') != 'mesa':
         raise ValueError('Missing ARM Mesa build record')

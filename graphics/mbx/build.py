@@ -44,7 +44,7 @@ def main():
         imports={x.split()[1]:x.split()[0] for x in versions.splitlines()}
         assert imports and all(exports.get(n)==c for n,c in imports.items())
         vermagic=subprocess.check_output(['modinfo','-F','vermagic',str(ko)],text=True).strip();assert vermagic.startswith(release+' ')
-        shutil.copyfile(ko,out/ko.name);report={'kernel_release':release,'crc_checks':len(imports),'vermagic':vermagic}
+        shutil.copyfile(ko,out/ko.name);report={'kernel_release':release,'crc_checks':len(imports),'vermagic':vermagic,'kernel_symvers_sha256':digest(build/'Module.symvers')}
     else:
         lock=json.loads((HERE/'dependencies.lock.json').read_text());downloads=work/'downloads';downloads.mkdir();sysroot=work/'sysroot';sysroot.mkdir()
         def fetch(name,row):
