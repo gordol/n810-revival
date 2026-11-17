@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Run host and ARM-emulated MBX checks against a completed Mesa build."""
-import argparse,ast,json,os,shlex,subprocess,sys
+import argparse,ast,json,os,shlex,shutil,subprocess,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
 p=argparse.ArgumentParser(description=__doc__)
@@ -18,7 +18,7 @@ def run(name,commands,cwd=None):
     (out/'results.json').write_text(json.dumps(results,indent=2)+'\n')
     print(name,result.returncode,flush=True)
 for test in sorted((ROOT/'tests').glob('*.c')):
-    if test.stem=='test_vgp_shader':continue
+    if test.stem in ('test_vgp_shader','test_texture_cache'):continue
     exe=out/test.stem
     sources=common
     if test.stem=='test_vgp_wire':sources=[f for f in common if f.name not in ('mbx_vgp_isa.c','mbx_vgp_draw.c','mbx_vgp_topology.c')]
@@ -34,6 +34,17 @@ for test in sorted((ROOT/'tests').glob('test_*.py')):
         args.append(sampler)
     elif test.stem.startswith(('test_arm_vertex','test_vertex_')):args.append(ROOT/'mesa')
     run(test.stem,[args])
+# The texture-cache fixture uses the built ARM OSMesa, including CPU sampling.
+package=a.mesa_work.resolve()/'package'
+if (package/'libOSMesa.so.8').is_file():
+    sysroot=a.mesa_work.resolve()/'sysroot';exe=out/'test-texture-cache-arm'
+    libraries=[sysroot/'usr/lib/arm-linux-gnueabi',sysroot/'lib/arm-linux-gnueabi']
+    run('test_texture_cache',[
+        ['arm-linux-gnueabi-gcc','-O2','-march=armv6','-mfloat-abi=soft',
+         '-I'+str(package/'include'),ROOT/'tests/test_texture_cache.c',package/'libOSMesa.so.8',
+         *['-Wl,-rpath-link,'+str(path) for path in libraries],'-lm','-o',exe],
+        [shutil.which('qemu-arm') or 'qemu-arm-static','-cpu','arm1136','-L',sysroot,
+         '-E','LD_LIBRARY_PATH='+':'.join(map(str,[package,*libraries])),exe]])
 # Use the same ARM flags and headers as the actual Mesa compilation for the TGSI oracle.
 row=next(x for x in json.loads((build/'compile_commands.json').read_text()) if x['file'].endswith('tgsi_parse.c'))
 command=shlex.split(row['command']);flags=[];skip=False
