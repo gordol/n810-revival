@@ -243,6 +243,7 @@ class Renderer:
         self.module=self.engine=None;self.meshes=OrderedDict();self.latest3d=None;self._wanted=None
         from map_regions import Regions
         self.reuse_regions=False;self.regions=Regions();self.completion_wakeup=None;self.loading_phase='idle'
+        self._closed=False
         self.presentation='cells'
         self.timing_enabled=False;self._request_timing={};self._worker_timing={};self._worker_counts={};self._wanted_since=None
     def _completed(self,future):
@@ -331,6 +332,7 @@ class Renderer:
             module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
             engine=module.Engine(self.maps,'rgb',cache_directory=map_cache_directory())
             self.module=module;self.engine=engine
+        self.engine.cancel_requested=lambda:self._closed or key!=self._wanted
         from desktop_elevation import configure
         configure(self.engine)
         from elevation_display import configure as configure_portable
@@ -517,7 +519,7 @@ class Renderer:
         return Image(width,height,tuple(cells[x,y] for y in range(height) for x in range(width)),f'{nx} x {nz} samples / Z {exaggeration:g}x',(),time.monotonic()-began)
     def close(self):
         if getattr(self,'_closed',False):return
-        self._closed=True
+        self._closed=True;self._wanted=None;self.completion_wakeup=None
         cleanup=getattr(self,'_retire_provider',None)
         selected=getattr(self,'_provider_lifecycle',False)
         if self.pool:

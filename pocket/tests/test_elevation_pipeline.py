@@ -46,6 +46,13 @@ class PipelineTests(unittest.TestCase):
         prepare(folder/'raw.tif',folder/'export.json',target)
         return target/'index.json'
 
+    def test_cancelled_portable_terrain_does_not_read_tiles(self):
+        import elevation_display
+        from concurrent.futures import CancelledError
+        view=SimpleNamespace(span=10,width=20,height=10,cell_aspect=2,center=(5.5555,5.5555))
+        with patch.object(local_elevation,'display_sources',side_effect=AssertionError('Cancelled work read the catalogue')):
+            with self.assertRaises(CancelledError):elevation_display.sample(view,cancel=lambda:True)
+
     def test_cached_fine_data_builds_overviews_once_without_network_or_copies(self):
         index=self.pack()
         bbox=(1,1,1.0064,1.0064)
