@@ -235,17 +235,27 @@ esac
 
     (root/'config').write_text('enabled=1\nidle_enabled=1\ndim_seconds=1\noff_seconds=2\n')
     (root/'active-vt').write_text('1')  # KD_GRAPHICS
+    for path in (root/'input').iterdir(): path.unlink()
+    fds=[]
+    physical,power,switch=[device(i) for i in range(3)]
     for path in (root/'screen').iterdir(): path.unlink()
     clear()
     daemon=subprocess.Popen([str(root/'daemon')])
     try:
         time.sleep(3.2)
         assert not actions(), 'graphics VT was dimmed or blanked'
+        for wake in (lambda:event(physical,1,30,1),lambda:event(switch,5,10,1),power_press):
+            clear(); (root/'screen/blanked').touch(); wake(); wait('on')
+            assert actions()==['on'], 'graphics wake launched a console menu'
+        clear(); power_press(); time.sleep(.3)
+        assert not actions(), 'lit graphics VT launched a console menu'
+        print('PASS: keyboard, slide and short Power wake a dark graphics VT without a text menu')
         (root/'active-vt').write_text('0')  # KD_TEXT
         wait('dim'); wait('blank')
         print('PASS: graphics VT inhibits idle; text VT resumes dim/blank')
     finally:
         daemon.terminate(); daemon.wait(timeout=3)
+        for fd in fds: os.close(fd)
 
     # An explicit GUI adapter marker enables the same policy on graphics VTs.
     (root/'active-vt').write_text('1')

@@ -87,6 +87,9 @@ def stage(root, runtime, module_package, mesa_package, kernel_package):
     for name, source in files.items():
         shutil.copyfile(source, target / name)
         hashes[name] = digest(target / name)
+    # Pixel apps resolve this public entry point beside the selected renderer.
+    (target / 'room-pixels.so').symlink_to('renderer.so')
+    hashes['room-pixels.so'] = hashes['renderer.so']
     (target / 'defaults.json').write_text((SOURCE / 'defaults.json').read_text())
     hashes['defaults.json'] = digest(target / 'defaults.json')
     (target / 'MANIFEST.json').write_text(json.dumps({

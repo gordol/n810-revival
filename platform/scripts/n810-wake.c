@@ -177,7 +177,7 @@ static int lock_settle(struct lock_debounce *state, double time)
 }
 int main(int argc, char **argv)
 {
-    if (argc == 2 && !strcmp(argv[1], "--version")) { puts("n810-wake 3"); return 0; }
+    if (argc == 2 && !strcmp(argv[1], "--version")) { puts("n810-wake 4"); return 0; }
     int trace_lock = argc == 2 && !strcmp(argv[1], "--trace-lock");
     if (argc != 1 && !trace_lock) return 2;
     unsigned enabled = 0, idle_enabled = 0, keyboard_wake = 1, slide_wake = 1, lock_only = 0;
@@ -276,7 +276,6 @@ int main(int argc, char **argv)
                     }
                     continue;
                 }
-                if (graphics) continue;
                 int key_input = devices[i].kind == 1 && event.type == EV_KEY && event.value > 0;
                 int slide_input = devices[i].kind == 2 && event.type == EV_SW &&
                                   event.code == SW_KEYPAD_SLIDE && event.value == 1;
@@ -285,6 +284,24 @@ int main(int argc, char **argv)
                                   event.code == BTN_TOUCH && event.value == 1 && !marker("blanked");
                 int input = key_input || slide_input || touch_input;
                 int wake_input = (key_input && keyboard_wake) || (slide_input && slide_wake);
+                if (graphics) {
+                    /* Pocket owns presentation, but it does not own LCD wake.
+                     * Restore a dark/dim display without launching a text menu
+                     * or imposing console idle policy on the graphics VT. */
+                    int power_wake = 0;
+                    if (devices[i].kind == 3 && event.type == EV_KEY && event.code == KEY_POWER) {
+                        if (event.value == 1) power_down = time;
+                        if (event.value == 0 && power_down) {
+                            power_wake = time - power_down < 1.5;
+                            power_down = 0;
+                        }
+                    }
+                    if ((power_wake || (wake_input && !marker("locked"))) &&
+                        (marker("hold") || marker("blanked") || marker("idle-percent"))) {
+                        if (!screen("on")) idle_state = 0;
+                    }
+                    continue;
+                }
                 if (devices[i].kind == 3 && event.type == EV_KEY && event.code == KEY_POWER) {
                     if (event.value == 1) power_down = time;
                     if (event.value == 0 && power_down) {

@@ -1,6 +1,7 @@
 import hashlib
 import json
 import tempfile
+import shutil
 import unittest
 from pathlib import Path
 
@@ -39,6 +40,16 @@ class GpuInputs(unittest.TestCase):
                 'source_commit': 'fixture', 'files': {'build/graphics/' + name: sha((graphics / name).read_bytes())
                                                      for name in names}}))
             self.assertEqual(inputs(runtime, module, mesa, kernel)[1], '5.15.224-test')
+            from stage_gpu import stage
+            root=base/'root';staged=root/'usr/local/share/pocket'
+            shutil.copytree(runtime,staged);(staged/'INSTALL.json').write_text('{}')
+            unit=root/'etc/systemd/system/pocket-desktop.service';unit.parent.mkdir(parents=True)
+            unit.write_text('ExecStart=/usr/bin/python3 /usr/local/lib/pocket/bootstrap_desktop.py --user nokia\nRestart=on-failure\n')
+            stage(root,runtime,module,mesa,kernel)
+            selected=(root/'usr/local/lib/n810-graphics/current').resolve()
+            self.assertEqual((selected/'room-pixels.so').readlink(),Path('renderer.so'))
+            manifest=json.loads((selected/'MANIFEST.json').read_text())
+            self.assertEqual(manifest['files']['room-pixels.so'],sha((selected/'room-pixels.so').read_bytes()))
             build['source_sha256']['build-inputs/Module.symvers'] = sha(b'other symbols')
             (module / 'BUILD.json').write_text(json.dumps(build))
             with self.assertRaisesRegex(ValueError, 'different kernel symbols'):
