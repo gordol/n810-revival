@@ -179,7 +179,17 @@ class Context(SharedContext):
         raise RuntimeError('Full desktop cells are not part of the native pixel path')
     def draw_records(self,records,cols,rows,x,y,fill,opacity):
         r=self.platform.renderer
-        self.check(self.lib.pocket_scene_window_draw(self.handle,C.c_char_p(records),cols,rows,x,y,r.layer_palette,len(r.layer_palette),r.layer_fallback,int(fill),opacity))
+        result=self.lib.pocket_scene_window_draw(self.handle,C.c_char_p(records),cols,rows,x,y,r.layer_palette,len(r.layer_palette),r.layer_fallback,int(fill),opacity)
+        if result:
+            codes=set(r.font_codes)
+            cells=list(struct.iter_unpack('<IIQ',records))
+            missing=sorted({glyph for _,glyph,_ in cells if glyph!=32 and glyph not in codes})
+            bad_indices=[(i,index) for i,(index,_,_) in enumerate(cells) if i!=index][:8]
+            try:self.check(result)
+            except RuntimeError as error:
+                raise RuntimeError(f'{error}; window cells={cols}x{rows}, records={len(cells)}, '
+                                   f'position={x},{y}, opacity={opacity}, '
+                                   f'missing_glyphs={missing}, invalid_indices={bad_indices}') from error
     def draw_window(self,window,x,y,dx,dy):
         h=self.platform.host;n=h._native
         signature,plane=n.planes[window.name][:2];cols,rows=signature[:2]

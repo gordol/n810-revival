@@ -35,7 +35,8 @@ def make_readable_tree(root, relative):
 def stage(root,runtime,user='nokia'):
     if not re.fullmatch(r'[a-z_][a-z0-9_-]{0,30}',user):raise ValueError('Invalid local username')
     manifest=json.loads((runtime/'runtime-profile.json').read_text())
-    required={'graphics/nokia.py','graphics/framebuffer_scene.py','shell/desktop.py','shell/client_state.py',
+    required={'graphics/nokia.py','graphics/framebuffer_scene.py','graphics/cells.py',
+              'graphics/pixel_scene.py','shell/offline_map.py','shell/desktop.py','shell/client_state.py',
               'build/graphics/renderer.so','build/graphics/window.so','build/graphics/_cellengine.abi3.so',
               'build/graphics/console-font.psf'}
     if not required<=manifest['files'].keys():raise ValueError('Incomplete first-install desktop runtime')

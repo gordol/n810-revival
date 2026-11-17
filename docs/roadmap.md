@@ -94,3 +94,9 @@ The next work follows the remaining boundaries in those tests:
 - Validate direct scene pixels, transparency, and mixed GPU state on the physical N810. Ordinary desktop text now uses native C cell rasterization, with calibrated process-owned touch; GPU scene acceptance remains separate from that desktop baseline.
 
 Moving projectiles would extend the current immediate ray-based target test with travel time and collision over simulation steps. That remains a possible scene extension, separate from the implemented hit/reset behavior.
+
+## N810 installation and application follow-up
+
+Functional acceptance covers both the terminal desktop and native GUI, followed by physical MBX GPU checks. Track cold map preparation, retained map memory, Flux frame pacing and Doom responsiveness separately from correctness; record matched workloads before changing quality or rendering paths.
+
+Measure peak disk usage separately for installing a prebuilt kit and building from source. Audit Docker layers, intermediate root filesystems and kit copies before revising the current free-space requirement. Card capacity must not require an equally large laptop image: persistent data occupies the remaining card partition and its filesystem grows on the tablet.

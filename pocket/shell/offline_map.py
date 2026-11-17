@@ -295,7 +295,8 @@ class Renderer:
         if self.engine is None:return 'Loading offline map library…'
         return {'region':'Reusing geographic region…','saved':'Loading saved map view…',
                 'build':'Building missing map view…','memory':'Reusing map in memory…',
-                'ready':'Map ready'}.get(self.loading_phase,'Finding reusable map view…')
+                'terrain':'Loading terrain…','features':'Preparing map features…',
+                'places':'Loading place labels…','ready':'Map ready'}.get(self.loading_phase,'Finding reusable map view…')
     def timing_snapshot(self):
         return dict(requests=dict(self._request_timing),worker=dict(self._worker_timing),outcomes=dict(self._worker_counts))
     def _count_request(self,name):
@@ -357,6 +358,7 @@ class Renderer:
         if key!=self._wanted:raise CancelledError()
         if source is None:source={'prepared':'prepared','ram':'memory'}.get(getattr(self.engine,'stats',{}).get('cache'),'rendered')
         stage=time.monotonic() if self.timing_enabled else None
+        self.loading_phase='places'
         places=tuple((p['name'] if 'name' in p else p.get('label',''),p['lon'],p['lat']) for p in self.engine.places(viewport))
         if stage is not None:self._stage('places_seconds',stage)
         self.loading_phase='ready'
@@ -365,9 +367,12 @@ class Renderer:
         """Prepare one clean source frame; native and TUI share the map engine."""
         _,center,span,width,height,terrain,roads=key
         view=self.module.Viewport(center,span,width,height)
+        self.loading_phase='terrain'
         frame,legend=self.engine._rgb_terrain(view,terrain)
+        self.loading_phase='features'
         features=self._features_from_terrain(view,frame,roads,pixel_detail=self.presentation=='semantic')
         if key!=self._wanted:raise CancelledError()
+        self.loading_phase='places'
         places=tuple((p['name'] if 'name' in p else p.get('label',''),p['lon'],p['lat']) for p in self.engine.places(view))
         self.loading_phase='ready'
         return Image(width,height,SemanticPlane(features.terrain,width,height),legend,places,

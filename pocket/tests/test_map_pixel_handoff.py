@@ -15,6 +15,13 @@ class Pool:
  def submit(self,*args):return self.future
 
 class MapPixelHandoff(unittest.TestCase):
+ def test_semantic_loading_reports_actual_work(self):
+  from offline_map import Renderer
+  renderer=Renderer();renderer.engine=object()
+  for phase,text in [('terrain','Loading terrain…'),('features','Preparing map features…'),('places','Loading place labels…')]:
+   renderer.loading_phase=phase
+   self.assertEqual(renderer.loading_message(),text)
+  renderer.close()
  def test_semantic_presentation_reuses_one_clean_engine_frame(self):
   from offline_map import Renderer,MapSurface
   from map_fixtures import install

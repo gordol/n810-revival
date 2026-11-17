@@ -52,10 +52,12 @@ class Font:
             self.mapping = {chr(i): i for i in range(count)}
 
     def add_desktop_glyphs(self):
-        """Explicit UI chevrons absent from the captured console font; no fallback."""
+        """Explicit UI symbols absent from the captured console font; no fallback."""
         shapes={'›':(0,0,0,0,0x20,0x10,0x08,0x04,0x08,0x10,0x20,0,0,0,0,0),
                 '‹':(0,0,0,0,0x04,0x08,0x10,0x20,0x10,0x08,0x04,0,0,0,0,0)}
         if self.height!=16:raise ValueError('Desktop glyphs require16-pixel font')
+        shapes['⇧']=(0,0,0x10,0x28,0x44,0x82,0xee,0x28,0x28,0x28,0x28,0x38,0,0,0,0)
+        shapes['┃']=(0x18,)*16
         shapes['┄']=tuple(row&0xdb for row in self.glyph('─'))
         shapes['┆']=tuple(row if i%6<4 else 0 for i,row in enumerate(self.glyph('│')))
         for char,rows in shapes.items():
