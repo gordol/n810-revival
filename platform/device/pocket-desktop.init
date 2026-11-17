@@ -18,8 +18,15 @@ start)
         --startas /usr/bin/python3 -- -I /usr/local/lib/n810-pocket/native_owner.py >>"$logdir/launcher.log" 2>&1
     ;;
 stop)
-    start-stop-daemon --stop --quiet --retry TERM/20/KILL/2 --pidfile "$pidfile" \
-        --exec /usr/bin/python3 --remove-pidfile || true
+    # The owner must reap its child and complete the bounded GPU cleanup (45 s).
+    # Killing the owner after 20 s can strand the module and prevent restart.
+    result=0
+    start-stop-daemon --stop --quiet --retry TERM/120 --pidfile "$pidfile" \
+        --exec /usr/bin/python3 || result=$?
+    case "$result" in
+        0|1) rm -f "$pidfile";;
+        *) echo 'Pocket has not released the display; restart cancelled.' >&2; exit "$result";;
+    esac
     ;;
 restart|force-reload) "$0" stop; "$0" start;;
 status) start-stop-daemon --stop --test --quiet --pidfile "$pidfile" --exec /usr/bin/python3;;
