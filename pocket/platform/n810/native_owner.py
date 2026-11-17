@@ -137,6 +137,12 @@ try:
    env.update(N810_MBX_JOB_LOCK_FD=str(job_lock_fd),N810_MBX_NATIVE_WINDOWS='1',N810_MBX_WINDOW_FIRST='6',N810_MBX_WINDOW_COUNT='8',N810_MBX_SEPARATE_ALPHA='1')
   if options.probe:command=[str(options.probe.resolve(strict=True))]
   desktop_fds=(fb,render_fd,job_lock_fd) if window_mode else (fb,render_fd)
+  # Acquire launch IPC before spawning a desktop that would outlive a failed owner.
+  sys.path.insert(0,str(Path(__file__).resolve().parent))
+  from symbian_session import Session,command as symbian_command,run as run_symbian,keyboard_device
+  from symbian_windows import Broker
+  broker=Broker(account,render_fd,job_lock_fd,env,symbian_drop,status_directory=runtime,code=options.symbian_code) if window_mode and not options.probe else None
+  launches=None if options.probe else Session(runtime,account.pw_uid,account.pw_gid,windows=broker)
   child=subprocess.Popen(command,env=env,cwd=root,stdin=tty,stdout=log,stderr=subprocess.STDOUT,pass_fds=desktop_fds,preexec_fn=child_tty)
   def record_child(application='pocket'):
    (runtime/'active.json').write_text(json.dumps(dict(owner_pid=os.getpid(),child_pid=child.pid,application=application,release=str(release),log=str(root/('visible-'+suffix+'.log')))))
@@ -146,11 +152,6 @@ try:
    stopping=True
    if child.poll() is None:child.send_signal(signal.SIGTERM)
   signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
-  sys.path.insert(0,str(Path(__file__).resolve().parent))
-  from symbian_session import Session,command as symbian_command,run as run_symbian,keyboard_device
-  from symbian_windows import Broker
-  broker=Broker(account,render_fd,job_lock_fd,env,symbian_drop,status_directory=runtime,code=options.symbian_code) if window_mode and not options.probe else None
-  launches=None if options.probe else Session(runtime,account.pw_uid,account.pw_gid,windows=broker)
   def ready(app):
    symbian_command(app,account.pw_dir)
    keyboard_device()
