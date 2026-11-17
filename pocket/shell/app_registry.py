@@ -320,6 +320,22 @@ class LazyApplication:
         # App focus owns ordinary typing. Unknown letters must not become WM
         # commands; the existing WM escape is handled before app dispatch.
         return handled or key not in ('?','help') and len(key)==1 and key.isprintable()
+    @app_boundary(True)
+    def native_key(self,key):
+        from native_navigation import _native_key
+        return _native_key(self,key)
+    @app_boundary(False)
+    def native_pointer(self,*args,**kwargs):
+        from native_navigation import _native_pointer
+        return _native_pointer(self,*args,**kwargs)
+    @app_boundary(False)
+    def native_escape_allowed(self,allowed):
+        from native_navigation import _native_escape_allowed
+        return _native_escape_allowed(self,allowed)
+    @app_boundary(((),()))
+    def native_presentation(self,*args,**kwargs):
+        from native_navigation import _native_presentation
+        return _native_presentation(self,*args,**kwargs)
     @app_boundary(False)
     def pointer(self,*args,**kwargs):
         return self.form.pointer(*args,**kwargs) if self.form is not None and hasattr(self.form,'pointer') else False

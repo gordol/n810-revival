@@ -1414,13 +1414,8 @@ def main(platform=None,argv=None):
                 elif host.focus=='Calendar':form=calendar_view
                 safe_escape=not (manager_mode or launcher.active or host.help_lines or host.screensaver or host.drag or host.overview or host.focus in terminals)
                 if form is not None:
-                    from native_navigation import navigation
-                    native_form=getattr(form,'navigation_form',form)
-                    if native_form is None or getattr(native_form,'layer_only',False):
-                        safe_escape=False
-                    else:
-                        nav=navigation(native_form);listing,_=nav.listing()
-                        safe_escape=safe_escape and not (nav.modal() or nav.current().kind=='input' or nav.input() is not None or listing is not None and listing.searching)
+                    from native_navigation import native_escape_allowed
+                    safe_escape=native_escape_allowed(form,safe_escape)
                 if window_selection.double_escape(char,time.monotonic(),allowed=safe_escape):
                     manager_mode=False;continue
                 if phone_action(char,host,launcher,open_launcher):

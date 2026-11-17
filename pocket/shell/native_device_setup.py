@@ -156,9 +156,9 @@ class DeviceSetup:
         c.put(0,self.height-1,'Tab fields · Enter action · ? setup help')
         return c.lines()
     def spans(self):return tuple(self._spans)
-    def pointer(self,event):
-        if event.get('type')!='pointer' or event.get('action')!='press':return False
-        x,y=int(event.get('x',-1)),int(event.get('y',-1))
+    def pointer(self,column,row,width,button=0,released=False):
+        if button!=0 or released:return False
+        x,y=column,row
         if y==self.height-2:
             for left,right,page in self._tabs:
                 if left<=x<right:return self.key('page-'+page)

@@ -53,6 +53,21 @@ class RecoveryTests(unittest.TestCase):
         self.assertIsNone(form.owner)
         self.assertEqual(result['bounds'],[1,1,40,15])
         self.assertTrue(result['lines'])
+    def test_native_navigation_callbacks_are_isolated(self):
+        import native_navigation as nav
+        from unittest.mock import patch
+        cases=[('native_key',('x',)),('native_pointer',(1,1,40)),
+               ('native_presentation',([],[],40,15)),('native_escape_allowed',(True,))]
+        for method,args in cases:
+            with self.subTest(method=method):
+                entry=SimpleNamespace(id='broken',title='Broken',preferred_size=(40,15))
+                owner=SimpleNamespace(close=lambda:None)
+                form=LazyApplication(None,entry,None);form.owner=owner
+                with patch.object(nav,'_'+method,side_effect=ValueError('navigation failed')),contextlib.redirect_stderr(io.StringIO()):
+                    getattr(nav,method)(form,*args)
+                self.assertIsNone(form.owner)
+                self.assertIn('navigation failed',form.error)
+
     def test_system_exit_is_not_swallowed(self):
         entry=SimpleNamespace(id='stop',title='Stop',preferred_size=(40,15))
         form=LazyApplication(None,entry,None)

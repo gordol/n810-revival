@@ -109,10 +109,11 @@ class OfflineData:
         c.put(0,self.height-1,'Tab fields · Enter action · ? help')
         return c.lines()
     def spans(self):return tuple(self._spans)
-    def pointer(self,event):
-        if event.get('type')!='pointer' or event.get('action')!='press':return False
+    def pointer(self,column,row,width,button=0,released=False):
+        if button!=0 or released:return False
+        selected_row=row
         for row,key in self._hits:
-            if row==int(event.get('y',-1)):
+            if row==selected_row:
                 self.field=key
                 nav=self.__dict__.get('_navigation')
                 if nav:nav.target=key

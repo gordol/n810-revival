@@ -35,7 +35,8 @@ class DeviceSetupTests(unittest.TestCase):
         self.assertTrue(form.choices.startup['reticulum'])
         form.key('page-radio');form.lines()
         row=next(row for row,key in form._hits if key=='callsign')
-        form.pointer(dict(type='pointer',action='press',x=0,y=row))
+        self.assertFalse(form.pointer(0,row,86,released=True))
+        form.pointer(0,row,86)
         for key in 'N0CALL':native_key(form,key)
         self.assertEqual(form.callsign.text,'N0CALL')
     def test_wifi_secret_masked_not_saved_and_stdin_only(self):
