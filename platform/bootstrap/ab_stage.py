@@ -56,6 +56,8 @@ def stage(root, data, kernel, c):
     template = root/'usr/lib/n810-ab'; template.mkdir(parents=True, exist_ok=True)
     copy(root/'etc', template/'etc')
     copy(root/'var', template/'var')
+    prepare=template/'prepare-data'
+    shutil.copy2(HERE/'ab_prepare_data.sh',prepare);prepare.chmod(0o755)
     for relative in ('var/cache/apt/archives', 'var/log', 'var/tmp'):
         p=template/relative
         if p.exists(): shutil.rmtree(p)
@@ -80,7 +82,7 @@ for n in 1 2 3 4 5 6 7 8 9 10; do
  sleep 1
 done
 [ -b "$DEV" ] || fail 'data partition absent or ambiguous'
-resize2fs "$DEV" || fail 'data expansion'
+/usr/lib/n810-ab/prepare-data "$DEV" || fail 'data filesystem recovery or expansion'
 mount -t ext4 -o rw,noatime "$DEV" /data || fail 'data mount'
 test -s /data/etc/ssh/ssh_host_ed25519_key || ssh-keygen -q -t ed25519 -N '' -f /data/etc/ssh/ssh_host_ed25519_key || fail 'SSH identity'
 test "$(python3 -c 'import json; print(json.load(open("/data/SCHEMA.json"))["version"])')" = 1 || fail 'data schema'
