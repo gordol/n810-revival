@@ -109,6 +109,11 @@ and the console. During its ten-second delay, creating
 `stay-in-recovery` file on the card's control partition also prevents SD boot.
 Charger-only boot remains in recovery's charging mode.
 
+From the running SD system, `sudo n810-ab stay-recovery` makes the next normal
+reboot stop in recovery. Use `sudo n810-ab resume-sd` there to clear that request,
+then `sudo n810-ab boot` to load the selected SD slot. `sudo n810-ab status`
+shows the confirmed slot, pending trial, and remaining attempts.
+
 The kit records separate SSH host public keys for recovery and the SD system.
 Use `recovery-known-hosts` or `slot-known-hosts` with SSH's
 `UserKnownHostsFile` option. The SD identity persists across slot updates.

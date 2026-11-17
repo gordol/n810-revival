@@ -54,7 +54,7 @@ def inspect(disk):
     raise ValueError('Use native Linux or macOS for raw card writes')
 
 
-def write(kit,disk,erase=False):
+def write(kit,disk,erase=False,expected_disk_id=None):
     kit,m=verify(kit);capacity,identity=inspect(disk);table,parts=layout(m,capacity)
     receipt=kit/'SD-INSTALL.json'
     if receipt.exists():raise ValueError('Kit already has an install receipt; preserve it')
@@ -64,6 +64,12 @@ def write(kit,disk,erase=False):
     if inspect(disk)!=(capacity,identity):raise ValueError('Card identity changed')
     path='/dev/r'+disk[5:] if sys.platform=='darwin' else disk
     with open(path,'r+b',buffering=0) as dst:
+        if expected_disk_id is not None:
+            import re
+            if not re.fullmatch('[0-9a-f]{8}',expected_disk_id):raise ValueError('Invalid expected disk ID')
+            header=dst.read(512)
+            if len(header)!=512 or struct.unpack_from('<I',header,440)[0]!=int(expected_disk_id,16):
+                raise ValueError('Inserted card differs from the selected tablet card; nothing written')
         def transfer(offset,source,count):
             dst.seek(offset)
             remaining=count;expected=hashlib.sha256()
@@ -96,5 +102,5 @@ def write(kit,disk,erase=False):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--kit',type=Path,required=True)
-    p.add_argument('--disk');p.add_argument('--erase',action='store_true');a=p.parse_args()
-    print(json.dumps(write(a.kit,a.disk,a.erase) if a.disk else {'state':'kit_verified','source':verify(a.kit)[1]['source_commit']},indent=2))
+    p.add_argument('--disk');p.add_argument('--erase',action='store_true');p.add_argument('--expected-disk-id');a=p.parse_args()
+    print(json.dumps(write(a.kit,a.disk,a.erase,a.expected_disk_id) if a.disk else {'state':'kit_verified','source':verify(a.kit)[1]['source_commit']},indent=2))
