@@ -60,6 +60,14 @@ def sample(view):
     return result
 
 
+WATER_COLOR=(35,100,160)
+
+def display_color(height,low,high):
+    """Light earth tones keep land distinct from blue water on the LCD."""
+    t=max(0.,min(1.,(height-low)/max(1.,high-low)))
+    return tuple(round(a+(b-a)*t) for a,b in zip((104,128,76),(224,214,180)))
+
+
 def render(engine,view,terrain):
     # Flat base keeps mapped water/land, without decoding legacy terrain-next.n8t.
     frame,legend=engine._catalogue_original_rgb(view,False)
@@ -75,9 +83,11 @@ def render(engine,view,terrain):
             _,a,b=frame[y*view.width+x];pair=[a,b]
             for j in (0,1):
                 height=heights[y*2+j][x]
-                if kinds[y*2+j][x]==0 or height is None:continue
+                if kinds[y*2+j][x]==0:
+                    pair[j]=WATER_COLOR;continue
+                if height is None:continue
                 band=math.floor(height/interval)*interval
-                if band not in colors:colors[band]=engine.palette.band_color(band,low,high)
+                if band not in colors:colors[band]=display_color(band,low,high)
                 pair[j]=colors[band]
             frame[y*view.width+x]=(' ' if pair[0]==pair[1] else '▀',*pair)
     return frame,f'Selected-area elevation · {interval} m display bands · local overviews'

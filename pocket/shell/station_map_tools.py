@@ -476,7 +476,7 @@ class StationMapTools:
         key=('locator',id(image),rect[:4],tuple(center),span)
         cells=ContextPlane(image.cells,image.width,image.height,width,height)
         surface=MapSurface(image,(x,y,width,height,cells),self.base.renderer,key,
-                           overlay_vectors=(((255,210,65),outline),),labels=False)
+                           overlay_vectors=(((255,210,65),outline),),labels=False,pixel_overview=True)
         return surface,x-layer[0],y-layer[1]
     def map_surface(self):
         """The current semantic map source, independent of its tool screen."""

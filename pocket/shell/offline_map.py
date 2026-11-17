@@ -73,6 +73,7 @@ class MapSurface:
     labels:bool=True
     inset:object=None
     box_plane:object=None
+    pixel_overview:bool=False
     def viewport(self):
         projection=self.image.projection;_,_,width,height,_=self.layer
         return self.renderer.module.Viewport(projection.center,projection.span,width,height,projection.cell_aspect)

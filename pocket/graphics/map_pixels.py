@@ -35,16 +35,17 @@ def place_labels(labels,overlay,width,height):
 
 def terrain_detail(surface,view,features):
  """Sample terrain at semantic pixel density, within a fixed work budget."""
- if not getattr(surface,'terrain',False) or getattr(surface.image,'source',None) not in ('semantic','pan-preview'):
+ overview=getattr(surface,'pixel_overview',False)
+ if not getattr(surface,'terrain',False) or (not overview and getattr(surface.image,'source',None) not in ('semantic','pan-preview')):
   return features.terrain,features.sample_width,features.sample_height
  from desktop_elevation import enabled
- if not enabled():
+ if not overview and not enabled():
   return features.terrain,features.sample_width,features.sample_height
- factor=min(8,math.isqrt(262144//max(1,view.width*view.height)))
+ factor=min(8,math.isqrt((16384 if overview else 262144)//max(1,view.width*view.height)))
  if factor<2:return features.terrain,features.sample_width,features.sample_height
  dense=surface.renderer.module.Viewport(view.center,view.span,view.width*factor,view.height*factor,view.cell_aspect)
  from desktop_elevation import pixel_samples
- fast=pixel_samples(surface.renderer.engine,dense)
+ fast=pixel_samples(surface.renderer.engine,dense) if enabled() else None
  if fast is not None:return fast
  frame,_=surface.renderer.engine._rgb_terrain(dense,True)
  from offline_map import map_rgb

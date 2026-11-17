@@ -162,7 +162,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(calls,[False])
         self.assertEqual(len(cells),40)
         self.assertIn('local overviews',legend)
-        self.assertTrue(any(cell[1]==(20,100,30) for cell in cells))
+        self.assertTrue(any(104<=cell[1][0]<=224 and 128<=cell[1][1]<=214 and 76<=cell[1][2]<=180 for cell in cells))
 
     def test_3d_geometry_uses_the_same_catalogue_without_a_legacy_terrain_pack(self):
         from offline_map import Renderer

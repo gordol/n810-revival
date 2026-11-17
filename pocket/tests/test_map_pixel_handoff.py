@@ -15,6 +15,26 @@ class Pool:
  def submit(self,*args):return self.future
 
 class MapPixelHandoff(unittest.TestCase):
+ def test_overview_refines_on_arm_without_desktop_dem(self):
+  from array import array
+  from offline_map import MapFeatures
+  view=NS(width=24,height=12,center=(0.,0.),span=10.,cell_aspect=2.)
+  module=NS(Viewport=lambda c,s,w,h,a:NS(width=w,height=h))
+  engine=NS(_rgb_terrain=lambda v,t:([(' ',(1,2,3),(4,5,6))]*(v.width*v.height),''))
+  surface=NS(terrain=True,pixel_overview=True,image=NS(source='cached-overview'),renderer=NS(module=module,engine=engine))
+  features=MapFeatures(array('I',[0]*576),(),{},24,24)
+  with patch('desktop_elevation.enabled',return_value=False):
+   samples,w,h=terrain_detail(surface,view,features)
+  self.assertGreater(w,24);self.assertGreater(h,24)
+  self.assertLessEqual(w*h,32768);self.assertEqual(len(samples),w*h)
+ def test_water_and_lowland_have_distinct_luminance_and_hue(self):
+  from elevation_display import WATER_COLOR,display_color
+  land=display_color(0,0,1000)
+  self.assertGreater(WATER_COLOR[2],WATER_COLOR[1])
+  self.assertGreater(land[1],land[2])
+  luminance=lambda c:sum(a*b for a,b in zip(c,(.2126,.7152,.0722)))
+  self.assertGreater(luminance(land)-luminance(WATER_COLOR),20)
+
  def test_semantic_loading_reports_actual_work(self):
   from offline_map import Renderer
   renderer=Renderer();renderer.engine=object()
