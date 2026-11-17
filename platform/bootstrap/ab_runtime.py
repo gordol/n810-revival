@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import time
 
 SCHEMA = 1
 SLOTS = ('A', 'B')
@@ -104,10 +105,28 @@ def load_slot(c, slot, root):
     if Path('/sys/kernel/kexec_loaded').read_text().strip() != '1': raise ValueError('Kernel was not loaded')
 
 
+def wait_for_card(c, timeout=120):
+    """Wait for the configured card and all partition devices, not just udev's first link."""
+    deadline = time.monotonic() + timeout
+    print('Waiting up to %d seconds for configured SD partitions' % timeout, flush=True)
+    while True:
+        if Path('/run/n810-stay-in-recovery').exists(): return 'held'
+        try:
+            if all(device(c, part).is_block_device() for part in (1, 2, 3, 4)):
+                return 'ready'
+        except OSError:
+            pass  # Device removal or udev replacement during discovery.
+        remaining = deadline - time.monotonic()
+        if remaining <= 0: return 'timeout'
+        time.sleep(min(1, remaining))
+
+
 def boot(c):
     if not Path('/etc/n810-ab/recovery').exists(): raise ValueError('Boot selection runs only in recovery')
     if Path('/sys/kernel/kexec_loaded').read_text().strip() != '0': raise ValueError('Preserve already-loaded kernel')
-    if not device(c, 1).exists(): return 'No configured SD card; recovery remains available'
+    readiness = wait_for_card(c)
+    if readiness == 'held': return 'Recovery requested locally'
+    if readiness != 'ready': return 'Configured SD partitions did not become ready; recovery remains available'
     control = mounted(device(c, 1), '/run/n810-ab-control', 'rw,nosuid,nodev,noexec')
     try:
         if (control / 'stay-in-recovery').exists(): return 'Recovery requested on card'

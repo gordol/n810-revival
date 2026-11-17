@@ -131,7 +131,7 @@ def recovery(root, c):
     script.write_text('''#!/bin/sh
 case "$1" in
 start)
- echo 'N810 recovery: SD boot starts in 10 seconds; create /run/n810-stay-in-recovery to stay.'
+ echo 'N810 recovery: SD check starts in 10 seconds, then waits up to 120 seconds; create /run/n810-stay-in-recovery to stay.'
  (sleep 10; test -e /run/n810-stay-in-recovery || test "$(/usr/local/sbin/n810-mode status)" = charging || /usr/local/sbin/n810-ab boot >>/var/log/n810-ab-boot.log 2>&1) &
  ;;
 stop) :;;
