@@ -60,8 +60,11 @@ class OfflineData:
             from data_paths import data_root
             self.output=TextInput(str(data_root()),limit=1000)
         self.status='Install prepared data from the laptop, then verify it here.' if self.device_only else 'Select your area. Plan makes no network requests.';self.result='';self.error=''
-        self.pending=None;self.pool=None;self.cancelled=threading.Event();self.process=None;self.wakeup=None;self._hits=[];self._spans=[]
+        self.pending=None;self.pool=None;self.cancelled=threading.Event();self.process=None;self.wakeup=None;self._session_callback=None;self._hits=[];self._spans=[]
     def bind_wakeup(self,callback):self.wakeup=callback
+    def bind_session(self,callback):self._session_callback=callback
+    def changed(self):
+        if self._session_callback:self._session_callback()
     def navigation_targets(self):
         from native_navigation import Target
         if self.device_only:return [Target('output','Installed reference-data folder','input'),Target('verify','Verify installed maps and elevation','action','verify')]

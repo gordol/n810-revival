@@ -11,6 +11,14 @@ class DeviceDataTests(unittest.TestCase):
    self.assertEqual([t.key for t in form.navigation_targets()],['output','verify'])
    self.assertEqual(form.output.text,d)
    self.assertIn('installed maps',' '.join(form.lines()))
+ def test_registered_app_session_contract_and_input_notification(self):
+  from app_registry import LazyApplication
+  from native_navigation import native_key
+  form=m.OfflineData();events=[]
+  wrapper=LazyApplication.__new__(LazyApplication);wrapper.owner=form;wrapper.saved=form.session_state();wrapper._session_callback=lambda:events.append(form.session_state())
+  wrapper._bind_owner_session()
+  native_key(form,'7')
+  self.assertTrue(events);self.assertTrue(events[-1][form.field].endswith('7'))
  def test_source_checkout_keeps_build_actions(self):
   with tempfile.TemporaryDirectory() as d:
    root=Path(d);(root/'pocket/tools').mkdir(parents=True);(root/'pocket/tools/maps.py').touch()
