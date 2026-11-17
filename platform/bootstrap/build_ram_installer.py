@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
 # SPDX-License-Identifier: GPL-2.0-or-later
 from pathlib import Path
-import argparse,hashlib,json,os,re,shutil,subprocess
+import argparse,hashlib,json,os,re,shutil,subprocess,tempfile
 p=argparse.ArgumentParser(description='Build the private RAM environment for the automatic N810 internal installer.')
 for name in ('rootfs','module-root','kernel-build','kernel','busybox-package','owner-key','output'):
  p.add_argument('--'+name,type=Path,required=True)
@@ -12,7 +12,8 @@ if (not all(flag in config for flag in ('CONFIG_BLK_DEV_INITRD=y\n','CONFIG_RD_X
  raise ValueError('RAM installer requires NOLO external initramfs and XZ support')
 os.umask(0o077)
 a.output.mkdir(parents=True,exist_ok=False)
-root=a.rootfs.resolve();out=a.output/'root';out.mkdir()
+root=a.rootfs.resolve();Path('/work').mkdir(exist_ok=True)
+out=Path(tempfile.mkdtemp(prefix='n810-ram-',dir='/work'))
 if a.kernel.stat().st_size>2097152:raise ValueError('Installer kernel exceeds the NOLO 2 MiB limit')
 subprocess.run(['dpkg-deb','-x',str(a.busybox_package),str(out)],check=True)
 for name in ('bin','sbin','usr/bin','usr/sbin','proc','sys','dev','tmp','run','root/.ssh','etc/dropbear','mnt'):
@@ -91,4 +92,5 @@ kernel_report=json.loads((a.kernel.parent/'BUILD.json').read_text())
                     source_lock_sha256=kernel_report['source_lock_sha256']),
  files={n:hashlib.sha256((a.output/n).read_bytes()).hexdigest() for n in files},
  owner_public_key_sha256=hashlib.sha256(a.owner_key.read_bytes()).hexdigest(),device_action=False),indent=2)+'\n')
+shutil.rmtree(out)
 print('INSTALLER_RAM_IMAGE_BUILT')
