@@ -428,6 +428,11 @@ class Renderer:
             self._count_request('changed');self._wanted_since=time.monotonic()
         selection=getattr(self,'provider_selection',None)
         if selection is not None:key=(*key,selection)
+        # A cache hit observes an existing view; it must not cancel a sibling
+        # overview request using the same worker and engine.
+        if key in self.ready:
+            if self.timing_enabled:self._count_request('cache_hits')
+            self.ready.move_to_end(key);return self.ready[key]
         self._wanted=key
         if self.pending and self.pending[0]!=key and self.pending[1].cancel():
             if self.timing_enabled:self._count_request('cancelled_before_start')

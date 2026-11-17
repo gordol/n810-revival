@@ -464,7 +464,7 @@ class StationMapTools:
         rect=getattr(self.base,'_locator_rect',None)
         if rect is None or layer is None:return None
         x,y,width,height,image=rect
-        if image.projection is None:return None
+        if image.projection is None or image.source=='overview-loading':return None
         from array import array
         from map_overview import corners
         from offline_map import ContextPlane,MapSurface

@@ -393,8 +393,8 @@ def map_class(Base):
             image=self._locator_overview.image(self.renderer.module,width,height)
             if image is not None:return image
             # Source-only installs do not ship the historical Puget preview.
-            # Reuse current terrain immediately and refine through the same
-            # bounded map worker, using the installed area instead of a fixed QTH.
+            # Request real surrounding terrain through the shared map worker.
+            # A smaller current view is not an overview of that wider area.
             source=self._shown_image or self._image
             if source is None or self.renderer.module is None:return None
             from map_overview import LocalOverview,CropProjection,contains
@@ -409,8 +409,12 @@ def map_class(Base):
             key=(id(image or source),camera,width,height)
             if key!=getattr(self,'_live_locator_key',None):
                 view=self.renderer.module.Viewport(*camera,width,height)
-                cells=ReprojectedPlane(image or source,view)
-                self._live_locator_image=Image(width,height,cells,'Installed-area locator',(),0.,CropProjection(view,0,0,width,height),'locator')
+                if image is None:
+                    cells=((' ',ink(185,195,200,background=(14,23,28))),)*(width*height)
+                    kind='overview-loading'
+                else:
+                    cells=ReprojectedPlane(image,view);kind='locator'
+                self._live_locator_image=Image(width,height,cells,'Installed-area locator',(),0.,CropProjection(view,0,0,width,height),kind)
                 self._live_locator_key=key
             return self._live_locator_image
         def locator(self,lines):
@@ -442,7 +446,7 @@ def map_class(Base):
             span=(self.target_box.view or (self.center,self.span))[1]
             points=[image.projection.project(*point) for point in corners(center,span,width,height)]
             box=tuple((round((x+.5)*iw/image.width-.5)+ix,round((y+.5)*ih/image.height-.5)+iy) for x,y in points)
-            key=(id(base),left,top,iw,ih,box,bw,bh)
+            key=(id(base),id(image),left,top,iw,ih,box,bw,bh)
             if key!=self._locator_layer_key:
                 style=ink(185,195,200,background=(14,23,28));edge=ink(105,150,155,background=(14,23,28));gold=ink(255,210,65,background=(45,30,12))
                 overlay={}
@@ -456,7 +460,9 @@ def map_class(Base):
                     for dx in range(iw):
                         char,color=image.cells[min(image.height-1,dy*image.height//ih)*image.width+min(image.width-1,dx*image.width//iw)]
                         put(ix+dx,iy+dy,char,color)
-                (ax,ay),(bx,by)=box
+                if image.source=='overview-loading':
+                    for dx,char in enumerate('Loading overview…'[:iw]):put(ix+dx,iy+ih//2,char)
+                (ax,ay),(bx,by)=box if image.source!='overview-loading' else ((-1,-1),(-1,-1))
                 for x in range(max(ix,ax),min(ix+iw,bx+1)):
                     for y in (ay,by):
                         if iy<=y<iy+ih:put(x,y,'─',gold)
