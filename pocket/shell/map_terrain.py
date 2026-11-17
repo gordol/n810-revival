@@ -145,6 +145,9 @@ class Renderer(PreparedRenderer):
         result=super().region_status(image)
         result['terrain_assets']=dict(available=self._asset_ready,checked=self._asset_checked,reason=self.asset_reason)
         result['pack']=dict(getattr(image,'pack_status',None) or self.pack_state)
+        if getattr(self.engine,'_catalogue_identity',None) is not None:
+            result['terrain_assets']=dict(available=True,checked=True,source='selected elevation catalogue',reason=None)
+            result['packs']=dict(provider_policy='selected reference data',generation_enabled=True,errors=[])
         return result
 
     def _fallback(self,key):
