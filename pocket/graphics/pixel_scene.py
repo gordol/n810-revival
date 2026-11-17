@@ -201,10 +201,19 @@ class Context(SharedContext):
                 self.draw_records(data,cw,ch,(cx+ox)*8,(cy+oy)*16,h.window_fill,round(h.window_opacity*255))
         self.batch(('window',window.name),(state,x,y) if view is not None else state,draw,position=None if view is not None else (x,y))
     def panel_text(self,x,y,text,fg,bg):
-        previous=self.panels.get((x,y));current=(text,fg,bg)
-        if previous==current:return False
+        current=(text,fg,bg)
+        if self.panels.get((x,y))==current:return False
+        # Panel runs change boundaries when a task closes or its style changes.
+        # Replace overlapping old runs, retaining only their unaffected edges.
+        end=x+len(text)
+        for (left,row),(label,old_fg,old_bg) in tuple(self.panels.items()):
+            right=left+len(label)
+            if row!=y or right<=x or left>=end:continue
+            del self.panels[left,row]
+            if left<x:self.panels[left,row]=(label[:x-left],old_fg,old_bg)
+            if right>end:self.panels[end,row]=(label[end-left:],old_fg,old_bg)
         self.panels[x,y]=current
-        self.damage_rect(x*8,y*16,max(len(text),len(previous[0]) if previous else 0)*8,16)
+        self.damage_rect(x*8,y*16,len(text)*8,16)
         return True
     def present(self,text):
         for (x,y),(label,fg,bg) in self.panels.items():

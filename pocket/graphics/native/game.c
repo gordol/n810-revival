@@ -26,7 +26,7 @@ static void game_quad(float x,float y,float w,float h,float z,float r,float g,fl
  const float v[]={x,y,z,x+w,y,z,x,y+h,z,x+w,y,z,x+w,y+h,z,x,y+h,z};
  glColor3f(r,g,b);glVertexPointer(3,GL_FLOAT,0,v);glDrawArrays(GL_TRIANGLES,0,6);
 }
-static void game_draw(float age,unsigned width,unsigned height,unsigned tx,unsigned ty,unsigned tw,unsigned th){
+static void game_draw(float age,unsigned width,unsigned height,int tx,int ty,unsigned tw,unsigned th){
  if(!game_enabled)return;
  glPushAttrib(GL_ALL_ATTRIB_BITS);glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
  game_time=age;
@@ -40,7 +40,7 @@ static void game_draw(float age,unsigned width,unsigned height,unsigned tx,unsig
  GLint viewport[4];glGetIntegerv(GL_VIEWPORT,viewport);
  glViewport(0,viewport[1]+(int)height-(int)ty-(int)th,tw,th);
  glDisable(GL_DEPTH_TEST);glMatrixMode(GL_PROJECTION);glPushMatrix();glLoadIdentity();
- glOrtho(tx,tx+tw,height-ty-th,height-ty,-1,1);glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
+ glOrtho(tx,tx+(int)tw,(int)height-ty-(int)th,(int)height-ty,-1,1);glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
  float cx=width*.5f,cy=height*.5f;
  game_quad(cx-6,cy-1,12,2,0,.8f,1,.8f);game_quad(cx-1,cy-6,2,12,0,.8f,1,.8f);
  float recoil=age<flash_until?-8:0;

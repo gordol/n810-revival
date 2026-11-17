@@ -11,8 +11,23 @@ class PixelRoom(SurfaceRoom):
   self.lib=C.CDLL(str(library));self.lib.pocket_room_pixels.argtypes=[C.c_float]*5+[C.c_uint,C.c_uint,C.c_void_p,C.c_uint]
   self.lib.pocket_pixels_blit.argtypes=[C.c_void_p,C.c_void_p,C.c_int,C.c_int,C.c_uint,C.c_uint,C.c_void_p,C.c_uint]
   self.lib.pocket_room_set_eye_height.argtypes=[C.c_float];self.lib.pocket_room_set_eye_height.restype=C.c_int
+  self.help+=(("Target practice",("G: toggle target practice. Space: fire. R: reset targets.",)),)
   self.eye_height=340.
   self.image=None;self.size=None;self.pixel_dirty=True;self.pixel_jobs=0;self.pixel_frames=0
+ def key(self,key,now=None):
+  if self._sync() and key.lower() in ('g','r',' ','space'):
+   if key.lower()=='g':
+    self.game_enabled=not getattr(self,'game_enabled',False)
+    self.lib.pocket_game_enable.argtypes=[C.c_int]
+    self.lib.pocket_game_enable(int(self.game_enabled))
+   elif key.lower()=='r':self.lib.pocket_game_reset()
+   elif getattr(self,'game_enabled',False):
+    self.lib.pocket_game_fire.argtypes=[C.c_float]*5
+    self.lib.pocket_game_fire(self.x,self.eye_height,self.z,self.yaw,self.pitch)
+   else:return super().key(key,now)
+   self.pixel_dirty=True;self.next_poll=0
+   return True
+  return super().key(key,now)
  def set_eye_height(self,height):
   height=float(height)
   if not math.isfinite(height) or not 0<=height<=20000:raise ValueError('Eye height must be finite and between0 and20000 room units')
