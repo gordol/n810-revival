@@ -31,19 +31,16 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
     if not 1024 <= slot_mib <= 8191: raise ValueError('Slot size must be 1024–8191 MiB')
     root,kernel,output=map(Path,(root,kernel,output))
     report=json.loads((kernel/'BUILD.json').read_text())
-    if not report.get('ab_boot') or report['root_device'] != 'PARTUUID='+recovery_id+'-01':
-        raise ValueError('Kernel must accept slot arguments and default to this recovery disk')
+    if report.get('boot_method') != 'same-kernel-root-switch' or report['root_device'] != 'PARTUUID='+recovery_id+'-01':
+        raise ValueError('Kernel must select SD roots from this internal recovery disk')
     output.mkdir(mode=0o700,exist_ok=False)
     # Device nodes and Linux ownership must never be staged on a macOS bind mount.
     work=Path(tempfile.mkdtemp(prefix='n810-ab-',dir='/work'))
     recovery_root=work/'recovery';subprocess.run(['cp','-a',str(root),str(recovery_root)],check=True)
     c={'version':1,'sd_disk_id':sd_id,'recovery_disk_id':recovery_id,'data_schema':1}
-    recovery_package=Path(recovery_kernel or '/build/recovery-kernel/package')
-    rec_report=json.loads((recovery_package/'BUILD.json').read_text())
-    if rec_report.get('ab_boot') or rec_report['root_device']!='PARTUUID='+recovery_id+'-01':
-        raise ValueError('Internal recovery must have a fixed root command line')
-    shutil.rmtree(recovery_root/'lib/modules')
-    shutil.copytree(recovery_package/'root/lib/modules',recovery_root/'lib/modules',symlinks=True)
+    recovery_package=Path(recovery_kernel) if recovery_kernel else kernel
+    if digest(recovery_package/'kernel.notes') != digest(kernel/'kernel.notes'):
+        raise ValueError('Recovery and SD must use exactly one kernel build')
     recovery(recovery_root,c)
     (recovery_root/'etc/fstab').write_text('PARTUUID='+recovery_id+'-01 / ext4 defaults,noatime 0 1\n')
     subprocess.run(['chroot',str(recovery_root),'/usr/bin/ssh-keygen','-q','-t','ed25519','-N','','-f','/etc/ssh/ssh_host_ed25519_key'],check=True)
@@ -55,7 +52,7 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
         check=base/'etc/init.d/checkroot.sh'
         if check.exists():
             text=check.read_text();lines=text.splitlines(True)
-            lines.insert(1,'case " $(cat /proc/cmdline) " in *" n810.slot="*) exit 0;; esac\n')
+            lines.insert(1,'test ! -f /run/n810-ab-boot.json || exit 0\ncase " $(cat /proc/cmdline) " in *" n810.install=sd "*) exit 0;; esac\n')
             check.write_text(''.join(lines))
     from stage_sd_installer import stage as stage_installer
     bootstrap_package=Path('/build/sd-installer-kernel/package')
@@ -72,7 +69,7 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
     ctrl=image(control,output/'control.ext4',32,'n810-boot')
     shutil.copy2(recovery_package/'zImage-omap2420-n810',output/'recovery-kernel.bin')
     shutil.copy2(kernel/'BUILD.json',output/'KERNEL-BUILD.json')
-    manifest=dict(c,kind='n810-ab-kit',slot_mib=slot_mib,minimum_card_bytes=(1+32+2*slot_mib+256)*MIB,
+    manifest=dict(c,kind='n810-ab-kit',boot_method='same-kernel-root-switch',kernel_notes_sha256=digest(kernel/'kernel.notes'),slot_mib=slot_mib,minimum_card_bytes=(1+32+2*slot_mib+256)*MIB,
         files={'control.ext4':ctrl,'slot.ext4':slot,'data.ext4':data,'recovery.ext4':rec,
                'recovery-kernel.bin':{'bytes':(output/'recovery-kernel.bin').stat().st_size,'sha256':digest(output/'recovery-kernel.bin')}},
         source_commit=os.environ.get('INSTALLER_SOURCE_COMMIT') or json.loads((root/'usr/local/share/pocket/INSTALL.json').read_text())['source_commit'],
@@ -83,7 +80,8 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
     manifest['files']['sd-bootstrap-kernel.bin']={'bytes':(output/'sd-bootstrap-kernel.bin').stat().st_size,'sha256':bootstrap['kernel_sha256']}
     atomic(output/'AB.json',manifest)
     atomic(output/'SD-BOOTSTRAP.json',dict(bootstrap,kind='n810-sd-bootstrap',sd_disk_id=sd_id,kit_sha256=digest(output/'AB.json')))
-    atomic(output/'UPDATE.json',dict(slot,data_schema=1))
+    atomic(output/'UPDATE.json',dict(slot,data_schema=1,boot_method='same-kernel-root-switch',
+        kernel_release=report['release'],kernel_notes_sha256=digest(kernel/'kernel.notes')))
     shutil.rmtree(work)
     # The output is private because its data seed includes the supplied setup choices.
     from build_internal_image import restore_owner

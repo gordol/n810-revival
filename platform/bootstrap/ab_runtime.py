@@ -90,19 +90,27 @@ def mounted(source, target, options):
     return target
 
 
-def load_slot(c, slot, root):
-    m = read(root / 'boot/n810-slot.json')
-    if m['data_schema'] != c['data_schema']: raise ValueError('Data migration is required')
-    for name in ('zImage', 'omap2420-n810.dtb'):
-        if digest(root / 'boot' / name) != m['files'][name]: raise ValueError('Boot artifact checksum mismatch')
-    # Recovered working N810 handoff: explicit DTB and 32 MiB image reservation.
-    cmdline = ('root=PARTUUID=%s-%02d rootfstype=ext4 ro rootwait init=/sbin/n810-slot-init '
-               'console=ttyS2,115200 console=tty0 omap2fb.auto_update=y loglevel=4 vt.rgb=1 '
-               'n810.slot=%s n810.data=PARTUUID=%s-04' %
-               (c['sd_disk_id'], 2 if slot == 'A' else 3, slot, c['sd_disk_id']))
-    run('/usr/sbin/kexec', '--load', '--image-size=33554432', str(root / 'boot/zImage'),
-        '--dtb=' + str(root / 'boot/omap2420-n810.dtb'), '--append=' + cmdline)
-    if Path('/sys/kernel/kexec_loaded').read_text().strip() != '1': raise ValueError('Kernel was not loaded')
+def verify_kernel(manifest):
+    if manifest.get('boot_method') != 'same-kernel-root-switch':
+        raise ValueError('Slot requires migration to same-kernel boot')
+    if manifest.get('kernel_release') != os.uname().release:
+        raise ValueError('Slot modules require a different flashed kernel release')
+    if manifest.get('kernel_notes_sha256') != digest('/sys/kernel/notes'):
+        raise ValueError('Slot requires a different flashed kernel build')
+
+
+def running_slot(c):
+    record = read('/run/n810-ab-boot.json')
+    slot = record['slot']
+    if slot not in SLOTS: raise ValueError('Invalid running slot')
+    expected = c['sd_disk_id'] + ('-02' if slot == 'A' else '-03')
+    actual = subprocess.check_output(['findmnt', '-n', '-o', 'MAJ:MIN', '/'], text=True).strip()
+    st = device(c, 2 if slot == 'A' else 3).stat()
+    if record['root_partuuid'] != expected or actual != '%d:%d' % (os.major(st.st_rdev), os.minor(st.st_rdev)):
+        raise ValueError('Running root and selected slot disagree')
+    if record['kernel_notes_sha256'] != digest('/sys/kernel/notes'):
+        raise ValueError('Running kernel identity changed')
+    return slot
 
 
 def wait_for_card(c, timeout=120):
@@ -123,48 +131,14 @@ def wait_for_card(c, timeout=120):
 
 def boot(c):
     if not Path('/etc/n810-ab/recovery').exists(): raise ValueError('Boot selection runs only in recovery')
-    if Path('/sys/kernel/kexec_loaded').read_text().strip() != '0': raise ValueError('Preserve already-loaded kernel')
-    readiness = wait_for_card(c)
-    if readiness == 'held': return 'Recovery requested locally'
-    if readiness != 'ready': return 'Configured SD partitions did not become ready; recovery remains available'
-    control = mounted(device(c, 1), '/run/n810-ab-control', 'rw,nosuid,nodev,noexec')
-    try:
-        if (control / 'stay-in-recovery').exists(): return 'Recovery requested on card'
-        state = read(control / 'state.json')
-        slot, next_state = choose(state)
-        candidates = [slot] + ([state['active']] if slot != state['active'] else [])
-        failure = None
-        for candidate in candidates:
-            if candidate != slot:
-                next_state = dict(state, pending=None, tries=0, attempt=candidate)
-            # Persist attempts even when the pending slot cannot be validated or loaded.
-            atomic(control / 'state.json', next_state)
-            root = None
-            try:
-                root = mounted(device(c, 2 if candidate == 'A' else 3), '/run/n810-ab-slot', 'ro,noload,nosuid,nodev,noexec')
-                load_slot(c, candidate, root)
-                failure = None
-                break
-            except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
-                failure = error
-                if Path('/sys/kernel/kexec_loaded').read_text().strip() == '1': run('/usr/sbin/kexec', '--unload')
-                print('Slot ' + candidate + ' rejected: ' + str(error), flush=True)
-            finally:
-                if root is not None: run('umount', str(root))
-        if failure is not None: raise failure
-    finally: run('umount', str(control))
+    # Selection is exclusively early PID 1 work. A live recovery session reboots.
     run('sync')
     run('/sbin/shutdown', '-r', 'now')
-    return 'Orderly kexec requested'
+    return 'Normal reboot requested; early init selects SD or internal recovery'
 
 
 def mark_good(c):
-    tokens = Path('/proc/cmdline').read_text().split()
-    matches = [t.split('=', 1)[1] for t in tokens if t.startswith('n810.slot=')]
-    if len(matches) != 1 or matches[0] not in SLOTS: raise ValueError('Not an A/B slot boot')
-    slot = matches[0]
-    expected = 'root=PARTUUID=%s-%02d' % (c['sd_disk_id'], 2 if slot == 'A' else 3)
-    if expected not in tokens: raise ValueError('Root and slot disagree')
+    slot = running_slot(c)
     if not os.path.ismount('/data') or not os.path.ismount('/home'): raise ValueError('Persistent data is not mounted')
     # A service PID alone is not a rendered desktop. The caller must verify UI health.
     control = mounted(device(c, 1), '/run/n810-ab-control', 'rw,nosuid,nodev,noexec')
@@ -177,6 +151,7 @@ def update(c, bundle):
     """Update only the inactive slot. Data-schema changes require a separate migration."""
     bundle = Path(bundle).resolve(); m = read(bundle / 'UPDATE.json')
     if m['data_schema'] != c['data_schema']: raise ValueError('Refusing an incompatible data schema')
+    verify_kernel(m)
     image = bundle / 'slot.ext4'
     if m['bytes'] != image.stat().st_size or digest(image) != m['sha256']:
         raise ValueError('Update image checksum mismatch')

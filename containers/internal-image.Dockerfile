@@ -74,5 +74,5 @@ RUN install -d /opt/n810-touch/touch-runtime \
     && cp platform/scripts/n810-touch-fit.py /opt/n810-touch/ \
     && cp pocket/shell/touch.py pocket/shell/touch_evdev.py pocket/shell/touch_diagnostics.py \
           pocket/shell/pointer_events.py /opt/n810-touch/touch-runtime/
-RUN if test "$AB_BOOT" = 1; then cp -a /build/kernel /build/recovery-kernel && python3 platform/kernel/build.py --work /build/recovery-kernel --resume --archive /build/kernel/linux.tar.xz --root-device "PARTUUID=${DISK_ID}-01" --jobs 4 && test "${#SD_DISK_ID}" = 8 && cp -a /build/kernel /build/sd-installer-kernel && python3 platform/kernel/build.py --work /build/sd-installer-kernel --resume --archive /build/kernel/linux.tar.xz --sd-installer --root-device "PARTUUID=${SD_DISK_ID}-02" --jobs 4; fi
+RUN if test "$AB_BOOT" = 1; then test "${#SD_DISK_ID}" = 8 && cp -a /build/kernel /build/sd-installer-kernel && python3 platform/kernel/build.py --work /build/sd-installer-kernel --resume --archive /build/kernel/linux.tar.xz --sd-installer --root-device "PARTUUID=${SD_DISK_ID}-02" --jobs 4; fi
 CMD ["python3", "platform/bootstrap/build_internal_sources.py", "--help"]

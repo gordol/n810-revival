@@ -46,7 +46,7 @@ def main() -> None:
     parser.add_argument('--resume', action='store_true', help='Revalidate inputs and resume an existing interrupted build')
     parser.add_argument('--ram-installer', action='store_true', help='build the temporary NOLO initramfs installer kernel')
     parser.add_argument('--sd-installer', action='store_true', help='temporary NOLO kernel booting A/B slot A directly from SD')
-    parser.add_argument('--ab-boot', action='store_true', help='accept bootloader slot arguments; default to internal recovery')
+    parser.add_argument('--ab-boot', action='store_true', help='one flashed kernel; early internal init selects the SD root')
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--root-device', default='/dev/mmcblk0p2', help='Root device or PARTUUID= value for the intended filesystem')
     args = parser.parse_args()
@@ -126,8 +126,11 @@ def main() -> None:
               '--set-str', 'UNUSED_KSYMS_WHITELIST', str(HERE / 'binding-api-whitelist.txt'),
               '--set-str', 'CMDLINE', cmdline]
     if args.ab_boot:
+        cmdline += ' init=/sbin/n810-recovery-init'
+        config[-1] = cmdline
         if args.ram_installer: raise ValueError('A/B recovery uses an ext4 internal root')
-        config += ['--disable', 'CMDLINE_FORCE', '--enable', 'CMDLINE_FROM_BOOTLOADER',
+        config += ['--enable', 'CMDLINE_FORCE', '--disable', 'CMDLINE_FROM_BOOTLOADER',
+                   '--disable', 'KALLSYMS',
                    '--enable', 'EXT4_FS_POSIX_ACL', '--enable', 'EXT4_FS_SECURITY', '--enable', 'OVERLAY_FS']
     if args.sd_installer:
         # A distinct release isolates bootstrap modules from both operating slots.
@@ -193,7 +196,7 @@ def main() -> None:
         'kernel-notes')
     image = package / 'zImage-omap2420-n810'
     image.write_bytes((package / 'zImage').read_bytes() + (package / 'omap2420-n810.dtb').read_bytes())
-    if not args.ab_boot and image.stat().st_size > lock['image_limit']:
+    if image.stat().st_size > lock['image_limit']:
         raise RuntimeError('Combined image exceeds the recorded NOLO image budget.')
     shutil.copyfile(ko, package / ko.name)
     (package / 'module-version-crcs.txt').write_text(versions)
@@ -208,11 +211,11 @@ def main() -> None:
               'build_script_sha256': digest(Path(__file__)), 'verified_source_files': len(expected_files),
               'compiler': compiler, 'build_timestamp': env['KBUILD_BUILD_TIMESTAMP'],
               'root_device': 'initramfs:/init' if args.ram_installer else args.root_device,
-              'ab_boot': args.ab_boot,
+              'ab_boot': args.ab_boot, 'boot_method': 'same-kernel-root-switch' if args.ab_boot else 'direct',
               'vmlinux_sha256': digest(build / 'vmlinux'),
               'kernel_modules': len(modules),
               'external_module_crc_checks': len(crcs), 'external_module_vermagic': info,
-              'image_bytes': image.stat().st_size, 'image_limit': None if args.ab_boot else lock['image_limit'],
+              'image_bytes': image.stat().st_size, 'image_limit': lock['image_limit'],
               'device_action': False,
               'files': package_hashes(package)}
     (package / 'BUILD.json').write_text(json.dumps(report, indent=2) + '\n')

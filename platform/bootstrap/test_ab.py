@@ -66,8 +66,8 @@ class Stage(unittest.TestCase):
                 (root/name).mkdir(parents=True,exist_ok=True)
             (root/'etc/wpa_supplicant').mkdir();(root/'etc/wpa_supplicant/wpa_supplicant-wlan0.conf').write_text('private fixture')
             (root/'etc/passwd').write_text('nokia:x:1000:1000::/home/nokia:/bin/sh\n')
-            (kernel/'BUILD.json').write_text('{"ab_boot":true}');(kernel/'KERNELRELEASE').write_text('fixture')
-            for name in ('zImage','omap2420-n810.dtb'):(kernel/name).write_bytes(b'fixture')
+            (kernel/'BUILD.json').write_text('{"ab_boot":true,"boot_method":"same-kernel-root-switch"}');(kernel/'KERNELRELEASE').write_text('fixture')
+            for name in ('zImage','omap2420-n810.dtb','kernel.notes'):(kernel/name).write_bytes(b'fixture')
             actual=subprocess.run
             def run(args,**kw):
                 if args[0]=='chroot':

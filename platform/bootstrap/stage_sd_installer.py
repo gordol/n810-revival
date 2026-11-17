@@ -68,9 +68,9 @@ def stage(root, package):
     script.write_text(SCRIPT.replace('@RELEASE@',report['release']));script.chmod(0o755)
     subprocess.run(['sh','-n',str(script)],check=True)
     init=root/'sbin/n810-slot-init';text=init.read_text()
-    before='exec /sbin/init\n'
+    before='[ "$MODE" != --prepare ] || exit 0\nexec /sbin/init\n'
     if text.count(before)!=1:raise ValueError('Unexpected slot init')
-    text=text.replace(before,'case " $(cat /proc/cmdline) " in *" n810.install=sd "*) exec /usr/local/sbin/n810-sd-installer;; esac\n'+before)
+    text=text.replace(before,'[ "$MODE" != --prepare ] || exit 0\ncase " $(cat /proc/cmdline) " in *" n810.install=sd "*) exec /usr/local/sbin/n810-sd-installer;; esac\nexec /sbin/init\n')
     init.write_text(text)
     for name in ('usr/sbin/dropbear','usr/bin/dropbearconvert','bin/busybox'):
         if not (root/name).is_file():raise ValueError('Missing bootstrap tool: '+name)

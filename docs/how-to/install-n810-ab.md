@@ -69,19 +69,21 @@ written byte.
 Leave the verified SD card inserted and return the same tablet to update mode on the
 same USB port. Run `ab_install.py flash-recovery --kit PATH --flasher PATH`.
 It requires matching successful SD and recovery receipts and flashes only the
-recovery kernel. The next boot enters internal recovery, waits ten seconds,
-then loads the selected SD kernel through kexec.
+shared kernel. On the next boot, early internal startup waits up to 120 seconds
+for the configured card, prepares the selected slot and persistent mounts, and
+switches into that root filesystem before starting services. The kernel keeps
+running throughout; normal SD boot does not use kexec.
 
 ## Storage and updates
 
 | Location | Purpose |
 |---|---|
 | SD partition 1 | Boot selection and trial-attempt record. |
-| SD partition 2 | OS A, including its kernel and matching modules. |
-| SD partition 3 | OS B, including its kernel and matching modules. |
+| SD partition 2 | Read-only OS A and modules matching the flashed kernel. |
+| SD partition 3 | Read-only OS B and modules matching the flashed kernel. |
 | SD partition 4 | User homes, service state, network settings, and identities. |
 | Internal 2 GB | Recovery filesystem, USB SSH, console and repair tools. |
-| Internal kernel flash | Fixed-root recovery kernel. |
+| Internal kernel flash | Shared kernel for SD operation and internal recovery. |
 
 The OS mounts read-only. A persistent `/etc` overlay preserves edits and atomic
 file replacements while untouched configuration comes from the selected OS.
@@ -92,10 +94,13 @@ Files manually installed into the OS are not persistent application data.
 
 For an update, copy a matching `UPDATE.json` and `slot.ext4` into a directory on
 persistent storage, then run `sudo n810-ab update --bundle DIRECTORY`. The
-updater refuses mounted slot targets, verifies the image and full readback,
+updater requires the exact flashed kernel build and data schema, refuses mounted
+slot targets, verifies the image and full readback,
 and selects the inactive slot for up to three trial boots. Reboot normally to
-return through recovery and enter the trial. Updates never write the data
-partition, card partition table, or flashed recovery kernel.
+select the trial during early startup. Updates never write the data
+partition, card partition table, or flashed kernel. A kernel change is a
+separate maintenance operation that must supply matching modules to recovery
+and both slots; ordinary OS updates cannot silently replace it.
 
 The health check confirms a boot after persistent mounts, a read-only root,
 and a live fault-free GPU desktop are observed across three samples. An
@@ -111,14 +116,14 @@ not roll back shared database changes.
 ## Recovery
 
 With the card absent, the internal system remains available through USB SSH
-and the console. During its ten-second delay, creating
-`/run/n810-stay-in-recovery` prevents SD boot for that session. A
-`stay-in-recovery` file on the card's control partition also prevents SD boot.
-Charger-only boot remains in recovery's charging mode.
+and the console after the bounded card-detection wait. A `stay-in-recovery`
+file on the card's control partition prevents SD boot. An administrator can
+also create `/etc/n810-ab/stay-in-recovery` on internal recovery to bypass
+card selection until that file is removed.
 
 From the running SD system, `sudo n810-ab stay-recovery` makes the next normal
 reboot stop in recovery. Use `sudo n810-ab resume-sd` there to clear that request,
-then `sudo n810-ab boot` to load the selected SD slot. `sudo n810-ab status`
+then `sudo n810-ab boot` to reboot normally and select the SD root. `sudo n810-ab status`
 shows the confirmed slot, pending trial, and remaining attempts.
 
 The kit records separate SSH host public keys for recovery and the SD system.

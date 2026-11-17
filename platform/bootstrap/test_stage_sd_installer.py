@@ -12,7 +12,7 @@ class StageSDInstaller(unittest.TestCase):
         root=Path(folder)/'root';package=Path(folder)/'package';release='5.15.224-n810-sd-installer'
         for name in ('sbin','usr/local/sbin','usr/sbin','usr/bin','bin','lib/modules/operating-kernel'):
             (root/name).mkdir(parents=True,exist_ok=True)
-        (root/'sbin/n810-slot-init').write_text('#!/bin/sh\nexec /sbin/init\n')
+        (root/'sbin/n810-slot-init').write_text('#!/bin/sh\n[ "$MODE" != --prepare ] || exit 0\nexec /sbin/init\n')
         (root/'lib/modules/operating-kernel/keep').write_text('operating GPU/modules unchanged')
         for name in ('usr/sbin/dropbear','usr/bin/dropbearconvert','bin/busybox'):(root/name).touch()
         modules=package/'root/lib/modules'/release;modules.mkdir(parents=True)
@@ -41,6 +41,6 @@ class StageSDInstaller(unittest.TestCase):
             with patch('stage_sd_installer.subprocess.check_output',return_value='0x9876 module_layout\n'):
                 with self.assertRaisesRegex(ValueError,'ABI mismatch'):stage(root,package)
             self.assertFalse((root/'usr/local/sbin/n810-sd-installer').exists())
-            self.assertEqual((root/'sbin/n810-slot-init').read_text(),'#!/bin/sh\nexec /sbin/init\n')
+            self.assertEqual((root/'sbin/n810-slot-init').read_text(),'#!/bin/sh\n[ "$MODE" != --prepare ] || exit 0\nexec /sbin/init\n')
 
 if __name__=='__main__':unittest.main()

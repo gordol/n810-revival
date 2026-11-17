@@ -574,7 +574,7 @@ class N810Setup:
                 'Install next A/B step writes and verifies the SD card, then ejects it. Insert the card into the intended tablet, put that tablet into Nokia update mode, and choose Install again to boot its isolated SD installer.',
                 'After USB networking is ready, choose Install again to write and verify internal recovery. This fresh installation erases the selected card and the tablet internal 2 GB storage.',
                 'Leave the SD card inserted and return the same tablet to Nokia update mode on the same USB port. Choose Install again to flash only the matching recovery kernel.',
-                'The internal system loads the selected SD kernel through kexec. With no card it remains available for recovery. The Nokia bootloader is retained.',
+                'One flashed kernel runs both recovery and SD. Early startup selects the SD A/B root and persistent data without restarting the kernel. With no card, internal recovery starts after the card-detection wait.',
                 'Future OS updates use n810-ab update with UPDATE.json and slot.ext4. They replace the inactive OS slot, preserving persistent homes, network settings, identities, maps and databases. Do not use the fresh-install card writer for updates.',
                 'A rendered GPU desktop and persistent mounts confirm the trial boot. Failed trials return to the confirmed slot on a later restart; a hard hang still needs a restart.',
             )),)

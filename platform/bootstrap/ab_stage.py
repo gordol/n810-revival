@@ -17,12 +17,13 @@ def copy(source, target):
 
 def stage(root, data, kernel, c):
     root, data, kernel = map(Path, (root, data, kernel))
-    if not json.loads((kernel/'BUILD.json').read_text()).get('ab_boot'):
-        raise ValueError('Rebuild with --ab-boot; forced root command lines cannot select slots')
+    if json.loads((kernel/'BUILD.json').read_text()).get('boot_method') != 'same-kernel-root-switch':
+        raise ValueError('Rebuild with --ab-boot for same-kernel root selection')
     config = root/'etc/n810-ab'; config.mkdir(parents=True, exist_ok=True)
     atomic(config/'config.json', c)
     executable = root/'usr/local/sbin/n810-ab'
     shutil.copy2(HERE/'ab_runtime.py', executable); executable.chmod(0o755)
+    (root/'etc/default/kexec').write_text('LOAD_KEXEC=false\nUSE_KEXEC=false\n')
     # Persist user state and service databases, never package-manager metadata or app code.
     paths = ['etc/n810-ab/config.json', 'home', 'root', 'var/log', 'var/spool', 'etc/wpa_supplicant', 'etc/n810',
              'etc/default', 'etc/network', 'etc/bluetooth', 'var/lib/pocket', 'var/lib/n810-radio',
@@ -62,41 +63,10 @@ def stage(root, data, kernel, c):
         p=template/relative
         if p.exists(): shutil.rmtree(p)
         p.mkdir(parents=True)
-    (root/'data').mkdir(exist_ok=True)
+    for name in ('data', 'old-root', 'proc', 'sys', 'dev', 'run'):
+        (root/name).mkdir(exist_ok=True)
     script = root/'sbin/n810-slot-init'
-    script.write_text('''#!/bin/sh
-export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-fail() { echo "A/B startup failed: $*; reboot to internal recovery or use this console."; while :; do /bin/sh; done; }
-mountpoint -q /proc || mount -t proc proc /proc || fail proc
-mountpoint -q /sys || mount -t sysfs sysfs /sys || fail sys
-mountpoint -q /dev || mount -t devtmpfs devtmpfs /dev || fail dev
-mountpoint -q /run || mount -t tmpfs -o mode=755,size=16m tmpfs /run || fail run
-mount -t tmpfs -o mode=1777,size=16m tmpfs /tmp || fail tmp
-exec </dev/console >/dev/console 2>&1
-DATA=
-for arg in $(cat /proc/cmdline); do case "$arg" in n810.data=PARTUUID=????????-04) DATA=${arg#n810.data=};; esac; done
-[ -n "$DATA" ] || fail 'missing data identity'
-for n in 1 2 3 4 5 6 7 8 9 10; do
- DEV=$(blkid -t "$DATA" -o device)
- [ -b "$DEV" ] && break
- sleep 1
-done
-[ -b "$DEV" ] || fail 'data partition absent or ambiguous'
-/usr/lib/n810-ab/prepare-data "$DEV" || fail 'data filesystem recovery or expansion'
-mount -t ext4 -o rw,noatime "$DEV" /data || fail 'data mount'
-test -s /data/etc/ssh/ssh_host_ed25519_key || ssh-keygen -q -t ed25519 -N '' -f /data/etc/ssh/ssh_host_ed25519_key || fail 'SSH identity'
-test "$(python3 -c 'import json; print(json.load(open("/data/SCHEMA.json"))["version"])')" = 1 || fail 'data schema'
-mkdir -p /data/etc-overlay/upper /data/etc-overlay/work || fail 'configuration storage'
-mount -t overlay overlay -o lowerdir=/usr/lib/n810-ab/etc,upperdir=/data/etc-overlay/upper,workdir=/data/etc-overlay/work /etc || fail 'persistent configuration overlay'
-mount -t tmpfs -o mode=755,size=32m tmpfs /var || fail var
-cp -a /usr/lib/n810-ab/var/. /var/ || fail 'var defaults'
-while IFS= read -r path; do
- case "$path" in etc/*) :;;
- home|root) mount --bind "/data/$path" "/$path" || fail "$path";;
- *) rm -rf "/$path"; ln -s "/data/$path" "/$path" || fail "$path";; esac
-done < /etc/n810-ab/persistent-paths
-exec /sbin/init
-'''); script.chmod(0o755)
+    shutil.copy2(HERE/'ab_slot_init.sh',script); script.chmod(0o755)
     # The package's fstab must not remount the immutable slot writable.
     for base in (root, template):
         (base/'etc/fstab').write_text('# A/B root and data are mounted by n810-slot-init.\n')
@@ -115,6 +85,7 @@ exec /sbin/init
     for name in ('zImage','omap2420-n810.dtb'): shutil.copy2(kernel/name,boot/name)
     atomic(boot/'n810-slot.json', {'data_schema':c['data_schema'],
         'kernel_release':(kernel/'KERNELRELEASE').read_text().strip(),
+        'boot_method':'same-kernel-root-switch', 'kernel_notes_sha256':digest(kernel/'kernel.notes'),
         'files':{n:digest(boot/n) for n in ('zImage','omap2420-n810.dtb')}})
 
 
@@ -127,17 +98,13 @@ def recovery(root, c):
     # Recovery boots normally without a card and provides USB SSH and a local login.
     for pattern in ('*pocket-desktop','*pocket-services','*n810-setup-touch','*pocket-expand-internal-root'):
         for p in root.glob('etc/rc*.d/'+pattern): p.unlink()
-    script=root/'etc/init.d/n810-ab-boot'
-    script.write_text('''#!/bin/sh
-case "$1" in
-start)
- echo 'N810 recovery: SD check starts in 10 seconds, then waits up to 120 seconds; create /run/n810-stay-in-recovery to stay.'
- (sleep 10; test -e /run/n810-stay-in-recovery || test "$(/usr/local/sbin/n810-mode status)" = charging || /usr/local/sbin/n810-ab boot >>/var/log/n810-ab-boot.log 2>&1) &
- ;;
-stop) :;;
-esac
-''');script.chmod(0o755)
-    for level in (2,3,4,5):
-        (root/f'etc/rc{level}.d/S07n810-ab-boot').symlink_to('../init.d/n810-ab-boot')
-    # kexec-tools uses the orderly shutdown path recovered from the original device.
-    (root/'etc/default/kexec').write_text('LOAD_KEXEC=false\nUSE_KEXEC=true\n')
+    for p in root.glob('etc/rc*.d/*n810-ab-boot'): p.unlink()
+    (root/'etc/init.d/n810-ab-boot').unlink(missing_ok=True)
+    (root/'new-root').mkdir(exist_ok=True)
+    lib=root/'usr/lib/n810-ab'; lib.mkdir(parents=True,exist_ok=True)
+    for name in ('ab_early.py', 'ab_runtime.py'):
+        shutil.copy2(HERE/name, lib/name)
+    script=root/'sbin/n810-recovery-init'
+    script.write_text('#!/bin/sh\nexec /usr/bin/python3 /usr/lib/n810-ab/ab_early.py\n')
+    script.chmod(0o755)
+    (root/'etc/default/kexec').write_text('LOAD_KEXEC=false\nUSE_KEXEC=false\n')
