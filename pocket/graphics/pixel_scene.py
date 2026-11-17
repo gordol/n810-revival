@@ -23,6 +23,20 @@ def landscape_marks(layer,width):
                     for (x,y),(char,ink) in layer.items())
 
 
+def uncovered_records(records,cols,rows,cuts):
+    """Keep chrome/sidebar cells outside the actual pixel map rectangles."""
+    from gpu_scene import subtract
+    regions=[(0,0,cols,rows)]
+    for cut in cuts:regions=[piece for region in regions for piece in subtract(region,cut)]
+    for x,y,w,h in regions:
+        raw=bytearray()
+        for row in range(h):
+            for column in range(w):
+                offset=((y+row)*cols+x+column)*16
+                raw.extend(struct.pack('=I',row*w+column));raw.extend(records[offset+4:offset+16])
+        yield bytes(raw),x,y,w,h
+
+
 class Context(SharedContext):
     native_pixels=True
     def __init__(self,platform):
@@ -190,7 +204,7 @@ class Context(SharedContext):
                 raise RuntimeError(f'{error}; window cells={cols}x{rows}, records={len(cells)}, '
                                    f'position={x},{y}, opacity={opacity}, '
                                    f'missing_glyphs={missing}, invalid_indices={bad_indices}') from error
-    def draw_window(self,window,x,y,dx,dy):
+    def draw_window(self,window,x,y,dx,dy,pixel_clips=()):
         h=self.platform.host;n=h._native
         signature,plane=n.planes[window.name][:2];cols,rows=signature[:2]
         key=(signature,window.version,id(window.layer))
@@ -201,14 +215,16 @@ class Context(SharedContext):
         else:records=old[1]
         view=n.cell_view(h,window,h.bounds(window))
         state=(key,dx,dy,h.shadow_enabled,h.shadow_opacity,h.window_fill,h.window_opacity,
-               bytes(self.platform.renderer.layer_palette),self.platform.renderer.layer_fallback,view)
+               bytes(self.platform.renderer.layer_palette),self.platform.renderer.layer_fallback,view,tuple(pixel_clips))
         def draw():
             if h.shadow_enabled:
                 self.check(self.lib.pocket_scene_rect(self.handle,x+dx,y+dy,cols*8,rows*16,round(h.shadow_opacity*255)))
             self.draw_records(records,cols,rows,x,y,h.window_fill,round(h.window_opacity*255))
             if view is not None:
                 data,cw,ch,cx,cy=view;ox,oy=h.origin
-                self.draw_records(data,cw,ch,(cx+ox)*8,(cy+oy)*16,h.window_fill,round(h.window_opacity*255))
+                cuts=[(px//8-cx-ox,py//16-cy-oy,pw//8,ph//16) for px,py,pw,ph in pixel_clips]
+                for raw,lx,ly,lw,lh in uncovered_records(data,cw,ch,cuts):
+                    self.draw_records(raw,lw,lh,(cx+ox+lx)*8,(cy+oy+ly)*16,h.window_fill,round(h.window_opacity*255))
         self.batch(('window',window.name),(state,x,y) if view is not None else state,draw,position=None if view is not None else (x,y))
     def panel_text(self,x,y,text,fg,bg):
         current=(text,fg,bg)

@@ -231,8 +231,18 @@ class Context:
         ox,oy=h.origin
         for window in windows:
             x,y,_,_=h.bounds(window);x=(x+ox)*8;y=(y+oy)*16
+            app=by_name.get(window.name)
+            map_view=app is not None and getattr(app,'input_role',None)=='map'
+            map_result=app.render_image() if map_view else None
+            pixel_clips=[]
+            if map_result is not None:
+                from scenes import MapComposite
+                source,px,py,pw,ph=map_result
+                if isinstance(source,MapComposite):
+                    pixel_clips=[(px+item[3],py+item[4],item[5],item[6]) if len(item)>3 else (px,py,pw,ph) for item in source.layers]
+                else:pixel_clips=[(px,py,pw,ph)]
             if getattr(self,'native_pixels',False):
-                self.draw_window(window,x,y,round(dx*h.shadow_size*8),round(dy*h.shadow_size*16))
+                self.draw_window(window,x,y,round(dx*h.shadow_size*8),round(dy*h.shadow_size*16),pixel_clips=pixel_clips)
             elif covered:
                 active_layers.add(window.name);layer=self.layer(window)
                 for clip in covered:self.check(self.lib.pocket_scene_layer(self.handle,layer,x,y,round(dx*h.shadow_size*8),round(dy*h.shadow_size*16),round(h.shadow_opacity*255) if h.shadow_enabled else 0,*clip))
@@ -243,7 +253,7 @@ class Context:
             if native is not None:
                 active_images.add(app.name);rect=native
             else:
-                result=app.render_image()
+                result=map_result if map_view else app.render_image()
                 if result is None:continue
                 source,px,py,w,height=result
                 from scenes import MapComposite

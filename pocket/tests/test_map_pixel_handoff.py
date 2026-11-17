@@ -63,6 +63,47 @@ class MapPixelHandoff(unittest.TestCase):
   result,w,h=terrain_detail(surface,view,features)
   self.assertIs(result,samples);self.assertEqual((w,h),(160,160))
 
+ def test_arm_gui_uses_pixel_density_and_prepared_display_terrain(self):
+  from array import array
+  from offline_map import MapFeatures
+  calls=[]
+  def sample(v,t):calls.append((v.width,v.height));return [(' ',(1,2,3),(4,5,6))]*(v.width*v.height),''
+  engine=NS(terrain=object(),_catalogue_original_rgb=sample,
+            _rgb_terrain=lambda *a:(_ for _ in ()).throw(AssertionError('Fine DEM queried for display')))
+  module=NS(Viewport=lambda c,s,w,h,a:NS(width=w,height=h))
+  surface=NS(terrain=True,image=NS(source='semantic'),renderer=NS(module=module,engine=engine))
+  view=NS(width=98,height=24,center=(0.,0.),span=160.,cell_aspect=2.)
+  features=MapFeatures(array('I',[0]*(98*48)),(),{},98,48)
+  with patch('desktop_elevation.enabled',return_value=False):samples,w,h=terrain_detail(surface,view,features)
+  self.assertGreater(w,98*4);self.assertGreater(h,48*4)
+  self.assertLessEqual(w*h,262144);self.assertEqual(calls,[(w,h//2)])
+
+ def test_precomputed_overview_never_samples_live_terrain(self):
+  from map_overview import Overview
+  from offline_map import MapSurface
+  from paint import ink
+  overview=Overview();overview.data=dict(width=192,height=96,center=(0.,0.),span=400.,cells=(('▀',ink(40,80,20,background=(20,60,120))),)*(192*96))
+  import importlib.util
+  spec=importlib.util.spec_from_file_location('overview_viewport',Path(__file__).resolve().parents[1]/'shell/vendor/packet-console/n810-map-next.py')
+  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  image=overview.image(module,192,96)
+  renderer=NS(module=module,semantic_features=lambda *a,**kw:(_ for _ in ()).throw(AssertionError('Live terrain sampled')))
+  surface=MapSurface(image,(0,0,30,15,()),renderer,('cached',),pixel_overview=True)
+  view=surface.viewport();features=surface.features(view,())
+  samples,w,h=terrain_detail(surface,view,features)
+  self.assertIs(samples,image.features.terrain);self.assertEqual((w,h),(192,192))
+
+ def test_pixel_map_excludes_terminal_terrain_but_keeps_sidebar_controls(self):
+  import struct
+  from pixel_scene import uncovered_records
+  raw=b''.join(struct.pack('=IIQ',i,65+i,0) for i in range(24))
+  pieces=list(uncovered_records(raw,6,4,[(0,0,4,4),(4,0,2,2)]))
+  self.assertEqual(len(pieces),1)
+  data,x,y,w,h=pieces[0];self.assertEqual((x,y,w,h),(4,2,2,2))
+  cells=list(struct.iter_unpack('=IIQ',data))
+  self.assertEqual([row[0] for row in cells],list(range(4)))
+  self.assertEqual([row[1] for row in cells],[81,82,87,88])
+
  def test_water_and_lowland_have_distinct_luminance_and_hue(self):
   from elevation_display import WATER_COLOR,display_color
   land=display_color(0,0,1000)

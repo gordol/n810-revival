@@ -25,7 +25,7 @@ def image(root, path, size, label):
     return {'bytes':path.stat().st_size,'sha256':digest(path)}
 
 
-def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kernel=None, reference_data=None, reference_maps=None):
+def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kernel=None, reference_data=None, reference_maps=None, reference_overview=None):
     if os.geteuid() or os.uname().sysname != 'Linux': raise ValueError('Build inside the pinned Linux container as root')
     if any(not re.fullmatch('[0-9a-f]{8}',v) for v in (sd_id,recovery_id)) or sd_id==recovery_id: raise ValueError('Distinct eight-digit disk IDs required')
     if not 1024 <= slot_mib <= 8191: raise ValueError('Slot size must be 1024–8191 MiB')
@@ -69,7 +69,7 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
         sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'pocket/tools'))
         from install_reference_data import inventory,install
         target=seed/'home/nokia/.local/share/pocket'
-        receipt=install(inventory(reference_data,reference_maps),target)
+        receipt=install(inventory(reference_data,reference_maps,reference_overview),target)
         account=(root/'home/nokia').stat()
         for path in (target,*target.rglob('*')):os.chown(path,account.st_uid,account.st_gid)
         data_mib=max(256,(receipt['bytes']*12//10+64*MIB+MIB-1)//MIB)

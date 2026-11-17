@@ -205,6 +205,13 @@ transfer without an intermediate archive; `--plan` validates inputs and reports
 file count and size without installing anything. Restart Pocket after changing
 the selected data so its existing workers reopen the catalogue.
 
+Prepared reference data can include `map-overview.json`, the 192 by 96 regional
+preview used by the overview loader. Importing the original filesystem's map
+folder also discovers its checksum-pinned preview beside the legacy runtime.
+The host builder mounts that file explicitly into the build container and seeds
+it with the reference data, so opening the sidebar does not regenerate regional
+terrain. `build_ab_host.py --reference-overview FILE` selects it explicitly.
+
 Map display overviews and LOS use different sampling: rendering may use reduced
 levels, while path calculations use selected fine elevation. Missing coverage
 is unknown, never evidence of a clear path. A successful software LOS calculation

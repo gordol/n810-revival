@@ -7,8 +7,12 @@ SHA256='e31078767b6ac0fee8f015b60345e057890789afb0a612fe8f98b51d84258c45'
 
 @lru_cache(maxsize=1)
 def data():
-    with (Path(__file__).parent/'map-assets/accepted-preview/puget-overview.json').open('rb') as source:raw=source.read(1024*1024+1)
-    if len(raw)>1024*1024 or hashlib.sha256(raw).hexdigest()!=SHA256:raise ValueError('Regional overview differs from pinned image')
+    from data_paths import data_root
+    path=data_root()/'map-overview.json'
+    installed=path.is_file()
+    if not installed:path=Path(__file__).parent/'map-assets/accepted-preview/puget-overview.json'
+    with path.open('rb') as source:raw=source.read(1024*1024+1)
+    if len(raw)>1024*1024 or (not installed and hashlib.sha256(raw).hexdigest()!=SHA256):raise ValueError('Regional overview differs from pinned image')
     value=json.loads(raw)
     if value['version']!=1 or (value['width'],value['height'])!=(192,96) or len(value['cells'])!=192*96:raise ValueError('Invalid regional image')
     value['cells']=tuple((str(char),int(color)) for char,color in value['cells'])
@@ -54,7 +58,15 @@ class Overview:
             if h>sh:h=sh;w=max(2,round(h*width/max(1,height)))
             x,y=(sw-w)//2,(sh-h)//2
             projection=CropProjection(module.Viewport(d['center'],d['span'],sw,sh),x,y,w,h)
-            self.cached=Image(w,h,CropCells(d['cells'],sw,x,y,w,h),'Cached Puget regional overview',(),0.,projection,'cached-overview')
+            from array import array
+            from offline_map import MapFeatures
+            cells=CropCells(d['cells'],sw,x,y,w,h);samples=array('I')
+            for row in range(h):
+                values=[cells[row*w+column] for column in range(w)]
+                samples.extend(((style>>24)&0xffffff) if char=='▀' else (style&0xffffff) for char,style in values)
+                samples.extend(style&0xffffff for char,style in values)
+            features=MapFeatures(samples,(),{},w,h*2,pixel_detail=True)
+            self.cached=Image(w,h,cells,'Cached regional overview',(),0.,projection,'cached-overview',features)
             self.key=key
         return self.cached
 

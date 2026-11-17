@@ -81,6 +81,7 @@ def main():
     parser.add_argument('--storage-target', choices=('internal','sd'), default='internal')
     parser.add_argument('--reference-data',type=Path)
     parser.add_argument('--reference-maps',type=Path)
+    parser.add_argument('--reference-overview',type=Path)
     args = parser.parse_args()
     build(args.output, args.ssh_key, args.firmware_cache, args.backup, args.offline,
           args.size_mib, args.password_stdin, args.setup_stdin, args.storage_target)
@@ -89,7 +90,7 @@ def main():
         from build_ab import build as build_ab
         kernel=Path('/build/kernel/package')
         recovery_id=json.loads((kernel/'BUILD.json').read_text())['root_device'].split('=')[1][:-3]
-        build_ab(Path('/work/internal/debian/rootfs'),kernel,args.ab_output,args.ab_sd_id,recovery_id,args.size_mib,reference_data=args.reference_data,reference_maps=args.reference_maps)
+        build_ab(Path('/work/internal/debian/rootfs'),kernel,args.ab_output,args.ab_sd_id,recovery_id,args.size_mib,reference_data=args.reference_data,reference_maps=args.reference_maps,reference_overview=args.reference_overview)
         from build_internal_image import restore_owner
         restore_owner(args.ab_output)
 

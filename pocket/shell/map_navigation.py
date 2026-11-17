@@ -95,7 +95,7 @@ def map_class(Base):
                     self._detail_request=None;self._loading_overview=None
                     return True
                 if retained is not None and retained.projection.span*.2<=span<=retained.projection.span*.6:
-                    from offline_map import Image
+                    from offline_map import Image,ReprojectedPlane
                     view=self.renderer.module.Viewport(tuple(center),retained.projection.span,retained.width,retained.height)
                     self._zoom_context_image=Image(retained.width,retained.height,ReprojectedPlane(retained,view),
                         retained.legend,(),0.,view,'pan-preview')

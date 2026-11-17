@@ -41,15 +41,17 @@ def terrain_detail(surface,view,features):
  if not getattr(surface,'terrain',False) or (not overview and getattr(surface.image,'source',None) not in ('semantic','pan-preview')):
   return features.terrain,features.sample_width,features.sample_height
  from desktop_elevation import enabled
- if not overview and not enabled():
-  return features.terrain,features.sample_width,features.sample_height
- factor=min(8,math.isqrt((16384 if overview else 262144)//max(1,view.width*view.height)))
+ factor=min(8,math.isqrt((32768 if overview else 262144)//max(1,view.width*view.height*2)))
  if factor<2:return features.terrain,features.sample_width,features.sample_height
  dense=surface.renderer.module.Viewport(view.center,view.span,view.width*factor,view.height*factor,view.cell_aspect)
  from desktop_elevation import pixel_samples
  fast=pixel_samples(surface.renderer.engine,dense) if enabled() else None
  if fast is not None:return fast
- frame,_=surface.renderer.engine._rgb_terrain(dense,True)
+ engine=surface.renderer.engine
+ # Prepared display terrain is distinct from fine elevation used by LOS.
+ # The ARM GUI must not turn every display pixel into a fresh DEM query.
+ sampler=getattr(engine,'_catalogue_original_rgb',engine._rgb_terrain) if not enabled() and getattr(engine,'terrain',None) is not None else engine._rgb_terrain
+ frame,_=sampler(dense,True)
  from offline_map import map_rgb
  samples=array('I')
  for row in range(dense.height):

@@ -24,8 +24,9 @@ def relative(name):
     return p
 
 
-def inventory(source, maps=None):
+def inventory(source, maps=None, overview=None):
     source=Path(source);files={}
+    if overview is not None and not Path(overview).is_file():raise ValueError('Missing overview file: '+str(overview))
     def add(name,path,expected=None):
         path=Path(path)
         if not path.is_file() or path.is_symlink():raise ValueError('Missing regular data file: '+str(path))
@@ -55,6 +56,18 @@ def inventory(source, maps=None):
                 path=item.parent/relative(row['file'])
                 add(str(path.relative_to(source)),path,row['sha256'])
     maps=Path(maps) if maps else source/'maps'
+    # Preserve the existing prepared overview when importing an OG filesystem
+    # export. Modern reference folders carry it directly beside elevation.json.
+    overview=Path(overview) if overview is not None else source/'map-overview.json'
+    legacy=maps.parent.parent.parent/'map-assets/accepted-preview/puget-overview.json'
+    if not overview.is_file() and legacy.is_file():
+        overview=legacy
+        if digest(overview)!='e31078767b6ac0fee8f015b60345e057890789afb0a612fe8f98b51d84258c45':raise ValueError('Legacy overview checksum differs')
+    if overview.is_file():
+        if overview.stat().st_size>1024*1024:raise ValueError('Overview exceeds supported size')
+        value=json.loads(overview.read_text())
+        if (value.get('version'),value.get('width'),value.get('height'))!=(1,192,96) or len(value.get('cells',()))!=192*96:raise ValueError('Unsupported regional overview')
+        add('map-overview.json',overview)
     if not (maps/'walk-layers.n8w').is_file():raise ValueError('Prepared map views required (--maps or SOURCE/maps)')
     for path in sorted(maps.iterdir()):
         if path.is_file() and path.name.endswith(('.n8w','.n8t','.json','.gz','.md')):add('maps/'+path.name,path)
@@ -107,14 +120,14 @@ def stream(files,output):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--source',type=Path);p.add_argument('--maps',type=Path)
+    p.add_argument('--source',type=Path);p.add_argument('--maps',type=Path);p.add_argument('--overview',type=Path)
     group=p.add_mutually_exclusive_group(required=True)
     group.add_argument('--target',type=Path);group.add_argument('--verify',type=Path);group.add_argument('--stream',action='store_true');group.add_argument('--plan',action='store_true')
     a=p.parse_args()
     if a.verify:print(json.dumps(verify(a.verify)))
     else:
         if not a.source:p.error('--source is required')
-        files=inventory(a.source,a.maps)
+        files=inventory(a.source,a.maps,a.overview)
         if a.stream:stream(files,sys.stdout.buffer)
         elif a.target:print(json.dumps(install(files,a.target)))
         else:print(json.dumps(dict(files=len(files),bytes=sum(r['size'] for _,r in files.values()))))
