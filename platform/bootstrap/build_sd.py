@@ -20,7 +20,7 @@ import uuid
 
 BASE_PACKAGES = (
     'dbus,udev,ifupdown,iproute2,openssh-server,sudo,chrony,ntpsec-ntpdate,psmisc,procps,rsync,usbutils,python3-serial,python3-dbus,python3-gi,python3-msgpack,python3-cryptography,python3-pycryptodome,python3-bleak,'
-    'kexec-tools,busybox,ca-certificates,kmod,passwd,python3,python3-venv,make,git,tmux,whiptail,kbd,bluez,wpasupplicant,iw,wireless-regdb,isc-dhcp-client,util-linux,mount,libusb-0.1-4,libbz2-1.0'
+    'dropbear-bin,kexec-tools,busybox,ca-certificates,kmod,passwd,python3,python3-venv,make,git,tmux,whiptail,kbd,bluez,wpasupplicant,iw,wireless-regdb,isc-dhcp-client,util-linux,mount,libusb-0.1-4,libbz2-1.0'
 )
 PACKAGES = 'systemd-sysv,' + BASE_PACKAGES
 INTERNAL_PACKAGES = 'sysvinit-core,initscripts,sysvinit-utils,' + BASE_PACKAGES

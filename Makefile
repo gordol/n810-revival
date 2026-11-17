@@ -186,3 +186,13 @@ n810-write-sd:
 .PHONY: n810-write-linux
 n810-write-linux:
 	python3 platform/bootstrap/linux_storage.py --kit "$(INTERNAL_KIT)" --disk "$(N810_DISK)" --usb-port "$(N810_USB_PORT)" $(if $(filter 1,$(N810_ERASE)),--write)
+
+# A/B installation keeps kernels/modules together and user state on partition 4.
+AB_KIT ?= $(CURDIR)/dist/n810-ab
+.PHONY: n810-build-ab n810-check-ab n810-write-ab
+n810-build-ab:
+	python3 platform/bootstrap/build_ab_host.py --output "$(AB_KIT)" --ssh-key "$(SSH_PUBLIC_KEY)" $(if $(filter 1,$(N810_CONFIGURE)),--configure)
+n810-check-ab:
+	python3 platform/bootstrap/ab_media.py --kit "$(AB_KIT)"
+n810-write-ab:
+	python3 platform/bootstrap/ab_media.py --kit "$(AB_KIT)" --disk "$(N810_DISK)" $(if $(filter 1,$(N810_ERASE)),--erase)

@@ -73,5 +73,6 @@ RUN install -d /opt/n810-touch/touch-runtime \
     && cp platform/scripts/n810-touch-fit.py /opt/n810-touch/ \
     && cp pocket/shell/touch.py pocket/shell/touch_evdev.py pocket/shell/touch_diagnostics.py \
           pocket/shell/pointer_events.py /opt/n810-touch/touch-runtime/
-RUN if test "$AB_BOOT" = 1; then cp -a /build/kernel /build/recovery-kernel && python3 platform/kernel/build.py --work /build/recovery-kernel --resume --archive /build/kernel/linux.tar.xz --root-device "PARTUUID=${DISK_ID}-01" --jobs 4; fi
+RUN if test "$AB_BOOT" = 1; then apt-get update && apt-get install -y --no-install-recommends cpio && mkdir -p /build/ram-tools && cd /build/ram-tools && apt-get download busybox-static:armel; fi
+RUN if test "$AB_BOOT" = 1; then cp -a /build/kernel /build/recovery-kernel && python3 platform/kernel/build.py --work /build/recovery-kernel --resume --archive /build/kernel/linux.tar.xz --root-device "PARTUUID=${DISK_ID}-01" --jobs 4 && cp -a /build/kernel /build/ram-kernel && python3 platform/kernel/build.py --work /build/ram-kernel --resume --archive /build/kernel/linux.tar.xz --ram-installer --jobs 4; fi
 CMD ["python3", "platform/bootstrap/build_internal_sources.py", "--help"]

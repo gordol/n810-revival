@@ -24,18 +24,24 @@ def stage(root, data, kernel, c):
     executable = root/'usr/local/sbin/n810-ab'
     shutil.copy2(HERE/'ab_runtime.py', executable); executable.chmod(0o755)
     # Persist user state and service databases, never package-manager metadata or app code.
-    paths = ['home', 'root', 'var/log', 'var/spool', 'etc/wpa_supplicant', 'etc/n810',
-             'etc/default', 'etc/network', 'etc/bluetooth']
+    paths = ['etc/n810-ab/config.json', 'home', 'root', 'var/log', 'var/spool', 'etc/wpa_supplicant', 'etc/n810',
+             'etc/default', 'etc/network', 'etc/bluetooth', 'var/lib/pocket', 'var/lib/n810-radio',
+             'var/lib/n810-maintenance', 'var/lib/bluetooth', 'var/lib/dhcp', 'var/lib/chrony', 'var/lib/dbus']
     excluded = {'dpkg', 'apt', 'ucf', 'initramfs-tools', 'systemd', 'debconf'}
     paths += [str(p.relative_to(root)) for p in sorted((root/'var/lib').iterdir()) if p.name not in excluded]
     paths += ['etc/'+n for n in ('passwd','shadow','group','gshadow','machine-id','hostname','n810-idle.conf') if (root/'etc'/n).exists()]
     paths += ['etc/ssh/ssh_host_ed25519_key', 'etc/ssh/ssh_host_ed25519_key.pub']
+    paths=sorted(set(paths))
     for relative in paths:
         src = root/relative; dst = data/relative
         if src.exists() or src.is_symlink(): copy(src, dst)
         elif relative.endswith(('key', 'key.pub')): dst.parent.mkdir(parents=True, exist_ok=True)
         else: dst.mkdir(parents=True, exist_ok=True)
-    data.chmod(0o700)
+    # Generate a unique persistent SSH identity without placing private keys in an OS slot.
+    subprocess.run(['chroot',str(root),'/usr/bin/ssh-keygen','-q','-t','ed25519','-N','','-f','/tmp/n810-ab-hostkey'],check=True)
+    for suffix in ('','.pub'):
+        shutil.move(root/('tmp/n810-ab-hostkey'+suffix),data/('etc/ssh/ssh_host_ed25519_key'+suffix))
+    data.chmod(0o755)
     atomic(data/'SCHEMA.json', {'version':c['data_schema']})
     (config/'persistent-paths').write_text('\n'.join(paths)+'\n')
     # Templates live on the immutable image. /etc and /var are volatile views;
@@ -75,6 +81,7 @@ done
 [ -b "$DEV" ] || fail 'data partition absent or ambiguous'
 resize2fs "$DEV" || fail 'data expansion'
 mount -t ext4 -o rw,noatime "$DEV" /data || fail 'data mount'
+test -s /data/etc/ssh/ssh_host_ed25519_key || ssh-keygen -q -t ed25519 -N '' -f /data/etc/ssh/ssh_host_ed25519_key || fail 'SSH identity'
 test "$(python3 -c 'import json; print(json.load(open("/data/SCHEMA.json"))["version"])')" = 1 || fail 'data schema'
 mount -t tmpfs -o mode=755,size=8m tmpfs /etc || fail etc
 cp -a /usr/lib/n810-ab/etc/. /etc/ || fail 'etc defaults'
@@ -92,6 +99,14 @@ exec /sbin/init
         for p in base.glob('etc/rc*.d/*pocket-expand-internal-root'): p.unlink()
         defaults=base/'etc/default/rcS'
         with defaults.open('a') as f: f.write('\nRAMTMP=yes\nRAMLOCK=yes\n')
+    # Seed-only settings and identities belong exclusively to data, not update images.
+    for base in (root,template):
+        for relative in paths:
+            if not relative.startswith(('etc/','var/')):continue
+            p=base/relative
+            if p.is_dir() and not p.is_symlink():shutil.rmtree(p)
+            elif p.exists() or p.is_symlink():p.unlink()
+            p.parent.mkdir(parents=True,exist_ok=True);p.symlink_to('/data/'+relative)
     boot=root/'boot'; boot.mkdir(exist_ok=True)
     for name in ('zImage','omap2420-n810.dtb'): shutil.copy2(kernel/name,boot/name)
     atomic(boot/'n810-slot.json', {'data_schema':c['data_schema'],

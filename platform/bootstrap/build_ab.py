@@ -44,6 +44,8 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
     shutil.copytree(recovery_package/'root/lib/modules',recovery_root/'lib/modules',symlinks=True)
     recovery(recovery_root,c)
     (recovery_root/'etc/fstab').write_text('PARTUUID='+recovery_id+'-01 / ext4 defaults,noatime 0 1\n')
+    subprocess.run(['chroot',str(recovery_root),'/usr/bin/ssh-keygen','-q','-t','ed25519','-N','','-f','/etc/ssh/ssh_host_ed25519_key'],check=True)
+    recovery_pub=(recovery_root/'etc/ssh/ssh_host_ed25519_key.pub').read_text().strip()
     rec=image(recovery_root,output/'recovery.ext4',1536,'n810-recovery')
     seed=work/'data';seed.mkdir();stage(root,seed,kernel,c)
     # Avoid checkroot remounting the immutable root. Slot init already mounts its writable views.
@@ -53,6 +55,9 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
             text=check.read_text();lines=text.splitlines(True)
             lines.insert(1,'case " $(cat /proc/cmdline) " in *" n810.slot="*) exit 0;; esac\n')
             check.write_text(''.join(lines))
+    slot_pub=(seed/'etc/ssh/ssh_host_ed25519_key.pub').read_text().strip()
+    (output/'recovery-known-hosts').write_text('169.254.81.1 '+recovery_pub+'\n')
+    (output/'slot-known-hosts').write_text('169.254.81.1 '+slot_pub+'\n')
     slot=image(root,output/'slot.ext4',slot_mib,'n810-slot')
     data=image(seed,output/'data.ext4',256,'n810-data')
     control=work/'control';control.mkdir()
