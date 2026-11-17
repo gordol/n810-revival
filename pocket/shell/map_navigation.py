@@ -95,7 +95,7 @@ def map_class(Base):
                     self._detail_request=None;self._loading_overview=None
                     return True
                 if retained is not None and retained.projection.span*.2<=span<=retained.projection.span*.6:
-                    from offline_map import Image,ReprojectedPlane
+                    from offline_map import Image
                     view=self.renderer.module.Viewport(tuple(center),retained.projection.span,retained.width,retained.height)
                     self._zoom_context_image=Image(retained.width,retained.height,ReprojectedPlane(retained,view),
                         retained.legend,(),0.,view,'pan-preview')
@@ -412,9 +412,11 @@ def map_class(Base):
                 if image is None:
                     cells=((' ',ink(185,195,200,background=(14,23,28))),)*(width*height)
                     kind='overview-loading'
+                    self._live_locator_image=Image(width,height,cells,'Installed-area locator',(),0.,CropProjection(view,0,0,width,height),kind)
                 else:
-                    cells=ReprojectedPlane(image,view);kind='locator'
-                self._live_locator_image=Image(width,height,cells,'Installed-area locator',(),0.,CropProjection(view,0,0,width,height),kind)
+                    # Keep the prepared pixel terrain and its exact projection;
+                    # the sidebar scales this source, rather than sampling again.
+                    self._live_locator_image=Image(image.width,image.height,image.cells,'Installed-area locator',(),0.,image.projection,'locator',image.features)
                 self._live_locator_key=key
             return self._live_locator_image
         def locator(self,lines):

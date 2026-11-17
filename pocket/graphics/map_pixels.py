@@ -36,6 +36,8 @@ def place_labels(labels,overlay,width,height):
 def terrain_detail(surface,view,features):
  """Sample terrain at semantic pixel density, within a fixed work budget."""
  overview=getattr(surface,'pixel_overview',False)
+ if overview and features.sample_width>=view.width*2 and features.sample_height>=view.height*4:
+  return features.terrain,features.sample_width,features.sample_height
  if not getattr(surface,'terrain',False) or (not overview and getattr(surface.image,'source',None) not in ('semantic','pan-preview')):
   return features.terrain,features.sample_width,features.sample_height
  from desktop_elevation import enabled
@@ -216,7 +218,10 @@ class View:
   if pending is not None and pending[1].done():
    self._inset_pending=None;self._inset_key=key
    try:self._inset_scene=pending[1].result()
-   except Exception as error:self.error=str(error);self._inset_scene=None
+   except Exception as error:
+    self.error=str(error);self._inset_scene=None
+    import logging
+    logging.getLogger(__name__).exception('Map overview preparation failed')
   if key!=self._inset_key and self._inset_pending is None:
    self._inset_scene=None;self._inset_key=None
    pool=getattr(locator.renderer,'pool',None)

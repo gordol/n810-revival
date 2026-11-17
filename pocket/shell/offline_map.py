@@ -81,6 +81,11 @@ class MapSurface:
         if self.unavailable_reason:raise ValueError(self.unavailable_reason)
         prepared=getattr(self.image,'features',None)
         projection=self.image.projection
+        if (self.pixel_overview and prepared is not None and projection is not None and
+            (tuple(view.center),view.span,view.cell_aspect)==
+            (tuple(projection.center),projection.span,projection.cell_aspect)):
+            return MapFeatures(prepared.terrain,prepared.vectors,{},prepared.sample_width,
+                               prepared.sample_height,prepared.forest_roads,prepared.pixel_detail)
         if (prepared is not None and projection is not None and
             prepared.forest_roads==bool(getattr(self.renderer,'forest_roads',False)) and
             prepared.pixel_detail and

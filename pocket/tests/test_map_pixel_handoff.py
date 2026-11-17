@@ -49,6 +49,20 @@ class MapPixelHandoff(unittest.TestCase):
    samples,w,h=terrain_detail(surface,view,features)
   self.assertGreater(w,24);self.assertGreater(h,24)
   self.assertLessEqual(w*h,32768);self.assertEqual(len(samples),w*h)
+ def test_prepared_overview_keeps_pixel_samples_without_resampling(self):
+  from array import array
+  from offline_map import Image,MapSurface,MapFeatures
+  projection=NS(center=(0.,0.),span=160.,cell_aspect=2.)
+  samples=array('I',[123]*(160*160))
+  prepared=MapFeatures(samples,(),{},160,160,pixel_detail=True)
+  image=Image(160,80,(),'overview',(),0.,projection,'locator',prepared)
+  renderer=NS(semantic_features=lambda *a,**kw:(_ for _ in ()).throw(AssertionError('Repeated terrain sampling')))
+  surface=MapSurface(image,(0,0,30,15,()),renderer,('overview',),pixel_overview=True)
+  view=NS(center=(0.,0.),span=160.,cell_aspect=2.,width=30,height=15)
+  features=surface.features(view,())
+  result,w,h=terrain_detail(surface,view,features)
+  self.assertIs(result,samples);self.assertEqual((w,h),(160,160))
+
  def test_water_and_lowland_have_distinct_luminance_and_hue(self):
   from elevation_display import WATER_COLOR,display_color
   land=display_color(0,0,1000)
