@@ -68,7 +68,9 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
     manifest=dict(c,kind='n810-ab-kit',slot_mib=slot_mib,minimum_card_bytes=(1+32+2*slot_mib+256)*MIB,
         files={'control.ext4':ctrl,'slot.ext4':slot,'data.ext4':data,'recovery.ext4':rec,
                'recovery-kernel.bin':{'bytes':(output/'recovery-kernel.bin').stat().st_size,'sha256':digest(output/'recovery-kernel.bin')}},
-        source_commit=json.loads((root/'usr/local/share/pocket/INSTALL.json').read_text())['source_commit'],
+        source_commit=os.environ.get('INSTALLER_SOURCE_COMMIT') or json.loads((root/'usr/local/share/pocket/INSTALL.json').read_text())['source_commit'],
+        pocket_source_commit=json.loads((root/'usr/local/share/pocket/INSTALL.json').read_text())['source_commit'],
+        installer_runtime_sha256=digest(Path(__file__).with_name('ab_runtime.py')),
         hardware_acceptance=False)
     atomic(output/'AB.json',manifest)
     atomic(output/'UPDATE.json',dict(slot,data_schema=1))

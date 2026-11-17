@@ -30,7 +30,7 @@ def main():
         ssid=input('Wi-Fi network name (blank to set up later): ')
         if ssid:profile['wifi']={'ssid':ssid,'passphrase':getpass.getpass('Wi-Fi password: '),'country':input('Country code [US]: ').strip().upper() or 'US'}
         profile['startup']={name:input('Start '+label+' by default? [y/N]: ').strip().lower()=='y'
-                            for name,label in [('receive','radio receive'),('meshcore','MeshCore'),('reticulum','Reticulum')]}
+                            for name,label in [('receive','UV-PRO APRS reception'),('meshcore','MeshCore'),('reticulum','Reticulum')]}
         password=getpass.getpass('New nokia login password: ')
         if not password or password!=getpass.getpass('Repeat nokia password: '):raise ValueError('Passwords must match and be nonempty')
     profile=validate(profile)

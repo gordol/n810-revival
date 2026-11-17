@@ -26,10 +26,11 @@ def stage(root, data, kernel, c):
     # Persist user state and service databases, never package-manager metadata or app code.
     paths = ['etc/n810-ab/config.json', 'home', 'root', 'var/log', 'var/spool', 'etc/wpa_supplicant', 'etc/n810',
              'etc/default', 'etc/network', 'etc/bluetooth', 'var/lib/pocket', 'var/lib/n810-radio',
-             'var/lib/n810-maintenance', 'var/lib/bluetooth', 'var/lib/dhcp', 'var/lib/chrony', 'var/lib/dbus']
+             'var/lib/n810-maintenance', 'var/lib/n810-bluetooth', 'var/lib/bluetooth', 'var/lib/dhcp', 'var/lib/chrony', 'var/lib/dbus']
     excluded = {'dpkg', 'apt', 'ucf', 'initramfs-tools', 'systemd', 'debconf'}
     paths += [str(p.relative_to(root)) for p in sorted((root/'var/lib').iterdir()) if p.name not in excluded]
     paths += ['etc/'+n for n in ('passwd','shadow','group','gshadow','machine-id','hostname','n810-idle.conf') if (root/'etc'/n).exists()]
+    paths += [str(p.relative_to(root)) for p in root.glob('etc/n810-*.conf')]
     paths += ['etc/ssh/ssh_host_ed25519_key', 'etc/ssh/ssh_host_ed25519_key.pub']
     paths=sorted(set(paths))
     for relative in paths:
@@ -83,12 +84,13 @@ resize2fs "$DEV" || fail 'data expansion'
 mount -t ext4 -o rw,noatime "$DEV" /data || fail 'data mount'
 test -s /data/etc/ssh/ssh_host_ed25519_key || ssh-keygen -q -t ed25519 -N '' -f /data/etc/ssh/ssh_host_ed25519_key || fail 'SSH identity'
 test "$(python3 -c 'import json; print(json.load(open("/data/SCHEMA.json"))["version"])')" = 1 || fail 'data schema'
-mount -t tmpfs -o mode=755,size=8m tmpfs /etc || fail etc
-cp -a /usr/lib/n810-ab/etc/. /etc/ || fail 'etc defaults'
+mkdir -p /data/etc-overlay/upper /data/etc-overlay/work || fail 'configuration storage'
+mount -t overlay overlay -o lowerdir=/usr/lib/n810-ab/etc,upperdir=/data/etc-overlay/upper,workdir=/data/etc-overlay/work /etc || fail 'persistent configuration overlay'
 mount -t tmpfs -o mode=755,size=32m tmpfs /var || fail var
 cp -a /usr/lib/n810-ab/var/. /var/ || fail 'var defaults'
 while IFS= read -r path; do
- case "$path" in home|root) mount --bind "/data/$path" "/$path" || fail "$path";;
+ case "$path" in etc/*) :;;
+ home|root) mount --bind "/data/$path" "/$path" || fail "$path";;
  *) rm -rf "/$path"; ln -s "/data/$path" "/$path" || fail "$path";; esac
 done < /etc/n810-ab/persistent-paths
 exec /sbin/init

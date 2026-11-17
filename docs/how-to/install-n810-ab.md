@@ -76,8 +76,9 @@ then loads the selected SD kernel through kexec.
 | Internal 2 GB | Recovery filesystem, USB SSH, console and repair tools. |
 | Internal kernel flash | Fixed-root recovery kernel. |
 
-The OS mounts read-only. Writable `/etc` and `/var` views start from the selected
-OS defaults; declared configuration and service-state paths point to the data
+The OS mounts read-only. A persistent `/etc` overlay preserves edits and atomic
+file replacements while untouched configuration comes from the selected OS.
+The writable `/var` view starts from the selected OS defaults; declared configuration and service-state paths point to the data
 partition. User application state and downloads under home survive updates.
 Application binaries and package-manager metadata belong to the OS image.
 Files manually installed into the OS are not persistent application data.

@@ -13,7 +13,8 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
     profile={};ssid=input('Wi-Fi network name (blank to configure later): ')
     if ssid:profile['wifi']={'ssid':ssid,'passphrase':getpass.getpass('Wi-Fi password: '),'country':input('Country code [US]: ').strip().upper() or 'US'}
-    profile['startup']={name:input('Start '+name+' automatically? [y/N]: ').strip().lower()=='y' for name in ('receive','meshcore','reticulum')}
+    labels={'receive':'UV-PRO APRS reception','meshcore':'MeshCore','reticulum':'Reticulum'}
+    profile['startup']={name:input('Start '+label+' at boot? [y/N]: ').strip().lower()=='y' for name,label in labels.items()}
     password=getpass.getpass('Set nokia login/sudo password: ')
     if not password or '\n' in password or password!=getpass.getpass('Repeat nokia password: '):raise ValueError('Nonempty matching passwords required')
     profile=validate(profile)

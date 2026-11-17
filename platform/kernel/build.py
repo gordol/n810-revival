@@ -121,7 +121,7 @@ def main() -> None:
     if args.ab_boot:
         if args.ram_installer: raise ValueError('A/B recovery uses an ext4 internal root')
         config += ['--disable', 'CMDLINE_FORCE', '--enable', 'CMDLINE_FROM_BOOTLOADER',
-                   '--enable', 'EXT4_FS_POSIX_ACL', '--enable', 'EXT4_FS_SECURITY']
+                   '--enable', 'EXT4_FS_POSIX_ACL', '--enable', 'EXT4_FS_SECURITY', '--enable', 'OVERLAY_FS']
     if args.ram_installer:
         config += ['--set-str', 'LOCALVERSION', '-n810-installer2', '--enable', 'BLK_DEV_INITRD',
                    '--enable', 'RD_XZ',

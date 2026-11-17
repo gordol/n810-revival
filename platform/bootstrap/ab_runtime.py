@@ -113,15 +113,26 @@ def boot(c):
         if (control / 'stay-in-recovery').exists(): return 'Recovery requested on card'
         state = read(control / 'state.json')
         slot, next_state = choose(state)
-        root = mounted(device(c, 2 if slot == 'A' else 3), '/run/n810-ab-slot', 'ro,noload,nosuid,nodev,noexec')
-        try:
-            load_slot(c, slot, root)
-            # Commit attempt before shutdown. A cut here consumes a trial, never promotes it.
+        candidates = [slot] + ([state['active']] if slot != state['active'] else [])
+        failure = None
+        for candidate in candidates:
+            if candidate != slot:
+                next_state = dict(state, pending=None, tries=0, attempt=candidate)
+            # Persist attempts even when the pending slot cannot be validated or loaded.
             atomic(control / 'state.json', next_state)
-        except BaseException:
-            if Path('/sys/kernel/kexec_loaded').read_text().strip() == '1': run('/usr/sbin/kexec', '--unload')
-            raise
-        finally: run('umount', str(root))
+            root = None
+            try:
+                root = mounted(device(c, 2 if candidate == 'A' else 3), '/run/n810-ab-slot', 'ro,noload,nosuid,nodev,noexec')
+                load_slot(c, candidate, root)
+                failure = None
+                break
+            except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
+                failure = error
+                if Path('/sys/kernel/kexec_loaded').read_text().strip() == '1': run('/usr/sbin/kexec', '--unload')
+                print('Slot ' + candidate + ' rejected: ' + str(error), flush=True)
+            finally:
+                if root is not None: run('umount', str(root))
+        if failure is not None: raise failure
     finally: run('umount', str(control))
     run('sync')
     run('/sbin/shutdown', '-r', 'now')
@@ -166,7 +177,12 @@ def update(c, bundle):
         capacity = int(subprocess.check_output(['blockdev', '--getsize64', str(target)]))
         if not 0 < m['bytes'] <= capacity: raise ValueError('Update does not fit slot')
         with image.open('rb') as src, target.open('r+b', buffering=0) as dst:
-            for block in iter(lambda: src.read(4 * 1024 * 1024), b''): dst.write(block)
+            for block in iter(lambda: src.read(4 * 1024 * 1024), b''):
+                view=memoryview(block)
+                while view:
+                    count=dst.write(view)
+                    if not count: raise OSError('Short slot write')
+                    view=view[count:]
             os.fsync(dst.fileno())
         h = hashlib.sha256()
         with target.open('rb', buffering=0) as src:
@@ -184,9 +200,10 @@ def update(c, bundle):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=('boot', 'mark-good', 'update'))
+    p.add_argument('action', choices=('boot', 'mark-good', 'update', 'status', 'try-slot', 'stay-recovery', 'resume-sd'))
     p.add_argument('--config', default='/etc/n810-ab/config.json')
     p.add_argument('--bundle')
+    p.add_argument('--slot', choices=SLOTS)
     a = p.parse_args()
     if os.geteuid(): p.error('Root required')
     Path('/run/lock').mkdir(parents=True, exist_ok=True)
@@ -195,7 +212,21 @@ def main():
         c = config(a.config)
         if a.action == 'boot': print(boot(c))
         elif a.action == 'mark-good': print(mark_good(c))
-        elif a.bundle: print(update(c, a.bundle))
-        else: p.error('--bundle is required')
+        elif a.action=='update':
+            if not a.bundle:p.error('--bundle is required')
+            print(update(c,a.bundle))
+        else:
+            control=mounted(device(c,1),'/run/n810-ab-control','rw,nosuid,nodev,noexec')
+            try:
+                state=validate_state(read(control/'state.json'))
+                if a.action=='try-slot':
+                    if not a.slot or a.slot==state['active']:raise ValueError('Choose the inactive slot')
+                    atomic(control/'state.json',dict(state,pending=a.slot,tries=3))
+                elif a.action=='stay-recovery':
+                    with (control/'stay-in-recovery').open('w') as f:f.flush();os.fsync(f.fileno())
+                    run('sync')
+                elif a.action=='resume-sd':(control/'stay-in-recovery').unlink(missing_ok=True);run('sync')
+                print(json.dumps(read(control/'state.json')))
+            finally:run('umount',str(control))
 
 if __name__ == '__main__': main()
