@@ -133,3 +133,27 @@ The temporary SD installer uses that SD host identity and enables key-only root 
 
 The initial implementation retains compressed RAM swap. It does not allocate
 all internal storage to disk swap or enable an unmeasured swap policy.
+
+## Desktop crash recovery
+
+An ordinary app callback failure stops that app and displays an error in its
+window. Press **R** to retry it. The desktop log records the app name, operation,
+and traceback. This boundary contains Python exceptions; native crashes and
+shared GPU failures can still end the desktop process.
+
+After an unexpected desktop exit, the owner restores the display and releases
+the GPU before attempting one recovery launch. If cleanup fails, or the recovery
+launch also fails, it stays stopped instead of looping. The recovery desktop
+starts without restoring saved windows or their background effects. It shows
+the failure and the archived log path under `/var/log/n810-pocket-native/`.
+
+In Desktop Recovery, press **A** to restore all saved apps, or select an app
+with the arrow keys and press **Enter** to restore just that app. **S** leaves
+recovery open so apps can be opened individually from Applications. Recovery
+protects the saved desktop from being overwritten. Press **C** only when ready
+to keep the current desktop and resume saving it.
+
+The image build includes the Doom engine, bridge library, checksum-pinned
+Freedoom data, and their license notices. Games do not download dependencies
+at launch. Personal maps, radio identities, and optional third-party Symbian
+applications remain separately supplied data.

@@ -78,6 +78,9 @@ def stage(root,runtime,user='nokia'):
     (root/'usr/local/share/pocket/INSTALL.json').write_text(json.dumps(result,indent=2)+'\n')
     for relative in ('usr/local/share/pocket', 'usr/local/lib/pocket'):
         make_readable_tree(root, relative)
+    for name in manifest.get('executables',[]):
+        if name not in manifest['files']:raise ValueError('Executable missing from runtime manifest: '+name)
+        checked_path(destination,name).chmod(0o755)
     return result
 
 

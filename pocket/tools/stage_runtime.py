@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 GRAPHICS_BUILD_TOOLS = {'build.py', 'build_nokia.py', 'check.py', 'check_full.py', 'gui.py', 'generate_room.py', 'extend_font.py'}
 
 
-def stage(destination, profile='release', frontend=None, source_commit=None, native_reticulum=None):
+def stage(destination, profile='release', frontend=None, source_commit=None, native_reticulum=None, doom_runtime=None):
     if destination.exists():
         raise ValueError('output must be a new directory')
     paths = subprocess.check_output(['git', 'ls-files', 'shell', 'graphics'], cwd=ROOT, text=True).splitlines()
@@ -73,6 +73,19 @@ def stage(destination, profile='release', frontend=None, source_commit=None, nat
                    'vendor/native/libpocket_rns.provenance.json': (native_reticulum / 'provenance.json').read_bytes()}
         require_native_reticulum(payload)
         files.update({'shell/' + name: raw for name, raw in payload.items()})
+    if doom_runtime:
+        doom_runtime=Path(doom_runtime)
+        record=json.loads((doom_runtime/'build/BUILD.json').read_text())
+        assets={'build/doom-engine':'engine','build/bridge.so':'bridge','vendor/freedoom-0.13.0/freedoom1.wad':'wad'}
+        for relative,key in assets.items():
+            raw=(doom_runtime/relative).read_bytes()
+            if hashlib.sha256(raw).hexdigest()!=record.get(key):raise ValueError('Doom artifact hash mismatch: '+relative)
+            if key!='wad' and native_reticulum and (raw[:6]!=b'\x7fELF\x01\x01' or int.from_bytes(raw[18:20],'little')!=40):raise ValueError('Nokia Doom binaries must be ARM ELF')
+            files['shell/apps/doom-app/'+relative]=raw
+        files['shell/apps/doom-app/build/BUILD.json']=(doom_runtime/'build/BUILD.json').read_bytes()
+        data=(doom_runtime/'vendor/freedoom-0.13.0/freedoom1.wad').resolve().parent
+        for name in ('COPYING.txt','CREDITS.txt','CREDITS-MUSIC.txt'):
+            files['shell/apps/doom-app/vendor/freedoom-0.13.0/'+name]=(data/name).read_bytes()
     revision=subprocess.run(['git','rev-parse','HEAD'],cwd=ROOT,capture_output=True,text=True)
     commit=source_commit or (revision.stdout.strip() if revision.returncode==0 else None)
     if source_commit and not re.fullmatch(r'[0-9a-f]{40}', source_commit):
@@ -86,8 +99,10 @@ def stage(destination, profile='release', frontend=None, source_commit=None, nat
         path = destination / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(raw)
+        if name=='shell/apps/doom-app/build/doom-engine':path.chmod(0o755)
     for name, target in aliases.items():(destination/name).symlink_to(target)
     manifest={'profile':profile,'source_commit':commit,
+              'executables':['shell/apps/doom-app/build/doom-engine'] if doom_runtime else [],
               'files':{name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(files.items())},'aliases':aliases}
     (destination / 'runtime-profile.json').write_text(json.dumps(manifest,indent=2)+'\n')
     return files
@@ -100,8 +115,9 @@ def main():
     parser.add_argument('--frontend', type=Path, help='optional built target frontend.json')
     parser.add_argument('--source-commit', help='full source commit when building from a Git-free source archive')
     parser.add_argument('--native-reticulum', type=Path, help='Built ARM microReticulum library and provenance directory')
+    parser.add_argument('--doom-runtime',type=Path,help='Built Doom app including verified free game data')
     args = parser.parse_args()
-    files = stage(args.output, args.profile, args.frontend, args.source_commit, args.native_reticulum)
+    files = stage(args.output, args.profile, args.frontend, args.source_commit, args.native_reticulum, args.doom_runtime)
     print(json.dumps({'profile': args.profile, 'files': len(files), 'bytes': sum(map(len, files.values()))}))
 
 

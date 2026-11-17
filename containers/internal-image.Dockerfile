@@ -51,9 +51,14 @@ RUN python3 platform/bootstrap/build_internal_frontend.py \
     --output /build/frontend
 RUN python3 pocket/shell/native/reticulum/build.py /build/reticulum --arm \
     --bzip2-library /opt/arm-sysroot/usr/lib/arm-linux-gnueabi/libbz2.a
+RUN --mount=type=cache,id=n810-freedoom-0.13.0,target=/cache/freedoom,sharing=locked \
+    python3 pocket/shell/apps/doom-app/build.py --cc 'arm-linux-gnueabi-gcc -march=armv6 -mfloat-abi=soft' --cache /cache/freedoom \
+    && mkdir -p /build/doom-data \
+    && cp /cache/freedoom/freedoom1.wad /cache/freedoom/COPYING.txt /cache/freedoom/CREDITS.txt /cache/freedoom/CREDITS-MUSIC.txt /build/doom-data/ \
+    && ln -sf /build/doom-data/freedoom1.wad pocket/shell/apps/doom-app/vendor/freedoom-0.13.0/freedoom1.wad
 RUN git init -q pocket && git -C pocket add shell graphics \
     && python3 pocket/tools/stage_runtime.py --profile release \
-       --frontend /build/frontend/frontend.json --native-reticulum /build/reticulum/build --source-commit "$SOURCE_COMMIT" \
+       --frontend /build/frontend/frontend.json --native-reticulum /build/reticulum/build --doom-runtime pocket/shell/apps/doom-app --source-commit "$SOURCE_COMMIT" \
        --output /build/runtime
 RUN test -f /opt/arm-sysroot/lib/arm-linux-gnueabi/libusb-0.1.so.4.4.4 \
     && rm -f /opt/arm-sysroot/usr/lib/arm-linux-gnueabi/libusb.so \

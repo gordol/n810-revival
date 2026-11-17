@@ -101,6 +101,13 @@ def build(root,package,recovery,output,size_mib,gpu=None):
         path=Path(name)
         if path.is_absolute() or '..' in path.parts:raise ValueError('Invalid runtime path')
         if sha256(runtime/path)!=digest:raise ValueError('Staged runtime checksum differs: '+name)
+    for name in payload.get('executables',[]):
+        if name not in payload['files'] or not (runtime/name).stat().st_mode&0o111:
+            raise ValueError('Runtime executable is missing or not executable: '+name)
+    # Registered built-in apps must not depend on unshipped developer outputs.
+    for name in ('shell/desktop_recovery.py','shell/apps/doom-app/build/doom-engine',
+                 'shell/apps/doom-app/build/bridge.so','shell/apps/doom-app/vendor/freedoom-0.13.0/freedoom1.wad'):
+        if name not in payload['files']:raise ValueError('Missing packaged app dependency: '+name)
     gpu_root=root/'usr/local/lib/n810-graphics'
     gpu_release=install.get('gpu_release','')
     if not re.fullmatch(r'bootstrap-[0-9a-f]{12}',gpu_release):
