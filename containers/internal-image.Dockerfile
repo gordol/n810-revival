@@ -27,9 +27,10 @@ RUN /opt/mesa-tools/bin/pip download --only-binary=:all: --no-deps --require-has
     -r /build/requirements/n810-meshcore-requirements.txt -d /build/service-wheels
 COPY platform/kernel/ platform/kernel/
 ARG DISK_ID
+ARG AB_BOOT=0
 RUN test "${#DISK_ID}" = 8 \
     && python3 platform/kernel/build.py --work /build/kernel \
-       --root-device "PARTUUID=${DISK_ID}-01" --jobs 4
+       --root-device "PARTUUID=${DISK_ID}-01" --jobs 4 $(if test "$AB_BOOT" = 1; then printf %s --ab-boot; fi)
 COPY graphics/mbx/ graphics/mbx/
 COPY pocket/graphics/driver/mbx/ pocket/graphics/driver/mbx/
 RUN python3 graphics/mbx/build.py module --work /build/module \
@@ -72,4 +73,5 @@ RUN install -d /opt/n810-touch/touch-runtime \
     && cp platform/scripts/n810-touch-fit.py /opt/n810-touch/ \
     && cp pocket/shell/touch.py pocket/shell/touch_evdev.py pocket/shell/touch_diagnostics.py \
           pocket/shell/pointer_events.py /opt/n810-touch/touch-runtime/
+RUN if test "$AB_BOOT" = 1; then cp -a /build/kernel /build/recovery-kernel && python3 platform/kernel/build.py --work /build/recovery-kernel --resume --archive /build/kernel/linux.tar.xz --root-device "PARTUUID=${DISK_ID}-01" --jobs 4; fi
 CMD ["python3", "platform/bootstrap/build_internal_sources.py", "--help"]

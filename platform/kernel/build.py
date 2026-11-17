@@ -45,6 +45,7 @@ def main() -> None:
     parser.add_argument('--archive', type=Path, help='Optional previously downloaded, checksum-matched upstream archive')
     parser.add_argument('--resume', action='store_true', help='Revalidate inputs and resume an existing interrupted build')
     parser.add_argument('--ram-installer', action='store_true', help='build the temporary NOLO initramfs installer kernel')
+    parser.add_argument('--ab-boot', action='store_true', help='accept bootloader slot arguments; default to internal recovery')
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--root-device', default='/dev/mmcblk0p2', help='Root device or PARTUUID= value for the intended filesystem')
     args = parser.parse_args()
@@ -117,6 +118,10 @@ def main() -> None:
     config = [str(source / 'scripts/config'), '--file', str(build / '.config'),
               '--set-str', 'UNUSED_KSYMS_WHITELIST', str(HERE / 'binding-api-whitelist.txt'),
               '--set-str', 'CMDLINE', cmdline]
+    if args.ab_boot:
+        if args.ram_installer: raise ValueError('A/B recovery uses an ext4 internal root')
+        config += ['--disable', 'CMDLINE_FORCE', '--enable', 'CMDLINE_FROM_BOOTLOADER',
+                   '--enable', 'EXT4_FS_POSIX_ACL', '--enable', 'EXT4_FS_SECURITY']
     if args.ram_installer:
         config += ['--set-str', 'LOCALVERSION', '-n810-installer2', '--enable', 'BLK_DEV_INITRD',
                    '--enable', 'RD_XZ',
@@ -174,7 +179,7 @@ def main() -> None:
         'kernel-notes')
     image = package / 'zImage-omap2420-n810'
     image.write_bytes((package / 'zImage').read_bytes() + (package / 'omap2420-n810.dtb').read_bytes())
-    if image.stat().st_size > lock['image_limit']:
+    if not args.ab_boot and image.stat().st_size > lock['image_limit']:
         raise RuntimeError('Combined image exceeds the recorded NOLO image budget.')
     shutil.copyfile(ko, package / ko.name)
     (package / 'module-version-crcs.txt').write_text(versions)
@@ -189,10 +194,11 @@ def main() -> None:
               'build_script_sha256': digest(Path(__file__)), 'verified_source_files': len(expected_files),
               'compiler': compiler, 'build_timestamp': env['KBUILD_BUILD_TIMESTAMP'],
               'root_device': 'initramfs:/init' if args.ram_installer else args.root_device,
+              'ab_boot': args.ab_boot,
               'vmlinux_sha256': digest(build / 'vmlinux'),
               'kernel_modules': len(modules),
               'external_module_crc_checks': len(crcs), 'external_module_vermagic': info,
-              'image_bytes': image.stat().st_size, 'image_limit': lock['image_limit'],
+              'image_bytes': image.stat().st_size, 'image_limit': None if args.ab_boot else lock['image_limit'],
               'device_action': False,
               'files': package_hashes(package)}
     (package / 'BUILD.json').write_text(json.dumps(report, indent=2) + '\n')

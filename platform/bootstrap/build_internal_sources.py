@@ -76,10 +76,18 @@ def main():
     parser.add_argument('--size-mib', type=int, default=1536)
     parser.add_argument('--password-stdin', action='store_true')
     parser.add_argument('--setup-stdin', action='store_true', help='Private one-line JSON setup profile, after password if supplied')
+    parser.add_argument('--ab-output', type=Path, help='Build A/B SD and internal recovery after staging')
+    parser.add_argument('--ab-sd-id', help='Unique eight-digit SD disk ID')
     parser.add_argument('--storage-target', choices=('internal','sd'), default='internal')
     args = parser.parse_args()
     build(args.output, args.ssh_key, args.firmware_cache, args.backup, args.offline,
           args.size_mib, args.password_stdin, args.setup_stdin, args.storage_target)
+    if args.ab_output:
+        import json
+        from build_ab import build as build_ab
+        kernel=Path('/build/kernel/package')
+        recovery_id=json.loads((kernel/'BUILD.json').read_text())['root_device'].split('=')[1][:-3]
+        build_ab(Path('/work/internal/debian/rootfs'),kernel,args.ab_output,args.ab_sd_id,recovery_id,args.size_mib)
 
 
 if __name__ == '__main__':
