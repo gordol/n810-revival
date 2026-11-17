@@ -155,7 +155,7 @@ class Compositor:
             x,y,w,h=host.drag[2]
             rects.extend(((x,y,w,1),(x,y+h-1,w,1),(x,y+1,1,h-2),(x+w-1,y+1,1,h-2)))
         for lines in (host.help_lines,host.settings_lines):
-            if lines:rects.append((max(0,(host.width-58)//2),1,58,len(lines)))
+            if lines:rects.append(host.floating_overlay_bounds(lines))
         rows=[[] for _ in range(host.height)]
         for x,y,w,h in rects:
             for yy in range(ceil(max(0,y)),ceil(min(host.height,y+h))):rows[yy].append((max(0,x),min(host.width,x+w)))
@@ -326,9 +326,7 @@ class Compositor:
                 if value is not None:self.lib.set(self.front.pointer,i,ord(value.char),value.color)
             host.front=self.front
         x,y,width,height=host.launcher_bounds()
-        rows=tuple((host.glyphs.text(line[:width].ljust(width),host.ascii),
-                    1 if row==0 or line.startswith('>') else 0)
-                   for row,line in enumerate(host.launcher_lines[:height]))
+        rows=host.launcher_rows()
         plane=self.text_overlay('launcher',width,height,rows)
         colors=host._ansi_colors()
         entries=tuple((color,f'\x1b[0;{foreground(color,colors)};48;5;233m') for color in (0,1))
@@ -412,9 +410,7 @@ class Compositor:
         menu=None
         if host.launcher_lines:
             x,y,width,height=host.launcher_bounds()
-            rows=tuple((host.glyphs.text(line[:width].ljust(width),host.ascii),
-                        1 if row==0 or line.startswith('>') else 0)
-                       for row,line in enumerate(host.launcher_lines[:height]))
+            rows=host.launcher_rows()
             plane=self.text_overlay('launcher',width,height,rows)
             menu=(plane.pointer,x,y);inks.update(color for _,color in rows)
         else:self.overlays.clear()

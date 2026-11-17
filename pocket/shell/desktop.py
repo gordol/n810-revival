@@ -27,7 +27,7 @@ from weather import Weather, PRESETS
 from effects import NAMES as EFFECTS
 from input import Input,WM_ESCAPES,phone_action
 from controls import scene_controls,Button,Slider,Choice
-from core import World, Record, Host, Window, Inbox, compile_model, STYLES, PALETTES
+from core import World, Record, Host, Window, Inbox, compile_model, STYLES, PALETTES, OVERLAY_BORDERS
 
 
 def present_form_content(host,name,form,lines,spans,layer,metrics=None):
@@ -234,7 +234,8 @@ def main(platform=None,argv=None):
     geometry = platform.geometry() if platform else measure(sys.stdout.fileno())
     panel=Panels(args.panel or 'top',mode=args.panel_mode or ('auto' if workspace else 'bar'))
     panel.launcher_count=2+len(workspace)
-    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)))
+    screen_size=trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)
+    ox,oy,width,height=panel.layout(*screen_size)
     if width < 40 or height < 12:
         raise SystemExit('Use a terminal at least 40 columns by 14 rows.')
     windows = (app_gallery.windows(width,height) if app_gallery is not None else [])+[
@@ -405,7 +406,7 @@ def main(platform=None,argv=None):
     if station_enabled and width<=100 and height<=40:host.full_window_apps.add('Station Map')
     host._flux_external_budget=True
     host.pointer_trace=pointer_trace
-    host.origin=(ox,oy);host.reserved_bottom=panel.overlay_bottom
+    host.origin=(ox,oy);host.overlay_screen=screen_size;host.reserved_bottom=panel.overlay_bottom
     host.session_shells={'Terminal'}
     host.minimum_sizes={a.name:(a.minimum[0]+2,a.minimum[1]+2) for a in workspace}
     host.minimum_sizes.update({a.name:(a.minimum[0]+2,a.minimum[1]+2) for a in terminal_fallbacks})
@@ -479,8 +480,9 @@ def main(platform=None,argv=None):
         other=next((p for p in panel.panels if p is not first and p.dock==args.panel),None)
         if other:other.dock=first.dock
         first.dock=args.panel
-    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)))
-    host.reserved_bottom=panel.overlay_bottom;host.resize(width,height+panel.overlay_bottom);host.origin=(ox,oy)
+    screen_size=trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)
+    ox,oy,width,height=panel.layout(*screen_size)
+    host.reserved_bottom=panel.overlay_bottom;host.resize(width,height+panel.overlay_bottom);host.origin=(ox,oy);host.overlay_screen=screen_size
     if args.native_stations and not station_enabled:parser.error('--native-stations requires --station-db or a workspace containing Directory')
     if native_defaults and workspace and not store.loaded:
         # Seed only a new operator profile. Restored layouts own their focus.
@@ -831,7 +833,7 @@ def main(platform=None,argv=None):
             ('Configuration',[('Shortcut file',lambda:str(bindings.path),lambda d:None),
                 ('Reload shortcuts',lambda:bindings.error or 'Reload keys.json',lambda d:bindings.reload()),
                 ('Scope',lambda:'Common navigation + window controls',lambda d:None)])]),
-        ('Appearance',(' ▄▀▄ ',' ▀▄▀ ','  Aa '),'Colors, fonts and presentation',[('Style',[rows['Colors']]),('Windows',[window_rows[1],('Show underlying text',lambda:'on' if host.show_underlying_text else 'off',lambda d:host.set_show_underlying_text(not host.show_underlying_text))]),('Fonts',font_preview.settings_rows())]),
+        ('Appearance',(' ▄▀▄ ',' ▀▄▀ ','  Aa '),'Colors, fonts and presentation',[('Style',[rows['Colors'],Choice('Overlay borders',lambda:host.overlay_borders,lambda mode:host.set_preference('overlay_borders',mode),OVERLAY_BORDERS).row()]),('Windows',[window_rows[1],('Show underlying text',lambda:'on' if host.show_underlying_text else 'off',lambda d:host.set_show_underlying_text(not host.show_underlying_text))]),('Fonts',font_preview.settings_rows())]),
         ('Window Manager',('╭───╮','│   │','╰───╯'),'Frames, focus and effects',[
             ('Style',[rows['Frame style'],title_controls,window_rows[0]]),
             ('Behavior',[rows['Focused click'],rows['Move drawing'],rows['Resize drawing'],('Resize borders',lambda:'on' if host.resize_edges else 'off',lambda d:host.set_preference('resize_edges',not host.resize_edges)),('Desktop wheel',lambda:'on' if host.desktop_scroll else 'off',lambda d:host.set_preference('desktop_scroll',not host.desktop_scroll))]),
@@ -1004,14 +1006,19 @@ def main(platform=None,argv=None):
                 if station_directory.select(entity.key):position=(context.target or {}).get('position')
                 map_form.profile_from_qth(entity.key,position);host.activate('Station Map')
             entity_actions.register('station','Profile from QTH',qth_profile_station,available=terrain_feature_enabled)
-    def open_launcher(pointer=None):
+    def open_launcher(pointer=None, source_panel=None):
         nonlocal manager_mode
         manager_mode=True
         host.finish(False);panel.cancel()
-        if pointer is not None:host.launcher_anchor=(*pointer,1,1)
-        else:
-            button=next((hit for p in panel.panels for hit in p.hits if hit[3]=='key:,'),None)
-            host.launcher_anchor=(button[0]-ox,button[1]-oy,button[2],1) if button else None
+        if pointer is None:
+            for candidate in panel.panels:
+                button=next((hit for hit in candidate.hits if hit[3]=='key:,'),None)
+                if button:
+                    pointer=(button[0]-ox,button[1]-oy)
+                    source_panel=candidate
+                    break
+        host.place_launcher((*pointer,1,1) if pointer is not None else None,
+                            source_panel.dock if source_panel is not None else None)
         launcher.open()
 
     def open_tray(action,pointer):
@@ -1021,7 +1028,7 @@ def main(platform=None,argv=None):
         title,entries=content
         title=''.join(c for c in title if c.isprintable())
         if len(title)>72:title=title[:71]+'…'
-        open_launcher(pointer);context_commands.clear()
+        open_launcher(pointer,panel.at(pointer[0]+ox,pointer[1]+oy));context_commands.clear()
         for index,(label,intent) in enumerate(entries):
             def invoke(intent=intent):
                 if intent.startswith('bt:'):bluetooth_state.request(intent[3:])
@@ -1307,12 +1314,9 @@ def main(platform=None,argv=None):
                     host.report_mouse(x-ox,y-oy)
                     if launcher.active:
                         if button==0 and not released:
-                            left,top,mw,mh=host.launcher_bounds()
-                            row=y-oy-top-2
-                            if left<=x-ox<left+mw:
-                                action=launcher.pointer(row,host.height)
-                                if action:launch(action)
-                            else:launcher.active=False
+                            row=host.launcher_pointer_row(x-ox,y-oy)
+                            action=launcher.pointer(row,host.overlay_capacity())
+                            if action:launch(action)
                         continue
                     if host.help_lines:continue
                     if host.drag and host.pointer_origin is not None and (released or button&32):
@@ -1345,7 +1349,7 @@ def main(platform=None,argv=None):
                             entities=form.entities_at(x-ox-hit.x-1,y-oy-hit.y-1)
                             if open_entity_menu(entities,(x-ox,y-oy)):
                                 host.select(hit.name);continue
-                        open_launcher((x-ox,y-oy))
+                        open_launcher((x-ox,y-oy),tray_panel)
                         continue
                     if panel.at(x,y) or panel.drag or panel.pending_drag:
                         if released and host.pointer_origin and not panel.drag:
@@ -1565,7 +1569,7 @@ def main(platform=None,argv=None):
             if not first_frame and (host.ui_damage or launcher.active or host.launcher_lines or host.drag and host.latest is not None):
                 # WM/input updates already changed the retained model. Present
                 # their damage before polling/rebuilding unrelated applications.
-                host.set_launcher(launcher.lines(host.height))
+                host.set_launcher(launcher.lines(host.overlay_capacity()))
                 model_deferred=model_deferred or refresh_models
                 model_full_deferred=model_full_deferred or full_models
                 refresh_models=False
@@ -1615,9 +1619,10 @@ def main(platform=None,argv=None):
                     else:
                         selector.unregister(touch);touch.close();touch=None;touch_error='viewport too small'
                 if geometry.columns >= 24 and geometry.rows >= 6:
-                    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)))
+                    screen_size=trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)
+                    ox,oy,width,height=panel.layout(*screen_size)
                     host.reserved_bottom=panel.overlay_bottom;host.resize(width,height+panel.overlay_bottom)
-                    host.origin=(ox,oy)
+                    host.origin=(ox,oy);host.overlay_screen=screen_size
                     for p in panel.panels:p.cache=None
                     # Buffered ANSI uses the old geometry. Drop it and close
                     # any synchronized output before clearing the new viewport.
@@ -1629,7 +1634,7 @@ def main(platform=None,argv=None):
                 section_start=metrics.begin() if DEVELOPMENT and (metrics) else None
                 if panel_models:
                     tabs = [(f'@{i}', f'{i+1}{"*" if i == host.desktop else ""} ') for i in range(3)] + [(w.name,host.window_label(w)) for w in host.task_windows()]
-                    next_menu=launcher.lines(host.height)
+                    next_menu=launcher.lines(host.overlay_capacity())
                     host.set_launcher(next_menu)
                 sw=host.window('Settings')
                 if (full_models or 'form:Settings' in due_owners) and host.shown(sw) and not sw.rolled:
