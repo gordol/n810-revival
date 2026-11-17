@@ -13,6 +13,13 @@ REPOSITORY = Path(__file__).resolve().parents[2]
 
 
 def prepare(action, bbox, url, output, spacing, cancelled=None, process_changed=None):
+    if action=='verify':
+        tool=Path('/usr/local/bin/n810-install-reference-data')
+        if not tool.is_file():tool=Path(__file__).resolve().parents[1]/'tools/install_reference_data.py'
+        if not tool.is_file():raise ValueError('Reference-data verifier is not installed')
+        result=subprocess.run([sys.executable,str(tool),'--verify',str(Path(output).expanduser())],capture_output=True,text=True)
+        if result.returncode:raise ValueError((result.stderr or result.stdout)[-500:])
+        return 'Reference data verified: '+result.stdout.strip()
     if action not in ('plan','build'):raise ValueError('Choose Plan or Download and build')
     coordinates=[float(value) for value in bbox.split()]
     from math import isfinite
@@ -45,14 +52,19 @@ def prepare(action, bbox, url, output, spacing, cancelled=None, process_changed=
 class OfflineData:
     navigation_help_keys=('?','help')
     def __init__(self):
-        self.width=86;self.height=28;self.field='bbox'
+        self.device_only=not (REPOSITORY/'pocket/tools/maps.py').is_file()
+        self.width=86;self.height=28;self.field='output' if self.device_only else 'bbox'
         self.bbox=TextInput('',limit=100);self.url=TextInput('',limit=500)
         self.output=TextInput(str(REPOSITORY/'pocket/data'),limit=1000);self.spacing=TextInput('15',limit=8)
-        self.status='Select your area. Plan makes no network requests.';self.result='';self.error=''
+        if self.device_only:
+            from data_paths import data_root
+            self.output=TextInput(str(data_root()),limit=1000)
+        self.status='Install prepared data from the laptop, then verify it here.' if self.device_only else 'Select your area. Plan makes no network requests.';self.result='';self.error=''
         self.pending=None;self.pool=None;self.cancelled=threading.Event();self.process=None;self.wakeup=None;self._hits=[];self._spans=[]
     def bind_wakeup(self,callback):self.wakeup=callback
     def navigation_targets(self):
         from native_navigation import Target
+        if self.device_only:return [Target('output','Installed reference-data folder','input'),Target('verify','Verify installed maps and elevation','action','verify')]
         return [Target(k,v,'input') for k,v in [('bbox','Bounds: west south east north'),('url','OSM PBF extract HTTPS URL'),('output','Local data folder'),('spacing','Elevation spacing, metres')]]+[
             Target('plan','Plan / reuse / estimated size','action','plan'),Target('build','Download and build this area','action','build')]
     def navigation_focus(self):return self.field
@@ -62,10 +74,10 @@ class OfflineData:
         if nav:self.field=nav.target
     def navigation_accept_input(self):return True
     def key(self,key):
-        if key not in ('plan','build'):return False
+        if key not in ('plan','build','verify'):return False
         if self.pending:return True
         if self.pool is None:self.pool=ThreadPoolExecutor(max_workers=1)
-        self.error='';self.status='Planning…' if key=='plan' else 'Downloading and building; this can take time. Keep this app open.'
+        self.error='';self.status='Verifying installed reference data…' if key=='verify' else 'Planning…' if key=='plan' else 'Downloading and building; this can take time. Keep this app open.'
         self.cancelled.clear()
         self.pending=self.pool.submit(prepare,key,self.bbox.text,self.url.text,self.output.text,self.spacing.text,self.cancelled,lambda process:setattr(self,'process',process))
         if self.wakeup:self.pending.add_done_callback(lambda _:self.wakeup() if self.wakeup else None)
@@ -77,7 +89,7 @@ class OfflineData:
         self.pending=None;return True
     def lines(self):
         c=Canvas(self.width,self.height);self._hits=[];self._spans=[]
-        c.put(0,0,'Offline Data · prepare regional maps and terrain on your laptop')
+        c.put(0,0,'Offline Data · installed maps and elevation' if self.device_only else 'Offline Data · prepare regional maps and terrain on your laptop')
         row=2
         for target in self.navigation_targets():
             value=self.navigation_input(target.key)
@@ -89,7 +101,7 @@ class OfflineData:
             else:
                 c.put(0,row,'[ '+target.title+' ]');self._hits.append((row,target.key));row+=1
         c.put(0,self.height-5,self.error or self.status)
-        c.put(0,self.height-3,'Prerequisite: make maps-deps in the laptop pocket checkout.')
+        c.put(0,self.height-3,'Use n810-install-reference-data on prepared data; restart Pocket after installing.' if self.device_only else 'Prerequisite: make maps-deps in the laptop pocket checkout.')
         c.put(0,self.height-2,'Transfer prepared data separately; FCC download is in ULS Lookup.')
         c.put(0,self.height-1,'Tab fields · Enter action · ? help')
         return c.lines()
