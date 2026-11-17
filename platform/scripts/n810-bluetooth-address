@@ -8,13 +8,14 @@ sysfs_root=${N810_BDADDR_SYSFS_ROOT:-/sys/bus/serial/devices}
 state_file=${N810_BDADDR_STATE_FILE:-/var/lib/n810-bluetooth/bdaddr}
 random_source=${N810_BDADDR_RANDOM_SOURCE:-/dev/urandom}
 wait_seconds=0
+load_driver=0
 requested=
 temporary=
 
 usage()
 {
 	cat >&2 <<EOF
-Usage: $program [--address XX:XX:XX:XX:XX:XX] [--wait SECONDS]
+Usage: $program [--address XX:XX:XX:XX:XX:XX] [--wait SECONDS] [--load-driver]
 
 With no explicit address, reuse the saved address or generate and save one
 stable locally administered unicast address.  An explicit address replaces the
@@ -54,6 +55,10 @@ esac
 
 while test "$#" -gt 0; do
 	case "$1" in
+	--load-driver)
+		load_driver=1
+		shift
+		;;
 	--address)
 		test "$#" -ge 2 || usage
 		requested=$2
@@ -104,27 +109,27 @@ find_node()
 	esac
 }
 
-remaining=$wait_seconds
-while :; do
-	set +e
-	node=$(find_node)
-	status=$?
-	set -e
-	case "$status" in
-	0) break ;;
-	2) fail "found multiple nokia-bluetooth bdaddr attributes below $sysfs_root" ;;
-	1)
-		test "$remaining" -gt 0 ||
-			fail "found no nokia-bluetooth bdaddr attribute below $sysfs_root"
-		remaining=$((remaining - 1))
-		sleep 1
-		;;
-	esac
-done
-
 state_dir=${state_file%/*}
 test "$state_dir" != "$state_file" || fail 'state file must include a directory'
-test ! -L "$state_dir" || fail "state directory is a symbolic link: $state_dir"
+if test -L "$state_dir"; then
+	# A/B images link this declared service state into the persistent data volume.
+	# Accept only that exact root-owned path, never an arbitrary redirected directory.
+	test "$test_mode" = 0 &&
+		test "$state_dir" = /var/lib/n810-bluetooth &&
+		test "$(readlink -f "$state_dir")" = /data/var/lib/n810-bluetooth ||
+		fail "unexpected state directory link: $state_dir"
+	for parent in /data /data/var /data/var/lib /data/var/lib/n810-bluetooth; do
+		test ! -L "$parent" && test -d "$parent" ||
+			fail "unsafe persistent state directory: $parent"
+		test "$(stat -c %u "$parent")" = 0 ||
+			fail "persistent state directory is not root-owned: $parent"
+		permissions=$(stat -c %a "$parent")
+		test $((0$permissions & 022)) -eq 0 ||
+			fail "persistent state directory is writable by others: $parent"
+	done
+	state_dir=/data/var/lib/n810-bluetooth
+	state_file=$state_dir/bdaddr
+fi
 mkdir -p "$state_dir"
 chmod 700 "$state_dir"
 
@@ -165,5 +170,31 @@ else
 	fi
 fi
 
-printf '%s\n' "$address" > "$node"
+if test "$load_driver" = 1; then
+	test "$test_mode" = 0 || fail 'driver loading is not available in test mode'
+	exec /sbin/modprobe --ignore-install hci_nokia "initial_bdaddr=$address"
+fi
+
+remaining=$wait_seconds
+while :; do
+	set +e
+	node=$(find_node)
+	status=$?
+	set -e
+	case "$status" in
+	0) break ;;
+	2) fail "found multiple nokia-bluetooth bdaddr attributes below $sysfs_root" ;;
+	1)
+		test "$remaining" -gt 0 ||
+			fail "found no nokia-bluetooth bdaddr attribute below $sysfs_root"
+		remaining=$((remaining - 1))
+		sleep 1
+		;;
+	esac
+done
+
+current=$(cat "$node" | tr '[:lower:]' '[:upper:]')
+if test "$current" != "$address"; then
+	printf '%s\n' "$address" > "$node"
+fi
 echo "$program: provisioned $address at $node"

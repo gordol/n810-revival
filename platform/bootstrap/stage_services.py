@@ -55,10 +55,13 @@ def stage(root):
         if path.is_file():path.chmod(0o644)
     destination.chmod(0o755)
     subprocess.run(['chroot', str(root), 'usermod' , '-aG', 'dialout,bluetooth', 'nokia'], check=True)
-    for name in ('n810-bluetooth', 'n810-setup-wifi', 'n810-rnode-configure', 'n810-rnode-spp-prepare'):
+    for name in ('n810-bluetooth-address', 'n810-bluetooth', 'n810-setup-wifi', 'n810-rnode-configure', 'n810-rnode-spp-prepare'):
         target = root / 'usr/local/sbin' / name
         shutil.copyfile(REPO / 'platform/scripts' / name, target)
         target.chmod(0o755)
+    module_config = root / 'etc/modprobe.d/n810-bluetooth.conf'
+    module_config.parent.mkdir(parents=True, exist_ok=True)
+    module_config.write_text('install hci_nokia /usr/local/sbin/n810-bluetooth-address --load-driver\n')
     helpers = root / 'usr/local/lib/n810-setup'
     helpers.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(HERE / 'setup_profile.py', helpers / 'setup_profile.py')

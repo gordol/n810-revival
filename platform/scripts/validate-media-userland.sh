@@ -263,7 +263,7 @@ for expected in \
 	'--agent=KeyboardDisplay pair 01:23:45:67:89:ab' \
 	'trust 01:23:45:67:89:ab' \
 	'connect 01:23:45:67:89:ab' \
-	'scan on' \
+	'--timeout 1 scan on' \
 	'scan off' \
 	'info 01:23:45:67:89:ab' \
 	'led notify bluetooth 4' \

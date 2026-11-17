@@ -41,6 +41,8 @@ class StageServicesTests(unittest.TestCase):
                 policy=root/'etc/sudoers.d'/name
                 self.assertEqual(policy.stat().st_mode&0o777,0o440)
             self.assertTrue((root/'usr/local/lib/n810-platform/rnode_spp_prepare.py').is_file())
+            self.assertTrue((root/'usr/local/sbin/n810-bluetooth-address').is_file())
+            self.assertEqual((root/'etc/modprobe.d/n810-bluetooth.conf').read_text(),'install hci_nokia /usr/local/sbin/n810-bluetooth-address --load-driver\n')
             self.assertFalse((root/'etc/n810/rnode-spp.json').exists())
             self.assertIn('BLUETOOTH_ENABLED=0',(root/'etc/default/bluetooth').read_text())
 

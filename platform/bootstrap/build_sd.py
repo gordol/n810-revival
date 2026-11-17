@@ -209,6 +209,7 @@ def main() -> None:
                (platform/'device/n810-zram.service').read_text())
     write_file(root,'/etc/modules-load.d/n810-wifi.conf','p54spi\n')
     write_file(root,'/etc/modules-load.d/n810-bluetooth.conf','hci_uart\nhci_nokia\n')
+    write_file(root,'/etc/modprobe.d/n810-bluetooth.conf','install hci_nokia /usr/local/sbin/n810-bluetooth-address --load-driver\n')
     # First-boot setup uses the same collector and fit tool as the bring-up work.
     write_file(root, '/etc/modules-load.d/n810-touch.conf', 'tsc2005\n')
     touch_source = args.touch_tools
