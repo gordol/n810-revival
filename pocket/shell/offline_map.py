@@ -431,6 +431,7 @@ class Renderer:
         # A cache hit observes an existing view; it must not cancel a sibling
         # overview request using the same worker and engine.
         if key in self.ready:
+            self.error=self.failed.get(key)
             if self.timing_enabled:self._count_request('cache_hits')
             self.ready.move_to_end(key);return self.ready[key]
         self._wanted=key

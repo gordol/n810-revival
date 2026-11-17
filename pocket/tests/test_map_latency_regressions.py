@@ -115,8 +115,10 @@ class LatencyTests(unittest.TestCase):
   image=object();renderer.ready[main]=image
   future=Future();future.set_running_or_notify_cancel()
   renderer.pending=(context,future);renderer._wanted=context
+  renderer.error='Previous overview failed'
   with patch('desktop_elevation.enabled',return_value=False):
    self.assertIs(renderer._request(main),image)
+  self.assertIsNone(renderer.error)
   self.assertEqual(renderer._wanted,context)
   self.assertEqual(renderer.pending,(context,future))
   self.assertFalse(future.cancelled())
