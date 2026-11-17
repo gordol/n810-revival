@@ -43,7 +43,7 @@ def sd_bootstrap(kit):
 
 def ssh(kit,key,host):
     known = kit/'slot-known-hosts' if (kit/'SD-BOOT.json').exists() else ram(kit)/'installer-known-hosts'
-    bind=['-b','169.254.81.2'] if sys.platform=='darwin' and host=='169.254.81.1' else []
+    bind=['-b','169.254.81.2'] if sys.platform in ('darwin','linux') and host=='169.254.81.1' else []
     return ['ssh',*bind,'-i',str(key),'-o','BatchMode=yes','-o','ConnectTimeout=10','-o','StrictHostKeyChecking=yes',
             '-o','UserKnownHostsFile='+str(known),'root@'+host]
 
@@ -141,7 +141,7 @@ def main():
         _run_flasher(a.flasher,['-m','kernel:'+str(kernel),'-l','-b'],180,kit/'USB-OPERATIONS.log')
         result=dict(identity,state='sd_boot_requested',kit_sha256=digest(kit/'AB.json'),kernel_sha256=digest(kernel),kernel_flashed=False)
         atomic(kit/'SD-BOOT.json',result)
-        result['host_interface']=configure_installer_network(interfaces)
+        result['host_interface']=configure_installer_network(interfaces,usb_port=identity.get('usb_port'))
     elif a.action=='boot-ram':
         if not a.flasher:p.error('--flasher required')
         identity=identify_device(a.flasher);r=ram(kit)

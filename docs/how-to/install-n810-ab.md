@@ -39,7 +39,10 @@ firmware, callsigns, and offline downloads remain separate setup operations.
 ## Fresh installation
 
 Connect only the intended N810 in Nokia update mode. Put its SD card into the
-host reader. Build the host flasher with `make flasher`.
+host reader. Build the host flasher with `make flasher`. On Linux, install the
+host iproute2 tools and OpenSSH client. The installer configures only the network
+interface on the tablet USB port it identified; disk and network setup require
+root privileges or an authorized sudo session.
 
 Check the card using `make n810-write-ab AB_KIT=PATH N810_DISK=DEVICE`.
 On macOS DEVICE is a whole `/dev/diskN`; on Linux it is `/dev/sdX` or

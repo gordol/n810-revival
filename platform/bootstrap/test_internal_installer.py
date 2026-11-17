@@ -43,6 +43,21 @@ class InternalTarget(unittest.TestCase):
                 self.assertRaisesRegex(RuntimeError,'More than one'):
             configure_installer_network({'lo0'})
 
+    def test_linux_network_is_pinned_to_identified_usb_port(self):
+        with patch('internal_installer.platform.system',return_value='Linux'), \
+                patch('internal_installer.socket.if_nameindex',return_value=[(1,'lo'),(2,'eth0'),(3,'usb0')]), \
+                patch('internal_installer.usb_network_port',side_effect=lambda name:'1-2' if name=='usb0' else None), \
+                patch('internal_installer.shutil.which',return_value='/usr/sbin/ip'), \
+                patch('internal_installer.os.geteuid',return_value=1000), \
+                patch('internal_installer.subprocess.run') as run:
+            self.assertEqual(configure_installer_network({'lo','eth0','usb0'},usb_port='1-2'),'usb0')
+            self.assertEqual(run.call_count,2)
+            self.assertEqual(run.call_args_list[0].args[0],['sudo','-n','/usr/sbin/ip','address','replace','169.254.81.2/16','dev','usb0'])
+
+    def test_linux_network_requires_target_port(self):
+        with patch('internal_installer.platform.system',return_value='Linux'), self.assertRaisesRegex(ValueError,'Identify'):
+            configure_installer_network(set())
+
     def test_flasher_error_diagnostic_cannot_pass_with_zero_exit(self):
         def completed(*args, **kwargs):
             kwargs['stdout'].write('Done\nError: Sending image failed\n')

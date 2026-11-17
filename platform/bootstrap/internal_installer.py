@@ -11,6 +11,7 @@ from pathlib import Path
 import platform
 import re
 import shlex
+import shutil
 import socket
 import struct
 import subprocess
@@ -347,19 +348,37 @@ def boot_installer(kit, flasher=DEFAULT_FLASHER, progress=None):
             **({'usb_port': identity['usb_port']} if 'usb_port' in identity else {})}
 
 
-def configure_installer_network(previous_interfaces, progress=None, timeout=45):
-    """Assign the host end only on the newly appeared macOS USB interface."""
-    if platform.system() != 'Darwin':
-        return None
+def usb_network_port(interface, sysfs=Path('/sys/class/net')):
+    device=(sysfs/interface/'device').resolve()
+    for parent in (device,*device.parents):
+        if (parent/'idVendor').is_file():return parent.name
+    return None
+
+
+def configure_installer_network(previous_interfaces, progress=None, timeout=45, usb_port=None):
+    """Configure only the new Mac interface or Linux interface on the identified USB port."""
+    system=platform.system()
+    if system not in ('Darwin','Linux'):return None
+    if system=='Linux' and not usb_port:
+        raise ValueError('Identify the tablet USB port before configuring Linux networking')
     helper = Path('/Library/PrivilegedHelperTools/org.n810-revival.flasher/helper')
     deadline = time.monotonic() + timeout
     while True:
         current = {name for _, name in socket.if_nameindex()}
-        candidates = sorted(name for name in current - previous_interfaces
-                            if re.fullmatch(r'en[0-9]{1,2}', name))
+        candidates = (sorted(name for name in current - previous_interfaces
+                             if re.fullmatch(r'en[0-9]{1,2}', name)) if system=='Darwin' else
+                      sorted(name for name in current if usb_network_port(name)==usb_port))
         if len(candidates) == 1:
             if progress:
                 progress('Configuring the new tablet USB network interface…')
+            if system=='Linux':
+                ip=shutil.which('ip')
+                if not ip:raise ValueError('Install the host iproute2 package before USB setup')
+                prefix=[] if os.geteuid()==0 else ['sudo','-n']
+                for args in (['address','replace','169.254.81.2/16','dev',candidates[0]],
+                             ['link','set','dev',candidates[0],'up']):
+                    subprocess.run([*prefix,ip,*args],stdin=subprocess.DEVNULL,check=True)
+                return candidates[0]
             result = subprocess.run(['sudo', '-n', str(helper), '--configure-network', candidates[0]],
                                     stdin=subprocess.DEVNULL, capture_output=True, text=True)
             if result.returncode:
@@ -368,7 +387,7 @@ def configure_installer_network(previous_interfaces, progress=None, timeout=45):
         if len(candidates) > 1:
             raise RuntimeError('More than one new host network interface appeared; no internal write was started')
         if time.monotonic() >= deadline:
-            raise RuntimeError('The RAM installer did not expose a new USB network interface; no internal write was started')
+            raise RuntimeError('The installer did not expose the expected USB network interface; no internal write was started')
         time.sleep(1)
 
 
@@ -538,7 +557,7 @@ def install_device(kit, flasher=DEFAULT_FLASHER, host='169.254.81.1', key=None, 
     if not receipt.exists():
         previous_interfaces = {name for _, name in socket.if_nameindex()}
         boot_result = boot_installer(root, flasher, progress)
-        configure_installer_network(previous_interfaces, progress)
+        configure_installer_network(previous_interfaces, progress, usb_port=boot_result.get('usb_port'))
         if progress:
             progress('Installer booting. Waiting for its pinned USB SSH connection…')
         installer = Installer(root, host, key)
