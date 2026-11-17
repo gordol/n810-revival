@@ -213,11 +213,39 @@ def normalize(data,directory):
     return Registration(identifier,title,preferred,minimum,str(data.get('description','')),str(data.get('category','Applications')),help_pages,factory,Path(directory),resources,option,settings,uses,commands)
 
 
+def app_boundary(default=None):
+    """Contain ordinary app exceptions; process/GPU faults remain owner failures."""
+    from functools import wraps
+    def decorate(method):
+        @wraps(method)
+        def invoke(self,*args,**kwargs):
+            try:return method(self,*args,**kwargs)
+            except Exception as error:
+                self.failed(method.__name__,error)
+                return default
+        return invoke
+    return decorate
+
+
 class LazyApplication:
     """One owner per desktop lifetime; closing a pane pauses, final close disposes."""
     def __init__(self,registry,entry,host):
         self.registry=registry;self.entry=entry;self.host=host;self.owner=None;self.error='';self.closed=False
         self.width,self.height=entry.preferred_size;self.saved={};self._session_callback=None;self.restore_pending=False;self._wakeup=None
+    def failed(self,operation,error):
+        import traceback
+        self.error=f'{operation}: {type(error).__name__}: {error}'
+        print(f'POCKET_APP_ERROR app={self.entry.id} operation={operation}',file=sys.stderr)
+        traceback.print_exception(type(error),error,error.__traceback__)
+        owner,self.owner=self.owner,None
+        self.restore_pending=False
+        if owner is not None and callable(getattr(owner,'close',None)):
+            try:owner.close()
+            except Exception:traceback.print_exc()
+        if self._wakeup:
+            try:self._wakeup()
+            except Exception:traceback.print_exc()
+
     def bind_wakeup(self,callback):
         self._wakeup=callback
         if self.owner is not None and callable(getattr(self.owner,'bind_wakeup',None)):self.owner.bind_wakeup(callback)
@@ -233,7 +261,7 @@ class LazyApplication:
                 if self._wakeup is not None and callable(getattr(self.owner,'bind_wakeup',None)):self.owner.bind_wakeup(self._wakeup)
                 if self.saved and hasattr(self.form,'restore_session'):self.form.restore_session(self.saved)
                 self._bind_owner_session()
-            except Exception as error:self.error=str(error)
+            except Exception as error:self.failed('open',error)
         return self.owner
     def open(self,activate=True):
         if self.closed:return False
@@ -248,22 +276,26 @@ class LazyApplication:
         if owner is not None:
             try:
                 if hasattr(owner,'open'):owner.open()
-            except Exception as error:self.error=str(error)
+            except Exception as error:self.failed('open',error)
         if not activate:
             self.host.desktop,self.host.focus,self.host.windows=previous
         return owner is not None and not self.error
+    @app_boundary(None)
     def set_active(self,opened):
         window=self.host.window(self.entry.title)
         if opened and self.owner is None and not self.error and not self.restore_pending and self.host.shown(window) and not window.rolled:self.open(activate=False)
         if self.owner is not None and hasattr(self.owner,'set_active'):self.owner.set_active(opened)
+    @app_boundary(None)
     def poll_interval(self):
         if self.error:return None
         if self.owner is not None and hasattr(self.owner,'poll_interval'):return self.owner.poll_interval()
         return None
+    @app_boundary(None)
     def presentation_interval(self):
         form=self.form
         method=getattr(form,'presentation_interval',None) if not self.error else None
         return method() if method is not None else None
+    @app_boundary(())
     def readiness_sources(self):
         if self.error or self.owner is None:return ()
         method=getattr(self.owner,'readiness_sources',None)
@@ -276,7 +308,8 @@ class LazyApplication:
             if hasattr(form,'height'):form.height=self.height
             try:
                 if hasattr(self.owner,'poll'):self.owner.poll()
-            except Exception as error:self.error=str(error)
+            except Exception as error:self.failed('poll',error)
+    @app_boundary(True)
     def key(self,key):
         if self.error:
             if key.lower()=='r':
@@ -287,30 +320,38 @@ class LazyApplication:
         # App focus owns ordinary typing. Unknown letters must not become WM
         # commands; the existing WM escape is handled before app dispatch.
         return handled or key not in ('?','help') and len(key)==1 and key.isprintable()
+    @app_boundary(False)
     def pointer(self,*args,**kwargs):
         return self.form.pointer(*args,**kwargs) if self.form is not None and hasattr(self.form,'pointer') else False
+    @app_boundary(False)
     def pointer_event(self,event,width):
         if self.form is None:return False
         from pointer_events import deliver_pointer
         return deliver_pointer(self.form,event,event[2],event[3],width)
+    @app_boundary(())
     def selected_entities(self):
         method=getattr(self.form,'selected_entities',None) if not self.error else None
         return method() if callable(method) else ()
+    @app_boundary(())
     def entities_at(self,column,row):
         method=getattr(self.form,'entities_at',None) if not self.error else None
         return method(column,row) if callable(method) else ()
     @property
     def key_event_supported(self):
         return not self.error and self.form is not None and callable(getattr(self.form,'key_event',None)) and callable(getattr(self.form,'cancel_keys',None))
+    @app_boundary(False)
     def key_event(self,key,kind,now):
         if self.key_event_supported:return self.form.key_event(key,kind,now)
         return False
+    @app_boundary(None)
     def cancel_keys(self,now=None):
         if self.form is not None and hasattr(self.form,'cancel_keys'):self.form.cancel_keys(now)
     @property
     def pointer_captured(self):return bool(getattr(self.form,'pointer_captured',False))
+    @app_boundary(None)
     def cancel_pointer(self):
         if self.form is not None and hasattr(self.form,'cancel_pointer'):self.form.cancel_pointer()
+    @app_boundary(('Application stopped. R: retry; ?: help',))
     def lines(self):
         if self.error:return (self.entry.title+' could not open.',self.error[:max(1,self.width)],'', 'R: retry   ?: help')
         if self.restore_pending:return ('Restoring '+self.entry.title+'…',)
@@ -319,7 +360,9 @@ class LazyApplication:
             if hasattr(self.form,'height'):self.form.height=self.height
             return self.form.lines()
         return ('Open '+self.entry.title+' from Applications to start it.',)
+    @app_boundary(())
     def spans(self):return self.form.spans() if self.form is not None and hasattr(self.form,'spans') and not self.error else ()
+    @app_boundary(None)
     def layer(self):
         if self.error:return None
         form=self.form
@@ -342,8 +385,10 @@ class LazyApplication:
         if self._session_callback and form.session_state()!=self.saved:self._session_callback()
     def session_state(self):return self.form.session_state() if self.form is not None and hasattr(self.form,'session_state') else self.saved
     def restore_session(self,state):self.saved=state if isinstance(state,dict) else {}
+    @app_boundary(None)
     def presented(self,now=None):
         if self.owner is not None and hasattr(self.owner,'presented'):self.owner.presented(now)
+    @app_boundary(None)
     def on_close(self):
         self.cancel_keys()
         if self.owner is not None:
@@ -353,6 +398,7 @@ class LazyApplication:
                 return
             if hasattr(self.owner,'on_close'):self.owner.on_close()
             elif hasattr(self.owner,'set_active'):self.owner.set_active(False)
+    @app_boundary(None)
     def close(self):
         if self.closed:return
         self.cancel_keys()

@@ -9,7 +9,7 @@ ConditionPathExists=/usr/local/share/pocket/graphics/nokia.py
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 -I /usr/local/lib/pocket/bootstrap_desktop.py
-Restart=on-failure
+Restart=no
 RestartSec=3
 TimeoutStopSec=20
 

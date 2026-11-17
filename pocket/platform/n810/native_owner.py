@@ -8,8 +8,16 @@ parser.add_argument('--release',type=Path,default=Path('/usr/local/lib/n810-grap
 parser.add_argument('--source',type=Path,default=Path('/usr/local/share/pocket-gui/managed-native/source'))
 parser.add_argument('--symbian-code',type=Path)
 parser.add_argument('--symbian-windows',action='store_true')
+parser.add_argument('--recovery-report',type=Path)
 parser.add_argument('--probe',type=Path,help='run one offscreen GPU integration probe instead of Pocket')
 options=parser.parse_args()
+# A failed recovery attempt stays stopped, including explicit service retries.
+recovery_record=Path('/run/n810-pocket-native/recovery.json')
+if not options.probe and options.recovery_report is None and recovery_record.is_file():
+ try:accepted=json.loads(recovery_record.read_text()).get('accepted') is True
+ except (OSError,ValueError,AttributeError):accepted=False
+ if accepted:recovery_record.unlink()
+ else:options.recovery_report=recovery_record
 release=options.release.resolve(strict=True)
 source=options.source.resolve(strict=True)
 manifest=json.loads((release/'MANIFEST.json').read_text())
@@ -116,6 +124,7 @@ try:
   env['POCKET_SCENE_PAGE_GROUPS']=page_groups
   env['POCKET_SCENE_DAMAGE_CULL']='0'
   command=[sys.executable,str(source/'graphics/nokia.py'),'--framebuffer-fd',str(fb),'--font',str(assets/'console-font.psf'),'--renderer-library',str(renderer_library),'--display-library',str(release/'window.so'),'--native-library',str(native_library),'--state','/home/nokia/.local/state/current-world','--device-radio','--native-stations','--station-db','/home/nokia/.local/state/n810-aprs/directory.sqlite3','--touch-device','/dev/input/n810-touch','--touch-calibration','/home/nokia/.local/state/current-world/touch-calibration.json','--touch-display','800x480','--touch-rotation','0']
+  if options.recovery_report:command.extend(['--recovery-report',str(options.recovery_report)])
   render_fd=os.open(device,os.O_RDWR|os.O_CLOEXEC);env['N810_MBX_RENDER_FD']=str(render_fd)
   window_mode=env.get('POCKET_SYMBIAN_WINDOWS')=='1'
   if window_mode:
@@ -193,4 +202,14 @@ finally:
  assert not (archives/root.name).exists()
  shutil.move(str(root),str(archives/root.name))
  if cleanup_errors:raise RuntimeError('Display restoration failed') from cleanup_errors[0]
+# Retry once only after the existing owner stop and display restoration passed.
+# Never use systemd's unbounded restart policy for a failed GPU owner.
+if report.get('returncode',1)!=0 and not stopping and not options.probe and not options.recovery_report:
+ failure_log=archives/root.name/('visible-'+suffix+'.log')
+ lines=failure_log.read_text(errors='replace').splitlines()
+ recovery_record.write_text(json.dumps(dict(log=str(failure_log),returncode=report.get('returncode'),message=lines[-1][:500] if lines else 'Pocket exited unexpectedly'))+'\n')
+ recovery_record.chmod(0o600)
+ os.chown(recovery_record,account.pw_uid,account.pw_gid)
+ lock.close()
+ os.execv(sys.executable,[sys.executable,*sys.argv,'--recovery-report',str(recovery_record)])
 raise SystemExit(report.get('returncode',1))

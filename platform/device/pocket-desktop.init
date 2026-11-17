@@ -12,8 +12,10 @@ pidfile=/run/pocket-desktop.pid
 case "${1:-}" in
 start)
     test "$(/usr/local/sbin/n810-mode status)" != charging || exit 0
-    start-stop-daemon --start --quiet --background --make-pidfile --pidfile "$pidfile" \
-        --startas /usr/bin/python3 -- -I /usr/local/lib/n810-pocket/native_owner.py
+    logdir=/var/log/n810-pocket-native
+    install -d -m 700 "$logdir"
+    start-stop-daemon --start --quiet --background --no-close --make-pidfile --pidfile "$pidfile" \
+        --startas /usr/bin/python3 -- -I /usr/local/lib/n810-pocket/native_owner.py >>"$logdir/launcher.log" 2>&1
     ;;
 stop)
     start-stop-daemon --stop --quiet --retry TERM/20/KILL/2 --pidfile "$pidfile" \

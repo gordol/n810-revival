@@ -114,6 +114,7 @@ def arguments(argv=None,full=False):
     parser.add_argument('--receive-sources',type=Path,help='approved client Directory ingest modules; requires --receive-feed and --station-db')
     parser.add_argument('--receive-bridge',type=Path,help='owned SSH bridge directory for bounded read-only radio status')
     parser.add_argument('--no-save', action='store_true')
+    parser.add_argument('--recovery-report',type=Path,help='open recovery without restoring or overwriting the saved session')
     parser.add_argument('--profile', choices=['small', 'wide'], default='small')
     parser.add_argument('--panel', choices=DOCKS, default=None)
     parser.add_argument('--panel-mode',choices=MODES,help='bar, responsive auto, icon dock or compact sidebar')
@@ -241,6 +242,7 @@ def main(platform=None,argv=None):
         Window('Scenery',1,1,min(100,width),min(32,height-1),visible=False,opened=False),
         Window('Font Preview',1,1,min(78,width),min(28,height-1),visible=False,opened=False),
         Window('Calendar',max(0,(width-40)//2),1,min(40,width),min(13,height-1),visible=False,opened=False)]
+    if args.recovery_report:windows.append(Window('Desktop Recovery',1,1,min(76,width),min(25,height-1),visible=False,opened=False))
     windows.append(Window('Bluetooth',max(0,(width-62)//2),1,min(62,width),min(23,height-1),visible=False,opened=False))
     if not args.minimal or args.shell or args.radio_state or args.device_radio or args.receive_feed or args.radio_read_socket:
         windows.append(Window('Radio Manager',max(0,(width-86)//2),2,min(86,width),min(29,height-2),visible=False,opened=False))
@@ -416,10 +418,10 @@ def main(platform=None,argv=None):
     host.background_enabled = not args.shell or bool(args.effect)
     host.set_effect(args.effect or ('flux' if args.shell else 'terrain'))
     host.scene_seed=int.from_bytes(os.urandom(4),'little')
-    store=Store(args.session,enabled=not args.no_save and not args.smoke and not args.minimal,remember_layout=True)
+    store=Store(args.session,enabled=not args.no_save and not args.smoke and not args.minimal and not args.recovery_report,remember_layout=True)
     # Read saved settings independently of writing changes back. Minimal/smoke
     # remain fresh launch modes; --no-save alone is a read-only session.
-    if not args.smoke and not args.minimal:store.load(host,panel)
+    if not args.smoke and not args.minimal and not args.recovery_report:store.load(host,panel)
     if args.timezone:
         from time_display import validate_zone
         try:validate_zone(args.timezone)
@@ -636,6 +638,35 @@ def main(platform=None,argv=None):
         # Keep service readiness attached without overriding saved visibility,
         # focus, desktop or stacking order.
         registered_apps.forms['Connections'].open(activate=False)
+    if args.recovery_report:
+        from desktop_recovery import Recovery
+        host.transient_windows.add('Desktop Recovery')
+        # Saved state stays untouched until the user deliberately leaves recovery.
+        for window in host.windows:window.opened=window.visible=False
+        host.background_enabled=False
+        def restore_recovery(name):
+            store.load(host,panel)
+            if store.error:return store.error
+            if not store.loaded:return 'No saved desktop was found.'
+            restore_pending.clear()
+            for app,form in host.app_forms.items():
+                if hasattr(form,'restore_session'):form.restore_session(getattr(host,'app_view_state',{}).get(app,{}))
+            for window in host.windows:
+                if name is not None and window.name!=name:window.opened=window.visible=False
+            for app,form in registered_apps.forms.items():
+                if host.window(app).opened and form.owner is None:
+                    form.restore_pending=True;restore_pending.append(app)
+            if name is not None:host.activate(name)
+            return 'Restored. Saved desktop remains protected during recovery.'
+        def resume_recovery():
+            try:args.recovery_report.write_text('{"accepted": true}\n')
+            except OSError as error:return 'Could not finish recovery: '+str(error)
+            host.close('Desktop Recovery')
+            store.enabled=not args.no_save
+            store.bind(host,panel,time.monotonic())
+            return 'Normal saving resumed.'
+        host.app_forms['Desktop Recovery']=Recovery(args.recovery_report,store,restore_recovery,resume_recovery)
+        host.activate('Desktop Recovery')
     def close_apps():
         if map_open is not None:map_open.close()
         for application in applications:application.close()
