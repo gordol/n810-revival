@@ -15,6 +15,28 @@ class Pool:
  def submit(self,*args):return self.future
 
 class MapPixelHandoff(unittest.TestCase):
+ def test_overview_preparation_does_not_block_dispatch_and_wakes_when_ready(self):
+  pool=Pool();wake=[]
+  locator=NS(key=('first',),layer=(0,0,24,12,()),renderer=NS(pool=pool,completion_wakeup=lambda:wake.append(True)))
+  app=View(NS(),None);surface=NS(inset=(locator,2,3))
+  with patch.object(app,'build',side_effect=AssertionError('GUI thread performed terrain work')):
+   self.assertIsNone(app.inset_scene(surface))
+   pool.future.set_result('scene')
+   self.assertTrue(app.pixel_dirty)
+   self.assertEqual(app.inset_scene(surface),('scene',2,3,24,12))
+  self.assertEqual(wake,[True])
+  self.assertIsNone(app.inset_scene(NS(inset=None)))
+  self.assertIsNone(app._inset_scene)
+ def test_closed_overview_discards_work_that_already_started(self):
+  pool=Pool();pool.future.set_running_or_notify_cancel()
+  locator=NS(key=('first',),layer=(0,0,24,12,()),renderer=NS(pool=pool,completion_wakeup=None))
+  app=View(NS(),None)
+  self.assertIsNone(app.inset_scene(NS(inset=(locator,0,0))))
+  self.assertIsNone(app.inset_scene(NS(inset=None)))
+  pool.future.set_result('obsolete')
+  self.assertIsNone(app._inset_pending)
+  self.assertIsNone(app._inset_scene)
+
  def test_overview_refines_on_arm_without_desktop_dem(self):
   from array import array
   from offline_map import MapFeatures

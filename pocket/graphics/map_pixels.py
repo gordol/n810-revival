@@ -73,7 +73,7 @@ class View:
   self.pending=None;self.ready=None;self.ready_layer=None;self.key=None;self.failed=None;self.pixel_frames=0;self.pixel_jobs=0;self.error=''
   self.ready_surface=None;self._presented_pan=None
   self._surround_key=None;self._surround_future=None;self._surround_scene=None;self.surround_error=''
-  self._inset_key=None;self._inset_scene=None
+  self._inset_key=None;self._inset_scene=None;self._inset_pending=None
   self._terrain_key=None;self._terrain_samples=None
  def plan(self):
   surface=self.owner.map_surface()
@@ -84,6 +84,7 @@ class View:
   return key,layer,surface
  @property
  def pixel_dirty(self):
+  if self._inset_pending is not None and self._inset_pending[1].done():return True
   if self._surround_future is not None and self._surround_future.done():return True
   pan=self.pan_offset()
   if pan is not None and pan!=self._presented_pan:return True
@@ -204,13 +205,31 @@ class View:
 
  def inset_scene(self,surface):
   inset=getattr(surface,'inset',None)
-  if inset is None:return None
+  if inset is None:
+   if self._inset_pending is not None:self._inset_pending[1].cancel()
+   self._inset_pending=None;self._inset_key=None;self._inset_scene=None
+   return None
   locator,ix,iy=inset;key=locator.key
-  if key!=self._inset_key:
-   try:self._inset_scene=self.build(locator.layer,locator);self._inset_key=key
-   except Exception as error:self.error=str(error);self._inset_scene=None;self._inset_key=key
+  pending=self._inset_pending
+  if pending is not None and pending[0]!=key:
+   pending[1].cancel();self._inset_pending=None;pending=None
+  if pending is not None and pending[1].done():
+   self._inset_pending=None;self._inset_key=key
+   try:self._inset_scene=pending[1].result()
+   except Exception as error:self.error=str(error);self._inset_scene=None
+  if key!=self._inset_key and self._inset_pending is None:
+   self._inset_scene=None;self._inset_key=None
+   pool=getattr(locator.renderer,'pool',None)
+   if pool is None:
+    try:self._inset_scene=self.build(locator.layer,locator);self._inset_key=key
+    except Exception as error:self.error=str(error);self._inset_key=key
+   else:
+    future=pool.submit(self.build,locator.layer,locator)
+    self._inset_pending=key,future
+    future.add_done_callback(lambda f,callback=locator.renderer.completion_wakeup:self.wake(f,callback))
   if self._inset_scene is None:return None
   return self._inset_scene,ix,iy,locator.layer[2],locator.layer[3]
+
  def wake(self,future,callback):
   if callback:
    try:callback()
