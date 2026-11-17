@@ -39,6 +39,20 @@ class RecoveryTests(unittest.TestCase):
                 self.assertIn('POCKET_APP_ERROR app=broken',errors.getvalue())
                 self.assertEqual(form.session_state(),{'keep':'state'})
                 self.assertIn('could not open',' '.join(form.lines()))
+    def test_app_status_uses_the_same_failure_boundary_as_rendering(self):
+        from desktop_actions import dispatch
+        class Broken:
+            def lines(self):raise ValueError('status rendering failed')
+            def close(self):pass
+        host=Host(100,29,[Window('Broken',1,1,40,15)])
+        entry=SimpleNamespace(id='broken',title='Broken',preferred_size=(40,15))
+        form=LazyApplication(None,entry,host);form.owner=Broken();host.app_forms={'Broken':form}
+        with contextlib.redirect_stderr(io.StringIO()):
+            result=dispatch(host,lambda action:None,{},dict(command='app-status',name='Broken'))
+        self.assertIn('status rendering failed',result['error'])
+        self.assertIsNone(form.owner)
+        self.assertEqual(result['bounds'],[1,1,40,15])
+        self.assertTrue(result['lines'])
     def test_system_exit_is_not_swallowed(self):
         entry=SimpleNamespace(id='stop',title='Stop',preferred_size=(40,15))
         form=LazyApplication(None,entry,None)

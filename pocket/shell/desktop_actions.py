@@ -41,10 +41,12 @@ def dispatch(host,launch,identity,request):
         name=request['name'];form=host.app_forms.get(name)
         if form is None:raise ValueError('Application unavailable')
         window=host.window(name)
-        owner=getattr(form,'owner',form)
+        from itertools import islice
+        render=getattr(form,'lines',None)
+        lines=[text_summary(line,120) for line in islice(render(),30)] if callable(render) else []
         return dict(ok=True,focus=host.focus,name=name,opened=window.opened,visible=host.shown(window),
                     error=text_summary(getattr(form,'error',''),500),
-                    lines=[text_summary(line,120) for line in owner.lines()][:30] if owner is not None else [])
+                    bounds=list(window.rect),origin=list(host.origin),lines=lines)
     if command=='symbian-open':
         if set(request)!={'command','application'} or not isinstance(request['application'],str):raise ValueError('Invalid Symbian application request')
         from symbian_catalog import resolve
