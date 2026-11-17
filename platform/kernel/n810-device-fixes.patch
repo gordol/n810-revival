@@ -15,3 +15,12 @@
  
  		/* setting led current at each channel */
  		if (cfg->set_led_current)
+--- a/arch/arm/mach-omap2/clkt2xxx_virt_prcm_set.c
++++ b/arch/arm/mach-omap2/clkt2xxx_virt_prcm_set.c
+@@ -251,5 +251,6 @@
+ 	}
+ 
+ 	clkdev_create(clk, "cpufreq_ck", NULL);
++	clkdev_create(clk, "virt_prcm_set", NULL);
+ }
+ #endif
