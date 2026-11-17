@@ -10,6 +10,10 @@ class MissingElevationTests(unittest.TestCase):
    self.assertEqual(t.sample_elevation(5.5555,5.5555),(None,{}))
    result=t.classify_path('5.5555,5.5555','5.5655,5.5555')
    self.assertEqual(result['los'],'unknown');self.assertEqual(result['fresnel'],'unknown')
+ def test_profile_reports_a_data_gap_without_claiming_region_bounds(self):
+  with patch.object(t,'sample_elevation',return_value=(None,{})):
+   with self.assertRaisesRegex(ValueError,'endpoint has no elevation in the installed datasets'):
+    t.calculate('47.19,-122.52','47.20,-122.51',count=3)
  def test_corrupt_data_is_not_silently_treated_as_unknown(self):
   with patch('local_elevation.sample',side_effect=ValueError('checksum')):
    with self.assertRaisesRegex(ValueError,'checksum'):t.sample_elevation(5.5555,5.5555)
