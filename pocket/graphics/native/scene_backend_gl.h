@@ -387,7 +387,10 @@ static int scene_bound_output(Scene_Renderer *r,Scene_Texture *t){
  for(unsigned i=0;i<t->n;){
   struct scene_gl_tile q=t->tiles[i];
   if(q.depth)return 0; /* 3D retains its independently bounded depth path. */
-  if(scene_tile_triangles(t,&q,0,0,0)<=SCENE_TILE_TRIANGLES){++i;continue;}
+  /* The full desktop is the sole large-target exception. A low-density
+   * half-frame still needs subdivision if either padded side exceeds 400. */
+  int dimensions=(q.w==800&&q.h==480)||(((q.w+15)&~15U)<=400&&((q.h+15)&~15U)<=400);
+  if(dimensions&&scene_tile_triangles(t,&q,0,0,0)<=SCENE_TILE_TRIANGLES){++i;continue;}
   if(q.w<=16&&q.h<=16){fprintf(stderr,"Pocket scene exceeds bounded GPU tile density at %u,%u\n",q.x,q.y);return -1;}
   struct scene_gl_tile a={.x=q.x,.y=q.y,.w=q.w,.h=q.h},b=a;
   if(q.w>=q.h&&q.w>16){unsigned half=((q.w/2)/16)*16;if(!half)half=16;a.w=half;b.x+=half;b.w-=half;}

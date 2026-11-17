@@ -45,7 +45,7 @@ int main(void){
  assert(scene_bound_output(&r,&t)==0);assert(t.n>1);
  unsigned area=0;
  for(unsigned i=0;i<t.n;i++){
-  struct scene_gl_tile *a=t.tiles+i;assert(scene_tile_triangles(&t,a,0,0,0)<=768);area+=a->w*a->h;
+  struct scene_gl_tile *a=t.tiles+i;assert(scene_tile_triangles(&t,a,0,0,0)<=768);assert(a->pw<=400&&a->ph<=400);area+=a->w*a->h;
   for(unsigned j=i+1;j<t.n;j++){struct scene_gl_tile *b=t.tiles+j;assert(a->x+a->w<=b->x||b->x+b->w<=a->x||a->y+a->h<=b->y||b->y+b->h<=a->y);}
  }
  assert(area==800*480);assert(t.stream==vertices&&t.commands==&command&&command.count==12000);
@@ -56,6 +56,13 @@ int main(void){
  struct scene_gl_tile screen={.w=800,.h=480};assert(scene_tile_triangles(&outer,&screen,0,0,0)==0);
  parent.dx=0;assert(scene_tile_triangles(&outer,&screen,0,0,0)>768);
  printf("PASS: 4000 triangles split into %u disjoint GPU tiles; geometry retained; nested translations respected\n",t.n);free(t.tiles);
+ /* 800 primitives split into two low-density 400x480 halves. Triangle-only
+  * admission previously stopped there and failed on the actual GPU. */
+ command.count=2400;t.n=1;t.tiles=calloc(1,sizeof(*t.tiles));t.tiles[0]=(struct scene_gl_tile){.w=800,.h=480};
+ assert(!scene_bound_output(&r,&t));assert(t.n==4);area=0;
+ for(unsigned i=0;i<t.n;i++){struct scene_gl_tile *q=t.tiles+i;assert(q->pw<=400&&q->ph<=400);assert(scene_tile_triangles(&t,q,0,0,0)<=768);area+=q->w*q->h;}
+ assert(area==800*480);free(t.tiles);
+ puts("PASS: sparse half-frame split preserves 800x480 output within admitted GPU dimensions");
 }
 '''
 with tempfile.TemporaryDirectory(prefix='tile-budget-',dir=os.environ.get('TMPDIR')) as folder:
