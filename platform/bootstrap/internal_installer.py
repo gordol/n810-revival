@@ -16,6 +16,7 @@ import struct
 import subprocess
 import sys
 import time
+import tempfile
 
 REPOSITORY = Path(__file__).resolve().parents[2]
 DEFAULT_FLASHER = REPOSITORY / 'dist/flasher/0xFFFF'
@@ -255,11 +256,15 @@ def _flasher_command(flasher, args):
 def _run_flasher(flasher, args, timeout, log_path=None):
     command = _flasher_command(flasher, args)
     try:
-        result = subprocess.run(command, stdin=subprocess.DEVNULL, capture_output=True,
-                                text=True, timeout=timeout, check=False)
+        # A helper watchdog may outlive its parent and retain stdout. A regular
+        # anonymous file lets us wait for the actual command, not pipe EOF.
+        with tempfile.TemporaryFile(mode='w+', encoding='utf-8') as capture:
+            result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=capture,
+                                    stderr=subprocess.STDOUT, text=True, timeout=timeout, check=False)
+            capture.seek(0)
+            output = capture.read()
     except subprocess.TimeoutExpired as error:
         raise RuntimeError('0xFFFF timed out; no later installer step was started') from error
-    output = (result.stdout or '') + '\n' + (result.stderr or '')
     if log_path is not None:
         log_path = Path(log_path)
         if log_path.is_symlink():

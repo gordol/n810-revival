@@ -32,6 +32,10 @@ def _local_internal_manifests():
             if isinstance(data,dict) and data.get('version')==1 and data.get('kind')=='n810-internal' and data.get('files'):
                 found.append(path)
         except (OSError,ValueError):continue
+    for path in (REPOSITORY/'dist').glob('*/AB.json'):
+        try:
+            if not path.is_symlink() and path.stat().st_size<=65536 and json.loads(path.read_text()).get('kind')=='n810-ab-kit':found.append(path)
+        except (OSError,ValueError):pass
     return sorted(found,key=lambda path:(path.stat().st_mtime_ns,str(path)),reverse=True)
 
 
@@ -55,6 +59,9 @@ class SecretInput(TextInput):
 
 def _verify_built_kit(output,progress):
     if progress:progress('Build finished; verifying every kit file and the expanded root image…')
+    if (Path(output)/'AB.json').is_file():
+        from native_setup_ab import verify
+        result=verify(output,progress);result['state']='ab_kit_built';return result
     sys.path.insert(0,str(BOOTSTRAP))
     from internal_installer import verify_local_kit
     installation,manifest,files=verify_local_kit(output)
@@ -118,6 +125,8 @@ def _build_internal_source_kit(destination,ssh_key,password,progress,cancelled,s
         raise ValueError('Enter a local nokia password without a line break')
     argv=['make','--no-print-directory','n810-build-internal',
           'SSH_PUBLIC_KEY='+str(key),'INTERNAL_KIT='+str(output),'INTERNAL_PASSWORD_STDIN=1','INTERNAL_SETUP_STDIN=1','N810_STORAGE='+str((setup or {}).get('storage_target','internal'))]
+    if (setup or {}).get('storage_target')=='sd-ab':
+        argv=[sys.executable,str(BOOTSTRAP/'build_ab_host.py'),'--output',str(output),'--ssh-key',str(key),'--setup-stdin']
     if progress:progress('Building kernel, graphics, Debian and Pocket from tracked source…')
     process=subprocess.Popen(argv,cwd=REPOSITORY,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT,start_new_session=True)
@@ -193,6 +202,9 @@ def _setup_work(action,manifest,destination,progress,cancelled,disk='',usb_locat
         sys.path.insert(0,str(BOOTSTRAP))
         from internal_installer import identify_device
         return identify_device(FLASHER,progress)
+    from native_setup_ab import selected as ab_selected,work as ab_work
+    if ab_selected(manifest) and action not in ('source-kit','kit'):
+        return ab_work(action,manifest,disk,ssh_key,FLASHER,progress,cancelled)
     if action in ('check','prepare'):
         from n810_bootstrap import inspect,prepare
         if action=='prepare':return prepare(manifest,destination,progress,cancelled)
@@ -261,19 +273,23 @@ class N810Setup:
     def navigation_targets(self):
         from native_navigation import Target
         if self.options_open:return self.choices.targets()
-        return [Target('manifest','Installation manifest','input'),Target('destination','New local kit folder','input'),
+        targets=[Target('manifest','Installation manifest','input'),Target('destination','New local kit folder','input'),
                 Target('ssh_key','Ed25519 public key','input'),Target('password','Local nokia password','input'),
                 Target('disk','New N810 whole disk','input'),Target('usb_location','New N810 USB location','input'),
                 Target('check','Check files','action','v'),Target('install','Install Debian + Pocket','action','i'),Target('prepare','Prepare local kit','action','p'),
                 Target('cancel','Cancel preparation','action','c'),Target('flasher','Build host flasher','action','b'),
                 Target('source-kit','Build kit from source','action','g'),Target('kit','Build from plan','action','k'),
-                Target('identify','Detect target','action','d'),Target('boot','Boot RAM installer','action','r'),
-                Target('write','RAM installer: erase and write','action','w'),
+                Target('identify','Detect target','action','d'),Target('boot','Boot SD installer','action','r'),
+                Target('write','SD installer: erase and write','action','w'),
                 Target('mac-check','Check target disk','action','m'),
                 Target('mac-write','Write target disk','action','x'),
                 Target('flash','Flash kernel and reboot','action','f')]+([
                 Target('next-kit','Choose another local kit','action','next-kit')] if len(self.local_kits)>1 else [])+[
                 Target('options','Storage, Wi-Fi and startup choices','action','o'),Target('steps','Setup results','details')]
+        from native_setup_ab import selected as ab_selected
+        if ab_selected(self.manifest.text):
+            targets=[t._replace(title='Install next A/B step') if t.key=='install' else t for t in targets if t.key not in ('prepare','kit')]
+        return targets
     def navigation_focus(self):return self.choices.field if self.options_open else self.field
     def navigation_input(self,key):
         if self.options_open:return self.choices.input(key)
@@ -313,9 +329,11 @@ class N810Setup:
         if action in ('prepare','kit','source-kit') and not self.destination.text.strip():self.error='Choose a new local kit folder first';return True
         if action=='source-kit' and not self.ssh_key.text.strip():
             self.error='Enter an Ed25519 public key path first';return True
-        if action in ('mac-check','mac-write') and (not self.disk.text.strip() or not self.usb_location.text.strip()):
+        from native_setup_ab import selected as ab_selected
+        is_ab=ab_selected(self.manifest.text)
+        if action in ('mac-check','mac-write') and (not self.disk.text.strip() or (not is_ab and not self.usb_location.text.strip())):
             self.error='Enter the new N810 whole disk and USB location first';return True
-        if action=='install' and sys.platform=='darwin' and not (Path(self.manifest.text).expanduser().parent/'INSTALL-STATE.json').is_file():
+        if action=='install' and not is_ab and sys.platform=='darwin' and not (Path(self.manifest.text).expanduser().parent/'INSTALL-STATE.json').is_file():
             if not self.disk.text.strip() or not self.usb_location.text.strip():
                 self.error='Enter the new N810 whole disk and USB location before Install';return True
         self.error='';self.result=None;self.cancelled.clear()
@@ -324,8 +342,8 @@ class N810Setup:
                 'install':'Preparing the selected storage installation…',
                 'kit':'Building a private internal-install kit…',
                 'source-kit':'Building a private kit from tracked source…','identify':'Identifying an N810 in update mode…',
-                'boot':'Checking kit and booting the RAM installer…',
-                'write':'Connecting to the RAM installer and preparing internal storage…',
+                'boot':'Checking kit and booting the SD installer…',
+                'write':'Connecting to the SD installer and preparing internal storage…',
                 'flash':'Checking the write receipt and flashing the matching kernel…',
                 'mac-check':'Checking the selected target disk…',
                 'mac-write':'Writing and reading back the selected target disk…'}
@@ -368,16 +386,21 @@ class N810Setup:
                 self.tool_result=result;self.status='Host flasher built. No tablet was accessed.';self.active_action=None;return True
             self.result=result
             state=result['state']
-            if state=='internal_kit_built' and result.get('destination'):
-                self.manifest.text=str(Path(result['destination'])/'INSTALLATION.json')
+            if state in ('internal_kit_built','ab_kit_built') and result.get('destination'):
+                self.manifest.text=str(Path(result['destination'])/('AB.json' if state=='ab_kit_built' else 'INSTALLATION.json'))
             self.status={
+                'ab_kit_built':'A/B kit built and verified. Select the SD card, then Install.',
+                'sd_ab_written':'SD card verified and ejected. Insert it into the intended tablet, enter update mode, then choose Install again to boot the SD installer.',
+                'sd_boot_requested':'Temporary SD kernel loaded. Once USB networking is ready, choose Install again to write internal recovery.',
+                'recovery_written':'Internal recovery verified. Leave the SD inserted, return the tablet to update mode on the same port, then choose Install to flash recovery.',
+                'recovery_kernel_flashed':'Recovery kernel flashed. Watch the tablet boot its selected SD slot.',
                 'kit_prepared':'Local kit prepared. The tablet is not installed.',
                 'internal_kit_built':'Kit built and verified. The tablet is not installed.',
                 'files_verified':'Kit verified. Check and write the selected storage, then flash the matching kernel.',
                 'device_identified':'One Nokia N810 RX-44 is in update mode.',
                 'mac_disk_checked':'The selected disk checks passed. No data was written.',
                 'linux_disk_checked':'The selected disk checks passed. No data was written.',
-                'ram_installer_booted':'RAM installer booted; internal storage is unchanged. Choose Erase and write.',
+                'ram_installer_booted':'SD installer booted; internal storage is unchanged. Choose Erase and write.',
                 'rootfs_written':'Root image was read back successfully. Return this tablet to update mode, then flash its matching kernel.',
                 'kernel_flashed_reboot_requested':'Matching kernel flash and reboot command completed. Watch the tablet for first boot.',
             }.get(state,'Setup step completed: '+state)
@@ -434,7 +457,7 @@ class N810Setup:
             rows += [f'{len(self.local_kits)} local kits found. Use Choose another local kit to change the selection.']
         if self.tool_result:rows+=['HOST FLASHER READY',self.tool_result['binary'],'Built from pinned upstream source. USB flashing remains an explicit separate action.','']
         if result:
-            rows += ['Root storage: '+('SD card' if result.get('storage_target')=='sd' else 'internal MMC')]
+            rows += ['Root storage: '+({'sd':'SD card','sd-ab':'SD A/B + internal recovery'}.get(result.get('storage_target'),'internal MMC'))]
             if result.get('kind'):
                 rows += ['VERIFIED '+result['release'],'Kind: '+result['kind'],str(len(result['files']))+' files · '+str(result['total_bytes'])+' bytes']
                 rows += [row['role']+': '+row['path'] for row in result['files']]
@@ -469,9 +492,11 @@ class N810Setup:
             spans.extend((row,x,length,role) for x,length,role in roles)
         controls=[('check','Check files'),('install','Install Debian + Pocket'),
                   ('prepare','Prepare local kit'),('cancel','Cancel'),('flasher','Build host flasher'),
-                  ('source-kit','Build kit from source'),('kit','Build from plan'),('options','Storage, Wi-Fi and startup choices'),('identify','Detect target'),('boot','Boot RAM installer'),
-                  ('write','RAM installer: erase + write'),('mac-check','Check target disk'),
+                  ('source-kit','Build kit from source'),('kit','Build from plan'),('options','Storage, Wi-Fi and startup choices'),('identify','Detect target'),('boot','Boot SD installer'),
+                  ('write','SD installer: erase + write'),('mac-check','Check target disk'),
                   ('mac-write','Write target disk'),('flash','Flash kernel + reboot')]
+        from native_setup_ab import selected as ab_selected
+        if ab_selected(self.manifest.text):controls=[(key,('Install next A/B step' if key=='install' else label)) for key,label in controls if key not in ('prepare','kit')]
         if len(self.local_kits)>1:controls.append(('next-kit','Choose another local kit'))
         rows.append('');row=len(rows);rows.append('');column=0
         for key,label in controls:
@@ -540,6 +565,19 @@ class N810Setup:
             if key=='destination' and not value:continue
             if isinstance(value,str) and len(value)<=2048:setattr(self,key,TextInput(value,limit=2048))
     def help_pages(self):
+        from native_setup_ab import selected as ab_selected
+        if ab_selected(self.manifest.text) or self.choices.storage_target=='sd-ab':
+            return (('SD A/B installation',(
+                'Choose SD A/B + internal recovery in Storage, Wi-Fi and startup choices. Set the SSH public key, hidden account password, and optional Wi-Fi settings, then Build kit from source.',
+                'Builds need Python 3.11+, Make, Git, tar and Docker: at least 4 GiB Docker RAM, 30 GiB Docker storage, and 6 GiB output space. With Docker Desktop reserve 40 GiB host free space.',
+                'Check files verifies the complete kit. Enter the removable card whole disk. Authorize disk access with sudo -v in the terminal launching Pocket.',
+                'Install next A/B step writes and verifies the SD card, then ejects it. Insert the card into the intended tablet, put that tablet into Nokia update mode, and choose Install again to boot its isolated SD installer.',
+                'After USB networking is ready, choose Install again to write and verify internal recovery. This fresh installation erases the selected card and the tablet internal 2 GB storage.',
+                'Leave the SD card inserted and return the same tablet to Nokia update mode on the same USB port. Choose Install again to flash only the matching recovery kernel.',
+                'The internal system loads the selected SD kernel through kexec. With no card it remains available for recovery. The Nokia bootloader is retained.',
+                'Future OS updates use n810-ab update with UPDATE.json and slot.ext4. They replace the inactive OS slot, preserving persistent homes, network settings, identities, maps and databases. Do not use the fresh-install card writer for updates.',
+                'A rendered GPU desktop and persistent mounts confirm the trial boot. Failed trials return to the confirmed slot on a later restart; a hard hang still needs a restart.',
+            )),)
         return (('N810 Setup',('For SD installation, choose SD in Storage, Wi-Fi and startup choices before building. Select the removable card reader disk and pin the new tablet USB location. Install prepares and verifies the card; insert it into that tablet before Flash kernel. SD does not require Maemo USB storage. On Linux, enter the whole disk and tablet topology port (for example 1-2.3). Install writes and verifies storage; Flash kernel is a separate step after returning that tablet to update mode. For an internal Mac installation, boot stock Maemo on the new tablet and export its internal USB storage. Run sudo -v in the launching terminal, select the kit manifest, enter the whole disk and USB port, then choose Check Mac N810 disk and Install Debian + Pocket. Keep the battery installed and charger connected. Install erases internal storage, verifies the full disk, waits for that same tablet in update mode, then flashes its matching kernel.',
                  'Setup finds internal-install manifests in this checkout\'s dist subfolders and initially selects the most recently written one. Choose another local kit cycles through other candidates. Restored sessions retain an existing selection. Check files verifies the selected kit before use.',
                  'A fresh clone has no private installation image. Install Python 3.11 or newer, Make and Docker with ARM Linux build support; start Docker. On macOS, the native flasher also needs the command-line compiler tools, pkg-config and libusb-compat. Build kit from source creates the image and installation manifest.',
@@ -548,12 +586,12 @@ class N810Setup:
                  'Storage, Wi-Fi and startup choices optionally preconfigure a Wi-Fi access point and boot preferences. Radio services default off. Configure the endpoints for this tablet, pairing and identity after first boot in Device Setup. Offline Data prepares regional maps on the laptop; ULS Lookup has the optional FCC download.',
                  'The password is hidden, sent to the local builder through stdin, and cleared from the form when building starts. The private kit contains its password hash and SSH access material.',
                  'Build from plan is the advanced Linux path. Enter a build-plan JSON naming root, kernel_package, gpu_runtime, gpu_module_package and gpu_mesa_package; recovery is optional for the RAM-installer path.',
-                 'After a kit is built, Check files validates the root, matching kernel and GPU Pocket autostart as nokia. It also checks a RAM installer when one is included.',
+                 'After a kit is built, Check files validates the root, matching kernel and GPU Pocket autostart as nokia. It also checks a SD installer when one is included.',
                  'Prepare local kit makes a verified copy. Build host flasher runs the pinned make flasher build and does not open USB.',
-                 'Build kit from source runs on macOS or Linux with Docker. Build from plan runs on Linux; run sudo -v in the launching terminal first. On macOS, run sudo -v before Detect target, Boot RAM installer or Flash kernel. Detection uses read-only 0xFFFF -I and accepts RX-44 only.',
+                 'Build kit from source runs on macOS or Linux with Docker. Build from plan runs on Linux; run sudo -v in the launching terminal first. On macOS, run sudo -v before Detect target, Boot SD installer or Flash kernel. Detection uses read-only 0xFFFF -I and accepts RX-44 only.',
                  'On macOS, stock Maemo can export its internal MMC as a whole USB disk. Enter /dev/diskN and the new tablet USB location shown by macOS; Check Mac N810 disk performs identity checks. Write Mac N810 disk erases and fully reads back that disk, then saves a receipt for Flash kernel. Run sudo -v in the launching terminal first.',
                  'On macOS, Install Debian + Pocket runs that guarded write and full readback, waits for you to return the same tablet to update mode, then flashes the matching kernel. A saved receipt lets Install resume after an interrupted wait.',
-                 'Boot RAM installer loads the verified kernel and initramfs with 0xFFFF -l -b. It does not flash internal storage.',
+                 'Boot SD installer loads the verified kernel and initramfs with 0xFFFF -l -b. It does not flash internal storage.',
                  'Erase and write internal storage replaces the target N810 MMC. The installer verifies the MMC model, capacity and CID, then reads back the root image checksum.',
                  'After the root write, return the same tablet to Nokia update mode. Flash kernel writes the matching kernel with 0xFFFF -f -r and reboots it.',
                  'A successful flash command is not proof of first boot. Confirm the graphical Pocket desktop starts as nokia on the target. Keep the original tablet in normal Linux mode.',

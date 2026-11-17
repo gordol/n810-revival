@@ -32,7 +32,7 @@ def verify(kit):
     kit=Path(kit).resolve();m=json.loads((kit/'AB.json').read_text())
     if m.get('kind')!='n810-ab-kit' or m.get('data_schema')!=1:raise ValueError('Unsupported kit')
     expected={'control.ext4','slot.ext4','data.ext4','recovery.ext4','recovery-kernel.bin'}
-    if set(m['files'])!=expected:raise ValueError('Unexpected image list')
+    if set(m['files']) not in (expected,expected|{'sd-bootstrap-kernel.bin'}):raise ValueError('Unexpected image list')
     for name,v in m['files'].items():
         if (kit/name).is_symlink() or (kit/name).stat().st_size!=v['bytes'] or digest(kit/name)!=v['sha256']:
             raise ValueError('Kit checksum mismatch: '+name)

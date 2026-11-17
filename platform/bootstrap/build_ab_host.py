@@ -9,6 +9,7 @@ from pathlib import Path
 import secrets
 import shutil
 import subprocess
+import sys
 import tarfile
 from build_preflight import check
 from setup_profile import validate
@@ -17,7 +18,7 @@ from setup_profile import validate
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--output',type=Path,required=True);p.add_argument('--ssh-key',type=Path,required=True)
-    p.add_argument('--configure',action='store_true');p.add_argument('--slot-mib',type=int,default=1536)
+    p.add_argument('--configure',action='store_true');p.add_argument('--setup-stdin',action='store_true');p.add_argument('--slot-mib',type=int,default=1536)
     a=p.parse_args();a.output=a.output.expanduser().absolute();a.ssh_key=a.ssh_key.expanduser().resolve(strict=True)
     check(a.output,a.slot_mib)
     if shutil.disk_usage(a.output.parent).free < (2*a.slot_mib+1536+1024)*1024**2:
@@ -26,6 +27,11 @@ def main():
     if subprocess.check_output(['git','status','--porcelain','--untracked-files=normal'],cwd=repo).strip():
         raise ValueError('Commit source changes before building an identified kit')
     profile={};password=None
+    if a.setup_stdin:
+        password=sys.stdin.readline(1025).rstrip('\n')
+        profile=json.loads(sys.stdin.readline(8193))
+        if not password or '\r' in password or len(password)>1024:raise ValueError('Invalid account password')
+        if profile.get('storage_target')=='sd-ab':profile['storage_target']='sd'
     if a.configure:
         ssid=input('Wi-Fi network name (blank to set up later): ')
         if ssid:profile['wifi']={'ssid':ssid,'passphrase':getpass.getpass('Wi-Fi password: '),'country':input('Country code [US]: ').strip().upper() or 'US'}
@@ -45,7 +51,7 @@ def main():
             if raw:archive.add(repo/os.fsdecode(raw),arcname=os.fsdecode(raw),recursive=False)
     image='n810-ab-builder:'+commit[:12]
     with context.open('rb') as source,(work/'builder.log').open('wb') as log:
-        subprocess.run(['docker','build','--progress=plain','--build-arg','DISK_ID='+recovery_id,'--build-arg','AB_BOOT=1',
+        subprocess.run(['docker','build','--progress=plain','--build-arg','DISK_ID='+recovery_id,'--build-arg','AB_BOOT=1','--build-arg','SD_DISK_ID='+sd_id,
                         '--build-arg','SOURCE_COMMIT='+commit,'-t',image,'-f','containers/internal-image.Dockerfile','-'],
                        stdin=source,stdout=log,stderr=subprocess.STDOUT,check=True,cwd=repo)
     context.unlink()

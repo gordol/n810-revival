@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Install internal recovery through RAM, then flash only its matching kernel."""
+"""Install internal recovery from the SD bootstrap, then flash its matching kernel."""
 import argparse
 import hashlib
+import gzip
 import json
 from pathlib import Path
 import re
 import shlex
 import struct
+import socket
+import sys
 import subprocess
 from ab_media import verify,MIB
 from ab_runtime import atomic,digest
-from internal_installer import identify_device,_run_flasher
+from internal_installer import identify_device,_run_flasher,configure_installer_network
 
 
 def ram(kit):
@@ -22,15 +25,44 @@ def ram(kit):
     return root
 
 
+
+def sd_bootstrap(kit):
+    """Verify a supplementary bootstrap without invalidating the SD write receipt."""
+    manifest=json.loads((kit/'AB.json').read_text())
+    report=json.loads((kit/'SD-BOOTSTRAP.json').read_text())
+    receipt=json.loads((kit/'SD-INSTALL.json').read_text())
+    if (report.get('kind')!='n810-sd-bootstrap' or report.get('kit_sha256')!=digest(kit/'AB.json')
+            or receipt.get('kit_sha256')!=report['kit_sha256'] or not receipt.get('readback_verified')
+            or report.get('sd_disk_id')!=manifest['sd_disk_id']):
+        raise ValueError('SD bootstrap does not match the verified card kit')
+    kernel=kit/'sd-bootstrap-kernel.bin'
+    if kernel.is_symlink() or kernel.stat().st_size>2097152 or digest(kernel)!=report['kernel_sha256']:
+        raise ValueError('SD bootstrap kernel checksum or NOLO size check failed')
+    return kernel
+
+
 def ssh(kit,key,host):
-    return ['ssh','-i',str(key),'-o','BatchMode=yes','-o','ConnectTimeout=10','-o','StrictHostKeyChecking=yes',
-            '-o','UserKnownHostsFile='+str(ram(kit)/'installer-known-hosts'),'root@'+host]
+    known = kit/'slot-known-hosts' if (kit/'SD-BOOT.json').exists() else ram(kit)/'installer-known-hosts'
+    bind=['-b','169.254.81.2'] if sys.platform=='darwin' and host=='169.254.81.1' else []
+    return ['ssh',*bind,'-i',str(key),'-o','BatchMode=yes','-o','ConnectTimeout=10','-o','StrictHostKeyChecking=yes',
+            '-o','UserKnownHostsFile='+str(known),'root@'+host]
+
+
+def environment_guard(kit):
+    if (kit/'SD-BOOT.json').exists():
+        m=json.loads((kit/'AB.json').read_text())
+        disk=m['sd_disk_id']
+        if not re.fullmatch('[0-9a-f]{8}',disk):raise ValueError('Invalid SD identity')
+        return ("test -f /run/n810-sd-installer\n"
+                "case $(uname -r) in *-n810-sd-installer) :;; *) exit 1;; esac\n"
+                "test \"$(findmnt -n -o PARTUUID /)\" = "+disk+"-02\n"
+                "findmnt -n -o OPTIONS / | tr ',' '\\n' | grep -qx ro\n")
+    return ('test -f /etc/pocket-installer\n'
+            'test "$(findmnt -n -o FSTYPE / 2>/dev/null || awk \'$2=="/" {print $3;exit}\' /proc/mounts)" != ext4\n')
 
 
 def probe(kit,key,host):
-    command="""set -eu
- test -f /etc/pocket-installer
- test "$(findmnt -n -o FSTYPE / 2>/dev/null || awk '$2=="/" {print $3;exit}' /proc/mounts)" != ext4
+    command="set -eu\n"+environment_guard(kit)+"""
  for d in /sys/block/mmcblk*; do
   test "$(cat "$d/device/type")" = MMC || continue
   echo "$(basename "$d") $(cat "$d/size") $(cat "$d/device/cid")"
@@ -48,15 +80,15 @@ def write_recovery(kit,m,key,host,expected_cid,erase):
     identity=probe(kit,key,host)
     if identity['cid']!=expected_cid:raise ValueError('Internal MMC identity differs from selected tablet')
     if not erase:return dict(state='recovery_checked',identity=identity,device_action=False)
-    record=json.loads((kit/'RAM-BOOT.json').read_text())
+    record=json.loads((kit/('SD-BOOT.json' if (kit/'SD-BOOT.json').exists() else 'RAM-BOOT.json')).read_text())
     if record['kit_sha256']!=digest(kit/'AB.json'):raise ValueError('RAM boot belongs to another kit')
     node=identity['node'];sectors=identity['sectors']
     mbr=bytearray(MIB);struct.pack_into('<I',mbr,440,int(m['recovery_disk_id'],16))
     struct.pack_into('<B3sB3sII',mbr,446,0,b'\xfe\xff\xff',0x83,b'\xfe\xff\xff',2048,sectors-2048);mbr[510:512]=b'\x55\xaa'
     image=kit/'recovery.ext4';length=MIB+image.stat().st_size
     # Repeat all admission checks inside the same remote command that opens the disk.
-    script='''set -eu
- test -f /etc/pocket-installer
+    script='set -eu\n'+environment_guard(kit)+'''
+
  test "$(cat /sys/block/NODE/device/type)" = MMC
  test "$(cat /sys/block/NODE/device/cid)" = CID
  test "$(cat /sys/block/NODE/size)" = SECTORS
@@ -67,7 +99,7 @@ def write_recovery(kit,m,key,host,expected_cid,erase):
  done
  ! grep -q '/dev/NODE' /proc/mounts
  ! grep -q '/dev/NODE' /proc/swaps
- dd of=/dev/NODE bs=1048576
+ gzip -dc | dd of=/dev/NODE bs=1048576
  sync
  head -c LENGTH /dev/NODE | sha256sum
 '''
@@ -75,9 +107,11 @@ def write_recovery(kit,m,key,host,expected_cid,erase):
     p=subprocess.Popen(ssh(kit,key,host)+[script],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=kit.joinpath('recovery-write.log').open('wb'))
     h=hashlib.sha256();h.update(mbr)
     try:
-        p.stdin.write(mbr)
-        with image.open('rb') as f:
-            for block in iter(lambda:f.read(4*MIB),b''):p.stdin.write(block);h.update(block)
+        with gzip.GzipFile(fileobj=p.stdin, mode='wb', compresslevel=1) as transport:
+            transport.write(mbr)
+            with image.open('rb') as f:
+                for block in iter(lambda:f.read(4*MIB),b''):
+                    transport.write(block);h.update(block)
         p.stdin.close();result=p.stdout.read().decode();code=p.wait()
     except BaseException:
         p.terminate();p.wait();raise
@@ -89,12 +123,26 @@ def write_recovery(kit,m,key,host,expected_cid,erase):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action',choices=['boot-ram','inspect','write-recovery','flash-recovery'])
+    p.add_argument('action',choices=['boot-ram','boot-sd','inspect','write-recovery','flash-recovery'])
     p.add_argument('--kit',type=Path,required=True);p.add_argument('--flasher',type=Path)
     p.add_argument('--key',type=Path);p.add_argument('--host',default='169.254.81.1')
     p.add_argument('--expected-cid');p.add_argument('--erase',action='store_true')
     a=p.parse_args();kit,m=verify(a.kit)
-    if a.action=='boot-ram':
+    if a.action=='boot-sd':
+        if not a.flasher:p.error('--flasher required')
+        kernel=sd_bootstrap(kit)
+        identity=identify_device(a.flasher)
+        prior=kit/'RAM-BOOT.json'
+        if prior.exists():
+            previous=json.loads(prior.read_text())
+            for field in ('usb_location','usb_port'):
+                if field in previous and previous[field]!=identity.get(field):raise ValueError('Target USB port changed')
+        interfaces={name for _,name in socket.if_nameindex()}
+        _run_flasher(a.flasher,['-m','kernel:'+str(kernel),'-l','-b'],180,kit/'USB-OPERATIONS.log')
+        result=dict(identity,state='sd_boot_requested',kit_sha256=digest(kit/'AB.json'),kernel_sha256=digest(kernel),kernel_flashed=False)
+        atomic(kit/'SD-BOOT.json',result)
+        result['host_interface']=configure_installer_network(interfaces)
+    elif a.action=='boot-ram':
         if not a.flasher:p.error('--flasher required')
         identity=identify_device(a.flasher);r=ram(kit)
         atomic(kit/'RAM-BOOT.json',dict(identity,kit_sha256=digest(kit/'AB.json')))

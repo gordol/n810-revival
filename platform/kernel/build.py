@@ -45,6 +45,7 @@ def main() -> None:
     parser.add_argument('--archive', type=Path, help='Optional previously downloaded, checksum-matched upstream archive')
     parser.add_argument('--resume', action='store_true', help='Revalidate inputs and resume an existing interrupted build')
     parser.add_argument('--ram-installer', action='store_true', help='build the temporary NOLO initramfs installer kernel')
+    parser.add_argument('--sd-installer', action='store_true', help='temporary NOLO kernel booting A/B slot A directly from SD')
     parser.add_argument('--ab-boot', action='store_true', help='accept bootloader slot arguments; default to internal recovery')
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--root-device', default='/dev/mmcblk0p2', help='Root device or PARTUUID= value for the intended filesystem')
@@ -53,6 +54,8 @@ def main() -> None:
         parser.error('Run this build in Linux with the ARM cross-toolchain installed.')
     if args.jobs < 1 or not re.fullmatch(r'(?:/dev/[A-Za-z0-9/_-]+|PARTUUID=[A-Za-z0-9-]+)', args.root_device):
         parser.error('Use positive jobs and a /dev/... or PARTUUID=... root device.')
+    if args.sd_installer and (args.ram_installer or args.ab_boot or not re.fullmatch(r'PARTUUID=[0-9a-f]{8}-02', args.root_device)):
+        parser.error('--sd-installer requires an A/B slot A PARTUUID and no other boot mode.')
     lock = json.loads((HERE / 'source.lock.json').read_text())
     for name, expected in lock['inputs'].items():
         if digest(HERE / name) != expected:
@@ -115,6 +118,10 @@ def main() -> None:
     cmdline = (f'root={args.root_device} rootfstype=ext4 rw rootwait' if not args.ram_installer else
                'root=/dev/ram0 rw rdinit=/init') + \
               ' console=ttyS2,115200 console=tty0 omap2fb.auto_update=y loglevel=4 vt.rgb=1'
+    if args.sd_installer:
+        cmdline = (f'root={args.root_device} rootfstype=ext4 ro rootwait init=/sbin/n810-slot-init '
+                   'console=ttyS2,115200 console=tty0 omap2fb.auto_update=y loglevel=4 vt.rgb=1 '
+                   f'n810.slot=A n810.data={args.root_device[:-2]}04 n810.install=sd')
     config = [str(source / 'scripts/config'), '--file', str(build / '.config'),
               '--set-str', 'UNUSED_KSYMS_WHITELIST', str(HERE / 'binding-api-whitelist.txt'),
               '--set-str', 'CMDLINE', cmdline]
@@ -122,6 +129,12 @@ def main() -> None:
         if args.ram_installer: raise ValueError('A/B recovery uses an ext4 internal root')
         config += ['--disable', 'CMDLINE_FORCE', '--enable', 'CMDLINE_FROM_BOOTLOADER',
                    '--enable', 'EXT4_FS_POSIX_ACL', '--enable', 'EXT4_FS_SECURITY', '--enable', 'OVERLAY_FS']
+    if args.sd_installer:
+        # A distinct release isolates bootstrap modules from both operating slots.
+        config += ['--set-str', 'LOCALVERSION', '-n810-sd-installer',
+                   '--enable', 'CMDLINE_FORCE', '--disable', 'CMDLINE_FROM_BOOTLOADER',
+                   '--enable', 'EXT4_FS_POSIX_ACL', '--enable', 'EXT4_FS_SECURITY', '--enable', 'OVERLAY_FS',
+                   '--disable', 'KALLSYMS']
     if args.ram_installer:
         config += ['--set-str', 'LOCALVERSION', '-n810-installer2', '--enable', 'BLK_DEV_INITRD',
                    '--enable', 'RD_XZ',
@@ -136,7 +149,8 @@ def main() -> None:
         raise RuntimeError('Kernel must boot with the OG built-in powersave governor.')
     run(base + [f'-j{args.jobs}', 'zImage', 'modules', 'omap2420-n810.dtb'], 'kernel-and-modules')
     release = (build / 'include/config/kernel.release').read_text().strip()
-    expected_release = lock['version'] + '-n810-installer2' if args.ram_installer else lock['release']
+    expected_release = (lock['version'] + '-n810-sd-installer' if args.sd_installer else
+                        lock['version'] + '-n810-installer2' if args.ram_installer else lock['release'])
     if release != expected_release:
         raise RuntimeError(f'Unexpected release: {release}')
     module = work / 'clock-module'; shutil.copytree(HERE / 'clock-module', module, dirs_exist_ok=args.resume)
@@ -185,7 +199,7 @@ def main() -> None:
     (package / 'module-version-crcs.txt').write_text(versions)
     (package / 'KERNELRELEASE').write_text(release + '\n')
     compiler = subprocess.check_output(['arm-linux-gnueabihf-gcc', '--version'], text=True, env=env).splitlines()[0]
-    report = {'release': release, 'kind': 'n810-ram-installer-kernel' if args.ram_installer else 'n810-permanent-kernel',
+    report = {'release': release, 'kind': ('n810-sd-installer-kernel' if args.sd_installer else 'n810-ram-installer-kernel' if args.ram_installer else 'n810-permanent-kernel'),
               'maintained_commit': lock['maintained_commit'],
               'cpu_profile': 'n810-330-480mhz', 'cpu_boot_governor': 'powersave',
               'cpu_patch_sha256': digest(HERE / 'n810-480mhz.patch'),

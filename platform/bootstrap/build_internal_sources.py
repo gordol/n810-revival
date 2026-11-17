@@ -88,11 +88,6 @@ def main():
         kernel=Path('/build/kernel/package')
         recovery_id=json.loads((kernel/'BUILD.json').read_text())['root_device'].split('=')[1][:-3]
         build_ab(Path('/work/internal/debian/rootfs'),kernel,args.ab_output,args.ab_sd_id,recovery_id,args.size_mib)
-        subprocess.run([sys.executable,str(HERE/'build_ram_installer.py'),
-            '--rootfs','/work/internal/debian/rootfs','--module-root','/build/ram-kernel/package/root',
-            '--kernel-build','/build/ram-kernel/build','--kernel','/build/ram-kernel/package/zImage-omap2420-n810',
-            '--busybox-package',str(next(Path('/build/ram-tools').glob('*.deb'))),
-            '--owner-key',str(args.ssh_key),'--output',str(args.ab_output/'ram-installer')],check=True)
         from build_internal_image import restore_owner
         restore_owner(args.ab_output)
 

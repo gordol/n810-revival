@@ -41,25 +41,29 @@ firmware, callsigns, and offline downloads remain separate setup operations.
 Connect only the intended N810 in Nokia update mode. Put its SD card into the
 host reader. Build the host flasher with `make flasher`.
 
-Use `ab_install.py boot-ram --kit PATH --flasher PATH` to record the tablet USB
-port and load the kit's temporary RAM installer. This does not flash storage.
-Use `ab_install.py inspect --kit PATH --key SSH_PRIVATE_KEY` to read the internal
-MMC identity. The host needs a USB address on the `169.254.0.0/16` subnet; the
-RAM installer listens on `169.254.81.1` with the pinned host key in the kit.
-
 Check the card using `make n810-write-ab AB_KIT=PATH N810_DISK=DEVICE`.
 On macOS DEVICE is a whole `/dev/diskN`; on Linux it is `/dev/sdX` or
 `/dev/mmcblkN`. Run the same target with root privileges and `N810_ERASE=1`
 to write and read back the card. This is a fresh-install operation, never an
 OS-update command.
 
+Insert the verified card into the intended tablet and enter Nokia update mode.
+Use `ab_install.py boot-sd --kit PATH --flasher PATH` to load the temporary
+bootstrap kernel into RAM. Its filesystem and separately matched modules are
+on the card. It starts only a console and key-only USB SSH, not Pocket or radio
+services, and does not flash the kernel or write internal storage.
+
+Use `ab_install.py inspect --kit PATH --key SSH_PRIVATE_KEY` to read the internal
+MMC identity. The host needs a USB address on the `169.254.0.0/16` subnet; the
+installer listens on `169.254.81.1`, using the kit's pinned SD host key.
+
 Write internal recovery using `ab_install.py write-recovery --kit PATH
 --key SSH_PRIVATE_KEY --expected-cid CID --erase`. The CID must be the one
-reported by the inspection. The writer verifies the RAM environment, internal
+reported by the inspection. The writer verifies the isolated SD environment and read-only root, internal
 MMC type, capacity, identity, and mounted-state guards, then reads back every
 written byte.
 
-Insert the verified SD card and return the same tablet to update mode on the
+Leave the verified SD card inserted and return the same tablet to update mode on the
 same USB port. Run `ab_install.py flash-recovery --kit PATH --flasher PATH`.
 It requires matching successful SD and recovery receipts and flashes only the
 recovery kernel. The next boot enters internal recovery, waits ten seconds,
@@ -117,7 +121,7 @@ shows the confirmed slot, pending trial, and remaining attempts.
 The kit records separate SSH host public keys for recovery and the SD system.
 Use `recovery-known-hosts` or `slot-known-hosts` with SSH's
 `UserKnownHostsFile` option. The SD identity persists across slot updates.
-The RAM installer has its own pinned host key under `ram-installer/`.
+The temporary SD installer uses that SD host identity and enables key-only root SSH only for the installation session. Normal slot boot retains its normal SSH policy.
 
 The initial implementation retains compressed RAM swap. It does not allocate
 all internal storage to disk swap or enable an unmeasured swap policy.

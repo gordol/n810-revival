@@ -44,9 +44,11 @@ class InternalTarget(unittest.TestCase):
             configure_installer_network({'lo0'})
 
     def test_flasher_error_diagnostic_cannot_pass_with_zero_exit(self):
-        completed=SimpleNamespace(returncode=0,stdout='Done\n',stderr='Error: Sending image failed\n')
+        def completed(*args, **kwargs):
+            kwargs['stdout'].write('Done\nError: Sending image failed\n')
+            return SimpleNamespace(returncode=0)
         with patch('internal_installer._flasher_command',return_value=['fixture']), \
-                patch('internal_installer.subprocess.run',return_value=completed), \
+                patch('internal_installer.subprocess.run',side_effect=completed), \
                 self.assertRaisesRegex(RuntimeError,'Sending image failed'):
             _run_flasher('/fixture',[],1)
 

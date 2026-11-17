@@ -50,7 +50,7 @@ flasher=$!
 (
  /bin/sleep "$limit"
  /bin/kill -TERM "$flasher" 2>/dev/null || :
-) &
+) </dev/null >/dev/null 2>&1 &
 watchdog=$!
 set +e
 wait "$flasher"

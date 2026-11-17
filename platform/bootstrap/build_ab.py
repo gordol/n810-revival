@@ -57,6 +57,11 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
             text=check.read_text();lines=text.splitlines(True)
             lines.insert(1,'case " $(cat /proc/cmdline) " in *" n810.slot="*) exit 0;; esac\n')
             check.write_text(''.join(lines))
+    from stage_sd_installer import stage as stage_installer
+    bootstrap_package=Path('/build/sd-installer-kernel/package')
+    if json.loads((bootstrap_package/'BUILD.json').read_text())['root_device']!='PARTUUID='+sd_id+'-02':
+        raise ValueError('Bootstrap kernel belongs to a different SD card kit')
+    bootstrap=stage_installer(root,bootstrap_package)
     slot_pub=(seed/'etc/ssh/ssh_host_ed25519_key.pub').read_text().strip()
     (output/'recovery-known-hosts').write_text('169.254.81.1 '+recovery_pub+'\n')
     (output/'slot-known-hosts').write_text('169.254.81.1 '+slot_pub+'\n')
@@ -74,7 +79,10 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
         pocket_source_commit=json.loads((root/'usr/local/share/pocket/INSTALL.json').read_text())['source_commit'],
         installer_runtime_sha256=digest(Path(__file__).with_name('ab_runtime.py')),
         hardware_acceptance=False)
+    shutil.copy2(bootstrap_package/'zImage-omap2420-n810',output/'sd-bootstrap-kernel.bin')
+    manifest['files']['sd-bootstrap-kernel.bin']={'bytes':(output/'sd-bootstrap-kernel.bin').stat().st_size,'sha256':bootstrap['kernel_sha256']}
     atomic(output/'AB.json',manifest)
+    atomic(output/'SD-BOOTSTRAP.json',dict(bootstrap,kind='n810-sd-bootstrap',sd_disk_id=sd_id,kit_sha256=digest(output/'AB.json')))
     atomic(output/'UPDATE.json',dict(slot,data_schema=1))
     shutil.rmtree(work)
     # The output is private because its data seed includes the supplied setup choices.
