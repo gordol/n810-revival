@@ -321,11 +321,14 @@ class Renderer:
         if key!=self._wanted:raise CancelledError()
         began=time.monotonic();self.loading_phase='lookup'
         stage=time.monotonic() if self.timing_enabled else None
-        if self.module is None:
+        if self.engine is None:
+            if not (self.maps/'walk-layers.n8w').is_file():
+                raise FileNotFoundError('No offline map views installed; install prepared reference data using n810-install-reference-data')
             path=self.root/'n810-map-next.py'
             spec=importlib.util.spec_from_file_location('framework_offline_map',path)
             module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-            self.module=module;self.engine=module.Engine(self.maps,'rgb',cache_directory=map_cache_directory())
+            engine=module.Engine(self.maps,'rgb',cache_directory=map_cache_directory())
+            self.module=module;self.engine=engine
         from desktop_elevation import configure
         configure(self.engine)
         from elevation_display import configure as configure_portable

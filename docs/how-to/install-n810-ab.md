@@ -157,3 +157,32 @@ The image build includes the Doom engine, bridge library, checksum-pinned
 Freedoom data, and their license notices. Games do not download dependencies
 at launch. Personal maps, radio identities, and optional third-party Symbian
 applications remain separately supplied data.
+
+## Optional offline maps and terrain
+
+Prepare regional data using [the map data guide](build-map-data.md). Keep raw GIS
+imports on the build host. The tablet needs the generated `maps/`, geography,
+hydrography and selected elevation packs, rather than the raw downloads.
+
+To include prepared data in a fresh A/B kit, add
+`--reference-data /absolute/path/to/pocket/data` to
+`platform/bootstrap/build_ab_host.py`. If the prepared legacy map views are kept
+separately, also pass `--reference-maps /absolute/path/to/maps`. The builder
+validates selected elevation tile checksums before building. It seeds the data
+partition once, increases its initial size to fit, and leaves the two system
+slots free of reference datasets. Reserve the normal build space plus three
+times the selected data size for staging and image output.
+
+To install or refresh prepared data on an existing tablet, the installed
+`n810-install-reference-data` tool supports `--source DIR --target DIR` and
+`--verify DIR`. Run it as `nokia` with the target
+`/home/nokia/.local/share/pocket`. It preserves unrelated files and skips unchanged
+files. Its `--stream` mode writes a tar stream directly to standard output for
+transfer without an intermediate archive; `--plan` validates inputs and reports
+file count and size without installing anything. Restart Pocket after changing
+the selected data so its existing workers reopen the catalogue.
+
+Map display overviews and LOS use different sampling: rendering may use reduced
+levels, while path calculations use selected fine elevation. Missing coverage
+is unknown, never evidence of a clear path. A successful software LOS calculation
+is not a radio link test.

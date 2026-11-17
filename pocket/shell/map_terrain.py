@@ -175,7 +175,8 @@ class Renderer(PreparedRenderer):
             if key[0] not in ('map','context'):raise ValueError('Imported maps provide prepared 2D views only')
             return self._render_provider(key)
         from desktop_elevation import enabled
-        if enabled() and key[0] in ('map','context'):
+        from data_paths import data_root
+        if (enabled() or (data_root()/'elevation.json').is_file()) and key[0] in ('map','context'):
             return VanillaRenderer._render(self,key)
         if key[0] not in ('map','context') or not key[5] or os.environ.get('CW_MAP_STYLE')=='classic' or not self.prepared_available():
             if key[0]=='context':raise ValueError('Local overview requires matching prepared terrain assets')

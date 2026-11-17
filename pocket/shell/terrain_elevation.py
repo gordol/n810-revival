@@ -106,9 +106,12 @@ def sample_elevation(latitude,longitude):
             return values[(y%256)*width+x%256]
         value=_sample(metadata,latitude,longitude,get)
         if value is not None:return value,metadata
-    value=elevation(latitude,longitude)
-    if value is not None:return value,grid()[0]
-    metadata,values=regional_grid()
+    try:
+        value=elevation(latitude,longitude)
+        if value is not None:return value,grid()[0]
+    except FileNotFoundError:pass  # Optional legacy pack; selected fine data may be the only installation.
+    try:metadata,values=regional_grid()
+    except FileNotFoundError:return None,{}
     value=_sample(metadata,latitude,longitude,lambda x,y:values[y*metadata['nx']+x])
     return value,metadata
 

@@ -25,7 +25,7 @@ def image(root, path, size, label):
     return {'bytes':path.stat().st_size,'sha256':digest(path)}
 
 
-def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kernel=None):
+def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kernel=None, reference_data=None, reference_maps=None):
     if os.geteuid() or os.uname().sysname != 'Linux': raise ValueError('Build inside the pinned Linux container as root')
     if any(not re.fullmatch('[0-9a-f]{8}',v) for v in (sd_id,recovery_id)) or sd_id==recovery_id: raise ValueError('Distinct eight-digit disk IDs required')
     if not 1024 <= slot_mib <= 8191: raise ValueError('Slot size must be 1024–8191 MiB')
@@ -63,13 +63,23 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
     (output/'recovery-known-hosts').write_text('169.254.81.1 '+recovery_pub+'\n')
     (output/'slot-known-hosts').write_text('169.254.81.1 '+slot_pub+'\n')
     slot=image(root,output/'slot.ext4',slot_mib,'n810-slot')
-    data=image(seed,output/'data.ext4',256,'n810-data')
+    data_mib=256
+    if reference_data is not None:
+        import sys
+        sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'pocket/tools'))
+        from install_reference_data import inventory,install
+        target=seed/'home/nokia/.local/share/pocket'
+        receipt=install(inventory(reference_data,reference_maps),target)
+        account=(root/'home/nokia').stat()
+        for path in (target,*target.rglob('*')):os.chown(path,account.st_uid,account.st_gid)
+        data_mib=max(256,(receipt['bytes']*12//10+64*MIB+MIB-1)//MIB)
+    data=image(seed,output/'data.ext4',data_mib,'n810-data')
     control=work/'control';control.mkdir()
     atomic(control/'state.json',{'version':1,'active':'A','pending':None,'tries':0})
     ctrl=image(control,output/'control.ext4',32,'n810-boot')
     shutil.copy2(recovery_package/'zImage-omap2420-n810',output/'recovery-kernel.bin')
     shutil.copy2(kernel/'BUILD.json',output/'KERNEL-BUILD.json')
-    manifest=dict(c,kind='n810-ab-kit',boot_method='same-kernel-root-switch',kernel_notes_sha256=digest(kernel/'kernel.notes'),slot_mib=slot_mib,minimum_card_bytes=(1+32+2*slot_mib+256)*MIB,
+    manifest=dict(c,kind='n810-ab-kit',boot_method='same-kernel-root-switch',kernel_notes_sha256=digest(kernel/'kernel.notes'),slot_mib=slot_mib,minimum_card_bytes=(1+32+2*slot_mib+data_mib)*MIB,
         files={'control.ext4':ctrl,'slot.ext4':slot,'data.ext4':data,'recovery.ext4':rec,
                'recovery-kernel.bin':{'bytes':(output/'recovery-kernel.bin').stat().st_size,'sha256':digest(output/'recovery-kernel.bin')}},
         source_commit=os.environ.get('INSTALLER_SOURCE_COMMIT') or json.loads((root/'usr/local/share/pocket/INSTALL.json').read_text())['source_commit'],

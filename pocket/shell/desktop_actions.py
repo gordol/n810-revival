@@ -36,6 +36,15 @@ def radio_summary(state,accepted):
 def dispatch(host,launch,identity,request):
     if not isinstance(request,dict):raise ValueError('Expected an object')
     command=request.get('command')
+    if command=='app-status':
+        if set(request)!={'command','name'} or not isinstance(request['name'],str):raise ValueError('Expected application name')
+        name=request['name'];form=host.app_forms.get(name)
+        if form is None:raise ValueError('Application unavailable')
+        window=host.window(name)
+        owner=getattr(form,'owner',form)
+        return dict(ok=True,focus=host.focus,name=name,opened=window.opened,visible=host.shown(window),
+                    error=text_summary(getattr(form,'error',''),500),
+                    lines=[text_summary(line,120) for line in owner.lines()][:30] if owner is not None else [])
     if command=='symbian-open':
         if set(request)!={'command','application'} or not isinstance(request['application'],str):raise ValueError('Invalid Symbian application request')
         from symbian_catalog import resolve
@@ -110,6 +119,7 @@ def dispatch(host,launch,identity,request):
                 map=dict(opened=window.opened,visible=host.shown(window),center=list(form.center),span=form.span,double_tap_interval_ms=form.double_tap.interval_ns//1_000_000,
                          cache=cache if cache in ('prepared','ram','cold') else None,
                          pending=getattr(form.renderer,'pending',None) is not None,
+                         error=getattr(form.renderer,'error',None),
                          image_ready=image is not None,coherent=coherent,image_cache=image_cache,
                          viewport=[getattr(form,'width',None),max(1,form.height-3) if hasattr(form,'height') else None],
                          presented_view=getattr(form,'_image_view',None)))

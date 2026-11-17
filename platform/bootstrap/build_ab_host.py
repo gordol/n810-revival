@@ -19,7 +19,18 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--output',type=Path,required=True);p.add_argument('--ssh-key',type=Path,required=True)
     p.add_argument('--configure',action='store_true');p.add_argument('--setup-stdin',action='store_true');p.add_argument('--slot-mib',type=int,default=1536)
+    p.add_argument('--reference-data',type=Path,help='Prepared map/elevation directory; seed persistent data once')
+    p.add_argument('--reference-maps',type=Path,help='Optional existing prepared map views directory')
     a=p.parse_args();a.output=a.output.expanduser().absolute();a.ssh_key=a.ssh_key.expanduser().resolve(strict=True)
+    if a.reference_maps and not a.reference_data:p.error('--reference-maps requires --reference-data')
+    if a.reference_data:
+        sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'pocket/tools'))
+        from install_reference_data import inventory
+        selected=inventory(a.reference_data,a.reference_maps)
+        required=sum(row['size'] for _,row in selected.values())
+        if shutil.disk_usage(a.output.parent).free < required*3+6*1024**3:
+            raise ValueError('Reserve 6 GiB plus three times the selected reference-data size')
+        print('Validated reference data: '+str(required)+' bytes',flush=True)
     check(a.output,a.slot_mib)
     if shutil.disk_usage(a.output.parent).free < (2*a.slot_mib+1536+1024)*1024**2:
         raise ValueError('Reserve at least 6 GiB output space for a default A/B kit')
@@ -59,9 +70,16 @@ def main():
              '--mount','type=bind,src='+str(a.output.parent)+',dst=/output',
              '--mount','type=volume,src=n810-internal-firmware,dst=/cache/firmware',
              '-e','SUDO_UID='+str(os.getuid()),'-e','SUDO_GID='+str(os.getgid()),image,
-             'python3','platform/bootstrap/build_internal_sources.py','--output','/work/base-kit',
+             'python3','platform/bootstrap/build_internal_sources.py','--output','/build/base-kit',
              '--ssh-key','/run/owner.pub','--firmware-cache','/cache/firmware','--size-mib',str(a.slot_mib),
              '--storage-target','sd','--ab-output','/output/'+a.output.name,'--ab-sd-id',sd_id,'--setup-stdin']
+    for option in ('reference_data','reference_maps'):
+        value=getattr(a,option)
+        if value is not None:
+            value=value.expanduser().resolve(strict=True)
+            if not value.is_dir():raise ValueError('Reference input must be a directory')
+            command[4:4]=['--mount','type=bind,src='+str(value)+',dst=/run/'+option+',readonly']
+            command+=['--'+option.replace('_','-'),'/run/'+option]
     private_input=json.dumps(profile)+'\n'
     if password is not None:command+=['--password-stdin'];private_input=password+'\n'+private_input
     with (work/'export.log').open('w') as log:

@@ -21,6 +21,10 @@ def checked_environments(root):
 def stage(root):
     root = Path(root)
     checked_environments(root)
+    data_tool=root/'usr/local/bin/n810-install-reference-data'
+    data_tool.parent.mkdir(parents=True,exist_ok=True)
+    shutil.copyfile(REPO/'pocket/tools/install_reference_data.py',data_tool)
+    data_tool.chmod(0o755)
     shell = root / 'usr/local/share/pocket/shell'
     destination = root / 'usr/local/lib/n810-radio'
     destination.mkdir(parents=True, exist_ok=True)
