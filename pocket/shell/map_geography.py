@@ -16,10 +16,13 @@ def load(identity):
  p=Path(identity[0]);raw=p.read_bytes()
  return json.loads(gzip.decompress(raw) if p.suffix=='.gz' else raw)
 @lru_cache(maxsize=32)
-def tile(path,digest):
+def tile_bytes(path,digest):
  raw=Path(path).read_bytes()
  if hashlib.sha256(raw).hexdigest()!=digest:raise ValueError('Geography tile integrity failure')
- return json.loads(gzip.decompress(raw))
+ return raw
+def tile(path,digest):
+ # Retain compressed inputs, not tens of megabytes of Python objects per tile.
+ return json.loads(gzip.decompress(tile_bytes(path,digest)))
 def data_for_view(view,display_span=None):
  data=load(signature())
  if 'tiles' not in data:return data
@@ -31,8 +34,12 @@ def data_for_view(view,display_span=None):
    row=data['tiles'].get(f'{ix},{iy}')
    if row is None:continue
    pack=tile(str(INDEX.parent/row['file']),row['sha256'])
-   for n,r in enumerate(pack['roads']):roads[r.get('id',('road',r.get('name'),tuple(r['bbox'])))]=r
-   for n,r in enumerate(pack['streams']):streams[r.get('id',('stream',n))]=r
+   for category,selected in (('roads',roads),('streams',streams)):
+    for n,r in enumerate(pack[category]):
+     ra,rb,rc,rd=r.get('bbox',(-180,-90,180,90))
+     if rc<west or ra>east or rd<south or rb>north:continue
+     key=('road',r.get('name'),tuple(r['bbox'])) if category=='roads' else ('stream',n)
+     selected[r.get('id',key)]=r
  return dict(roads=tuple(roads.values()),streams=tuple(streams.values()),labels=data['labels'])
 def covers(view):
  data=load(signature());bounds=data.get('coverage')

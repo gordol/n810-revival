@@ -13,10 +13,12 @@ def index(identity):
  if not data.get('complete'):raise ValueError('Incomplete hydrography catalogue')
  return data
 @lru_cache(maxsize=64)
-def tile(name,digest):
+def tile_bytes(name,digest):
  raw=(PATH.parent/name).read_bytes()
  if hashlib.sha256(raw).hexdigest()!=digest:raise ValueError('Hydrography tile integrity failure')
- polygons=json.loads(gzip.decompress(raw))
+ return raw
+def tile(name,digest):
+ polygons=json.loads(gzip.decompress(tile_bytes(name,digest)))
  for poly in polygons:
   outer=poly['rings'][0];xs=[p[0] for p in outer];ys=[p[1] for p in outer]
   poly['bbox']=(min(xs),min(ys),max(xs),max(ys));area=0
@@ -25,6 +27,7 @@ def tile(name,digest):
    area+=value if n==0 else -value
   poly['area']=max(0,area)
  return polygons
+tile.cache_clear=tile_bytes.cache_clear
 def labels():return index(signature()).get('labels',[]) if signature() else []
 def mask(view):
  identity=signature()
