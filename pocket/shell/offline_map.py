@@ -241,6 +241,12 @@ class ReprojectedPlane:
         return value
 
 
+def display_terrain_sampler(engine):
+    """Use the installed prepared display pack; LOS retains its fine reader."""
+    prepared=getattr(engine,'_catalogue_original_rgb',None)
+    return prepared if prepared is not None and getattr(engine,'terrain',None) is not None else engine._rgb_terrain
+
+
 class Renderer:
     def __init__(self,root=ROOT,maps=None):
         from data_paths import map_directory
@@ -376,7 +382,7 @@ class Renderer:
         _,center,span,width,height,terrain,roads=key
         view=self.module.Viewport(center,span,width,height)
         self.loading_phase='terrain'
-        frame,legend=self.engine._rgb_terrain(view,terrain)
+        frame,legend=display_terrain_sampler(self.engine)(view,terrain)
         self.loading_phase='features'
         features=self._features_from_terrain(view,frame,roads,pixel_detail=self.presentation=='semantic')
         if key!=self._wanted:raise CancelledError()

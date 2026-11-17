@@ -220,17 +220,18 @@ class MapPixelHandoff(unittest.TestCase):
   self.assertGreater(height,view.height*2)
   self.assertEqual(len(samples),width*height)
 
- def test_pan_composite_moves_sharp_scene_over_surrounding_map(self):
+ def test_pan_composite_reuses_only_the_visible_map(self):
   from array import array
   from scenes import MapScene,MapComposite
   host=NS(origin=(0,0),window=lambda name:name,bounds=lambda window:(1,2,12,6))
-  app=View(host,None);app._surround_scene=MapScene(15,12,array('I',[0]*(15*12*2)),15,24,(),())
+  app=View(host,None)
   sharp=MapScene(5,4,array('I',[0]*40),5,8,(),())
   composite,x,y,width,height=app.positioned(sharp,(0,0,5,4,()),NS(content_width=5,inset=None),(8,-16))
   self.assertIsInstance(composite,MapComposite)
   self.assertEqual((x,y,width,height),(16,48,40,64))
-  self.assertEqual(composite.layers[0][1:3],(-40,-64))
-  self.assertEqual(composite.layers[1][1:3],(8,-16))
+  self.assertEqual(len(composite.layers),1)
+  self.assertIs(composite.layers[0][0],sharp)
+  self.assertEqual(composite.layers[0][1:3],(8,-16))
 
  def test_unavailable_source_is_opaque_notice_without_fallback(self):
   surface=NS(unavailable_reason='No semantic layers',viewport=lambda:object(),features=lambda *args:self.fail('Fallback sampled'))

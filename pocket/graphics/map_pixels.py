@@ -47,11 +47,8 @@ def terrain_detail(surface,view,features):
  from desktop_elevation import pixel_samples
  fast=pixel_samples(surface.renderer.engine,dense) if enabled() else None
  if fast is not None:return fast
- engine=surface.renderer.engine
- # Prepared display terrain is distinct from fine elevation used by LOS.
- # The ARM GUI must not turn every display pixel into a fresh DEM query.
- sampler=getattr(engine,'_catalogue_original_rgb',engine._rgb_terrain) if not enabled() and getattr(engine,'terrain',None) is not None else engine._rgb_terrain
- frame,_=sampler(dense,True)
+ from offline_map import display_terrain_sampler
+ frame,_=display_terrain_sampler(surface.renderer.engine)(dense,True)
  from offline_map import map_rgb
  samples=array('I')
  for row in range(dense.height):
@@ -60,23 +57,12 @@ def terrain_detail(surface,view,features):
   samples.extend(map_rgb(lower) for _,_,lower in cells)
  return samples,dense.width,dense.height*2
 
-def surround_camera(projection,content_width,height):
- """Extend the current pane around its visible center at matching scale."""
- x,y=(content_width-1)/2,(height-1)/2
- lat,lon=projection.center
- step=projection.span/max(1,projection.width-1)/111.32
- center=(lat-(y-(projection.height-1)/2)*step*projection.cell_aspect,
-         lon+(x-(projection.width-1)/2)*step/max(.000001,math.cos(math.radians(lat))))
- span=projection.span*(3*content_width-1)/max(1,projection.width-1)
- return tuple(center),span
-
 class View:
  input_role='map'
  def __init__(self,host,owner,*,name='Station Map'):
   self.host=host;self.owner=owner;self.name=name
   self.pending=None;self.ready=None;self.ready_layer=None;self.key=None;self.failed=None;self.pixel_frames=0;self.pixel_jobs=0;self.error=''
   self.ready_surface=None;self._presented_pan=None
-  self._surround_key=None;self._surround_future=None;self._surround_scene=None;self.surround_error=''
   self._inset_key=None;self._inset_scene=None;self._inset_pending=None
   self._terrain_key=None;self._terrain_samples=None
  def plan(self):
@@ -89,7 +75,6 @@ class View:
  @property
  def pixel_dirty(self):
   if self._inset_pending is not None and self._inset_pending[1].done():return True
-  if self._surround_future is not None and self._surround_future.done():return True
   pan=self.pan_offset()
   if pan is not None and pan!=self._presented_pan:return True
   plan=self.plan()
@@ -138,66 +123,16 @@ class View:
   if base is None or getattr(self.owner,'terrain_active',False):return None
   return getattr(base,'_gpu_pan_offset',None)
 
- def prepare_surround(self,renderer,center,span,width,height,roads):
-  from scenes import MapScene
-  from map_geography import vector_segments
-  from offline_map import map_rgb
-  view=renderer.module.Viewport(center,span,width,height)
-  frame,_=renderer.engine._rgb_terrain(view,True)
-  terrain=array('I')
-  for row in range(height):
-   cells=frame[row*width:(row+1)*width]
-   terrain.extend(map_rgb(upper) for _,upper,_ in cells)
-   terrain.extend(map_rgb(lower) for _,_,lower in cells)
-  lines=[]
-  for color,points in vector_segments(renderer.engine,view,roads=roads,detail_pixels=8,forest_roads=False):
-   pixels=array('d')
-   for i in range(0,len(points),2):
-    px,py=view.project(points[i],points[i+1]);pixels.extend(((px+.5)*8,(py+.5)*16))
-   if len(pixels)//4>250000:raise ValueError('Map surround vector budget exceeded')
-   lines.append((color,pixels))
-  scene=MapScene(width,height,terrain,width,height*2,tuple(lines),(Mark*0)())
-  prepare=getattr(getattr(self.host,'render_context',None),'prepare_scene',None)
-  return prepare(scene) if prepare is not None else scene
-
- def schedule_surround(self,surface):
-  image=getattr(surface,'image',None);projection=getattr(image,'projection',None)
-  if getattr(getattr(self.host,'render_context',None),'backend',None)=='framebuffer':return
-  if (image is None or getattr(surface,'unavailable_reason','') or getattr(image,'source',None)!='semantic' or projection is None or
-      not callable(getattr(getattr(getattr(surface,'renderer',None),'engine',None),'_rgb_terrain',None))):return
-  if self.ready is None or self.ready_surface is not None and self.ready_surface.image is not image:return
-  pool=getattr(surface.renderer,'pool',None)
-  if pool is None or getattr(surface.renderer,'pending',None):return
-  layer=surface.layer;content_width=min(layer[2],getattr(surface,'content_width',0) or layer[2])
-  key=(id(image),content_width,layer[3],surface.roads)
-  if key==self._surround_key:return
-  if self._surround_future is not None:self._surround_future.cancel()
-  center,span=surround_camera(projection,content_width,layer[3])
-  self._surround_key=key;self._surround_scene=None
-  self._surround_future=pool.submit(self.prepare_surround,surface.renderer,center,span,
-      max(2,content_width*3),max(2,layer[3]*3),surface.roads)
-  callback=surface.renderer.completion_wakeup
-  self._surround_future.add_done_callback(lambda f,callback=callback:self.wake(f,callback))
-
- def adopt_surround(self):
-  future=self._surround_future
-  if future is None or not future.done():return
-  self._surround_future=None
-  try:self._surround_scene=future.result();self.surround_error=''
-  except Exception as error:self.surround_error=str(error)
-
  def positioned(self,source,layer,surface,pan=None):
   x,y,w,h=layer[:4];wx,wy,_,_=self.host.bounds(self.host.window(self.name));ox,oy=self.host.origin
   content_width=min(w,max(1,getattr(surface,'content_width',0) or w))
   from scenes import MapScene
   if not isinstance(source,MapScene):pan=None;content_width=w
   inset=self.inset_scene(surface)
-  if pan is not None and self._surround_scene is None:pan=None
   if pan is not None or content_width<w or inset is not None:
    from scenes import MapComposite
    layers=[]
    clip=(0,0,content_width*8,h*16)
-   if pan is not None:layers.append((self._surround_scene,-content_width*8,-h*16,*clip))
    layers.append((source,*(pan or (0,0)),*clip))
    if inset is not None:
     scene,ix,iy,iw,ih=inset
@@ -242,14 +177,12 @@ class View:
    try:callback()
    except (OSError,RuntimeError):pass
  def render_image(self):
-  self.adopt_surround()
   pan=self.pan_offset();base=getattr(self.owner,'base',None)
   dragging=bool(base is not None and (getattr(base,'_target_drag',None) is not None or
                                       getattr(base,'_pan_drag',None) is not None))
   plan=self.plan()
   if plan is None:return None
   key,layer,surface=plan
-  self.schedule_surround(surface)
   if self.pending and self.pending[1].done():
    finished,future,retained_layer,retained_surface=self.pending;self.pending=None
    try:self.ready=future.result();self.key=finished;self.ready_layer=retained_layer;self.ready_surface=retained_surface;self.pixel_frames+=1;self.error=''
