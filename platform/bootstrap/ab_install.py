@@ -60,6 +60,11 @@ def write_recovery(kit,m,key,host,expected_cid,erase):
  test "$(cat /sys/block/NODE/device/type)" = MMC
  test "$(cat /sys/block/NODE/device/cid)" = CID
  test "$(cat /sys/block/NODE/size)" = SECTORS
+ for path in /sys/block/NODE /sys/block/NODE/NODE*; do
+  test -f "$path/dev" || continue
+  number=$(cat "$path/dev")
+  ! awk -v number="$number" '$3==number {found=1} END {exit !found}' /proc/self/mountinfo
+ done
  ! grep -q '/dev/NODE' /proc/mounts
  ! grep -q '/dev/NODE' /proc/swaps
  dd of=/dev/NODE bs=1048576
@@ -100,12 +105,21 @@ def main():
     else:
         receipt=json.loads((kit/'RECOVERY-INSTALL.json').read_text())
         sd=json.loads((kit/'SD-INSTALL.json').read_text())
+        if receipt.get('state')!='recovery_written':raise ValueError('Recovery kernel flash was already attempted; inspect its receipt')
         if not receipt.get('readback_verified') or not sd.get('readback_verified') or any(v['kit_sha256']!=digest(kit/'AB.json') for v in (receipt,sd)):
             raise ValueError('Both SD and recovery must have verified write receipts')
         identity=identify_device(a.flasher)
         for field in ('usb_location','usb_port'):
             if field in receipt and receipt[field]!=identity.get(field):raise ValueError('Target USB port changed')
-        _run_flasher(a.flasher,['-m','kernel:'+str(kit/'recovery-kernel.bin'),'-f','-r'],180,kit/'USB-OPERATIONS.log')
+        try:
+            _run_flasher(a.flasher,['-m','kernel:'+str(kit/'recovery-kernel.bin'),'-f','-r'],180,kit/'USB-OPERATIONS.log')
+        except RuntimeError as error:
+            output=str(error)
+            if (re.search(r'Flashing image\.\.\.\s+Done\s+Rebooting device\.\.\.',output) and
+                    re.findall(r'Error:[^\r\n]*',output)==['Error: NOLO_REBOOT failed']):
+                atomic(kit/'RECOVERY-INSTALL.json',dict(receipt,state='kernel_flashed_reboot_unconfirmed'))
+                raise RuntimeError('Kernel flash completed; reboot acknowledgement failed. Verify live boot; do not flash again.') from error
+            raise
         result=dict(receipt,state='recovery_kernel_flashed');atomic(kit/'RECOVERY-INSTALL.json',result)
     print(json.dumps(result,indent=2))
 
