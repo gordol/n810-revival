@@ -113,6 +113,22 @@ Data-schema changes are rejected by the updater. They require a separate,
 backed-up migration compatible with the rollback policy. A/B images alone do
 not roll back shared database changes.
 
+## Development updates
+
+Application changes can be tested without rebooting or replacing an OS slot.
+Stop Pocket through its service so the owner releases the display and GPU,
+apply the changed runtime files, then start Pocket again. On the read-only OS,
+a temporary bind mount can expose a verified development file from persistent
+storage. Keep the original file available underneath for rollback. Native
+library changes must also match the graphics release manifest checked by the
+launcher.
+
+These temporary mounts disappear at reboot. Save changes in source and rebuild
+a kit after the development round, then test a normal slot update and boot.
+An in-place application test does not establish that a fresh image boots or
+that an update preserves data. Kernel and boot-layout changes need their own
+boot tests; ordinary Python, app and compatible library edits do not.
+
 ## Recovery
 
 With the card absent, the internal system remains available through USB SSH
