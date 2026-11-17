@@ -247,7 +247,16 @@ static int scene_gl_geometry_now(Scene_Renderer *r,Scene_Texture *source,const S
   }
   Scene_Rect saved_clip=r->clip;int saved_clipped=r->clipped;Scene_BlendMode saved_blend=r->blend;int result=0;
   int saved_x=r->translate_x,saved_y=r->translate_y;
-  for(size_t i=0;i<source->count&&!result;i++){struct scene_command *c=source->commands+i;r->translate_x=saved_x+c->dx;r->translate_y=saved_y+c->dy;r->clip=c->clip;r->clip.x+=r->translate_x;r->clip.y+=r->translate_y;r->clipped=c->clipped;r->blend=c->blend;result=scene_gl_geometry_now(r,c->source,source->stream+c->first,c->count,NULL,0,&c->compiled);}
+  for(size_t i=0;i<source->count&&!result;i++){struct scene_command *c=source->commands+i;r->translate_x=saved_x+c->dx;r->translate_y=saved_y+c->dy;r->clip=c->clip;r->clip.x+=r->translate_x;r->clip.y+=r->translate_y;r->clipped=c->clipped;
+   if(source->recorded_scene==2&&saved_clipped){
+    if(!r->clipped){r->clip=saved_clip;r->clipped=1;}
+    else{int left=r->clip.x>saved_clip.x?r->clip.x:saved_clip.x,top=r->clip.y>saved_clip.y?r->clip.y:saved_clip.y;
+     int right=r->clip.x+r->clip.w<saved_clip.x+saved_clip.w?r->clip.x+r->clip.w:saved_clip.x+saved_clip.w;
+     int bottom=r->clip.y+r->clip.h<saved_clip.y+saved_clip.h?r->clip.y+r->clip.h:saved_clip.y+saved_clip.h;
+     if(right<=left||bottom<=top)continue;
+     r->clip=(Scene_Rect){left,top,right-left,bottom-top};}
+   }
+   r->blend=c->blend;result=scene_gl_geometry_now(r,c->source,source->stream+c->first,c->count,NULL,0,&c->compiled);}
   r->translate_x=saved_x;r->translate_y=saved_y;r->clip=saved_clip;r->clipped=saved_clipped;r->blend=saved_blend;return result;
  }
  if(source&&source->room_region)return scene_gl_room_now(r,source,v,n);
@@ -497,7 +506,16 @@ static int Scene_RenderGeometry(Scene_Renderer *r,Scene_Texture *source,const Sc
 static int Scene_RenderCopy(Scene_Renderer *r,Scene_Texture *t,const Scene_Rect *src,const Scene_Rect *dst){
  if(!r||!t||src)return -1;
  if(!r->target)return 0;
- if(t->recorded_scene){if(dst||r->target->w!=t->w||r->target->h!=t->h)return -1;return Scene_RenderGeometry(r,t,NULL,0,NULL,0);}
+ if(t->recorded_scene){
+  if(t->recorded_scene==2){
+   Scene_Rect d=dst?*dst:(Scene_Rect){0,0,(int)r->target->w,(int)r->target->h};
+   if(d.w!=(int)t->w||d.h!=(int)t->h)return -1;
+   if(Scene_RenderGeometry(r,t,NULL,0,NULL,0))return -1;
+   struct scene_command *c=r->target->commands+r->target->count-1;c->dx=d.x;c->dy=d.y;return 0;
+  }
+  if(dst||r->target->w!=t->w||r->target->h!=t->h)return -1;
+  return Scene_RenderGeometry(r,t,NULL,0,NULL,0);
+ }
  Scene_Rect d=dst?*dst:(Scene_Rect){0,0,(int)r->target->w,(int)r->target->h};
  for(unsigned i=0;i<(t->room_region?1:t->n);i++){struct scene_gl_tile full={.w=t->w,.h=t->h};struct scene_gl_tile *q=t->room_region?&full:t->tiles+i;Scene_Vertex v[6];const unsigned c[6]={0,1,2,0,2,3};for(unsigned j=0;j<6;j++){unsigned k=c[j];float x=q->x+((k==1||k==2)?q->w:0),y=q->y+(k>=2?q->h:0);v[j]=(Scene_Vertex){{d.x+x*d.w/t->w,d.y+y*d.h/t->h},{255,255,255,255},{x/t->w,y/t->h}};}if(Scene_RenderGeometry(r,t,v,6,NULL,0))return -1;}
  return 0;
