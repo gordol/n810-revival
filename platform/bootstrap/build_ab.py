@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tempfile
 import uuid
 from ab_runtime import atomic, digest
 from ab_stage import stage, recovery
@@ -33,7 +34,8 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
     if not report.get('ab_boot') or report['root_device'] != 'PARTUUID='+recovery_id+'-01':
         raise ValueError('Kernel must accept slot arguments and default to this recovery disk')
     output.mkdir(mode=0o700,exist_ok=False)
-    work=output/'.build';work.mkdir()
+    # Device nodes and Linux ownership must never be staged on a macOS bind mount.
+    work=Path(tempfile.mkdtemp(prefix='n810-ab-',dir='/work'))
     recovery_root=work/'recovery';subprocess.run(['cp','-a',str(root),str(recovery_root)],check=True)
     c={'version':1,'sd_disk_id':sd_id,'recovery_disk_id':recovery_id,'data_schema':1}
     recovery_package=Path(recovery_kernel or '/build/recovery-kernel/package')
