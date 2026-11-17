@@ -31,6 +31,7 @@
 #define Scene_RendererInfo SDL_RendererInfo
 #define Scene_ScaleModeNearest SDL_ScaleModeNearest
 #define Scene_SetError SDL_SetError
+#define Scene_GetError SDL_GetError
 #define Scene_SetRenderDrawBlendMode SDL_SetRenderDrawBlendMode
 #define Scene_SetRenderDrawColor SDL_SetRenderDrawColor
 #define Scene_SetRenderTarget SDL_SetRenderTarget

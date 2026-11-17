@@ -64,8 +64,10 @@ class Context:
         self.backend=self.lib.pocket_scene_backend(self.handle).decode()
     def check(self,result):
         if result:
-            self.lib.pocket_window_error.restype=C.c_char_p
-            raise RuntimeError(self.lib.pocket_window_error().decode())
+            error=getattr(self.lib,"pocket_scene_error",self.lib.pocket_window_error)
+            error.restype=C.c_char_p
+            message=error()
+            raise RuntimeError(message.decode(errors="replace") if message else "Scene operation failed without a diagnostic")
     def release(self,handle):
         if handle in self.retained_handles:
             self.check(self.lib.pocket_scene_retained_forget(handle))

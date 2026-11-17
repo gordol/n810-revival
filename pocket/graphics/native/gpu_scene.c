@@ -481,6 +481,13 @@ int pocket_scene_draw(void *ptr,int native_text){
 #endif
  return 0;
 }
+const char *pocket_scene_error(void){
+#ifdef POCKET_SCENE_GL
+ return scene_error[0]?scene_error:"Scene presentation failed without a backend diagnostic";
+#else
+ return Scene_GetError();
+#endif
+}
 int pocket_scene_present(void *ptr,int native_text){struct gpu_scene *s=ptr;
 #ifdef POCKET_SCENE_GL
  (void)native_text;if(!s||Scene_PresentTarget(s->device,s->canvas))return -1;

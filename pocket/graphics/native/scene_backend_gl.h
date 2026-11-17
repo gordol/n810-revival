@@ -47,7 +47,11 @@ typedef struct {const char *name;unsigned flags;} Scene_RendererInfo;
 int pocket_window_acquire(void *,struct mbx_surface *);
 int pocket_window_prepare(void *,struct mbx_surface *);
 typedef struct {int sink_deferred,matrix_valid,matrix_forward,matrix_x,matrix_y,matrix_dx,matrix_dy;unsigned matrix_w,matrix_h;int profile,draw_profile,dma_damage,damage_cull;unsigned window_pages;uint64_t page_candidates,damage_culled_batches,geometry_builds,geometry_replays,draw_cpu_ns,draw_calls,geometry_cpu_ns,finish_cpu_ns,sink_cpu_ns;int translate_x,translate_y,sink_forward,last_sink_forward;void *presented_pixels;int presented_stride;void *sink_pixels;int sink_stride,sink_dma,sink_fd;uint64_t sink_bytes,sink_jobs,dma_bytes,dma_jobs;float color_float[256];OSMesaContext context;Scene_Texture *target;Scene_Rect clip;int clipped;Scene_Color color;Scene_BlendMode blend;void *window;int pack_invert;unsigned tile_first,tile_end;uint16_t *capture_tile;size_t capture_capacity;Scene_Vertex *filtered;unsigned *filtered_indices;size_t filtered_capacity;Scene_Rect occlusion[8];unsigned occlusion_count;int presenting,previous_room_valid;Scene_Texture *preserved_room,*presented_target;Scene_Rect preserve_rect;Scene_Vertex previous_room_vertices[6];float previous_room_state[6];unsigned previous_room_width,previous_room_height;Scene_RoomRegion previous_room_draw;int (*previous_room_eye)(float);uint64_t presented_revision,preserved_frames;uint64_t owner_checks,owner_rejects,target_switches,readback_calls,readback_bytes,presentation_bytes;} Scene_Renderer;
-static int Scene_SetError(const char *text,...){(void)text;return -1;}
+static char scene_error[512];
+static int Scene_SetError(const char *text,...){
+ va_list args;va_start(args,text);vsnprintf(scene_error,sizeof(scene_error),text,args);va_end(args);
+ fprintf(stderr,"POCKET_SCENE_ERROR: %s\n",scene_error);return -1;
+}
 static Scene_Renderer *scene_device(void *window){
  OSMesaContext c=OSMesaGetCurrentContext();if(!c)return NULL;
  Scene_Renderer *r=calloc(1,sizeof(*r));if(r){for(unsigned i=0;i<256;i++)r->color_float[i]=i/255.f;r->context=c;r->window=window;r->profile=getenv("POCKET_SCENE_PROFILE")&&!strcmp(getenv("POCKET_SCENE_PROFILE"),"1");r->damage_cull=getenv("POCKET_SCENE_DAMAGE_CULL")&&!strcmp(getenv("POCKET_SCENE_DAMAGE_CULL"),"1");r->dma_damage=getenv("POCKET_SCENE_DMA_DAMAGE")&&!strcmp(getenv("POCKET_SCENE_DMA_DAMAGE"),"1");r->draw_profile=r->profile&&getenv("POCKET_SCENE_DRAW_PROFILE")&&!strcmp(getenv("POCKET_SCENE_DRAW_PROFILE"),"1");const char *extensions=(const char*)glGetString(GL_EXTENSIONS);r->pack_invert=extensions&&strstr(extensions,"GL_MESA_pack_invert");}return r;
@@ -142,12 +146,12 @@ static int Scene_RenderClear(Scene_Renderer *r){
 /* Fused opaque Room draw. The shared scene retains camera/geometry, not a
  * CPU image. The same depth target then accepts ordinary 2D overlays. */
 static int scene_gl_room_now(Scene_Renderer *r,Scene_Texture *source,const Scene_Vertex *v,int n){
- if(n!=6||source->blend!=Scene_BLENDMODE_NONE)return -1;
+ if(n!=6||source->blend!=Scene_BLENDMODE_NONE)return Scene_SetError("Room requires one opaque quad: vertices=%d blend=%d",n,source->blend);
  if(source==r->preserved_room)return 0;
  int x=(int)v[0].position.x,y=(int)v[0].position.y;
  if(v[0].position.x!=x||v[0].position.y!=y||v[2].position.x!=x+(int)source->w||v[2].position.y!=y+(int)source->h)return -1;
  for(unsigned ti=r->tile_first;ti<r->tile_end;ti++){
-  struct scene_gl_tile *q=r->target->tiles+ti;if(!q->depth)return -1;
+  struct scene_gl_tile *q=r->target->tiles+ti;if(!q->depth)return Scene_SetError("Room target lacks depth: tile=%ux%u",q->pw,q->ph);
   if(!scene_gl_target(r,q))continue;
   int left=x>(int)q->x?x:(int)q->x,top=y>(int)q->y?y:(int)q->y;
   int right=x+(int)source->w<(int)(q->x+q->w)?x+(int)source->w:(int)(q->x+q->w),bottom=y+(int)source->h<(int)(q->y+q->h)?y+(int)source->h:(int)(q->y+q->h);
@@ -158,7 +162,7 @@ static int scene_gl_room_now(Scene_Renderer *r,Scene_Texture *source,const Scene
   GLfloat pos[]={x,y,0,x+(int)source->w,y,0,x+(int)source->w,y+(int)source->h,0,x,y,0,x+(int)source->w,y+(int)source->h,0,x,y+(int)source->h,0};
   glDisable(GL_TEXTURE_2D);glDisable(GL_BLEND);glDisableClientState(GL_COLOR_ARRAY);glDisableClientState(GL_NORMAL_ARRAY);glDisableClientState(GL_TEXTURE_COORD_ARRAY);glEnableClientState(GL_VERTEX_ARRAY);glColor4f(0,0,0,1);glVertexPointer(3,GL_FLOAT,0,pos);glDrawArrays(GL_TRIANGLES,0,6);
   r->matrix_valid=0; /* Room owns and replaces all three matrices. */
-  float *a=source->room_state;if(source->room_eye(a[5])||source->room_region(a[0],a[1],a[2],a[3],a[4],source->w,source->h,(int)q->x-x,(int)q->y-y,q->w,q->h,q->ph,1))return -1;
+  float *a=source->room_state;if(source->room_eye(a[5])||source->room_region(a[0],a[1],a[2],a[3],a[4],source->w,source->h,(int)q->x-x,(int)q->y-y,q->w,q->h,q->ph,1))return Scene_SetError("Room producer rejected region: source=%ux%u tile=%ux%u offset=%d,%d target_height=%u",source->w,source->h,q->w,q->h,(int)q->x-x,(int)q->y-y,q->ph);
  }
  return glGetError()==GL_NO_ERROR?0:-1;
 }
@@ -359,7 +363,7 @@ static unsigned scene_tile_triangles(const Scene_Texture *t,const struct scene_g
  unsigned total=0;
  for(size_t j=0;j<t->count;j++){
   const struct scene_command *c=t->commands+j;
-  if(c->source&&c->source->room_region)return SCENE_TILE_TRIANGLES+1;
+  if(c->source&&c->source->room_region)continue; /* Producer owns its 3D draw budget. */
   if(c->source&&c->source->recorded_scene){
    total+=scene_tile_triangles(c->source,q,dx+c->dx,dy+c->dy,depth+1);
   }else for(int i=0;i<c->count;i+=3){
@@ -384,12 +388,12 @@ static int scene_tile_storage(Scene_Renderer *r,struct scene_gl_tile *q){
 }
 static int scene_bound_output(Scene_Renderer *r,Scene_Texture *t){
  if(!r->sink_dma||t->format!=Scene_PIXELFORMAT_RGB565||!t->clear_pending)return 0;
+ unsigned rooms=0;for(size_t j=0;j<t->count;j++)if(t->commands[j].source&&t->commands[j].source->room_region)rooms++;
  for(unsigned i=0;i<t->n;){
   struct scene_gl_tile q=t->tiles[i];
-  if(q.depth)return 0; /* 3D retains its independently bounded depth path. */
   /* The full desktop is the sole large-target exception. A low-density
    * half-frame still needs subdivision if either padded side exceeds 400. */
-  int dimensions=(q.w==800&&q.h==480)||(((q.w+15)&~15U)<=400&&((q.h+15)&~15U)<=400);
+  int dimensions=(!rooms&&q.w==800&&q.h==480)||(((q.w+15)&~15U)<=400&&((q.h+15)&~15U)<=400);
   if(dimensions&&scene_tile_triangles(t,&q,0,0,0)<=SCENE_TILE_TRIANGLES){++i;continue;}
   if(q.w<=16&&q.h<=16){fprintf(stderr,"Pocket scene exceeds bounded GPU tile density at %u,%u\n",q.x,q.y);return -1;}
   struct scene_gl_tile a={.x=q.x,.y=q.y,.w=q.w,.h=q.h},b=a;
@@ -399,7 +403,7 @@ static int scene_bound_output(Scene_Renderer *r,Scene_Texture *t){
   struct scene_gl_tile *tiles=realloc(t->tiles,(t->n+1)*sizeof(*tiles));
   if(!tiles){glDeleteFramebuffers(1,&a.fbo);glDeleteTextures(1,&a.color);glDeleteFramebuffers(1,&b.fbo);glDeleteTextures(1,&b.color);return -1;}
   t->tiles=tiles;t->tiles[i]=a;t->tiles[t->n++]=b;
-  glDeleteFramebuffers(1,&q.fbo);glDeleteTextures(1,&q.color);
+  glDeleteFramebuffers(1,&q.fbo);glDeleteTextures(1,&q.color);if(q.depth)glDeleteRenderbuffers(1,&q.depth);
   t->damage_valid=0;r->matrix_valid=0;
  }
  return 0;
@@ -409,8 +413,8 @@ static int scene_gl_flush(Scene_Renderer *r,Scene_Texture *t){
  Scene_Texture *old=r->target;Scene_Rect clip=r->clip;int clipped=r->clipped;Scene_BlendMode blend=r->blend;
  unsigned first=r->tile_first,end=r->tile_end;int result=0;r->target=t;r->matrix_valid=0;
  unsigned rooms=0;for(size_t j=0;j<t->count;j++)if(t->commands[j].source&&t->commands[j].source->room_region)rooms++;
- if(rooms>1|| (rooms&&!t->clear_pending)){r->target=old;return -1;}
- if(!rooms&&scene_bound_output(r,t)){r->target=old;return -1;}
+ if(rooms>1|| (rooms&&!t->clear_pending)){r->target=old;return Scene_SetError("Room composition requires one room and a clear: rooms=%u clear=%d",rooms,t->clear_pending);}
+ if(scene_bound_output(r,t)){r->target=old;return -1;}
  if(r->sink_pixels){
   r->sink_forward=r->sink_dma&&!rooms&&getenv("POCKET_DMA_FORWARD")&&!strcmp(getenv("POCKET_DMA_FORWARD"),"1");
   if(r->last_sink_forward!=r->sink_forward)t->damage_valid=0;

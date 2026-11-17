@@ -26,6 +26,7 @@ enum {Scene_PIXELFORMAT_RGB565=1,GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_TEXTURE_
 #define glFramebufferTexture2D(...) ((void)0)
 #define glDeleteFramebuffers(...) ((void)0)
 #define glDeleteTextures(...) ((void)0)
+#define glDeleteRenderbuffers(...) ((void)0)
 #define glGenTextures(n,p) (*(p)=1)
 #define glGenFramebuffers(n,p) (*(p)=2)
 #define glCheckFramebufferStatus(...) GL_FRAMEBUFFER_COMPLETE
@@ -63,6 +64,12 @@ int main(void){
  for(unsigned i=0;i<t.n;i++){struct scene_gl_tile *q=t.tiles+i;assert(q->pw<=400&&q->ph<=400);assert(scene_tile_triangles(&t,q,0,0,0)<=768);area+=q->w*q->h;}
  assert(area==800*480);free(t.tiles);
  puts("PASS: sparse half-frame split preserves 800x480 output within admitted GPU dimensions");
+ Scene_Texture room={.room_region=1};command.source=&room;command.count=6;
+ t.n=1;t.tiles=calloc(1,sizeof(*t.tiles));t.tiles[0]=(struct scene_gl_tile){.w=800,.h=480,.depth=3};
+ assert(!scene_bound_output(&r,&t));assert(t.n==4);area=0;
+ for(unsigned i=0;i<t.n;i++){struct scene_gl_tile *q=t.tiles+i;assert(q->pw<=400&&q->ph<=400);assert(!q->depth);area+=q->w*q->h;}
+ assert(area==800*480);unsigned room_tiles=t.n;assert(!scene_bound_output(&r,&t)&&t.n==room_tiles);free(t.tiles);
+ puts("PASS: fused Room uses bounded regions even after a full-frame depth target");
 }
 '''
 with tempfile.TemporaryDirectory(prefix='tile-budget-',dir=os.environ.get('TMPDIR')) as folder:
