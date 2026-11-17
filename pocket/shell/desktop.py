@@ -1222,7 +1222,7 @@ def main(platform=None,argv=None):
             if stopping:break
             flux_cpu_start=time.thread_time() if host.background_enabled and host.effect=='flux' else None
             iteration_start=metrics.begin() if DEVELOPMENT and (metrics) else None
-            input_events = platform.events() if platform else decoder.feed(b'', expire=not events)
+            input_events = decoder.events(platform, expire=not events)
             quit_now = False
             if platform and platform.closed:break
             if platform and platform.resized:resized=True;platform.resized=False

@@ -13,6 +13,12 @@ class IngressDecoder:
     def pending(self):
         return self.decoder.pending
 
+    def events(self, platform=None, *, expire=False):
+        events = platform.events() if platform is not None else []
+        if platform is None or getattr(platform, 'terminal_input', False):
+            events.extend(self.feed(b'', expire=expire))
+        return events
+
     def feed(self, data, expire=False):
         fragmented = bool(self.pending)
         stamp = None
