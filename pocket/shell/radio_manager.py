@@ -176,13 +176,13 @@ class RadioManager:
             offset={'up':-1,'down':1,'pageup':-step,'pagedown':step,'home':-self.settings_max,'end':self.settings_max}[key]
             self.settings_offset=max(0,min(self.settings_max,self.settings_offset+offset))
             return True
-        if self.page==2 and key in ('d','D'):
+        if self.page==2 and key in ('d','D','c'):
             client=self.state.read_client
             if client is None:self.message='Radio owner unavailable';return True
             from radio_tune_client import BankDownload
             if self.bank_download is None:self.bank_download=BankDownload(client.path,self.state._source_changed)
             directory=self.bank_directory()
-            selected=directory[self.bank%len(directory)]['index'] if directory and key=='D' else None
+            selected=directory[self.bank%len(directory)]['index'] if directory and key!='c' else None
             self.bank_download.start(selected)
             return True
         if self.page==2:
@@ -331,10 +331,10 @@ class RadioManager:
             rows+=['RADIO BANKS','Enter: memories   [p Copy downloaded → Local]','']
             self.hits.append((18,4,29,1,('action','p')))
             if self.state.can_read:
-                label='[d Download current bank]'
+                label='[d Download selected]'
                 self.hits.append((0,len(rows),len(label),1,('action','d')))
-                choose='[D Download selected]'
-                self.hits.append((len(label)+1,len(rows),len(choose),1,('action','D')))
+                choose='[c Download current bank]'
+                self.hits.append((len(label)+1,len(rows),len(choose),1,('action','c')))
                 rows.append(label+' '+choose)
             if self.bank_download:rows.append(self.bank_download.status)
             room=max(1,self.height-len(rows)-4)
