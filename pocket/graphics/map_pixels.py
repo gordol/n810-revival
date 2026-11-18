@@ -62,7 +62,7 @@ class View:
  def __init__(self,host,owner,*,name='Station Map'):
   self.host=host;self.owner=owner;self.name=name
   self.pending=None;self.ready=None;self.ready_layer=None;self.key=None;self.failed=None;self.pixel_frames=0;self.pixel_jobs=0;self.error=''
-  self.ready_surface=None;self._presented_pan=None
+  self.ready_surface=None;self._presented_pan=None;self._loading_scene=None
   self._inset_key=None;self._inset_scene=None;self._inset_pending=None
   self._terrain_key=None;self._terrain_samples=None
  def plan(self):
@@ -197,7 +197,14 @@ class View:
     except Exception as error:self.failed=key;self.error=str(error)
    else:
     future=pool.submit(self.build,layer,surface);self.pending=key,future,layer,surface;future.add_done_callback(lambda f,callback=surface.renderer.completion_wakeup:self.wake(f,callback))
-  if self.ready is None or self.ready_layer[:4]!=layer[:4]:return None
+  if self.ready is None or self.ready_layer[:4]!=layer[:4]:
+   if self.pending is None:return None
+   from scenes import MapScene
+   x,y,w,h=layer[:4]
+   if self._loading_scene is None or (self._loading_scene.width,self._loading_scene.height)!=(w,h):
+    self._loading_scene=MapScene(w,h,array('I',[0x181822]),1,1,(),(Mark*0)())
+   wx,wy,_,_=self.host.bounds(self.host.window(self.name));ox,oy=self.host.origin
+   return self._loading_scene,(wx+ox+1+x)*8,(wy+oy+1+y)*16,w*8,h*16
   projection=getattr(getattr(surface,'image',None),'projection',None)
   view_matches=(base is None or projection is not None and
                 tuple(projection.center)==tuple(base.center) and abs(projection.span-base.span)<1e-9)
