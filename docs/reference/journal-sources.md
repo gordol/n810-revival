@@ -531,7 +531,7 @@ Design investigation only. No Windows CE compatibility implementation or N810 te
 
 <a id="2026-11-16-second-n810"></a>
 
-## Rebuilding Debian for a second N810
+## Which Pocket was the first N810 actually running?
 
 [Read the journal entry](../posts/2026-11-16-second-n810.md)
 
@@ -544,7 +544,7 @@ Design investigation only. No Windows CE compatibility implementation or N810 te
 
 <a id="2026-11-17-pocket-on-the-second-n810"></a>
 
-## Running Pocket on the second N810
+## The speaker worked. Where did the desktop go?
 
 [Read the journal entry](../posts/2026-11-17-pocket-on-the-second-n810.md)
 
