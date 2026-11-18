@@ -345,6 +345,10 @@ static int scene_gl_covers(const Scene_Texture *t,const struct scene_command *c,
  if(c->clipped&&(c->clip.x>(int)q->x||c->clip.y>(int)q->y||c->clip.x+c->clip.w<(int)(q->x+q->w)||c->clip.y+c->clip.h<(int)(q->y+q->h)))return 0;
  return 1;
 }
+static size_t scene_tile_start(const Scene_Texture *t,const struct scene_gl_tile *q){
+ for(size_t j=t->count;j>0;j--)if(scene_gl_covers(t,t->commands+j-1,q))return j-1;
+ return 0;
+}
 static int scene_gl_opaque_rect(const Scene_Texture *t,const struct scene_command *c,Scene_Rect *out){
  if(c->count!=6||(c->source?c->source->blend:c->blend)!=Scene_BLENDMODE_NONE)return 0;
  const Scene_Vertex *v=t->stream+c->first;float x=v[0].position.x,y=v[0].position.y,xx=v[2].position.x,yy=v[2].position.y;
@@ -370,7 +374,7 @@ static int scene_gl_damaged(const Scene_Texture *t,const struct scene_gl_tile *q
 static unsigned scene_tile_triangles(const Scene_Texture *t,const struct scene_gl_tile *q,int dx,int dy,unsigned depth){
  if(depth>16)return SCENE_TILE_TRIANGLES+1;
  unsigned total=0;
- for(size_t j=0;j<t->count;j++){
+ for(size_t j=depth?0:scene_tile_start(t,q);j<t->count;j++){
   const struct scene_command *c=t->commands+j;
   if(c->source&&c->source->room_region)continue; /* Producer owns its 3D draw budget. */
   if(c->source&&c->source->recorded_scene){
@@ -436,7 +440,7 @@ static int scene_gl_flush(Scene_Renderer *r,Scene_Texture *t){
   uint64_t cpu_phase=scene_gl_cpu(r);
   r->tile_first=i;r->tile_end=i+1;r->clipped=0;
   if(t->clear_pending){scene_gl_target(r,t->tiles+i);glDisable(GL_SCISSOR_TEST);glDepthMask(GL_TRUE);glClearColor(t->clear.r/255.f,t->clear.g/255.f,t->clear.b/255.f,t->clear.a/255.f);glClear(GL_COLOR_BUFFER_BIT|(t->tiles[i].depth?GL_DEPTH_BUFFER_BIT:0));}
-  size_t start=0;for(size_t j=0;j<t->count;j++)if(scene_gl_covers(t,t->commands+j,t->tiles+i))start=j;
+  size_t start=scene_tile_start(t,t->tiles+i);
   for(size_t j=start;j<t->count&&!result;j++){struct scene_command *c=t->commands+j;
    r->occlusion_count=0;for(size_t k=j+1;k<t->count&&r->occlusion_count<8;k++)if(scene_gl_opaque_rect(t,t->commands+k,r->occlusion+r->occlusion_count))++r->occlusion_count;
    r->translate_x=c->dx;r->translate_y=c->dy;r->clip=c->clip;r->clipped=c->clipped;r->blend=c->blend;

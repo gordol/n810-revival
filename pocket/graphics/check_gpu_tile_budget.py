@@ -16,8 +16,10 @@ struct scene_gl_tile {GLuint color,fbo,depth;unsigned x,y,w,h,pw,ph;};
 typedef struct {float x,y;} Point;
 typedef struct {Point position;} Scene_Vertex;
 typedef struct scene_texture_gl Scene_Texture;
-struct scene_command {Scene_Texture *source;size_t first;int count,dx,dy;};
-struct scene_texture_gl {unsigned n,format;int clear_pending,damage_valid,room_region,recorded_scene;size_t count;struct scene_command *commands;Scene_Vertex *stream;struct scene_gl_tile *tiles;};
+typedef struct {int x,y,w,h;} Scene_Rect;
+enum {Scene_BLENDMODE_NONE=0};
+struct scene_command {int blend,clipped;Scene_Rect clip;Scene_Texture *source;size_t first;int count,dx,dy;};
+struct scene_texture_gl {unsigned n,format,blend;int clear_pending,damage_valid,room_region,recorded_scene;size_t count;struct scene_command *commands;Scene_Vertex *stream;struct scene_gl_tile *tiles;};
 typedef struct {int sink_dma,matrix_valid;} Scene_Renderer;
 enum {Scene_PIXELFORMAT_RGB565=1,GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_TEXTURE_MAG_FILTER,GL_NEAREST,GL_TEXTURE_WRAP_S,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE,GL_RGB565,GL_RGBA,GL_UNSIGNED_BYTE,GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_FRAMEBUFFER_COMPLETE,GL_NO_ERROR};
 #define glBindTexture(...) ((void)0)
@@ -32,7 +34,7 @@ enum {Scene_PIXELFORMAT_RGB565=1,GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_TEXTURE_
 #define glCheckFramebufferStatus(...) GL_FRAMEBUFFER_COMPLETE
 #define glGetError() GL_NO_ERROR
 #define scene_gl_bind(...) ((void)0)
-'''+source[start:end]+r'''
+'''+source[source.index('static int scene_gl_covers'):source.index('static int scene_gl_opaque_rect')]+source[start:end]+r'''
 int main(void){
  Scene_Renderer r={.sink_dma=1};
  Scene_Vertex vertices[12000];
@@ -50,6 +52,14 @@ int main(void){
   for(unsigned j=i+1;j<t.n;j++){struct scene_gl_tile *b=t.tiles+j;assert(a->x+a->w<=b->x||b->x+b->w<=a->x||a->y+a->h<=b->y||b->y+b->h<=a->y);}
  }
  assert(area==800*480);assert(t.stream==vertices&&t.commands==&command&&command.count==12000);
+ Scene_Vertex stacked[12006];for(int i=0;i<12000;i++)stacked[i]=vertices[i];
+ Point corners[6]={{0,0},{800,0},{800,480},{0,0},{800,480},{0,480}};
+ for(int i=0;i<6;i++)stacked[12000+i].position=corners[i];
+ struct scene_command layers[2]={command,{.first=12000,.count=6}};
+ Scene_Texture covered=t;covered.stream=stacked;covered.commands=layers;covered.count=2;
+ struct scene_gl_tile entire={.w=800,.h=480};
+ assert(scene_tile_triangles(&covered,&entire,0,0,0)==2);
+ layers[1].blend=1;assert(scene_tile_triangles(&covered,&entire,0,0,0)>768);
  unsigned before=t.n;assert(!scene_bound_output(&r,&t)&&t.n==before);
  Scene_Texture nested=t;nested.recorded_scene=1;
  struct scene_command parent={.source=&nested,.dx=1000};
