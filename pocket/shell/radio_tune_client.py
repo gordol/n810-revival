@@ -144,7 +144,7 @@ def download_all_banks():
             receive_action('receive_stop', lambda s: not s['reception']['enabled'] and not s['reception']['stopping'])
             tool = '/usr/local/lib/n810-radio/n810-radio-backup.py'
             result = subprocess.run([sys.executable, tool, '--address', address,
-                                     '--output', str(folder), '--all-banks', '--pause-beacon'],
+                                     '--output', str(folder), '--all-banks'],
                                     stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
             if result.returncode:
                 raise ValueError(result.stderr.strip().splitlines()[-1] if result.stderr.strip() else 'Bank backup failed')

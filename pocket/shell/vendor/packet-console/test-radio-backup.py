@@ -24,8 +24,8 @@ class Tests(unittest.TestCase):
    for name,width,_ in layouts[layout]:
     number=(number<<width)|fields.get(name,0);size+=width
    return number.to_bytes(size//8,'big')
-  initial_beacon=encode('BSSSettings',should_share_location=True)
-  for interrupt in (False,True):
+  for interval,interrupt in ((0,False),(6,False),(6,True)):
+   initial_beacon=encode('BSSSettings',should_share_location=True,location_share_interval=interval)
    with self.subTest(interrupt=interrupt),tempfile.TemporaryDirectory() as tmp:
     state=dict(bank=1,settings=bytes(22),beacon=initial_beacon)
     def request(command,payload=b'',index=None,**kw):
@@ -35,23 +35,26 @@ class Tests(unittest.TestCase):
      elif command==10:raw=state['settings']
      elif command==11:state['settings']=payload
      elif command==33:raw=state['beacon']
-     elif command==34:state['beacon']=payload
+     elif command==34:
+      self.assertGreater(interval,0)
+      state['beacon']=payload
      elif command==73:raw=payload+b'Bank'
      elif command==13:
       if interrupt and state['bank']==0:raise ConnectionError('test read failure')
       raw=encode('RfCh',channel_id=index)
      elif command==60:
-      self.assertFalse(state['beacon'][1]&0x10)
+      if interval:self.assertFalse(state['beacon'][1]&0x10)
       state.update(bank=payload[0],settings=bytes([1])*22)
      return dict(status=0,reply_hex='00'+raw.hex())
     folder=Path(tmp)/'snapshot';link=MagicMock(trace=[]);link.request.side_effect=request
-    with patch('sys.argv',['backup','--all-banks','--pause-beacon','--output',str(folder)]),patch.object(b,'Link',return_value=link),patch.object(b,'socket'),patch.object(b.subprocess,'check_output',return_value='Channel: 1'),patch.object(b.signal,'signal'),patch.object(b.time,'sleep'):
+    with patch('sys.argv',['backup','--all-banks',*(['--pause-beacon'] if interval else []),'--output',str(folder)]),patch.object(b,'Link',return_value=link),patch.object(b,'socket'),patch.object(b.subprocess,'check_output',return_value='Channel: 1'),patch.object(b.signal,'signal'),patch.object(b.time,'sleep'):
      if interrupt:
       with self.assertRaises(ConnectionError):b.main()
      else:b.main()
     saved=json.loads((folder/'backup.json').read_text())
     self.assertEqual(state,dict(bank=1,settings=bytes(22),beacon=initial_beacon))
-    self.assertTrue(saved['beacon_restored'] and saved['restored'])
+    self.assertTrue(saved['restored'])
+    if interval:self.assertTrue(saved['beacon_restored'])
     self.assertEqual(saved['complete'],not interrupt)
     if not interrupt:self.assertEqual([(v['index'],len(v['channels'])) for v in saved['banks']],[(1,2),(0,2),(2,2)])
 if __name__=='__main__':unittest.main()

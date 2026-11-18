@@ -135,9 +135,12 @@ def main():
         get_bank(original_bank)
         if args.all_banks:
             if original_bank is None:raise RuntimeError('Current bank unknown; refusing bank switch')
-            beacon_enabled=capture.get('beacon',{}).get('should_share_location')
-            if beacon_enabled is None or beacon_enabled and not args.pause_beacon:
-                raise RuntimeError('Automatic beaconing enabled or unknown; current-bank backup saved, no bank switches made')
+            beacon=capture.get('beacon',{})
+            if any(beacon.get(field) is None for field in ('should_share_location','location_share_interval','smart_beacon_en')):
+                raise RuntimeError('Location report settings unavailable; saved current bank only')
+            beacon_enabled=beacon['should_share_location'] and (beacon['location_share_interval']>0 or beacon['smart_beacon_en'])
+            if beacon_enabled and not args.pause_beacon:
+                raise RuntimeError('Location reporting has a positive interval or Smart Beacon enabled; current-bank backup saved, no bank switches made')
             if beacon_enabled:
                 reply=read(33,b'\x02')
                 if reply['status']!=0 or reply['reply_hex']!=capture['reads']['beacon']['reply_hex']:
