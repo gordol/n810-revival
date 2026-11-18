@@ -2,7 +2,7 @@
 
 *11–18 November 2026.*
 
-Pocket is the desktop we've been building for Debian on the Nokia N810. I wanted to see whether our installer could reproduce the setup I'd been using on my tablet, so this week I tried it on a second N810. I had the tablet in front of me while Codex, the AI coding assistant, compared the installation with a backup of the original and checked the new one over SSH.
+I tried our installer on a second N810 to see whether it could reproduce the Pocket setup I'd been using on the first.
 
 ## The keyboard after a reboot
 
