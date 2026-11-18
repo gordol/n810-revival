@@ -41,7 +41,10 @@ class RadioRead:
         self.path=Path(path);self.publication=dict(state='idle',request_id=None,progress=None,error=None,uncertain=False,radio_live=None)
         self.worker=None;self.socket=None;self.closed=False;self.stop=threading.Event();self.cancelled=threading.Event()
         self.request=None;self._wakeup=None
-        self.endpoint_error=self.endpoint_problem()
+    @property
+    def endpoint_error(self):
+        return self.endpoint_problem()
+
     def endpoint_problem(self):
         try:
             info=self.path.parent.lstat();node=self.path.lstat()
@@ -85,8 +88,8 @@ class RadioRead:
         if self.path.name=='radio-control.sock' and not self.path.exists():
             from receive_bridge import forward_radio_control
             self.path=forward_radio_control(self.path.parent)
-        self.endpoint_error=self.endpoint_problem()
-        if self.endpoint_error:raise ValueError(self.endpoint_error)
+        problem=self.endpoint_problem()
+        if problem:raise ValueError(problem)
         value=self.request if operation=='read_current' else dict(version=1,operation=operation,request_id=self.request['request_id'])
         raw=json.dumps(value,separators=(',',':'),allow_nan=False).encode()+b'\n'
         if len(raw)>4096:raise ValueError('Radio read request exceeds limit')

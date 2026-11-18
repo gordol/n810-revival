@@ -720,7 +720,14 @@ def main(platform=None,argv=None):
     old = termios.tcgetattr(sys.stdin) if platform is None else None
     selector = selectors.DefaultSelector()
     power_socket=getattr(platform,'power_socket',None)
-    if power_socket is not None:selector.register(power_socket,selectors.EVENT_READ)
+    screen_watch = None
+    display_locked = False
+    if power_socket is not None:
+        from importlib import import_module
+        lock_path = Path('/run/n810-screen/locked')
+        screen_watch = import_module('owner-service.control_changes').ControlChanges([lock_path])
+        selector.register(screen_watch.fd, selectors.EVENT_READ, screen_watch)
+        selector.register(power_socket,selectors.EVENT_READ)
     if bluetooth_control is not None:selector.register(bluetooth_control.readable,selectors.EVENT_READ,bluetooth_control)
     from app_readiness import AppReadiness,AppReady
     app_readiness=AppReadiness(selector)
@@ -1281,6 +1288,9 @@ def main(platform=None,argv=None):
             if platform and platform.closed:break
             if platform and platform.resized:resized=True;platform.resized=False
             for key, _ in events:
+                if screen_watch is not None and key.data is screen_watch:
+                    screen_watch.drain()
+                    continue
                 if power_socket is not None and key.fileobj is power_socket:
                     import socket as unix_socket,struct as unix_struct
                     message,credentials,_,_=power_socket.recvmsg(4,unix_socket.CMSG_SPACE(12))
@@ -1331,9 +1341,26 @@ def main(platform=None,argv=None):
                         if keyboard_router is not None:keyboard_router.cancel()
                         quit_now=True
                     else:input_events.extend(decoder.feed(raw))
-            if input_events and power_socket is not None and Path('/run/n810-screen/locked').exists():
-                input_events=[];terminal_keys.cancel()
-                if keyboard_router is not None:keyboard_router.cancel()
+            if screen_watch is not None:
+                locked = lock_path.exists()
+                if locked and not display_locked:
+                    cancel_touch()
+                    terminal_keys.cancel()
+                    if keyboard_router is not None:keyboard_router.cancel()
+                    platform.display.present(bytes(platform.display.width * platform.display.height * 2))
+                if locked:
+                    display_locked = True
+                    events = selector.select()
+                    continue
+                if display_locked:
+                    display_locked = False
+                    platform.dirty = True
+                    platform.gpu_context.full_damage = True
+                    host.front = [None] * (host.width * host.height)
+                    host.invalidate((0, 0, host.width, host.height))
+                    for p in panel.panels:p.cache = None
+                    input_events.clear()
+                    model_inputs = True
             if input_events:
                 wake=console_wake()
                 if wake:
@@ -2007,6 +2034,7 @@ def main(platform=None,argv=None):
         try:
             if DEVELOPMENT:
                 pointer_trace.sample(host);pointer_trace.close()
+            if screen_watch is not None:screen_watch.close()
             if keyboard_router is not None:keyboard_router.close()
             if DEVELOPMENT and (trial):
                 try:trial.finish(sys.exc_info()[1],metrics.render if DEVELOPMENT and (metrics) else None)
