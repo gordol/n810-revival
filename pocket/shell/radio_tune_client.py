@@ -102,9 +102,7 @@ def receive_action(action, ready):
         client.connect('/dev/shm/n810-aprs.sock')
         client.sendall(FeedControl.frame('subscribe', ident))
         if action != 'subscribe':
-            import os
-    from feed_control_client import FeedControl
-    ident = os.urandom(16).hex()
+            ident = os.urandom(16).hex()
             client.sendall(FeedControl.frame(action, ident))
         deadline = time.monotonic() + 45
         acknowledged = False
