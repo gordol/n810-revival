@@ -40,7 +40,7 @@ class DeviceSetupTests(unittest.TestCase):
         for key in 'N0CALL':native_key(form,key)
         self.assertEqual(form.callsign.text,'N0CALL')
     def test_wifi_secret_masked_not_saved_and_stdin_only(self):
-        form=DeviceSetup();self.addCleanup(form.close);form.key('page-wifi')
+        form=DeviceSetup();self.addCleanup(form.close);form.open_wifi();self.assertEqual(form.navigation_focus(),'wifi_ssid')
         form.choices.wifi_ssid.text='IEEE';form.choices.wifi_pass.text='password'
         form.field='wifi_pass'
         self.assertNotIn('password','\n'.join(form.lines()))

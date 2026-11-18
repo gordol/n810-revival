@@ -21,9 +21,9 @@ SCOPES = {
     'navigation': NAVIGATION,
     'global': {
         'windows.commands': ('window-commands', ['ctrl-]']),
-        'windows.select': ('window-select', []),
+        'windows.select': ('window-select', ['f14']),
         'desktop.menu': ('wm-menu', ['f13','alt-m']),
-        'windows.switch': ('wm-next', ['f14','alt-tab']),
+        'windows.switch': ('wm-next', ['alt-tab']),
         'windows.maximize': ('wm-maximize', ['f15','alt-enter']),
         'desktop.overview': ('wm-windows', ['alt-o']),
         'view.zoom_in': ('+', ['f16']),

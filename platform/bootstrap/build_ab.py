@@ -79,7 +79,7 @@ def build(root, kernel, output, sd_id, recovery_id, slot_mib=1536, recovery_kern
     ctrl=image(control,output/'control.ext4',32,'n810-boot')
     shutil.copy2(recovery_package/'zImage-omap2420-n810',output/'recovery-kernel.bin')
     shutil.copy2(kernel/'BUILD.json',output/'KERNEL-BUILD.json')
-    manifest=dict(c,kind='n810-ab-kit',boot_method='same-kernel-root-switch',kernel_notes_sha256=digest(kernel/'kernel.notes'),slot_mib=slot_mib,minimum_card_bytes=(1+32+2*slot_mib+data_mib)*MIB,
+    manifest=dict(c,kind='n810-ab-kit',boot_method='same-kernel-root-switch',kernel_notes_sha256=digest(kernel/'kernel.notes'),slot_mib=slot_mib,minimum_card_bytes=(1+32+2*slot_mib+data_mib+512)*MIB,
         files={'control.ext4':ctrl,'slot.ext4':slot,'data.ext4':data,'recovery.ext4':rec,
                'recovery-kernel.bin':{'bytes':(output/'recovery-kernel.bin').stat().st_size,'sha256':digest(output/'recovery-kernel.bin')}},
         source_commit=os.environ.get('INSTALLER_SOURCE_COMMIT') or json.loads((root/'usr/local/share/pocket/INSTALL.json').read_text())['source_commit'],

@@ -43,6 +43,50 @@ def receive_profile(home=None):
     return validate_receive(json.loads(raw))
 
 
+def uv_pro_radios(*, paired):
+    import subprocess
+    command = ['bluetoothctl', 'devices']
+    if paired:
+        command.append('Paired')
+    result = subprocess.run(command, capture_output=True, text=True, timeout=10, check=True)
+    matches = []
+    for line in result.stdout.splitlines():
+        match = re.fullmatch(r'Device ((?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}) (.+)', line)
+        if match and match[2].strip().upper() == 'UV-PRO':
+            matches.append(match[1].upper())
+    return sorted(set(matches))
+
+
+def radio_discovery(action, address=None):
+    """Hold our own discovery session while selecting or bonding the radio."""
+    import subprocess
+    import time
+    subprocess.run(['bluetoothctl','power','on'], capture_output=True, check=True, timeout=10)
+    scan = subprocess.Popen(['bluetoothctl','--timeout','60','scan','on'],
+                            stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    try:
+        deadline=time.monotonic()+16
+        while time.monotonic()<deadline:
+            radios=uv_pro_radios(paired=False)
+            if action=='scan' and radios:
+                # Give other nearby units time to advertise before presenting the list.
+                time.sleep(2)
+                return uv_pro_radios(paired=False)
+            if action=='pair' and address in radios:
+                if address not in uv_pro_radios(paired=True):
+                    result=subprocess.run(['bluetoothctl','--agent=KeyboardDisplay','--timeout','30','pair',address],
+                                          capture_output=True,text=True,timeout=35)
+                    if address not in uv_pro_radios(paired=True):
+                        raise ValueError('Pairing failed. Enable top-menu Pairing on the UV-PRO and try again.')
+                subprocess.run(['bluetoothctl','trust',address],capture_output=True,check=True,timeout=10)
+                return [address]
+            time.sleep(1)
+        raise ValueError('No UV-PRO found. Enable its top-menu Pairing toggle and scan again.')
+    finally:
+        if scan.poll() is None:scan.terminate()
+        scan.wait(timeout=5)
+
+
 def save_receive(value, home=None):
     write_private(directory(home) / 'receive.json', validate_receive(value))
 

@@ -79,6 +79,10 @@ class Stage(unittest.TestCase):
                 stage(root,data,kernel,dict(sd_disk_id='12345678',recovery_disk_id='87654321',data_schema=1))
             self.assertEqual((data/'etc/ssh/ssh_host_ed25519_key').read_text(),'private fixture key')
             self.assertEqual((data/'etc/wpa_supplicant/wpa_supplicant-wlan0.conf').read_text(),'private fixture')
+            for level in (2,3,4,5):
+                link=root/f'usr/lib/n810-ab/etc/rc{level}.d/S02n810-sd-swap'
+                self.assertEqual(link.resolve().read_bytes(),Path(__file__).with_name('ab_sd_swap.sh').read_bytes())
+            self.assertFalse((data/'.swapfile').exists())
             self.assertTrue((root/'etc/wpa_supplicant').is_symlink())
             self.assertTrue((root/'usr/lib/n810-ab/etc/ssh/ssh_host_ed25519_key').is_symlink())
             self.assertTrue((root/'etc/n810-ab/config.json').is_symlink())

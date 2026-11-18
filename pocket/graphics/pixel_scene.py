@@ -41,6 +41,9 @@ class Context(SharedContext):
     native_pixels=True
     def __init__(self,platform):
         super().__init__(platform)
+        host=platform.host
+        host.available_effects=('flux','pnw')
+        if host.effect not in host.available_effects:host.set_effect(host.available_effects[0])
         self.background=None;self.panels={};self.text_views={};self.started_cpu=0
         self.batches={};self.batch_builds=0;self.batch_replays=0
         self.lib.pocket_scene_batch_supported.restype=C.c_int
@@ -248,6 +251,17 @@ class Context(SharedContext):
                 encoded=label.encode('utf-32-le')
                 self.check(self.lib.pocket_scene_text(self.handle,x*8,y*16,C.c_char_p(encoded),len(label),rgb565(fg)))
             self.batch(('panel',(x,y)),(label,fg,bg),draw)
+        # Two one-pixel edges per panel give the bar relief at native resolution.
+        # Drawing them once per panel keeps text runs and their hit areas intact.
+        for panel in self.platform.panel.panels:
+            x,y,w,h=panel.rect
+            if w<=0 or h<=0:continue
+            x*=8;y*=16;w*=8;h*=16
+            if panel.dock in ('top','bottom'):
+                edges=((x,y,w,1,0x525263ff),(x,y+h-1,w,1,0x191921ff))
+            else:
+                edges=((x,y,1,h,0x525263ff),(x+w-1,y,1,h,0x191921ff))
+            for edge in edges:self.check(self.lib.pocket_scene_rect(self.handle,*edge))
         super().present(False);self.model_frames+=1
         self.pending_damage=None;self.full_damage=False
         self.platform.host._flux_painted((time.process_time_ns()-self.started_cpu)/1e9)

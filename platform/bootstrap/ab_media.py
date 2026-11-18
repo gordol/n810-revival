@@ -18,6 +18,8 @@ def layout(m, capacity):
     sizes=[32*MIB,m['slot_mib']*MIB,m['slot_mib']*MIB]
     starts=[MIB]
     for size in sizes: starts.append(starts[-1]+size)
+    if capacity < m.get('minimum_card_bytes', 0):
+        raise ValueError('Card lacks space for the installed data and SD swap')
     if capacity-starts[-1] < m['files']['data.ext4']['bytes'] or capacity%512 or capacity//512 > 0xffffffff:
         raise ValueError('Card does not fit the A/B layout')
     sizes.append(capacity-starts[-1])

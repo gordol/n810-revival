@@ -91,8 +91,15 @@ class State:
 
 
 class Bluetooth:
-    def __init__(self, state):
+    def __init__(self, state, local_receive=False):
         self.state = state
+        self.local_receive = local_receive
+        self.receive_choices = []
+        self.receive_stage = 'idle'
+        self.receive_index = 0
+        self.station = ''
+        self.pending = None
+        self.wakeup = lambda: None
         self.width = 60
         self.height = 21
         self.focus = 0
@@ -100,7 +107,85 @@ class Bluetooth:
         self.hits = []
         self._spans = []
 
+    def bind_wakeup(self, callback):
+        self.wakeup = callback
+
+    def modal(self):
+        return self.receive_stage != 'idle' or self.pending is not None or bool(self.receive_choices)
+
+    def start_receive(self, action='start'):
+        from concurrent.futures import ThreadPoolExecutor
+        from peripheral_setup import uv_pro_radios, radio_discovery, receive_profile, save_receive, validate_receive
+        from optional_services import start
+        if self.pending is not None:
+            return True
+        profile = None
+        if action=='save':
+            try:
+                profile = validate_receive(dict(address=self.receive_choices[self.receive_index],
+                                                callsign=self.station.strip().upper()))
+            except ValueError as error:
+                self.state.message = str(error)
+                return True
+        def work():
+            if action=='scan':
+                return 'pair',radio_discovery('scan')
+            if action=='pair':
+                address=self.receive_choices[self.receive_index]
+                return 'callsign',radio_discovery('pair',address)
+            if profile:
+                save_receive(profile)
+            else:
+                radios=uv_pro_radios(paired=True)
+                try: saved=receive_profile()
+                except FileNotFoundError: saved={}
+                if saved.get('address') not in radios:
+                    return ('callsign',radios) if radios else ('scan',[])
+            start(['receive'])
+            return 'idle',[]
+        pool = ThreadPoolExecutor(max_workers=1)
+        self.state.message = {'scan':'Scanning for UV-PRO…','pair':'Pairing UV-PRO…'}.get(action,'Checking paired radio…')
+        self.pending = pool.submit(work)
+        def done(future):
+            try:
+                self.receive_stage,self.receive_choices = future.result()
+                self.receive_index = 0
+                self.state.message = 'Radio reception requested.' if self.receive_stage=='idle' else ''
+            except Exception as error:
+                self.state.message = clean(error)
+            finally:
+                self.pending = None
+                pool.shutdown(wait=False)
+                self.wakeup()
+        self.pending.add_done_callback(done)
+        return True
+
     def key(self, key):
+        if self.pending is not None:return True
+        if self.receive_stage in ('scan','pair'):
+            if key in ('\r','\n'):return self.start_receive(self.receive_stage)
+            if key in ('left','right') and self.receive_choices:
+                self.receive_index=(self.receive_index+(1 if key=='right' else -1))%len(self.receive_choices)
+            if key=='\x1b':
+                self.receive_stage='idle';self.receive_choices=[];self.state.message=''
+            return True
+        if self.receive_choices:
+            if key == '\x1b':
+                self.receive_choices = []
+                self.station = ''
+                self.receive_stage='idle'
+                self.state.message = ''
+            elif key in ('left','right'):
+                self.receive_index = (self.receive_index + (1 if key=='right' else -1)) % len(self.receive_choices)
+            elif key in ('\r','\n'):
+                return self.start_receive('save')
+            elif key in ('\x7f','\b','backspace'):
+                self.station = self.station[:-1]
+            elif len(key)==1 and (key.isascii() and key.isalnum() or key=='-'):
+                self.station = (self.station + key.upper())[:9]
+            return True
+        if self.local_receive and not self.state.read()['online'] and (key=='r' or key in ('\r','\n') and ACTIONS[self.focus]=='receive_start'):
+            return self.start_receive()
         if key in ('\t', 'backtab', 'left', 'right'):
             self.focus = (self.focus + (-1 if key in ('backtab', 'left') else 1)) % len(ACTIONS)
         elif key in ('up', 'down', 'pageup', 'pagedown'):
@@ -128,6 +213,20 @@ class Bluetooth:
         return False
 
     def lines(self):
+        if self.receive_stage in ('scan','pair'):
+            selecting=self.receive_stage=='pair'
+            self.hits=[];self._spans=[]
+            rows=['Pair UV-PRO','On the radio, turn on Pairing in the top menu.']
+            if selecting:rows+=['UV-PRO '+self.receive_choices[self.receive_index],'Left/right selects a radio.']
+            rows+=['[ Pair selected radio ]' if selecting else '[ Scan for UV-PRO ]']
+            self.hits=[(0,len(rows)-1,len(rows[-1]),'\r')]
+            return tuple(rows+[self.state.message,'Enter to continue · Esc to cancel'])
+        if self.receive_choices:
+            self.hits=[]; self._spans=[]
+            return ('Start UV-PRO reception', 'Paired UV-PRO: '+self.receive_choices[self.receive_index],
+                    'Left/right selects a radio.' if len(self.receive_choices)>1 else '',
+                    'Station callsign: '+self.station+'_',self.state.message,
+                    'Enter to save and start · Esc to cancel')
         result = self.state.read()
         word = lambda value: 'Unknown' if value is None else 'On' if value else 'Off'
         rows = ['Bluetooth controller: ' + word(result['powered'])]
@@ -142,7 +241,7 @@ class Bluetooth:
                 self.hits.append((x, top + y, length, key))
                 action = KEYS[key]
                 role = 'selected' if ACTIONS[self.focus] == action else 'toolbar'
-                if not self.state.available(action):
+                if not self.state.available(action) and not (self.local_receive and action=='receive_start'):
                     role = 'inset'
                 self._spans.append((top + y, x, length, role))
 

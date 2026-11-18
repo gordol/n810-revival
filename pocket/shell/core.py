@@ -399,6 +399,7 @@ class Host:
         self.loose_leaves = []
         self.weather = PRESETS[1]
         self.surfaces = Surfaces()
+        self.available_effects = EFFECTS
         self.desktop_effects = ['matrix']*3
         self.overview_opacity = .65
         self.window_opacity = .88
@@ -940,6 +941,7 @@ class Host:
 
     def set_effect(self, name):
         if name not in EFFECTS: raise ValueError('unknown effect')
+        if name not in self.available_effects:name=self.available_effects[0]
         expected='terrain' if name=='terrain' else 'effect:'+name
         if self.terrain_renderer is not None and getattr(self.terrain_renderer,'mode','terrain')!=expected and hasattr(self.terrain_renderer,'suspend'):
             self.terrain_renderer.suspend()

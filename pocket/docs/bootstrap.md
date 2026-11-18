@@ -460,12 +460,12 @@ image builder. Finish these steps after the base installation:
 1. In **Wi-Fi**, enter the network details and choose **Save and join Wi-Fi**.
    USB networking also works without Wi-Fi. Wi-Fi changes use a restricted
    helper; passwords travel over stdin.
-2. Pair the UV-Pro and HTIT with this tablet. From its terminal, run
-   `sudo n810-bluetooth on`, `sudo n810-bluetooth discover 20`, then
-   `sudo n810-bluetooth pair ADDRESS`. Confirm the PIN in the terminal and on
-   the peripheral when required. Use the discovered address for this device.
-3. In **Radio**, enter the station callsign and explicit endpoints, then choose
-   **Save radio profiles**. The UV-Pro uses its Bluetooth address. A serial
+2. To receive from a UV-PRO, open **Bluetooth → Start**. For a new radio,
+   enable **Pairing** in the radio's top menu, choose **Scan for UV-PRO**, and
+   select the radio to pair. An already paired UV-PRO goes directly to the
+   station callsign field on first use. Enter your callsign and press **Enter**
+   to save the profile and start reception.
+3. Use **N810 Setup → Radio** for additional endpoints. A serial
    MeshCore peripheral uses `/dev/ttyUSB0`; a shared HTIT companion uses its
    configured `htit://...` endpoint. An RNode uses its serial path or a configured
    `hub://...` LoRa service. Enter the allowed RNode transmit-power bounds for

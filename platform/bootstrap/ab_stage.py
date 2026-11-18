@@ -54,6 +54,11 @@ def stage(root, data, kernel, c):
     init.write_text('#!/bin/sh\ncase "$1" in start) /usr/local/sbin/n810-ab-health >>/var/log/n810-ab-health.log 2>&1 &;; esac\n');init.chmod(0o755)
     for level in (2,3,4,5):
         (root/f'etc/rc{level}.d/S09n810-ab-health').symlink_to('../init.d/n810-ab-health')
+    swap = root/'etc/init.d/n810-sd-swap'
+    shutil.copyfile(HERE/'ab_sd_swap.sh', swap)
+    swap.chmod(0o755)
+    for level in (2,3,4,5):
+        (root/f'etc/rc{level}.d/S02n810-sd-swap').symlink_to('../init.d/n810-sd-swap')
     template = root/'usr/lib/n810-ab'; template.mkdir(parents=True, exist_ok=True)
     copy(root/'etc', template/'etc')
     copy(root/'var', template/'var')

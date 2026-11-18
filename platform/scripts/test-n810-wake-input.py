@@ -2,6 +2,7 @@
 import os
 import pathlib
 import struct
+import socket
 import subprocess
 import tempfile
 import time
@@ -247,9 +248,14 @@ esac
         for wake in (lambda:event(physical,1,30,1),lambda:event(switch,5,10,1),power_press):
             clear(); (root/'screen/blanked').touch(); wake(); wait('on')
             assert actions()==['on'], 'graphics wake launched a console menu'
-        clear(); power_press(); time.sleep(.3)
-        assert not actions(), 'lit graphics VT launched a console menu'
-        print('PASS: keyboard, slide and short Power wake a dark graphics VT without a text menu')
+        with socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM) as menu:
+            menu.bind('\0n810-pocket-power');menu.settimeout(2)
+            clear();power_press();assert menu.recv(2)==b'P'
+        assert not actions(), 'graphics menu switched VTs'
+        event(physical,1,225,1);wait('brighter')
+        event(physical,1,224,1);wait('dimmer')
+        lock_press();wait('lock');time.sleep(.1);lock_press();wait('unlock')
+        print('PASS: native graphics power menu, brightness, slider and wake')
         (root/'active-vt').write_text('0')  # KD_TEXT
         wait('dim'); wait('blank')
         print('PASS: graphics VT inhibits idle; text VT resumes dim/blank')

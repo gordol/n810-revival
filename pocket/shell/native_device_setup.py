@@ -75,6 +75,12 @@ class DeviceSetup:
                 Target('identity-export','Export identity to a new private file','action','identity-export')]
         else:fields=[]
         return tabs+fields
+    def open_wifi(self):
+        from native_navigation import navigation
+        self.key('page-wifi')
+        self.field='wifi_ssid'
+        navigation(self).select(self.field)
+
     def navigation_focus(self):return self.field
     def navigation_input(self,key):return self.choices.input(key) or getattr(self,key,None) if key in ('callsign','receive','meshcore','reticulum','wifi_ssid','wifi_pass','wifi_country','identity','tx_min','tx_max') else None
     def navigation_changed(self):

@@ -555,7 +555,7 @@ def main(platform=None,argv=None):
         controller_available=lambda:local_bluetooth_source() is not None,
         hardware=lambda:((radio.payload.get('live') or {}).get('data') or {}).get('bluetooth_controller') if radio else None)
     bluetooth_control=None if connections is not None else getattr(feed_source,'control',None)
-    host.app_forms['Bluetooth']=Bluetooth(bluetooth_state)
+    host.app_forms['Bluetooth']=Bluetooth(bluetooth_state,local_receive=args.device_radio)
     if DEVELOPMENT:
         def create_render_debug(host):
             from draw_metrics import RenderDebug
@@ -719,6 +719,8 @@ def main(platform=None,argv=None):
     if platform:platform.attach(host,panel,registered_apps)
     old = termios.tcgetattr(sys.stdin) if platform is None else None
     selector = selectors.DefaultSelector()
+    power_socket=getattr(platform,'power_socket',None)
+    if power_socket is not None:selector.register(power_socket,selectors.EVENT_READ)
     if bluetooth_control is not None:selector.register(bluetooth_control.readable,selectors.EVENT_READ,bluetooth_control)
     from app_readiness import AppReadiness,AppReady
     app_readiness=AppReadiness(selector)
@@ -802,7 +804,7 @@ def main(platform=None,argv=None):
     settings_items=[
         ('Frame style',lambda:host.style,lambda d:cycle(STYLES,host.style,host.set_style,d)),
         ('Colors',lambda:host.palette,lambda d:cycle(PALETTES,host.palette,host.set_palette,d)),
-        ('Background',lambda:host.effect,lambda d:cycle(EFFECTS,host.effect,host.set_effect,d)),
+        ('Background',lambda:host.effect,lambda d:cycle(host.available_effects,host.effect,host.set_effect,d)),
         ('Backdrop enabled',lambda:'on' if host.background_enabled else 'off',toggle_backdrop),
         ('Animation',lambda:'on' if host.animate else 'off',toggle_animation),
         ('Window animations',lambda:'on' if host.window_animations else 'off',toggle_window_animation),
@@ -1039,12 +1041,40 @@ def main(platform=None,argv=None):
         content=menu(action,system_state,bluetooth_state,radio)
         if content is None:return False
         title,entries=content
+        if action=='system:WiFi' and native_defaults and Path('/etc/n810-image/bootstrap.json').is_file():
+            entries.insert(0,('Join Wi-Fi…','local:wifi'))
+        if action.startswith('bluetooth:') and args.device_radio and not bluetooth_state.read()['online']:
+            entries.insert(0,('Start radio reception','local:receive'))
         title=''.join(c for c in title if c.isprintable())
         if len(title)>72:title=title[:71]+'…'
         open_launcher(pointer,panel.at(pointer[0]+ox,pointer[1]+oy));context_commands.clear()
         for index,(label,intent) in enumerate(entries):
             def invoke(intent=intent):
+                if intent=='local:wifi':
+                    launch('window:N810 Setup')
+                    form=registered_apps.forms['N810 Setup'].form
+                    if form is not None:form.open_wifi()
+                    return
+                if intent=='local:receive':
+                    launch('window:Bluetooth');host.app_forms['Bluetooth'].start_receive();return
                 if intent.startswith('bt:'):bluetooth_state.request(intent[3:])
+                elif intent=='power:confirm-shutdown':
+                    open_launcher(pointer)
+                    launcher.open_context('Shut down this tablet?', [('Cancel','tray:done'),('Shut down','tray:shutdown')])
+                    context_commands.clear()
+                    context_commands['tray:done']=lambda:None
+                    context_commands['tray:shutdown']=lambda:invoke('power:shutdown')
+                    return
+                elif intent.startswith('cpu:') or intent=='power:shutdown':
+                    import subprocess
+                    command=['/sbin/shutdown','-h','now'] if intent=='power:shutdown' else ['/usr/local/sbin/n810-cpu-policy',intent[4:]]
+                    try:
+                        result=subprocess.run(['sudo','-n',*command],capture_output=True,text=True,timeout=8)
+                        message=(result.stderr.strip() or 'Power action failed') if result.returncode else ('Shutdown requested' if intent=='power:shutdown' else 'CPU mode: '+intent[4:])
+                    except (OSError,subprocess.TimeoutExpired) as error:message=str(error)
+                    open_launcher(pointer);launcher.open_context(message[:72],[('Return to Pocket','tray:done')])
+                    context_commands['tray:done']=lambda:None
+                    return
                 elif intent=='system:refresh':
                     if system_state:system_state.connector.update(True);system_state.update()
                 elif intent in ('radio:check','radio:read'):
@@ -1204,6 +1234,7 @@ def main(platform=None,argv=None):
                 nonlocal model_inputs
                 result=app_command(host,launch,build_identity.IDENTITY,request)
                 if request.get('command')=='status':
+                    result['desktop_view']=dict(effect=host.effect,background=host.background_enabled,menu=launcher.context_title if launcher.active else None,window_selection=window_selection.active)
                     result['restoring_apps']=[name for name in restore_pending if registered_apps.forms[name].restore_pending]
                 if request.get('command') not in ('status','radio-status','system-status'):model_inputs=True
                 return result
@@ -1247,6 +1278,12 @@ def main(platform=None,argv=None):
             if platform and platform.closed:break
             if platform and platform.resized:resized=True;platform.resized=False
             for key, _ in events:
+                if power_socket is not None and key.fileobj is power_socket:
+                    import socket as unix_socket,struct as unix_struct
+                    message,credentials,_,_=power_socket.recvmsg(4,unix_socket.CMSG_SPACE(12))
+                    if message==b'P' and any(level==unix_socket.SOL_SOCKET and kind==unix_socket.SCM_CREDENTIALS and unix_struct.unpack('3i',value)[1]==0 for level,kind,value in credentials):
+                        open_tray('system:Power',(0,0));model_inputs=True
+                    continue
                 if bluetooth_control is not None and key.data is bluetooth_control:
                     bluetooth_control.ready();model_inputs=True;continue
                 if keyboard is not None and key.fileobj is keyboard:
@@ -1291,6 +1328,9 @@ def main(platform=None,argv=None):
                         if keyboard_router is not None:keyboard_router.cancel()
                         quit_now=True
                     else:input_events.extend(decoder.feed(raw))
+            if input_events and power_socket is not None and Path('/run/n810-screen/locked').exists():
+                input_events=[];terminal_keys.cancel()
+                if keyboard_router is not None:keyboard_router.cancel()
             if input_events:
                 wake=console_wake()
                 if wake:
@@ -1422,7 +1462,13 @@ def main(platform=None,argv=None):
                     continue
                 global_key=bindings.global_key(char,WM_ESCAPES[host.wm_escape])
                 if global_key=='window-select':
-                    window_selection.enter();manager_mode=False;continue
+                    if power_socket is not None:
+                        entries=[(w.name,'window:'+w.name) for w in host.windows if w.opened]
+                        open_launcher();launcher.open_context('Switch window',entries or [('Return to desktop','tray:done')])
+                        context_commands['tray:done']=lambda:None
+                    else:
+                        launcher.active=False;window_selection.enter();manager_mode=False
+                    continue
                 if global_key=='window-commands':
                     window_selection.reset_sequence();manager_mode=not manager_mode;continue
                 char=global_key
@@ -1504,7 +1550,7 @@ def main(platform=None,argv=None):
                     weather_index=(weather_index+1)%len(PRESETS)
                     observation=PRESETS[weather_index]
                     inbox.submit(lambda observation=observation: observation)
-                elif char == 'e': host.set_effect(EFFECTS[(EFFECTS.index(host.effect)+1)%len(EFFECTS)])
+                elif char == 'e': cycle(host.available_effects,host.effect,host.set_effect,1)
                 elif char == 'c': host.set_palette(tuple(PALETTES)[(tuple(PALETTES).index(host.palette)+1)%len(PALETTES)])
                 elif char == 'b':
                     host.set_background_enabled(not host.background_enabled)

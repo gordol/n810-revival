@@ -19,6 +19,8 @@ def menu(action, system=None, bluetooth=None, radio=None):
         feedback=(bluetooth.message or bluetooth.feedback()) if bluetooth else ''
         if feedback:title+=' · '+feedback
         return title,entries+[('Open Bluetooth…','window:Bluetooth')]
+    if action=='system:Power':
+        return 'N810 power',[('CPU performance','cpu:performance'),('CPU balanced','cpu:balanced'),('CPU power save','cpu:save'),('Power and battery details','window:System'),('Shut down…','power:confirm-shutdown')]
     if action.startswith('system:'):
         if system:system.update()
         result=system.result if system else {}

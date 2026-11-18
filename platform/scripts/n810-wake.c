@@ -14,6 +14,9 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <stddef.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -76,6 +79,18 @@ static int command(const char *path, const char *action)
     if (WIFEXITED(status) && !WEXITSTATUS(status)) return 0;
     fprintf(stderr, "%s %s failed\n", path, action);
     return -1;
+}
+/* The framebuffer desktop displays its own menu without switching VTs. */
+static void pocket_power_menu(void)
+{
+    struct sockaddr_un target = {.sun_family = AF_UNIX};
+    const char name[] = "n810-pocket-power";
+    memcpy(target.sun_path + 1, name, sizeof(name) - 1);
+    int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+    if (fd < 0) return;
+    sendto(fd, "P", 1, 0, (struct sockaddr *)&target,
+           offsetof(struct sockaddr_un, sun_path) + sizeof(name));
+    close(fd);
 }
 static int screen(const char *action)
 {
@@ -251,7 +266,7 @@ int main(int argc, char **argv)
             }
         }
         lock_actions += lock_settle(&lock_state, now());
-        if ((!graphics || lock_only) && !marker("quiet-charging")) while (lock_actions-- > 0) {
+        if (!marker("quiet-charging")) while (lock_actions-- > 0) {
             const char *action = marker("locked") ? "unlock" : "lock";
             if (trace_lock) fprintf(stderr, "lock action %.6f %s\n", now(), action);
             screen(action);
@@ -284,24 +299,6 @@ int main(int argc, char **argv)
                                   event.code == BTN_TOUCH && event.value == 1 && !marker("blanked");
                 int input = key_input || slide_input || touch_input;
                 int wake_input = (key_input && keyboard_wake) || (slide_input && slide_wake);
-                if (graphics) {
-                    /* Pocket owns presentation, but it does not own LCD wake.
-                     * Restore a dark/dim display without launching a text menu
-                     * or imposing console idle policy on the graphics VT. */
-                    int power_wake = 0;
-                    if (devices[i].kind == 3 && event.type == EV_KEY && event.code == KEY_POWER) {
-                        if (event.value == 1) power_down = time;
-                        if (event.value == 0 && power_down) {
-                            power_wake = time - power_down < 1.5;
-                            power_down = 0;
-                        }
-                    }
-                    if ((power_wake || (wake_input && !marker("locked"))) &&
-                        (marker("hold") || marker("blanked") || marker("idle-percent"))) {
-                        if (!screen("on")) idle_state = 0;
-                    }
-                    continue;
-                }
                 if (devices[i].kind == 3 && event.type == EV_KEY && event.code == KEY_POWER) {
                     if (event.value == 1) power_down = time;
                     if (event.value == 0 && power_down) {
@@ -314,6 +311,9 @@ int main(int argc, char **argv)
                             }
                             if (marker("blanked") || marker("hold")) {
                                 if (!screen("on")) idle_state = 0;
+                            } else if (graphics) {
+                                if (marker("idle-percent")) screen("on");
+                                else pocket_power_menu();
                             } else if (!menu) {
                                 if (marker("idle-percent") && !screen("on")) idle_state = 0;
                                 menu = fork();

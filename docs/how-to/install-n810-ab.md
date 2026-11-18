@@ -147,8 +147,10 @@ Use `recovery-known-hosts` or `slot-known-hosts` with SSH's
 `UserKnownHostsFile` option. The SD identity persists across slot updates.
 The temporary SD installer uses that SD host identity and enables key-only root SSH only for the installation session. Normal slot boot retains its normal SSH policy.
 
-The initial implementation retains compressed RAM swap. It does not allocate
-all internal storage to disk swap or enable an unmeasured swap policy.
+The SD system creates a 512 MiB swapfile at `/data/.swapfile` on first boot.
+Both OS slots reuse it. Run `cat /proc/swaps` to check the two entries.
+Compressed RAM swap on `/dev/zram0` has priority 100. The SD file has priority
+10, so Linux uses it for overflow. Internal storage holds recovery.
 
 ## Desktop crash recovery
 
