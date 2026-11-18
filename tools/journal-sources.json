@@ -1504,6 +1504,54 @@
       "guide": "",
       "source_heading": "Research status",
       "note": "Design investigation only. No Windows CE compatibility implementation or N810 test is included."
+    },
+    {
+      "post": "docs/posts/2026-11-18-sd-boot.md",
+      "id": "2026-11-18-sd-boot",
+      "implementation": [
+        {
+          "label": "Implementation",
+          "path": "platform/bootstrap/ab_early.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Verification",
+          "path": "platform/bootstrap/check_ab_runtime.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Installer or runtime input",
+          "path": "platform/bootstrap/ab_media.py"
+        }
+      ],
+      "guide": "how-to/install-n810-ab.md",
+      "note": ""
+    },
+    {
+      "post": "docs/posts/2026-11-18-radio-banks.md",
+      "id": "2026-11-18-radio-banks",
+      "implementation": [
+        {
+          "label": "Implementation",
+          "path": "pocket/shell/radio_manager.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Verification",
+          "path": "pocket/shell/vendor/packet-console/test-radio-backup.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Installer or runtime input",
+          "path": "pocket/shell/vendor/packet-console/n810-radio-backup.py"
+        }
+      ],
+      "guide": "how-to/install-n810-ab.md",
+      "note": ""
     }
   ]
 }

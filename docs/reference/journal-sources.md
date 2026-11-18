@@ -528,3 +528,31 @@ The linked source includes the compatibility fix and opt-in compilation candidat
 [Chronological source index](../reference/journal-sources.md#2026-11-10-windows-ce-runtime)
 
 Design investigation only. No Windows CE compatibility implementation or N810 test is included.
+
+<a id="2026-11-18-sd-boot"></a>
+
+## Booting Pocket from a fresh SD installation
+
+[Read the journal entry](../posts/2026-11-18-sd-boot.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Implementation](../assets/source/journal/platform/bootstrap/ab_early.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/bootstrap/ab_early.py)) |
+| Checks and fixtures | [Verification](../assets/source/journal/platform/bootstrap/check_ab_runtime.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/bootstrap/check_ab_runtime.py)) |
+| Build inputs | [Installer or runtime input](../assets/source/journal/platform/bootstrap/ab_media.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/bootstrap/ab_media.py)) |
+
+[Build and test instructions](../how-to/install-n810-ab.md) · [Chronological source index](../reference/journal-sources.md#2026-11-18-sd-boot)
+
+<a id="2026-11-18-radio-banks"></a>
+
+## Downloading six UV-PRO banks from Pocket
+
+[Read the journal entry](../posts/2026-11-18-radio-banks.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Implementation](../assets/source/journal/pocket/shell/radio_manager.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/radio_manager.py)) |
+| Checks and fixtures | [Verification](../assets/source/journal/pocket/shell/vendor/packet-console/test-radio-backup.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/vendor/packet-console/test-radio-backup.py)) |
+| Build inputs | [Installer or runtime input](../assets/source/journal/pocket/shell/vendor/packet-console/n810-radio-backup.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/vendor/packet-console/n810-radio-backup.py)) |
+
+[Build and test instructions](../how-to/install-n810-ab.md) · [Chronological source index](../reference/journal-sources.md#2026-11-18-radio-banks)
