@@ -1,5 +1,6 @@
 """Protocol-neutral conversation controls over the existing owner/provider contract."""
 import hashlib
+from pathlib import Path
 import textwrap
 from app_widgets import AdaptivePanels,PanelSpec,Canvas,SelectList,TextInput
 
@@ -7,6 +8,7 @@ from app_widgets import AdaptivePanels,PanelSpec,Canvas,SelectList,TextInput
 class ChatView:
     def __init__(self,provider,protocol):
         self.provider,self.protocol=provider,protocol
+        self.companion_picker = protocol=='meshcore' and hasattr(provider,'state_directory') and Path('/etc/n810-image/bootstrap.json').is_file()
         self.width,self.height=84,25
         self.layout=AdaptivePanels((PanelSpec('threads','Contacts / channels',20,28),PanelSpec('chat','Conversation',30,60)))
         self.list=SelectList(());self.rows=[];self.selected=None;self.state={};self.drafts={};self.context=None
@@ -65,6 +67,7 @@ class ChatView:
         if self.rows:self.selected=self.rows[self.list.index]['key'];self.scroll=0
     def actions(self):
         pages=([('[','Prev contacts'),(']','Next contacts')] if self.protocol=='meshcore' and self.state.get('peers_total',0)>self.state.get('peers_page_size',32) else [])
+        if self.companion_picker:pages=[('h','Companions')]+pages
         return pages+[('o','Connect'),('c','Compose'),('s','Send'),('v','Verify')]+([('d','Disconnect')] if self.protocol=='meshcore' else [('a','Hide presence' if self.state.get('message_discovery') else 'Discovery'),('i','My identity')])
     def key(self,key):
         self.refresh()

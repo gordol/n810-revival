@@ -244,7 +244,12 @@ class Messages(ReceiveMessages):
         super().__init__(call,model)
         from chat_view import ChatView
         self.chat_services=services or {};self.protocol='aprs'
+        self.picker=None;self.picker_wake=lambda:None
         self.chats={name:ChatView(self.chat_services.get(name),name) for name in ('reticulum','meshcore')}
+    def bind_wakeup(self,callback):self.picker_wake=callback
+    def close(self):
+        if self.picker:self.picker.cancel.set();self.picker=None
+    on_close=close
     def navigation_layout(self):
         view=self.chats.get(self.protocol)
         return view.layout if view else self.layout
@@ -258,13 +263,15 @@ class Messages(ReceiveMessages):
         return ((view.list,view.choose) if view else (self.list,self.choose)) if key=='pane:threads' else (None,None)
     def modal(self):
         view=self.chats.get(self.protocol)
-        return bool(view.editing or view.confirm or view.discovery or view.own_identity) if view else self.composing
+        return True if self.picker else bool(view.editing or view.confirm or view.discovery or view.own_identity) if view else self.composing
     def navigation_modal_hint(self):
+        if self.picker:return ('Companions','↑/↓ select · Enter accept · Esc back')
         view=self.chats.get(self.protocol)
         if view and view.own_identity:return ('My identity','Esc back')
         if view and (view.confirm or view.discovery):return ('Confirm','Y confirm · Esc cancel')
         return ('Draft','Ctrl-S sends · Tab focus · Esc back') if view else ('Local draft','Tab focus · Esc back · no transmission')
     def navigation_end_input(self):
+        if self.picker:return False
         view=self.chats.get(self.protocol)
         if view:
             if view.confirm or view.discovery or view.own_identity:return False
@@ -286,12 +293,20 @@ class Messages(ReceiveMessages):
         if provider:provider.drain()
     def key(self,key):
         view=self.chats.get(self.protocol)
+        if self.picker:
+            if not self.picker.key(key):self.picker=None
+            return True
+        if self.protocol=='meshcore' and key=='h' and ('h','Companions') in view.actions() and not self.modal():
+            from meshcore_picker import Picker
+            self.picker=Picker(self.picker_wake,self.chat_services['meshcore'])
+            return True
         if key=='p' and not ((view.editing or view.confirm or view.discovery or view.own_identity) if view else self.composing):
             modes=('aprs','reticulum','meshcore');self.protocol=modes[(modes.index(self.protocol)+1)%3]
             if getattr(self,'_session_callback',None):self._session_callback()
             return True
         return view.key(key) if view else super().key(key)
     def lines(self):
+        if self.picker:return self.picker.lines()
         view=self.chats.get(self.protocol)
         if view:
             view.width,view.height=self.width,max(8,self.height-1)
@@ -302,10 +317,18 @@ class Messages(ReceiveMessages):
             finally:self.height=old
         return [(' [P Protocol: '+self.protocol.upper()+']')[:self.width]]+list(rows[:self.height-1])
     def pointer(self,column,row,width,button=0,released=False):
+        if self.picker:
+            if not released and button==0 and self.picker.stage=='choices' and 0<=row-2<len(self.picker.rows):
+                self.picker.index=row-2;self.picker.key('\r')
+            elif not released and button==0 and row==len(self.picker.lines())-1:self.key('\x1b')
+            return True
         if row==0 and button==0 and not released:return self.key('p')
         view=self.chats.get(self.protocol)
+        if view and not released and button==0 and any(k=='h' and y==row-1 and x<=column<x+w for x,y,w,k in view.hits):
+            return self.key('h')
         return view.pointer(column,row-1,width,button,released) if view else super().pointer(column,row-1,width,button,released)
     def spans(self):
+        if self.picker:return ()
         view=self.chats.get(self.protocol)
         spans=view.spans() if view else super().spans()
         return ((0,0,min(self.width,30),'control'),)+tuple((y+1,x,w,role) for y,x,w,role in spans)
