@@ -11,9 +11,9 @@ from audio_metrics import AudioMetrics
 from app_widgets import Canvas,TextInput
 
 
-DEFAULT_SOCKET='/tmp/n810-audio-trial/pcm.sock'
-
-def default_socket():return os.environ.get('N810_AUDIO_SOCKET') or DEFAULT_SOCKET
+def default_socket():
+    # Audio acquisition is separately owned; never guess a development endpoint.
+    return os.environ.get('N810_AUDIO_SOCKET') or None
 
 
 class PCMSource:
