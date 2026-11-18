@@ -1,0 +1,36 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides: n810-audio
+# Required-Start: $local_fs
+# Required-Stop:
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: Initialize verified N810 ALSA playback and capture
+### END INIT INFO
+set -eu
+case "${1:-}" in
+start)
+    # Reject the earlier OMAP2430 FIFO/common-IRQ description on OMAP2420.
+    python3 - <<'CHECK'
+from pathlib import Path
+p=Path('/proc/device-tree/ocp/mcbsp@48076000')
+assert (p/'interrupts').read_bytes()==bytes.fromhex('0000003e0000003f')
+assert (p/'interrupt-names').read_bytes().hex()=='747800727800'
+assert not (p/'ti,buffer-size').exists()
+CHECK
+    /usr/local/sbin/n810-audio probe
+    amixer -q -c N810 sset PCM 87
+    amixer -q -c N810 sset 'Line DAC' 118
+    amixer -q -c N810 sset 'Jack Function' Off
+    amixer -q -c N810 sset 'Speaker Function' On
+    amixer -q -c N810 sset 'Input Select' 'Digital Mic'
+    install -d -m 755 /run/n810-audio
+    uname -r > /run/n810-audio/pcm-approved-kernel
+    chmod 644 /run/n810-audio/pcm-approved-kernel
+    ;;
+stop)
+    rm -f /run/n810-audio/pcm-approved-kernel
+    /usr/local/sbin/n810-audio mute || :
+    ;;
+*) echo 'Usage: n810-audio {start|stop}' >&2; exit 2;;
+esac

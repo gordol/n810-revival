@@ -15,6 +15,7 @@ START = {
     'n810-backlightd': (2, 'n810-backlightd.init'),
     'n810-console-ux': (2, 'n810-console-ux.init'),
     'n810-powerd': (2, 'n810-powerd.init'),
+    'n810-audio': (3, 'n810-audio.init'),
     'n810-wifi': (2, 'n810-wifi.init'),
     'n810-displayd': (3, 'n810-displayd.init'),
     'n810-boot-mode': (4, 'n810-boot-mode.init'),
