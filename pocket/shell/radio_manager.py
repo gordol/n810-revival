@@ -239,6 +239,9 @@ class RadioManager:
             else:self.index=hit[1];self.memory_layout.select('channels')
         return True
     def lines(self):
+        if self.bank_download and self.bank_download.catalog_refresh_pending:
+            self.bank_download.catalog_refresh_pending=False
+            self.state.update(True)
         if self.page in (2,3,4) or self.review is not None:self._ensure_drafts()
         self.hits=[];self._spans=[];rows=[];cursor=0
         for i,name in enumerate(self.pages):

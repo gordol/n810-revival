@@ -53,6 +53,8 @@ class Tune:
 
 
 class BankDownload(Tune):
+    catalog_refresh_pending=False
+
     def start_all(self):
         if self.worker and self.worker.is_alive():return
         if str(self.path)!='/dev/shm/n810-radio-read/control.sock':
@@ -65,6 +67,7 @@ class BankDownload(Tune):
         try:
             result=subprocess.run([sys.executable,__file__, '--all-banks'],
                                   capture_output=True,text=True,start_new_session=True)
+            self.catalog_refresh_pending=True
             self.publish((result.stderr if result.returncode else result.stdout).strip())
         except OSError as error:self.publish(str(error))
 
@@ -88,6 +91,7 @@ class BankDownload(Tune):
             if edit:
                 self.publish('Verified '+edit['field'].replace('_',' ')+' on the radio. Refresh for current values.')
                 return
+            self.catalog_refresh_pending=True
             self.publish('Saved bank %d · %d channels · %d bank names' %
                          (result['bank'],result['channels'],len(result['banks'])))
         except (KeyError,OSError,ValueError,RuntimeError) as error:self.publish(str(error))
@@ -140,6 +144,7 @@ def download_all_banks():
             raise ValueError('Connect the UV-PRO in Bluetooth first')
         stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
         folder = backups / stamp
+        completed=False
         try:
             receive_action('receive_stop', lambda s: not s['reception']['enabled'] and not s['reception']['stopping'])
             tool = '/usr/local/lib/n810-radio/n810-radio-backup.py'
@@ -152,8 +157,14 @@ def download_all_banks():
             banks = saved['banks']
             if not saved['complete'] or (len(banks)>1 and not saved.get('restored')):
                 raise ValueError('Bank or settings restoration unverified')
+            completed=True
         finally:
-            receive_action('receive_start', lambda s: s['reception']['enabled'] and s['radio']['connected'])
+            try:
+                receive_action('receive_start', lambda s: s['reception']['enabled'] and s['radio']['connected'])
+            except (TimeoutError,ConnectionError):
+                if not completed:raise
+                return f"Saved {len(banks)} banks · restored bank {saved['status']['curr_region']} · check Bluetooth for receiver status"
+
         return f"Saved {len(banks)} banks · receiving on bank {saved['status']['curr_region']}"
 
 
