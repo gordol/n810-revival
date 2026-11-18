@@ -260,7 +260,12 @@ class Engine:
             source=Path(__file__).parent
             paths=[source/name for name in ('n810-map-next.py','n810-walk-map.py','n810-map-rgb.py','n810-map.py')]
             paths+=sorted(p for p in Path(maps).iterdir() if p.is_file() and (p.name.endswith(('.json.gz','.roads.gz','.meta.json','.n8w','.n8t'))))
-            self.prepared.fingerprint=[(p.name,hashlib.sha256(p.read_bytes()).hexdigest()) for p in paths]
+            self.prepared.fingerprint=[]
+            for path in paths:
+                with path.open('rb') as stream:
+                    digest=hashlib.sha256()
+                    for block in iter(lambda:stream.read(65536),b''):digest.update(block)
+                self.prepared.fingerprint.append((path.name,digest.hexdigest()))
         self.layer_bounds={}
     def _load_geography(self):
         if self._atlas is not None:return

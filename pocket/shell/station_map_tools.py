@@ -549,6 +549,12 @@ class StationMapTools:
     def selected_entities(self):
         position=self.base.center
         return tuple(self.base.selected_entities())+(EntityRef('map-point',f'{position[0]:.7f},{position[1]:.7f}',payload={'position':position}),)
+    def on_close(self):
+        renderer=self.base.renderer
+        renderer._wanted=None
+        if renderer.pending:renderer.pending[1].cancel()
+        self.base.cancel_pointer()
+
     def close(self):
         if self.internet:self.internet.close()
         if self.tool:self.tool.close()

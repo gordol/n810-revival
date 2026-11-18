@@ -37,7 +37,7 @@ def check(kit, debugfs):
         "/usr/local/sbin/n810-bluetooth": "platform/scripts/n810-bluetooth",
         "/usr/local/sbin/n810-bluetooth-address": "platform/scripts/n810-bluetooth-address",
     }
-    for name in ('graphics/map_pixels.py','graphics/scenes.py','graphics/gpu_scene.py','shell/map_navigation.py'):
+    for name in ('graphics/map_pixels.py','graphics/scenes.py','graphics/gpu_scene.py','shell/map_navigation.py','shell/map_geography.py','shell/offline_map.py','shell/radio_read_client.py','shell/station_map_tools.py','shell/desktop_actions.py','shell/vendor/packet-console/n810-map-next.py','shell/vendor/packet-console/radio-read-layouts.json'):
         scripts['/usr/local/share/pocket/'+name]='pocket/'+name
     for name in ('uvpro_bank.py','uvpro_settings.py','uvpro-aprs-listen.py','n810-radio-read-owner.py','n810-radio-bandwidth.py','n810-kiss-bridge.py'):
         scripts['/usr/local/lib/n810-radio/'+name]='pocket/shell/owner-service/'+name

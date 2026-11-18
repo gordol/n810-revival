@@ -38,12 +38,18 @@ def terrain_detail(surface,view,features):
  overview=getattr(surface,'pixel_overview',False)
  if overview and features.sample_width>=view.width*2 and features.sample_height>=view.height*4:
   return features.terrain,features.sample_width,features.sample_height
- if not getattr(surface,'terrain',False) or (not overview and getattr(surface.image,'source',None) not in ('semantic','pan-preview')):
+ if not getattr(surface,'terrain',False) or (not overview and getattr(surface.image,'source',None) not in ('semantic','semantic-prepared','pan-preview')):
   return features.terrain,features.sample_width,features.sample_height
  from desktop_elevation import enabled
  factor=min(8,math.isqrt((32768 if overview else 262144)//max(1,view.width*view.height*2)))
  if factor<2:return features.terrain,features.sample_width,features.sample_height
  dense=surface.renderer.module.Viewport(view.center,view.span,view.width*factor,view.height*factor,view.cell_aspect)
+ renderer=surface.renderer
+ path=renderer.prepared_path('terrain',dense,(overview,)) if hasattr(renderer,'prepared_path') else None
+ if path:
+  saved=renderer.read_prepared(path)
+  if isinstance(saved,bytes) and len(saved)==dense.width*dense.height*8:
+   return array('I',saved),dense.width,dense.height*2
  from desktop_elevation import pixel_samples
  fast=pixel_samples(surface.renderer.engine,dense) if enabled() else None
  if fast is not None:return fast
@@ -55,6 +61,7 @@ def terrain_detail(surface,view,features):
   cells=frame[row*dense.width:(row+1)*dense.width]
   samples.extend(map_rgb(upper) for _,upper,_ in cells)
   samples.extend(map_rgb(lower) for _,_,lower in cells)
+ if path:renderer.engine.prepared.save_base(path,samples.tobytes())
  return samples,dense.width,dense.height*2
 
 class View:

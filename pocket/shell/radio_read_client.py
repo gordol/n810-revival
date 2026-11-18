@@ -55,6 +55,7 @@ class RadioRead:
                     info=self.path.parent.lstat()
                     if stat.S_ISDIR(info.st_mode) and info.st_uid==os.getuid() and stat.S_IMODE(info.st_mode)==0o700 and (self.path.parent/'owner.json').is_file():return None
                 except OSError:pass
+            if self.path==read_endpoint(True):return 'Receiver offline. Open Bluetooth and connect the UV-PRO.'
             return str(error)
         except OSError as error:return str(error)
         return None

@@ -23,7 +23,11 @@ class Tune:
             from receive_bridge import forward_radio_control
             self.path=forward_radio_control(Path(self.path).parent)
         with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as client:
-            client.settimeout(3);client.connect(str(self.path));client.sendall(json.dumps(value).encode()+b'\n')
+            client.settimeout(3)
+            try:client.connect(str(self.path))
+            except (FileNotFoundError,ConnectionRefusedError):
+                raise ValueError('Receiver offline. Open Bluetooth and connect the UV-PRO.') from None
+            client.sendall(json.dumps(value).encode()+b'\n')
             raw=bytearray()
             while b'\n' not in raw:
                 block=client.recv(4096)

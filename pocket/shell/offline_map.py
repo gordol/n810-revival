@@ -6,6 +6,10 @@ from concurrent.futures import ThreadPoolExecutor,CancelledError
 from dataclasses import dataclass
 from functools import partial
 import time
+import marshal
+import stat
+import sys
+import zlib
 import math
 import os
 from array import array
@@ -288,8 +292,10 @@ class Renderer:
             samples.extend(map_rgb(upper) for _,upper,_ in cells)
             samples.extend(map_rgb(lower) for _,_,lower in cells)
         detail_pixels=8 if pixel_detail else 1
-        vectors=list(vector_segments(self.engine,view,roads=roads,detail_pixels=detail_pixels))
-        labels=label_annotations(self.engine,view,roads=roads,detail_pixels=detail_pixels)
+        from map_geography import selected_geography
+        selection=selected_geography(self.engine,view,roads,detail_pixels=detail_pixels)
+        vectors=list(vector_segments(self.engine,view,roads=roads,detail_pixels=detail_pixels,selection=selection))
+        labels=label_annotations(self.engine,view,roads=roads,detail_pixels=detail_pixels,selection=selection)
         if grid_enabled(grid_mode,view.span):
             grid_vector,grid_labels=grid_features(view)
             vectors.insert(0,grid_vector)
@@ -377,10 +383,45 @@ class Renderer:
         if stage is not None:self._stage('places_seconds',stage)
         self.loading_phase='ready'
         return Image(width,height,cells,legend,places,time.monotonic()-began,projection or viewport,source)
+    def prepared_path(self,kind,view,options):
+        store=getattr(self.engine,'prepared',None)
+        if store is None:return None
+        from map_geography import signature as geography
+        from map_hydrography import signature as hydrography
+        return store.disk_path(('pixel-map-v1',kind,sys.byteorder,tuple(view),options,
+                                geography(),hydrography()))
+
+    def read_prepared(self,path):
+        if not path:return None
+        try:
+            fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+            with os.fdopen(fd,'rb') as stream:
+                info=os.fstat(fd)
+                if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o022:return None
+                if info.st_size>4*1024*1024 or stream.read(4)!=b'N8M2':return None
+                decoder=zlib.decompressobj()
+                payload=decoder.decompress(stream.read(4*1024*1024),8*1024*1024)
+            if decoder.eof and not decoder.unused_data:return marshal.loads(payload)
+        except (OSError,EOFError,ValueError,TypeError,zlib.error):pass
+        return None
+
     def _render_semantic(self,key,began):
         """Prepare one clean source frame; native and TUI share the map engine."""
         _,center,span,width,height,terrain,roads=key
         view=self.module.Viewport(center,span,width,height)
+        forest=bool(getattr(self,'forest_roads',False))
+        path=self.prepared_path('geography',view,(terrain,roads,forest))
+        saved=self.read_prepared(path)
+        if saved is not None:
+            try:
+                samples,lines,labels,legend,places=saved
+                if len(samples)!=width*height*2*4:raise ValueError('Terrain size mismatch')
+                features=MapFeatures(array('I',samples),tuple((color,array('d',coords)) for color,coords in lines),
+                                     labels,width,height*2,forest,True)
+                self.loading_phase='ready'
+                return Image(width,height,SemanticPlane(features.terrain,width,height),legend,places,
+                             time.monotonic()-began,view,'semantic-prepared',features)
+            except (ValueError,TypeError,OverflowError):pass
         self.loading_phase='terrain'
         frame,legend=display_terrain_sampler(self.engine)(view,terrain)
         self.loading_phase='features'
@@ -388,6 +429,10 @@ class Renderer:
         if key!=self._wanted:raise CancelledError()
         self.loading_phase='places'
         places=tuple((p['name'] if 'name' in p else p.get('label',''),p['lon'],p['lat']) for p in self.engine.places(view))
+        if path and key==self._wanted:
+            self.engine.prepared.save_base(path,(features.terrain.tobytes(),
+                tuple((color,coords.tobytes()) for color,coords in features.vectors),
+                features.labels,legend,places))
         self.loading_phase='ready'
         return Image(width,height,SemanticPlane(features.terrain,width,height),legend,places,
                      time.monotonic()-began,view,'semantic',features)

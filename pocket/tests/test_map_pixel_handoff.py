@@ -146,6 +146,26 @@ class MapPixelHandoff(unittest.TestCase):
     self.assertIs(features.terrain,image.features.terrain)
   finally:renderer.close()
 
+ def test_prepared_semantic_view_reopens_without_feature_generation(self):
+  from offline_map import Renderer
+  from map_fixtures import install
+  import tempfile
+  from pathlib import Path
+  import os
+  key=('map',(45.0,-120.0),5.,40,16,True,True)
+  with tempfile.TemporaryDirectory() as cache,patch.dict(os.environ,{'N810_MAP_BASES':cache}):
+   first=Renderer();install(self,first);first.set_presentation('semantic');first._wanted=key
+   image=first._render(key);first.close()
+   second=Renderer(maps=first.maps);second.set_presentation('semantic');second._wanted=key
+   with patch.object(second,'_features_from_terrain',side_effect=AssertionError('features rebuilt')):
+    reopened=second._render(key)
+   self.assertEqual(reopened.source,'semantic-prepared')
+   self.assertEqual(reopened.features,image.features)
+   path=Path(second.prepared_path('geography',image.projection,(True,True,False)))
+   path.write_bytes(b'incomplete')
+   self.assertEqual(second._render(key).source,'semantic')
+   second.close()
+
  def test_real_engine_terrain_is_independent_of_painted_cells(self):
   from offline_map import Renderer
   from paint import ink
@@ -174,7 +194,7 @@ class MapPixelHandoff(unittest.TestCase):
    ('▀',(20,30,200),(200,30,20)),
    (' ',(200,30,20),(200,30,20)),
    (' ',(20,30,200),(20,30,200))],''))
-  with patch('map_geography.vector_segments',return_value=()),patch('map_geography.label_annotations',return_value={}):
+  with patch('map_geography.selected_geography',return_value=((),(),())),patch('map_geography.vector_segments',return_value=()),patch('map_geography.label_annotations',return_value={}):
    features=renderer.semantic_features(NS(width=4,height=1,span=1),cells)
   fore=rgb(200,30,20);back=rgb(20,30,200)
   self.assertEqual(list(features.terrain),[fore,back,fore,back,back,fore,fore,back])
