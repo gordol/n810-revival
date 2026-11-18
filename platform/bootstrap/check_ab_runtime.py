@@ -44,6 +44,12 @@ def check(kit, debugfs):
     files.extend(doom + name for name in ("build/bridge.so", "build/doom-engine", "vendor/freedoom-0.13.0/freedoom1.wad"))
     for path in files:
         stat = subprocess.check_output([debugfs, "-R", "stat " + path, str(slot)], stderr=subprocess.DEVNULL, text=True)
+        # alsa-utils installs one executable for both playback and recording.
+        # aplay itself is checked above, so require the exact packaged alias.
+        if path == "/usr/bin/arecord" and "Type: symlink" in stat:
+            if 'Fast link dest: "aplay"' not in stat.splitlines():
+                raise ValueError("Unexpected arecord symlink target")
+            continue
         if "Type: regular" not in stat or not re.search(r"\bSize:\s*[1-9]\d*", stat):
             raise ValueError("Missing or empty installed runtime: " + path)
     print(f"Verified kit checksums, kernel patch, {len(scripts)} installed source files and {len(files)} runtime dependencies for {commit}")
