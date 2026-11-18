@@ -29,6 +29,8 @@ def check(kit, debugfs):
     if hashlib.sha256(patch).hexdigest() != kernel["device_patch_sha256"]:
         raise ValueError("Kernel device patch mismatch")
     scripts = {
+        "/usr/local/share/pocket/shell/panel_tray.py": "pocket/shell/panel_tray.py",
+        "/usr/lib/n810-ab/etc/sudoers.d/n810-power": "platform/device/n810-power.sudoers",
         "/usr/local/share/pocket/shell/radio_manager.py": "pocket/shell/radio_manager.py",
         "/usr/lib/n810-ab/etc/init.d/n810-sd-swap": "platform/bootstrap/ab_sd_swap.sh",
         "/usr/local/lib/n810-pocket/native-template/owner_session.py": "platform/bootstrap/gpu_runtime/owner_session.py",

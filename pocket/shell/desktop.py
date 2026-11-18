@@ -1044,7 +1044,7 @@ def main(platform=None,argv=None):
         launcher.open()
 
     def open_tray(action,pointer):
-        from panel_tray import menu
+        from panel_tray import CONTROL_ACTIONS, menu
         content=menu(action,system_state,bluetooth_state,radio)
         if content is None:return False
         title,entries=content
@@ -1075,12 +1075,16 @@ def main(platform=None,argv=None):
                     context_commands['tray:done']=lambda:None
                     context_commands['tray:shutdown']=lambda:invoke('power:shutdown')
                     return
-                elif intent.startswith('cpu:') or intent=='power:shutdown':
+                elif intent.startswith('submenu:'):
+                    open_tray('system:'+intent.split(':',1)[1],pointer)
+                    return
+                elif intent in CONTROL_ACTIONS:
                     import subprocess
-                    command=['/sbin/shutdown','-h','now'] if intent=='power:shutdown' else ['/usr/local/sbin/n810-cpu-policy',intent[4:]]
+                    command,message=CONTROL_ACTIONS[intent]
                     try:
-                        result=subprocess.run(['sudo','-n',*command],capture_output=True,text=True,timeout=8)
-                        message=(result.stderr.strip() or 'Power action failed') if result.returncode else ('Shutdown requested' if intent=='power:shutdown' else 'CPU mode: '+intent[4:])
+                        result=subprocess.run(command,capture_output=True,text=True,timeout=30)
+                        if result.returncode:
+                            message=result.stderr.strip() or 'Power action failed'
                     except (OSError,subprocess.TimeoutExpired) as error:message=str(error)
                     open_launcher(pointer);launcher.open_context(message[:72],[('Return to Pocket','tray:done')])
                     context_commands['tray:done']=lambda:None
