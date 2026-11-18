@@ -45,6 +45,8 @@ We took the [gears and terrain executables from the original measurements](2026-
 
 We could check the gears result against the particular Mesa build we'd recovered from the original installation because the library hashes matched on both tablets. Raising the CPU clock from 330 to 480 MHz had improved gears throughput by 18% on the first N810. On the second we measured a 19% improvement with the same executable and library. The original 480 MHz terrain run used a different Mesa build, so we couldn't make the same comparison for terrain.
 
+On November 18 I tried the installer on a third N810. Setup on the laptop verified the SD card and internal recovery by reading both back, then flashed the shared kernel. The tablet booted slot A with its root filesystem read-only and mounted `/home` and `/data` from the card. I could see Pocket on the LCD after touch calibration, and Station Map opened a map and found the installed elevation data.
+
 <!-- journal-sources:start -->
 ## Code, tests and build inputs
 
