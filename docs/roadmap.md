@@ -1,5 +1,18 @@
 # Development roadmap
 
+## Current tablet priorities
+
+| Priority | Work | Acceptance check |
+|---|---|---|
+| Display recovery | Make lock and unlock reliable while Pocket owns the framebuffer. | Slide twice under GPU load; verify input, picture and lamp return without restarting. Repeat on battery and charger. |
+| Fresh install | Include the companion picker, safe glyph rendering, and revised contact navigation in a clean image. | Boot both slots, test GUI and TUI, update and roll back while retaining user data. |
+| Text and navigation | Expand the shipped GUI font with licensed punctuation, accented names and symbols. Document emoji coverage and font asset size. Use accessible hardware keys and separate channels from contacts. | Render multilingual contact fixtures with no crash, verify legibility and memory use, and page a large list with the slide-out keyboard and touch. |
+| Radio and mesh | Test UV-PRO reconnect, hub selection, MeshCore pairing and Reticulum executor handoff. | Verify the selected peer, sustained receive and reconnection after power loss. |
+| Sensors and audio | Verify ambient-light response, keyboard lighting, charge estimates, headset routing and per-app sound. | Record physical observations alongside sensor and mixer state. |
+| Performance and distribution | Measure cold and warm map/terrain loads, Doom, input latency, and actual disk use for cached and clean builds. | Publish repeatable timings and measured host storage requirements. |
+
+[Current hardware and app support](status.md) records the evidence behind these priorities.
+
 These investigations concern future work. Each begins with evidence from the existing implementation and has a specific question to resolve.
 
 | Investigation | Existing foundation | Evidence needed before changing the design |

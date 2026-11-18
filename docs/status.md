@@ -1,6 +1,20 @@
 # Current status
 
-Updated 9 November 2026. See the [N810 GPU desktop](posts/2026-11-09-gpu-desktop.md) and [Symbian runtime](posts/2026-11-09-symbian-runtime.md) entries for the latest tablet work.
+Updated 18 November 2026. These results cover the SD A/B installation and subsequent development updates on physical N810s. A test on an updated tablet does not by itself verify a newly built image. See the [installation guide](how-to/install-n810-ab.md) and [roadmap](roadmap.md).
+
+| Feature | Observed on hardware | Known limit or next check |
+|---|---|---|
+| Installation and storage | Laptop Pocket installed a single flashed kernel, internal recovery and SD system slots. A fresh tablet booted into Pocket. Home and service state live on the SD data partition. | Repeat a clean install with the newest UI fixes and verify data across an update and rollback. |
+| Memory | A 512 MiB SD swapfile and higher-priority zram were active after reboot. | Responsiveness under memory pressure needs measurement. |
+| Display and graphics | The 800 × 480 GPU desktop ran Flux, cycled backgrounds and showed a full-size Surface Room. Unsupported punctuation previously terminated Pocket; the corrected renderer displayed a 350-contact list. | Bitmap font coverage is limited. Flux and Doom can be slow. |
+| Input, lighting and power | Keyboard, touch calibration, power menu and brightness changes have worked. Key-event tests opened and dismissed the menu and changed brightness in both directions. | A physical lock gesture blanked the third tablet and wake blocked in display I/O. Physical unlock, keyboard-light behavior and ambient-light response need acceptance testing. |
+| Audio | Speaker playback was heard on a tablet. ALSA recording returned nonzero samples on a fresh installation. | Headset routing and sound in individual games need separate checks. |
+| Networking | USB SSH and Wi-Fi association/DHCP worked. The installed Wi-Fi join form accepts SSID and password input. | Verify joining a new AP from the panel and reconnecting after a drop. |
+| Maps and applications | Station Map loaded offline detail. Surface Room, Help and Doom opened on hardware. | First map preparation and Doom were slow. Verify terrain/line-of-sight with a known elevation pack in both interfaces. |
+| Bluetooth and MeshCore | A UV-PRO receive connection stayed up while Pocket selected a BLE companion through a Classic HTIT hub. The owner synced 350 contacts and two channels. | Repeat cold reconnect and long sessions. MeshCore sync alone does not establish LoRa delivery. |
+| Reticulum and external hardware | The project has historical signed-message and external-executor tests. The second HTIT answered Pocket’s USB probe on app0 with microReticulum schema 2 and executor offload ready. | Verify Bluetooth executor access and end-to-end traffic from the current tablet install. |
+
+## Earlier component results
 
 | Area | Established result | Remaining work |
 |---|---|---|
@@ -31,7 +45,7 @@ combined image is 2,077,084 bytes. The [verification record](reference/kernel-bu
 describes the fresh checkout, toolchain, configuration and output checks. The
 [kernel guide](how-to/build-kernel.md) gives the repeatable command.
 
-The [component verification page](reference/component-build-verification.md) records HTIT firmware, graphics, and map builds. A complete installable root-filesystem image still requires a Debian root, device firmware, an installation policy, and an integrated image-assembly check. The [platform reference](reference/platform-files.md) identifies the available services and configuration files.
+The [component verification page](reference/component-build-verification.md) records HTIT firmware, graphics, and map builds. The current A/B installer assembles the Debian root filesystem, device firmware and Pocket runtime. The [platform reference](reference/platform-files.md) identifies the available services and configuration files.
 
 ## What readers can build now
 
