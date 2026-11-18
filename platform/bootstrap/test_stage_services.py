@@ -41,7 +41,7 @@ class StageServicesTests(unittest.TestCase):
                 policy=root/'etc/sudoers.d'/name
                 self.assertEqual(policy.stat().st_mode&0o777,0o440)
             self.assertTrue((root/'usr/local/lib/n810-platform/rnode_spp_prepare.py').is_file())
-            for name in ('n810-bluetooth-address','n810-bluetooth'):
+            for name in ('n810-audio','n810-bluetooth-address','n810-bluetooth'):
                 helper=root/'usr/local/sbin'/name
                 self.assertEqual(helper.read_bytes(),(REPO/'platform/scripts'/name).read_bytes())
                 self.assertTrue(helper.stat().st_mode & 0o111)

@@ -54,8 +54,8 @@ def stage(root):
     for path in destination.iterdir():
         if path.is_file():path.chmod(0o644)
     destination.chmod(0o755)
-    subprocess.run(['chroot', str(root), 'usermod' , '-aG', 'dialout,bluetooth', 'nokia'], check=True)
-    for name in ('n810-bluetooth-address', 'n810-bluetooth', 'n810-setup-wifi', 'n810-rnode-configure', 'n810-rnode-spp-prepare'):
+    subprocess.run(['chroot', str(root), 'usermod' , '-aG', 'dialout,bluetooth,audio', 'nokia'], check=True)
+    for name in ('n810-audio', 'n810-bluetooth-address', 'n810-bluetooth', 'n810-setup-wifi', 'n810-rnode-configure', 'n810-rnode-spp-prepare'):
         target = root / 'usr/local/sbin' / name
         shutil.copyfile(REPO / 'platform/scripts' / name, target)
         target.chmod(0o755)
