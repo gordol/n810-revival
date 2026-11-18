@@ -245,8 +245,12 @@ class MapPixelHandoff(unittest.TestCase):
   pool=Pool();surface=NS(renderer=NS(pool=pool,completion_wakeup=None))
   layer=(0,2,20,10,object());plan=[('first',layer,surface)]
   app.plan=lambda:plan[0];first=NS(marks=object());second=NS(marks=object())
-  app.build=lambda *args:first
+  app.build=lambda *args:self.fail('UI performed a synchronous map build')
+  self.assertIsNot(app.render_image()[0],first)
+  self.assertIsNone(app.ready)
+  pool.future.set_result(first)
   self.assertIs(app.render_image()[0],first)
+  pool.future=Future()
   plan[0]=('zoomed',(0,2,20,10,object()),surface)
   self.assertIs(app.render_image()[0],first)
   self.assertIs(app.presentation_marks()[0],first.marks)
@@ -256,7 +260,10 @@ class MapPixelHandoff(unittest.TestCase):
   self.assertEqual(app.key,'zoomed')
   pool.future=Future();plan[0]=('another-zoom',(0,2,20,10,object()),surface)
   self.assertIs(app.render_image()[0],second)
-  plan[0]=('resized',(0,2,25,10,object()),surface)
+  previous=pool.future;pool.future=Future();plan[0]=('resized',(0,2,25,10,object()),surface)
+  self.assertEqual(app.render_image()[0].width,25)
+  self.assertTrue(previous.cancelled())
+  pool.future.set_result(first)
   self.assertIs(app.render_image()[0],first)
   self.assertEqual(app.key,'resized')
 
