@@ -37,10 +37,32 @@ def uncovered_records(records,cols,rows,cuts):
         yield bytes(raw),x,y,w,h
 
 
+_PUNCTUATION = str.maketrans({'‘': "'", '’': "'", '“': '"', '”': '"', '–': '-', '—': '-', ' ': ' '})
+
+
+def display_glyph(code, supported):
+    if code in supported:
+        return code
+    substitute = _PUNCTUATION.get(code, '?')
+    fallback = ord(substitute)
+    return fallback if fallback in supported else 32
+
+
+def display_records(records, supported):
+    patched = None
+    for index, (_, code, _) in enumerate(struct.iter_unpack('<IIQ', records)):
+        if code != 32 and code not in supported:
+            if patched is None:
+                patched = bytearray(records)
+            struct.pack_into('<I', patched, index * 16 + 4, display_glyph(code, supported))
+    return records if patched is None else bytes(patched)
+
+
 class Context(SharedContext):
     native_pixels=True
     def __init__(self,platform):
         super().__init__(platform)
+        self.font_codes=frozenset(platform.renderer.font_codes)
         host=platform.host
         host.available_effects=('flux','pnw')
         if host.effect not in host.available_effects:host.set_effect(host.available_effects[0])
@@ -196,6 +218,7 @@ class Context(SharedContext):
         raise RuntimeError('Full desktop cells are not part of the native pixel path')
     def draw_records(self,records,cols,rows,x,y,fill,opacity):
         r=self.platform.renderer
+        records=display_records(records,self.font_codes)
         result=self.lib.pocket_scene_window_draw(self.handle,C.c_char_p(records),cols,rows,x,y,r.layer_palette,len(r.layer_palette),r.layer_fallback,int(fill),opacity)
         if result:
             codes=set(r.font_codes)
@@ -248,7 +271,7 @@ class Context(SharedContext):
         for (x,y),(label,fg,bg) in self.panels.items():
             def draw():
                 self.check(self.lib.pocket_scene_rect(self.handle,x*8,y*16,len(label)*8,16,(rgb565(bg)<<8)|255))
-                encoded=label.encode('utf-32-le')
+                encoded=''.join(chr(display_glyph(ord(c),self.font_codes)) for c in label).encode('utf-32-le')
                 self.check(self.lib.pocket_scene_text(self.handle,x*8,y*16,C.c_char_p(encoded),len(label),rgb565(fg)))
             self.batch(('panel',(x,y)),(label,fg,bg),draw)
         # Two one-pixel edges per panel give the bar relief at native resolution.
