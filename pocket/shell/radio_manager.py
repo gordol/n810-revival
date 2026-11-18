@@ -176,14 +176,15 @@ class RadioManager:
             offset={'up':-1,'down':1,'pageup':-step,'pagedown':step,'home':-self.settings_max,'end':self.settings_max}[key]
             self.settings_offset=max(0,min(self.settings_max,self.settings_offset+offset))
             return True
-        if self.page==2 and key in ('d','D','c'):
+        if self.page==2 and key in ('d','D','c','a'):
             client=self.state.read_client
             if client is None:self.message='Radio owner unavailable';return True
             from radio_tune_client import BankDownload
             if self.bank_download is None:self.bank_download=BankDownload(client.path,self.state._source_changed)
             directory=self.bank_directory()
             selected=directory[self.bank%len(directory)]['index'] if directory and key!='c' else None
-            self.bank_download.start(selected)
+            if key=='a':self.bank_download.start_all()
+            else:self.bank_download.start(selected)
             return True
         if self.page==2:
             groups=self.bank_directory()
@@ -336,6 +337,10 @@ class RadioManager:
                 choose='[c Download current bank]'
                 self.hits.append((len(label)+1,len(rows),len(choose),1,('action','c')))
                 rows.append(label+' '+choose)
+                if str(self.state.read_client.path)=='/dev/shm/n810-radio-read/control.sock':
+                    label='[a Download all banks] · pauses reception, then restores it'
+                    self.hits.append((0,len(rows),22,1,('action','a')))
+                    rows.append(label)
             if self.bank_download:rows.append(self.bank_download.status)
             room=max(1,self.height-len(rows)-4)
             start=max(0,self.bank-room+1)
