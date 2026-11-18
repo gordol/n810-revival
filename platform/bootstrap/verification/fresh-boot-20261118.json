@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-18",
+  "source_commit": "55329ca3092b57bb5dadcaad48c8dfd6565c5446",
+  "installation": "Laptop Pocket N810 Setup, fresh SD A/B install on a physical Nokia N810",
+  "sd_readback_verified": true,
+  "internal_recovery_readback_verified": true,
+  "shared_kernel_flashed": true,
+  "slot_state": {
+    "active": "A",
+    "attempt": "A",
+    "pending": null,
+    "tries": 0,
+    "version": 1
+  },
+  "root_read_only": true,
+  "persistent_sd_mounts": [
+    "/data",
+    "/home"
+  ],
+  "touch_calibration_saved": true,
+  "pocket_desktop_visible": "Confirmed by operator",
+  "boot_health_passed": true,
+  "gpu": {
+    "gpu_service_jobs": 19,
+    "gpu_service_failed": 0,
+    "resident_fault": 0,
+    "cleanup_error": 0,
+    "gpu_error": 0
+  },
+  "audio": "ALSA card registered. Speaker playback was not tested on this unit."
+}
