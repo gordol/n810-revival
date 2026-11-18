@@ -53,7 +53,7 @@ class DeviceSource:
                 import dbus
                 adapter=dbus.SystemBus().get_object('org.bluez','/org/bluez/hci0',introspect=False)
                 dbus.Interface(adapter,'org.freedesktop.DBus.Properties').Set(
-                    'org.bluez.Adapter1','Powered',dbus.Boolean(action=='controller_on'),timeout=5)
+                    'org.bluez.Adapter1','Powered',dbus.Boolean(action=='controller_on',variant_level=1),signature='ssv',timeout=5)
                 self.bluetooth_message='Bluetooth power updated'
             except Exception as error:self.bluetooth_message='Bluetooth: '+str(error)[:160]
             self._collect_requested=True
