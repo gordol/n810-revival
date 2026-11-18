@@ -27,5 +27,35 @@
     "cleanup_error": 0,
     "gpu_error": 0
   },
-  "audio": "ALSA card registered. Speaker playback was not tested on this unit."
+  "audio": {
+    "alsa_playback": "One-second 440 Hz tone completed as nokia. Physical audibility unconfirmed on this tablet.",
+    "alsa_capture": "48000 stereo frames, nonzero signal"
+  },
+  "bluetooth": {
+    "radio": "UV-PRO",
+    "radio_pairing_control": "Top-menu pairing toggle",
+    "paired": true,
+    "bonded": true,
+    "trusted": true,
+    "serial_port_channel": 1,
+    "serial_connection_verified": true
+  },
+  "offline_terrain": {
+    "source": "Installed USGS 3DEP fine western Washington export",
+    "path_m": 938,
+    "sample_count_requested": 4097,
+    "compute_seconds": 60.28
+  },
+  "desktop_apps": {
+    "scope": "24 installed apps reported open without an app error. This checks launch, not every feature.",
+    "slow_status_responses": [
+      "Rainier walk",
+      "Surface room",
+      "Doom / Freedoom"
+    ],
+    "map_initial_frame": "Coherent native pixel view using installed terrain",
+    "gpu_jobs_observed": 2800,
+    "gpu_faults_observed": 0,
+    "map_view_change": "After changing center and scale, the presented view matched the request. Rendering took several minutes during the launch smoke test."
+  }
 }
