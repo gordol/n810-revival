@@ -144,7 +144,7 @@ def download_all_banks():
             raise ValueError('Connect the UV-PRO in Bluetooth first')
         stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
         folder = backups / stamp
-        completed=False
+        reconnect_pending=False
         try:
             receive_action('receive_stop', lambda s: not s['reception']['enabled'] and not s['reception']['stopping'])
             tool = '/usr/local/lib/n810-radio/n810-radio-backup.py'
@@ -157,13 +157,13 @@ def download_all_banks():
             banks = saved['banks']
             if not saved['complete'] or (len(banks)>1 and not saved.get('restored')):
                 raise ValueError('Bank or settings restoration unverified')
-            completed=True
         finally:
             try:
                 receive_action('receive_start', lambda s: s['reception']['enabled'] and s['radio']['connected'])
             except (TimeoutError,ConnectionError):
-                if not completed:raise
-                return f"Saved {len(banks)} banks · restored bank {saved['status']['curr_region']} · check Bluetooth for receiver status"
+                reconnect_pending=True
+        if reconnect_pending:
+            return f"Saved {len(banks)} banks · restored bank {saved['status']['curr_region']} · check Bluetooth for receiver status"
 
         return f"Saved {len(banks)} banks · receiving on bank {saved['status']['curr_region']}"
 
