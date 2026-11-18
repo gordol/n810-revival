@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """Exercise semantic map handoff through the native desktop event dispatcher."""
 from pathlib import Path
-import json,sys,tempfile
+import json,os,sys,tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tests'))
 from reference_fixtures import activate
 activate()
@@ -13,7 +13,7 @@ from scenes import MapScene,MapComposite
 def main():
     from map_pixels import View
     original=View.render_image
-    counts={'completed':False,'active':0,'missing':0,'composite':0,'drag_composite':0,'overview_inset':0,'inset_surface':0,'inset_error':'','side_overview':0,'locator_rect':0}
+    counts={'completed':False,'active':0,'missing':0,'composite':0,'drag_composite':0,'retained_preview':0,'overview_inset':0,'inset_surface':0,'inset_error':'','side_overview':0,'locator_rect':0}
     scenes=set()
     def render(view):
         plan=view.plan();result=original(view)
@@ -29,6 +29,9 @@ def main():
                 if isinstance(result[0],MapScene):scenes.add(id(result[0]))
                 elif isinstance(result[0],MapComposite):
                     counts['composite']+=1
+                    if result[0].outline:
+                        assert result[0].layers[0][0] is view.ready
+                        counts['retained_preview']+=1
                     shifted=bool(result[0].layers[0][1] or result[0].layers[0][2])
                     if shifted:
                         counts['drag_composite']+=1
@@ -84,6 +87,8 @@ def main():
             run.main();data=json.loads(report.read_text());gpu=data['gpu_scene']
             if not counts['completed']:raise AssertionError('Map interaction sequence did not complete: '+repr(counts))
             if counts['active']<3 or counts['missing']:raise AssertionError(counts)
+            if os.environ.get('POCKET_NATIVE_PIXELS')=='1' and not counts['retained_preview']:
+                raise AssertionError('Preview did not reuse its native map texture: '+repr(counts))
             if counts['drag_composite']<1:raise AssertionError('Native map drag did not reuse its visible map: '+repr(counts))
             if counts['overview_inset']<1:raise AssertionError('Native map side overview omitted its inset scene: '+repr(counts))
             if len(scenes)<3 or gpu['map_builds']<3:raise AssertionError('Map did not rebuild')

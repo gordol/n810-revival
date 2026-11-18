@@ -62,7 +62,7 @@ class View:
  def __init__(self,host,owner,*,name='Station Map'):
   self.host=host;self.owner=owner;self.name=name
   self.pending=None;self.ready=None;self.ready_layer=None;self.key=None;self.failed=None;self.pixel_frames=0;self.pixel_jobs=0;self.error=''
-  self.ready_surface=None;self._presented_pan=None;self._loading_scene=None
+  self.ready_surface=None;self._presented_pan=None;self._loading_scene=None;self._presented_preview=None
   self._inset_key=None;self._inset_scene=None;self._inset_pending=None
   self._terrain_key=None;self._terrain_samples=None
  def plan(self):
@@ -72,11 +72,27 @@ class View:
   projection=surface.image.projection
   key=surface.key
   return key,layer,surface
+ def retained_preview(self):
+  base=getattr(self.owner,'base',None)
+  if (not getattr(getattr(self.host,'render_context',None),'native_pixels',False)
+      or self.ready_surface is None or self.ready_surface.box_plane is not None or self.pending is not None
+      or base is None or not base.preview or base.full_overview or base.side_overview
+      or base._detail_request is not None or base._zoom_context_image is not None
+      or getattr(self.owner,'terrain_active',False) or getattr(self.owner,'dialog',None)):
+   return None
+  target=base.target_box.view
+  if target is None or self.ready_surface.image is not base._shown_image:return None
+  layer=self.owner.layer()
+  if layer is None or layer[:4]!=self.ready_layer[:4]:return None
+  return target
+
  @property
  def pixel_dirty(self):
   if self._inset_pending is not None and self._inset_pending[1].done():return True
   pan=self.pan_offset()
   if pan is not None and pan!=self._presented_pan:return True
+  preview=self.retained_preview()
+  if preview is not None or self._presented_preview is not None:return preview!=self._presented_preview
   plan=self.plan()
   return bool(plan and ((self.pending and self.pending[1].done()) or (self.pending is None and plan[0]!=self.key and plan[0]!=self.failed)))
  @pixel_dirty.setter
@@ -180,6 +196,24 @@ class View:
   pan=self.pan_offset();base=getattr(self.owner,'base',None)
   dragging=bool(base is not None and (getattr(base,'_target_drag',None) is not None or
                                       getattr(base,'_pan_drag',None) is not None))
+  preview=self.retained_preview()
+  self._presented_preview=preview
+  if preview is not None:
+   from map_overview import corners
+   from scenes import MapComposite
+   x,y,w,h=self.ready_layer[:4]
+   view=self.ready_surface.viewport()
+   points=[view.project(*point) for point in corners(*preview,w,h)]
+   (left,top),(right,bottom)=[(round((a+.5)*8),round((b+.5)*16)) for a,b in points]
+   left,right=sorted((left,right));top,bottom=sorted((top,bottom))
+   edges=((left,top,right+1,top+1),(left,bottom,right+1,bottom+1),
+          (left,top,left+1,bottom+1),(right,top,right+1,bottom+1))
+   clipped=[]
+   for l,t,r,b in edges:
+    l=max(l,0);t=max(t,0);r=min(r,w*8);b=min(b,h*16)
+    if r>l and b>t:clipped.append((l,t,r-l,b-t))
+   wx,wy,_,_=self.host.bounds(self.host.window(self.name));ox,oy=self.host.origin
+   return MapComposite(((self.ready,0,0),),w*8,h*16,tuple(clipped)),(wx+ox+1+x)*8,(wy+oy+1+y)*16,w*8,h*16
   plan=self.plan()
   if plan is None:return None
   key,layer,surface=plan

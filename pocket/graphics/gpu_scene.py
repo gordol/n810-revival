@@ -268,6 +268,8 @@ class Context:
                         layer_clip=clip if len(item)==3 else (px+item[3],py+item[4],item[5],item[6])
                         active_maps.add((id(scene),bool(defer)));texture=self.texture(scene,defer)
                         self.check(self.lib.pocket_scene_layer(self.handle,texture,px+sx,py+sy,0,0,0,*layer_clip))
+                    for x,y,rw,rh in source.outline:
+                        self.check(self.lib.pocket_scene_rect(self.handle,px+x,py+y,rw,rh,0xffd241ff))
                     rect=(px,py,clip_width,clip_height)
                 else:
                     active_images.add(app.name);texture=self.upload(source,w,height,app.name)
