@@ -114,7 +114,7 @@ class RadioManager:
                     if self.bank!=listing.index:self.bank=listing.index;self.index=0
                 else:self.index=listing.index
                 return True
-        if self.page==0 and key in ('r','c','k'):
+        if self.page in (0,5) and key in ('r','c','k'):
             self.action({'r':'read','c':'cancel','k':'check'}[key])
             return True
         if self.review is not None:
@@ -248,6 +248,13 @@ class RadioManager:
         elif self.page==1:
             rows+=self.memory_lines()
         elif self.page==5:
+            if self.state.can_read:
+                label='[ Refresh from radio (r) ]'
+                self.hits.append((0,len(rows),len(label),1,('read-action','read')))
+                self._spans.append((len(rows),0,len(label),'control'))
+                rows.append(label)
+                if self.message:rows.append(self.message)
+                if self.state.read_job.get('error'):rows.append(str(self.state.read_job['error']))
             rows+=['LAST REPORTED SETTINGS','']
             for name in ('settings','beacon'):
                 section=r['sections'].get(name,{})
