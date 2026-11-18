@@ -2,29 +2,39 @@
 
 *11–18 November 2026.*
 
-I tried our installer on a second N810 to see whether it could reproduce the Pocket setup I'd been using on the first.
+I tried our installer on a second N810 to see whether it could reproduce the Pocket setup I'd been using on the first. We'd been developing on that tablet for a month, and a fair amount of what we'd tried was still on the SD card. During the gears tests we'd copied over different Mesa builds to try on the hardware and kept the earlier ones around for comparison. I counted 26 compressed archives with `gears` or `mesa` in the name at the top of the `nokia` home directory alone.
 
-## The keyboard after a reboot
+## What went into the installer
 
-The installer ran Maemo (Nokia's operating system) in RAM before it started Debian. I could type on that first Debian boot. I rebooted because SSH was slow, and when I opened the power menu the D-pad wouldn't move the selection. The keyboard had stopped responding at the Debian login prompt as well. Both boots used the same kernel.
+We worked from a read-only copy of the backup and compared it with the November 12 installer image. The original root filesystem contained 202,909 regular files. Of those, 103,204 were under `/var/backups/n810-pocket-console`, where Pocket upgrades had kept copies of application files and assets. The installer image contained 12,787 regular files. Counting Debian packages accounted for some of the difference. The old tablet had 245 packages absent from the image (including Xfce and debugging tools), but among the packages they shared, only `libutempter0` differed in version.
 
-We checked the settings from the working tablet, including the 30-millisecond interval the controller uses to filter switch bounce. Those matched. The backup didn't include the original kernel because Nokia kept it in flash, so we rebuilt it with the original compiler and changed the device it used for the Debian root filesystem. Codex checked the running kernel's build ID in `/sys/kernel/notes` after the reboot. Reads from the LM8323 keyboard controller went unacknowledged on the I²C bus, and its interrupt count stayed at zero. There were no key presses for a console keymap to translate.
+To decide what belonged on the second tablet, we followed the commands the first one ran. There were two Pocket trees, one in `/usr/local/share/n810-pocket` and another in `/home/nokia/pocket/current`. For graphics, the launcher selected `/usr/local/lib/n810-graphics/releases/20261109-6970068`. That gave us a specific Mesa library and kernel module to compare with the installer's versions. We kept the trial builds in the backup and used the selected release as our reference for the hardware tests.
 
-A few days later I could type at the internal recovery console. The keyboard driver had reported `chip lost config; reinitializing` during recovery. Our installer was about to boot a second kernel to start Debian from the SD card, which would make Linux initialize the hardware again. We changed the boot sequence to keep the kernel that was already driving the keyboard. It now mounts Debian from the card before starting services.
+Following startup scripts also turned up files the installer had missed. The original power-button handler called `/usr/local/sbin/n810-console-power-menu`, a helper absent from the image. We found part of the working APRS service among the experiments in my home directory. At boot, `/etc/rc.local` ran the scripts in `/etc/boot.d`. One started a supervisor that ran `/home/nokia/n810-aprs-feed.py` as `nokia`, and the receiver imported the Python modules beside it. That accounted for a set of files we'd have lost by excluding the home directory wholesale.
 
-The card holds two Debian installations (slots A and B), so we can try an update in one and still boot the other. Both use modules built for the kernel in flash. I later typed `htop` in Pocket's Terminal. That verified keyboard input all the way into an application, although we never isolated the cause of those earlier unanswered reads.
+## Keeping the keyboard through boot
 
-## Starting Pocket with sound enabled
+I could type on the first Debian boot after the installer ran Maemo in RAM. I rebooted because SSH was slow, and the keyboard stopped responding even at the Debian login prompt. The two boots used the same kernel. We compared the keyboard settings with the original tablet and found the same 30-millisecond debounce interval on both. To try the original kernel as well, we had to rebuild it (the kernel lived in flash, outside the filesystem backup). We used the original compiler, changed the root-device selection for the new card, and checked the running build ID in `/sys/kernel/notes`. The LM8323 controller still didn't acknowledge reads over I²C, and its interrupt count stayed at zero.
 
-To get a test tone out of the second tablet, we changed the codec name in the board driver to the one Linux registered (`tlv320aic3x.1-0018`) and corrected the interrupts for the processor's serial audio port (McBSP2 uses 62 for transmit and 63 for receive). I heard the tone. When we rebooted to check that sound came up on its own, Pocket failed to start.
+A few days later I could type at the recovery console. The driver had logged `chip lost config; reinitializing` during recovery, and by the time we needed to mount the SD card the flashed kernel already had a working keyboard. Our installer would then boot another kernel and initialize the hardware a second time. We removed that step. The flashed kernel now selects one of the two Debian installations on the card (slots A and B) before starting services, and both slots carry modules built for it. I could type `htop` in Pocket's Terminal after the change. We never established why the controller stopped answering on the earlier boots.
 
-We'd written that refusal into the graphics launcher ourselves. An earlier audio configuration could lock up the tablet, so the launcher exited whenever it found the sound driver loaded. We changed it to run `n810-audio pcm-status` and check whether the boot service had approved the configuration. We tried the repair in slot B and marked it good after Pocket started and passed its GPU check. On the repaired slot A, the `nokia` account could play and record audio, and the GPU completed 50 jobs with all four fault counters at zero.
+## Getting sound and graphics to start together
 
-## Comparing the two GPUs
+The audio driver expected a codec called `tlv320aic3x-codec.1-0018`. Linux had registered it as `tlv320aic3x.1-0018`. We corrected the name in the board driver and fixed the interrupt assignments for the McBSP2 serial audio port (62 for transmit and 63 for receive). I heard the test tone, but when we enabled sound at boot and restarted the tablet, Pocket failed to start.
 
-The original N810 still had experimental Mesa graphics libraries in its home directory. To repeat its [gears and terrain measurements](2026-11-10-gpu-residency-and-480mhz.md), Codex followed the graphics launcher in the backup to find which library it loaded. We used the same benchmark executables on both tablets and verified by SHA-256 that the gears runs used identical Mesa libraries. The original 480 MHz terrain measurement used a different Mesa build.
+We'd put that check in the graphics launcher when an earlier audio configuration could lock up the N810. It exited as soon as it found the sound driver loaded, which now happened on every boot. We changed the launcher to run `n810-audio pcm-status` so it could check whether the boot service had approved the configuration. We tried the repair in slot B first, with A available to boot if it failed. Once Pocket started and passed its GPU check, we marked B good and applied the repair to A. After booting A, the `nokia` account could play and record sound while graphics remained available. The GPU completed 50 jobs with all four fault counters at zero.
 
-Each program drew a 400 × 400 RGB565 window through Mesa on the MBX GPU, with Xorg displaying the image. Each frame took one GPU job, so after the program's first frame-rate report we counted completed jobs over three consecutive 30-second intervals at each CPU clock. We counted display-controller interrupts separately because the LCD can receive fewer updates than the GPU renders frames.
+## Running Pocket on the new installation
+
+Pocket draws directly to the framebuffer, so we also counted redraws inside Surface Room, which can submit several GPU jobs per frame. With the camera turning continuously in a 640 × 416 window and the animated background off, it drew 131 frames in 45.65 seconds at 480 MHz (2.87 FPS).
+
+At one point during testing I could see the backlight and nothing else. Over SSH, Codex found Pocket running on `tty7` with power to the panel and the framebuffer overlay disabled. Enabling the overlay and requesting a display update put Pocket back on the LCD.
+
+I wanted to try the maps I'd put on the shared partition, since I'd be using them from either Debian slot. We panned and zoomed in Station Map and ran a radio line-of-sight calculation across 4,097 elevation samples. Under load the first sidebar overview took about five seconds to prepare. The worker finished drawing the image, but the sidebar could discard it before the next redraw. We changed the sidebar to retain the completed image.
+
+## Repeating the graphics tests
+
+We took the [gears and terrain executables from the original measurements](2026-11-10-gpu-residency-and-480mhz.md) and ran them on the second N810 with Xorg. Both workloads rendered a 400 × 400 RGB565 window and submitted one GPU job per frame. After the first frame-rate report we counted completed jobs over three consecutive 30-second intervals at each CPU clock. We counted display-controller interrupts over the same intervals to measure how often the controller transferred an image to the LCD.
 
 | Workload | CPU clock | Original N810 FPS | Second N810 FPS | Second N810 display interrupts/s |
 |---|---:|---:|---:|---:|
@@ -33,16 +43,7 @@ Each program drew a 400 × 400 RGB565 window through Mesa on the MBX GPU, with X
 | Standard gears | 480 MHz | 42.74 | 45.34 | 25.71 |
 | Rotating terrain | 480 MHz | 71.67 | 74.63 | 25.79 |
 
-At the same CPU clock, gears ran about 6% faster on the second tablet. Matching the Mesa library ruled out a library change for that comparison. We didn't measure background load on both tablets, so we can't attribute the difference to it.
-
-## Using Pocket on the new install
-
-Pocket draws its 800 × 480 desktop directly to the framebuffer. During testing I saw the backlight come on with a blank screen, while Codex could see over SSH that Pocket was running on `tty7` and the panel had power. The framebuffer overlay was disabled. Codex enabled it and requested a display update while I watched the LCD, and the desktop reappeared.
-
-For a frame rate inside Pocket we used Surface Room, where a redraw can take several GPU jobs. With the animated background off and the camera turning continuously in a 640 × 416 window, Room counted 131 completed frames in 45.65 seconds at 480 MHz (2.87 FPS).
-
-We kept the maps on a shared partition so switching Debian slots would leave them in place. Station Map's first sidebar overview took about five seconds to draw under load, and the sidebar could discard the worker's finished image before its next redraw. We changed the sidebar to keep that image.
-By the end of the week I could boot the second tablet into Pocket and use the maps on the card. We panned and zoomed in Station Map and ran a radio line-of-sight calculation across 4,097 elevation samples.
+We could check the gears result against the particular Mesa build we'd recovered from the original installation because the library hashes matched on both tablets. Raising the CPU clock from 330 to 480 MHz had improved gears throughput by 18% on the first N810. On the second we measured a 19% improvement with the same executable and library. The original 480 MHz terrain run used a different Mesa build, so we couldn't make the same comparison for terrain.
 
 <!-- journal-sources:start -->
 ## Code, tests and build inputs
