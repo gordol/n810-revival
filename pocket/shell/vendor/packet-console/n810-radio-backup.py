@@ -32,9 +32,11 @@ def frame(command,payload=b''):
 
 class Link:
     def __init__(self,radio):self.radio=radio;self.pending=bytearray();self.trace=[]
-    def request(self,command,payload=b'',index=None,permit_select=False,restore=None):
+    def request(self,command,payload=b'',index=None,permit_select=False,restore=None,beacon_before=None):
         if command not in READ_COMMANDS:
-            if not (command==60 and permit_select) and not (command==11 and restore is not None and payload==restore):
+            beacon_change=(command==34 and beacon_before is not None and len(beacon_before) in (50,52) and
+                           payload==beacon_before[:1]+bytes([beacon_before[1]^0x10])+beacon_before[2:])
+            if not beacon_change and not (command==60 and permit_select) and not (command==11 and restore is not None and payload==restore):
                 raise ValueError('Write operation rejected')
         for attempt in range(2):
             self.radio.sendall(frame(command,payload));end=time.monotonic()+3
@@ -60,7 +62,8 @@ def main():
     def stop(*_):raise KeyboardInterrupt('Backup interrupted')
     signal.signal(signal.SIGTERM,stop)
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--address',default='02:00:00:00:00:13')
-    p.add_argument('--output',type=Path,required=True);p.add_argument('--all-banks',action='store_true');args=p.parse_args()
+    p.add_argument('--output',type=Path,required=True);p.add_argument('--all-banks',action='store_true')
+    p.add_argument('--pause-beacon',action='store_true',help='Temporarily pause location reports while reading other banks');args=p.parse_args()
     layouts=json.loads(Path(__file__).with_name('radio-read-layouts.json').read_text())
     output=args.output;output.mkdir(parents=True,exist_ok=False);os.chmod(output,0o700)
     capture=dict(version=1,address=args.address,started=datetime.datetime.now(datetime.timezone.utc).isoformat(),reads={},banks=[],complete=False)
@@ -84,7 +87,7 @@ def main():
             if attempt==3:raise
             time.sleep(3)
     capture['sdp']=sdp;capture['rfcomm_channel']=int(match[1])
-    original_bank=None;original_settings=None;switched=False
+    original_bank=None;original_settings=None;switched=False;paused=None;original_beacon=None
     def read(command,payload=b'',index=None):
         response=link.request(command,payload,index)
         return response
@@ -132,8 +135,19 @@ def main():
         get_bank(original_bank)
         if args.all_banks:
             if original_bank is None:raise RuntimeError('Current bank unknown; refusing bank switch')
-            if capture.get('beacon',{}).get('should_share_location') is not False:
+            beacon_enabled=capture.get('beacon',{}).get('should_share_location')
+            if beacon_enabled is None or beacon_enabled and not args.pause_beacon:
                 raise RuntimeError('Automatic beaconing enabled or unknown; current-bank backup saved, no bank switches made')
+            if beacon_enabled:
+                reply=read(33,b'\x02')
+                if reply['status']!=0 or reply['reply_hex']!=capture['reads']['beacon']['reply_hex']:
+                    raise RuntimeError('Beacon settings changed during backup')
+                original_beacon=bytes.fromhex(reply['reply_hex'])[1:]
+                if len(original_beacon) not in (50,52) or not original_beacon[1]&0x10:
+                    raise RuntimeError('Unexpected automatic beacon layout')
+                paused=original_beacon[:1]+bytes([original_beacon[1]&~0x10])+original_beacon[2:]
+                link.request(34,paused,beacon_before=original_beacon)
+                if read(33,b'\x02')['reply_hex']!='00'+paused.hex():raise RuntimeError('Beacon pause unverified')
             for index in range(len(names)):
                 if index==original_bank:continue
                 switched=True
@@ -157,6 +171,16 @@ def main():
                 final_bank=parsed(capture['final_status'],'StatusExt').get('curr_region')
                 capture['restored']=final_bank==original_bank and capture['final_settings']['reply_hex']==settings['reply_hex']
                 print('Original bank/settings restored:',capture['restored'],flush=True)
+            if paused is not None:
+                if switched and not capture.get('restored'):
+                    raise RuntimeError('Bank restore unverified; check bank before re-enabling location reports')
+                observed=read(33,b'\x02')['reply_hex']
+                if observed=='00'+paused.hex():
+                    link.request(34,original_beacon,beacon_before=paused)
+                capture['beacon_restored']=read(33,b'\x02')['reply_hex']=='00'+original_beacon.hex()
+                if not capture['beacon_restored']:
+                    capture['complete']=False
+                    raise RuntimeError('Beacon restoration could not be verified')
             if 'link' in locals():capture['protocol_trace']=link.trace
         finally:
             radio.close();capture['finished']=datetime.datetime.now(datetime.timezone.utc).isoformat();save()

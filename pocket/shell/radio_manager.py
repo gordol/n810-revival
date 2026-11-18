@@ -338,7 +338,7 @@ class RadioManager:
                 self.hits.append((len(label)+1,len(rows),len(choose),1,('action','c')))
                 rows.append(label+' '+choose)
                 if str(self.state.read_client.path)=='/dev/shm/n810-radio-read/control.sock':
-                    label='[a Download all banks] · pauses reception, then restores it'
+                    label='[a Download all banks] · pauses RX and auto beacon; restores both'
                     self.hits.append((0,len(rows),22,1,('action','a')))
                     rows.append(label)
             if self.bank_download:rows.append(self.bank_download.status)
