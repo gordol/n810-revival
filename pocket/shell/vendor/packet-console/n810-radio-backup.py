@@ -67,11 +67,23 @@ def main():
     def save():
         temp=output/'backup.tmp';temp.write_text(json.dumps(capture,indent=2)+'\n');os.chmod(temp,0o600);temp.replace(output/'backup.json')
     save()
-    sdp=subprocess.check_output(['sdptool','search','--bdaddr',args.address,'SP'],timeout=25,text=True)
-    match=re.search(r'Channel: (\d+)',sdp)
-    if not match:raise RuntimeError('Serial service not found')
+    # Releasing the receive socket can briefly take the Bluetooth link down.
+    # Retry only discovery and connection, before any bank is selected.
+    for attempt in range(4):
+        radio=socket.socket(socket.AF_BLUETOOTH,socket.SOCK_STREAM,socket.BTPROTO_RFCOMM)
+        try:
+            sdp=subprocess.check_output(['sdptool','search','--bdaddr',args.address,'SP'],timeout=25,text=True)
+            match=re.search(r'Channel: (\d+)',sdp)
+            if not match:raise ConnectionError('Serial service not found')
+            radio.settimeout(10)
+            radio.connect((args.address,int(match[1])))
+            radio.settimeout(.5)
+            break
+        except (OSError,subprocess.SubprocessError):
+            radio.close()
+            if attempt==3:raise
+            time.sleep(3)
     capture['sdp']=sdp;capture['rfcomm_channel']=int(match[1])
-    radio=socket.socket(socket.AF_BLUETOOTH,socket.SOCK_STREAM,socket.BTPROTO_RFCOMM);radio.settimeout(.5)
     original_bank=None;original_settings=None;switched=False
     def read(command,payload=b'',index=None):
         response=link.request(command,payload,index)
@@ -80,7 +92,7 @@ def main():
         if response['status']!=0:raise RuntimeError('Read failed: '+str(response))
         return decode(bytes.fromhex(response['reply_hex'])[1:],layouts[name])
     try:
-        radio.connect((args.address,int(match[1])));link=Link(radio)
+        link=Link(radio)
         info=read(4,b'\3');capture['reads']['device_info']=info
         device=parsed(info,'DevInfo');capture['device']=device
         settings=read(10);capture['reads']['settings']=settings
