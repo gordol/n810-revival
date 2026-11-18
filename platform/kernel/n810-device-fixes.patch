@@ -24,3 +24,32 @@
 +	clkdev_create(clk, "virt_prcm_set", NULL);
  }
  #endif
+
+--- a/sound/soc/ti/n810.c
++++ b/sound/soc/ti/n810.c
+@@ -250,7 +250,7 @@
+ /* Digital audio interface glue - connects codec <--> CPU */
+ SND_SOC_DAILINK_DEFS(aic33,
+ 	DAILINK_COMP_ARRAY(COMP_CPU("48076000.mcbsp")),
+-	DAILINK_COMP_ARRAY(COMP_CODEC("tlv320aic3x-codec.1-0018",
++	DAILINK_COMP_ARRAY(COMP_CODEC("tlv320aic3x.1-0018",
+ 				      "tlv320aic3x-hifi")),
+ 	DAILINK_COMP_ARRAY(COMP_PLATFORM("48076000.mcbsp")));
+ 
+
+--- a/arch/arm/boot/dts/omap2420.dtsi
++++ b/arch/arm/boot/dts/omap2420.dtsi
+@@ -169,11 +169,9 @@
+ 			compatible = "ti,omap2420-mcbsp";
+ 			reg = <0x48076000 0xff>;
+ 			reg-names = "mpu";
+-			interrupts = <16>, /* OCP compliant interrupt */
+-				     <62>, /* TX interrupt */
++			interrupts = <62>, /* TX interrupt */
+ 				     <63>; /* RX interrupt */
+-			interrupt-names = "common", "tx", "rx";
+-			ti,buffer-size = <128>;
++			interrupt-names = "tx", "rx";
+ 			ti,hwmods = "mcbsp2";
+ 			dmas = <&sdma 33>,
+ 			       <&sdma 34>;
