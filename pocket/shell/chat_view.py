@@ -10,6 +10,7 @@ class ChatView:
         self.provider,self.protocol=provider,protocol
         self.companion_picker = protocol=='meshcore' and hasattr(provider,'state_directory') and Path('/etc/n810-image/bootstrap.json').is_file()
         self.width,self.height=84,25
+        self.thread_group='peer'
         self.layout=AdaptivePanels((PanelSpec('threads','Contacts / channels',20,28),PanelSpec('chat','Conversation',30,60)))
         self.list=SelectList(());self.rows=[];self.selected=None;self.state={};self.drafts={};self.context=None
         self.own_identity=False;self.editing=False;self.notice='';self.confirm=None;self.discovery=False;self.hits=[];self.rects={};self._spans=[];self.scroll=0;self.pending_drafts={}
@@ -35,6 +36,7 @@ class ChatView:
             key=('channel',message['channel']) if message.get('channel') is not None else ('peer',message.get('peer'))
             if key[1] and key not in known:
                 rows.append(dict(key=key,label=str(key[1]),pinned=False));known.add(key)
+        if self.protocol=='meshcore':rows=[r for r in rows if r['key'][0]==self.thread_group]
         self.rows=rows
         keys=[r['key'] for r in rows]
         if self.selected not in keys:self.selected=keys[0] if keys else None
@@ -66,7 +68,8 @@ class ChatView:
     def choose(self):
         if self.rows:self.selected=self.rows[self.list.index]['key'];self.scroll=0
     def actions(self):
-        pages=([('[','Prev contacts'),(']','Next contacts')] if self.protocol=='meshcore' and self.state.get('peers_total',0)>self.state.get('peers_page_size',32) else [])
+        pages=([('b','Previous page'),('n','Next page')] if self.protocol=='meshcore' and self.thread_group=='peer' and self.state.get('peers_total',0)>self.state.get('peers_page_size',32) else [])
+        if self.protocol=='meshcore':pages=[('g','Channels' if self.thread_group=='peer' else 'Contacts')]+pages
         if self.companion_picker:pages=[('h','Companions')]+pages
         return pages+[('o','Connect'),('c','Compose'),('s','Send'),('v','Verify')]+([('d','Disconnect')] if self.protocol=='meshcore' else [('a','Hide presence' if self.state.get('message_discovery') else 'Discovery'),('i','My identity')])
     def key(self,key):
@@ -91,9 +94,12 @@ class ChatView:
             elif key in ('\r','\n'):self.notice='Ctrl-S or Send submits; Enter keeps the draft.'
             else:return self.editor().key(key)
             return True
-        if key in ('[',']') and self.protocol=='meshcore':
+        if key=='g' and self.protocol=='meshcore':
+            self.thread_group='channel' if self.thread_group=='peer' else 'peer'
+            self.refresh();self.layout.select('threads');return True
+        if key in ('[',']','b','n') and self.protocol=='meshcore' and self.thread_group=='peer':
             size=self.state.get('peers_page_size',32);total=self.state.get('peers_total',0)
-            offset=self.state.get('peers_offset',0)+(-size if key=='[' else size)
+            offset=self.state.get('peers_offset',0)+(-size if key in ('[','b') else size)
             offset=max(0,min(offset,max(0,((total-1)//size)*size)))
             self.request('contacts_page',offset=offset);return True
         if key=='a' and self.protocol=='reticulum':
@@ -177,7 +183,7 @@ class ChatView:
         if self.layout.tabbed:
             canvas.put(0,top-1,'Tab: '+self.layout.focus+' / other pane')
         for name,(x,y,w,h) in self.rects.items():
-            canvas.pane(x,y,w,h,(('Contacts '+str(self.state.get('peers_offset',0)+1)+'–'+str(min(self.state.get('peers_offset',0)+self.state.get('peers_page_size',32),self.state.get('peers_total',0)))+' / '+str(self.state['peers_total'])) if self.protocol=='meshcore' and self.state.get('peers_total') else 'Contacts / channels') if name=='threads' else str(self.row().get('label') or 'Conversation'),self.layout.focus==name)
+            canvas.pane(x,y,w,h,('Channels' if self.protocol=='meshcore' and self.thread_group=='channel' else ('Contacts '+str(self.state.get('peers_offset',0)+1)+'–'+str(min(self.state.get('peers_offset',0)+self.state.get('peers_page_size',32),self.state.get('peers_total',0)))+' / '+str(self.state['peers_total'])) if self.protocol=='meshcore' and self.state.get('peers_total') else 'Contacts / channels') if name=='threads' else str(self.row().get('label') or 'Conversation'),self.layout.focus==name)
             if name=='threads':self.list.draw(canvas,x,y+1,w,max(1,h-1))
             else:
                 transcript=[]

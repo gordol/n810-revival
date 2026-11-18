@@ -89,8 +89,9 @@ and syncs contacts and configured channels. **Disconnect** closes that bridge.
 Shell launch alone does not connect the radio. Loss of the owner closes the
 bridge's parent pipe, ending its session; commands are never replayed.
 
-Channels appear first. Use **[ Prev contacts** / **] Next contacts** to browse
-all contacts, 32 at a time. Contact sync allows 60 seconds before failing.
+The list opens on contacts and repeaters. Press **G** or choose **Channels**
+to see channel conversations. Choose **Contacts** to switch back. Use **B**
+for the previous page and **N** for the next page of 32 contacts. Contact sync allows 60 seconds before failing.
 
 After setup Pocket automatically pulls pending messages from the companion.
 This consumes their copies in the radio's receive queue. Each received message

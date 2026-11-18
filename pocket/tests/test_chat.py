@@ -35,20 +35,22 @@ class ChatTests(unittest.TestCase):
     def test_unverified_peer_cannot_send_and_channel_is_labelled_public(self):
         view=self.make('meshcore');self.state['peers'][0]['pinned']=False
         view.editor().text='hello';view.key('s');self.assertFalse(self.sent)
-        self.state['channels']=[dict(index=0,label='Public',privacy='public')];view.refresh();view.selected=('channel',0)
+        self.state['channels']=[dict(index=0,label='Public',privacy='public')];view.key('g');view.selected=('channel',0)
         view.editor().text='group';view.key('s');self.assertEqual(self.sent[-1],('send_channel',dict(channel=0,text='group')))
         for width,height in ((40,12),(84,26)):
             view.width,view.height=width,height;lines=view.lines()
             self.assertEqual(len(lines),height);self.assertTrue(all(len(line)<=width for line in lines));self.assertIn('public',' '.join(lines))
-    def test_meshcore_contact_pages_keep_channels_visible(self):
+    def test_meshcore_separate_lists_and_letter_paging(self):
         view=self.make('meshcore');self.state.update(peers_total=350,peers_offset=0,peers_page_size=32,
             channels=[dict(index=0,label='Public',privacy='public')])
         self.state['capabilities'].append('contacts_page');view.refresh()
-        self.assertEqual(view.rows[0]['key'],('channel',0))
-        view.key(']');self.assertEqual(self.sent[-1],('contacts_page',dict(offset=32)))
+        self.assertTrue(all(r['key'][0]=='peer' for r in view.rows))
+        view.key('g');self.assertEqual([r['key'] for r in view.rows],[('channel',0)])
+        view.key('g')
+        view.key('n');self.assertEqual(self.sent[-1],('contacts_page',dict(offset=32)))
         self.state['peers_offset']=320;view.key(']')
         self.assertEqual(self.sent[-1],('contacts_page',dict(offset=320)))
-        view.key('[');self.assertEqual(self.sent[-1],('contacts_page',dict(offset=288)))
+        view.key('b');self.assertEqual(self.sent[-1],('contacts_page',dict(offset=288)))
 
     def test_messages_protocol_switch_preserves_receive_view_and_drafts(self):
         view=Messages('N0CALL');view.key('p');self.assertEqual(view.protocol,'reticulum')
