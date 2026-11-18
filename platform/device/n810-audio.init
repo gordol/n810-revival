@@ -8,6 +8,8 @@
 # Short-Description: Initialize verified N810 ALSA playback and capture
 ### END INIT INFO
 set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
 case "${1:-}" in
 start)
     # Reject the earlier OMAP2430 FIFO/common-IRQ description on OMAP2420.
