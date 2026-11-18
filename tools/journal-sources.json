@@ -1504,6 +1504,74 @@
       "guide": "",
       "source_heading": "Research status",
       "note": "Design investigation only. No Windows CE compatibility implementation or N810 test is included."
+    },
+    {
+      "post": "docs/posts/2026-11-16-second-n810.md",
+      "id": "2026-11-16-second-n810",
+      "implementation": [
+        {
+          "label": "build.py",
+          "path": "platform/kernel/build.py"
+        },
+        {
+          "label": "ab_early.py",
+          "path": "platform/bootstrap/ab_early.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "test_build.py",
+          "path": "platform/kernel/test_build.py"
+        },
+        {
+          "label": "test_ab_early.py",
+          "path": "platform/bootstrap/test_ab_early.py"
+        }
+      ],
+      "inputs": [],
+      "guide": "how-to/install-n810-ab.md",
+      "source_heading": "Code, tests and build inputs",
+      "note": ""
+    },
+    {
+      "post": "docs/posts/2026-11-17-pocket-on-the-second-n810.md",
+      "id": "2026-11-17-pocket-on-the-second-n810",
+      "implementation": [
+        {
+          "label": "map_pixels.py",
+          "path": "pocket/graphics/map_pixels.py"
+        },
+        {
+          "label": "owner_session.py",
+          "path": "platform/bootstrap/gpu_runtime/owner_session.py"
+        },
+        {
+          "label": "n810-cpu-policy",
+          "path": "platform/scripts/n810-cpu-policy"
+        },
+        {
+          "label": "Desktop presentation and frame counter",
+          "path": "pocket/graphics/full.py"
+        },
+        {
+          "label": "Surface Room pixel view",
+          "path": "pocket/graphics/room_pixels.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "test_gpu_audio_owner.py",
+          "path": "platform/bootstrap/test_gpu_audio_owner.py"
+        },
+        {
+          "label": "test_map_pixel_handoff.py",
+          "path": "pocket/tests/test_map_pixel_handoff.py"
+        }
+      ],
+      "inputs": [],
+      "guide": "how-to/run-n810-gpu.md",
+      "source_heading": "Code, tests and build inputs",
+      "note": ""
     }
   ]
 }

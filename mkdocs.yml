@@ -94,6 +94,8 @@ nav:
   - Symbian applications on the N810: posts/2026-11-09-symbian-runtime.md
   - Keeping GPU work resident and testing at 480 MHz: posts/2026-11-10-gpu-residency-and-480mhz.md
   - Investigating a native ARM Windows CE runtime: posts/2026-11-10-windows-ce-runtime.md
+  - Rebuilding Debian for a second N810: posts/2026-11-16-second-n810.md
+  - Running Pocket on the second N810: posts/2026-11-17-pocket-on-the-second-n810.md
 - Get started: start.md
 - Guides: guides.md
 - Roadmap: roadmap.md
