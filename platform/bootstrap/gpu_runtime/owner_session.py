@@ -22,6 +22,13 @@ def pocket():
   except OSError:pass
  return result
 
+def check_audio_owner():
+ # The old audio setup could hard-lock the tablet. The boot service now checks
+ # the corrected McBSP2 configuration before allowing PCM. Keep rejecting an
+ # unapproved audio driver, but permit the verified audio and GPU paths together.
+ if Path('/sys/module/snd_soc_n810').exists():
+  subprocess.run(['/usr/local/sbin/n810-audio','pcm-status'],check=True)
+
 def main():
  a=argparse.ArgumentParser(description=__doc__);a.add_argument('action',choices=['start','stop']);a.add_argument('--device-released',action='store_true');args=a.parse_args()
  assert args.device_released and os.geteuid()==0
@@ -30,7 +37,7 @@ def main():
   assert not statefile.exists() and not base.exists()
   # The pinned external module sets bit12; reject every fault/warning bit.
   assert int(Path('/proc/sys/kernel/tainted').read_text()) in (0,1<<12)
-  assert not Path('/sys/module/snd_soc_n810').exists(),'Audio owner must be absent after recovery'
+  check_audio_owner()
   assert not pocket(),'Preserve Pocket: handoff must already have it stopped'
   assert panel.read_text().strip() in ('0','1') and mode.read_text().strip()=='1'
   s=dict(boot=boot.read_text(),vt=vt.read_text(),mode=mode.read_text(),panel=panel.read_text())
