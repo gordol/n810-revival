@@ -102,7 +102,7 @@ class Bluetooth:
         self.wakeup = lambda: None
         self.width = 60
         self.height = 21
-        self.focus = 0
+        self.focus = ACTIONS.index('receive_start') if local_receive else 0
         self.device_offset = 0
         self.hits = []
         self._spans = []
@@ -260,7 +260,7 @@ class Bluetooth:
         reason={'controller_unknown':'Bluetooth state unknown','controller_off':'Bluetooth off'}.get(reason,reason.replace('_',' '))
         retries = 'Stopped' if result['enabled'] is False else 'Paused: Bluetooth off' if result['powered'] is False and result['enabled'] is True else 'Paused: ' + reason if reason else 'Managed by receive owner' if result['enabled'] is True else 'Unknown'
         rows.append('Retries: ' + retries)
-        toolbar((('r', 'Start'), ('s', 'Stop'), ('d', 'Disconnect UV-Pro')))
+        toolbar((('r', 'Connect UV-PRO'), ('s', 'Stop'), ('d', 'Disconnect UV-Pro')))
         rows.append(self.state.message or clean(self.state.feedback()) or ('Owner connected' if result['online'] else 'Owner controls unavailable'))
         rows = rows[:max(1, self.height - 1)]
         rows += [''] * max(0, self.height - 1 - len(rows))

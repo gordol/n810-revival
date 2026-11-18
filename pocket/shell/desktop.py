@@ -1043,8 +1043,11 @@ def main(platform=None,argv=None):
         title,entries=content
         if action=='system:WiFi' and native_defaults and Path('/etc/n810-image/bootstrap.json').is_file():
             entries.insert(0,('Join Wi-Fi…','local:wifi'))
-        if action.startswith('bluetooth:') and args.device_radio and not bluetooth_state.read()['online']:
-            entries.insert(0,('Start radio reception','local:receive'))
+        if action.startswith('bluetooth:') and args.device_radio:
+            state=bluetooth_state.read()
+            if not state['radio_connected']:
+                entries=[entry for entry in entries if entry[1]!='bt:receive_start']
+                entries.insert(0,('Connect UV-PRO','bt:receive_start' if state['online'] else 'local:receive'))
         title=''.join(c for c in title if c.isprintable())
         if len(title)>72:title=title[:71]+'…'
         open_launcher(pointer,panel.at(pointer[0]+ox,pointer[1]+oy));context_commands.clear()

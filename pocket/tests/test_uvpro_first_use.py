@@ -24,7 +24,7 @@ class FirstUse(unittest.TestCase):
                 done.clear()
                 self.assertTrue(native_key(form,key))
                 self.assertTrue(done.wait(2))
-            press('r')
+            press('\r')
             self.assertIn('[ Scan for UV-PRO ]',form.lines())
             press('\r')
             discover.assert_called_once_with('scan')

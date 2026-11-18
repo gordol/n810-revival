@@ -38,6 +38,10 @@ def stage(root):
             target = destination / path.name
             shutil.copyfile(path, target)
             target.chmod(0o644)
+    layout = shell / 'vendor/packet-console/radio-read-layouts.json'
+    if 'Settings' not in json.loads(layout.read_bytes()):
+        raise ValueError('Missing Settings in UV-PRO radio layouts')
+    (destination / layout.name).symlink_to(os.path.relpath(layout, destination))
     for name in ('peripheral_setup.py', 'service_policy.py', 'optional_services.py'):
         shutil.copyfile(shell / name, destination / name)
     import importlib.util

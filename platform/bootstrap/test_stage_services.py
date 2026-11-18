@@ -22,6 +22,8 @@ class StageServicesTests(unittest.TestCase):
                 (shell/name).mkdir(parents=True,exist_ok=True)
                 for source in (REPO/'pocket/shell'/name).glob('*.py'):
                     shutil.copyfile(source,shell/name/source.name)
+            layout='vendor/packet-console/radio-read-layouts.json'
+            shutil.copyfile(REPO/'pocket/shell'/layout,shell/layout)
             for name in ('peripheral_setup.py','service_policy.py','optional_services.py'):
                 shutil.copyfile(REPO/'pocket/shell'/name,shell/name)
             for name in ('home/nokia','usr/local/sbin','etc/sudoers.d','etc/default'):(root/name).mkdir(parents=True,exist_ok=True)
@@ -30,6 +32,7 @@ class StageServicesTests(unittest.TestCase):
             for name in ('n810-aprs-feed.py','uvpro-aprs-listen.py','n810-aprs-directory.py',
                          'n810-frame-history.py','n810-kiss-bridge.py','feed_control.py','bluez_events.py','control_changes.py'):
                 self.assertTrue((target/name).is_file(),name)
+            self.assertEqual((target/'radio-read-layouts.json').resolve(),(shell/layout).resolve())
             self.assertNotIn('/home/nokia/n810-radio-proxy.py',(target/'n810-aprs-feed.py').read_text())
             self.assertNotIn("addr = '02:",(target/'uvpro-aprs-listen.py').read_text())
             self.assertTrue((root/'home/nokia/.local/state/n810-aprs/directory.sqlite3').is_file())
