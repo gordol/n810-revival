@@ -1,22 +1,16 @@
-# The speaker worked. Where did the desktop go?
+# Why enabling sound at boot stopped Pocket
 
-*16–18 November 2026. Sound, graphics and maps on the second Nokia N810.*
+*16–18 November 2026.*
 
-We heard the test tone. Then we rebooted the N810 to see whether sound would come back on its own. It did. Pocket didn't.
+We heard a test tone from the second N810 and rebooted it to check audio startup. The sound driver loaded, and the graphics launcher refused to start Pocket. An earlier audio configuration could lock up the tablet, so the launcher checked for the sound driver and exited if it found the module loaded.
 
-The clue was in the graphics launcher. An earlier audio configuration could hard-lock the tablet, so the launcher refused to start whenever it found the sound driver loaded. Making sound start reliably at boot had made the desktop stop reliably at boot.
+The board driver had been looking for a codec named `tlv320aic3x-codec.1-0018`. We changed that name to match the one Linux registered (`tlv320aic3x.1-0018`) and corrected the device tree entry for McBSP2, the processor's serial audio port. The entry now assigns interrupt 62 to transmit and 63 to receive. When the driver is loaded, the graphics launcher runs `n810-audio pcm-status` to check that the boot service has approved the configuration. After a normal boot from slot A, Pocket drew its desktop and the `nokia` account could play sound and record from the microphone. With audio enabled, the GPU completed 50 jobs with all four fault counters at zero.
 
-## What should the launcher check?
+## Graphics on the two tablets
 
-The audio repair had corrected two details of how Linux described the board. The driver was looking for a codec named `tlv320aic3x-codec.1-0018`, while Linux had registered it as `tlv320aic3x.1-0018`. The processor's serial audio port, McBSP2, also had an extra interrupt in the device tree. The corrected entry identifies the port and assigns interrupt 62 to transmit and 63 to receive.
+We repeated the [original GPU measurements](2026-11-10-gpu-residency-and-480mhz.md) on the second tablet using the same gears and 512-triangle terrain executables. Each rendered a 400 × 400 RGB565 window through Mesa on the MBX GPU, with Xorg displaying the image. The gears runs used identical Mesa libraries (verified by SHA-256). The original 480 MHz terrain run used a different Mesa build.
 
-That gave the launcher a more useful question. When the driver is loaded, it now asks `n810-audio pcm-status` whether the boot service validated the audio configuration. On the next slot A boot, Pocket drew its desktop. The ordinary `nokia` account could play sound and record from the microphone. The GPU completed 50 jobs with all four fault counters at zero. We checked those changes on both SD roots updated in place. A fresh installation is a separate test.
-
-## Fifty GPU jobs tell us the driver is alive. How fast is it?
-
-Doom ran once we supplied its missing engine, bridge and game data. It still felt slow, as did the animated Flux background. Had we lost the graphics gains from the first tablet? We had kept the original gears and rotating-terrain programs, so we could ask both machines to draw the same scenes.
-
-Each program rendered a 400 × 400 RGB565 window. Mesa used the MBX GPU for transformation, lighting and rasterization, and a temporary Xorg server displayed the result. Each completed GPU job represented one frame in **these two programs**. On the second tablet we counted jobs over three consecutive 30-second intervals at each CPU clock, starting after the first frame-rate report. [Original measurements and framebuffer captures](2026-11-10-gpu-residency-and-480mhz.md)
+Each program submitted one GPU job per frame. After the first frame-rate report, we counted completed jobs over three consecutive 30-second intervals at each CPU clock. We also counted display-controller interrupts over the same intervals to measure transfers to the LCD.
 
 | Workload | CPU clock | Original N810 FPS | Second N810 FPS | Second N810 display interrupts/s |
 |---|---:|---:|---:|---:|
@@ -25,17 +19,13 @@ Each program rendered a 400 × 400 RGB565 window. Mesa used the MBX GPU for tran
 | Standard gears | 480 MHz | 42.74 | 45.34 | 25.71 |
 | Rotating terrain | 480 MHz | 71.67 | 74.63 | 25.79 |
 
-Gears gave us the cleanest comparison. The executable and Mesa library matched the original run by SHA-256, and the second tablet slightly exceeded the first at both clocks. The terrain executable matched too, though the original 71.67 FPS run used a different Mesa library build. All twelve new samples finished with zero GPU faults. The last column measures activity farther downstream: at nearly 75 completed terrain frames a second, we counted about 26 display-transfer interrupts a second.
+Pocket draws its 800 × 480 desktop directly to the framebuffer and can submit several GPU jobs per redraw. We counted completed frames inside Surface Room while turning the camera continuously in a 640 × 416 window, with the animated desktop background off. At 480 MHz Room rendered 131 frames in 45.65 seconds (2.87 FPS).
 
-Pocket takes a different route to the LCD. It composes an 800 × 480 desktop and submits updates directly to the framebuffer. One desktop redraw can submit several GPU jobs, so we needed a counter closer to the application. Counting finished frames inside Pocket instead gave **131 Surface Room frames in 45.65 seconds**, or **2.87 FPS**, while turning the camera in a 640 × 416 window at 480 MHz. That number describes the Room proof of concept. Gears answers the narrower question about whether the standalone graphics path survived the move.
+During testing, the person holding the tablet reported a blank LCD with the backlight on. Over SSH the agent could see that Pocket was running on `tty7` and that the panel had power. The framebuffer overlay was disabled. The agent enabled it and requested a display update, and the person at the tablet confirmed that Pocket was visible again.
 
-The person at the tablet caught something the agent at the SSH prompt couldn't see. Pocket still had a running process, the panel reported power, and the backlight was on. The LCD was blank. The framebuffer overlay that supplies the pixels was disabled. Restoring it and requesting a display update made Pocket visible again. That last observation came from someone looking at the glass.
+## Station Map on the second tablet
 
-## The map had already done the work
-
-Station Map could pan, zoom and calculate a terrain line of sight from 4,097 elevation samples. Yet opening the map could leave us looking at “Preparing map features,” and its little sidebar overview took about five seconds the first time under load. The worker could finish drawing the overview only for the sidebar to discard the pixels before the next redraw. Keeping that image and reusing visible terrain eliminated duplicate work, including an attempt to prepare nine neighboring views.
-
-The original tablet had been useful in two quite different ways. Its filesystem told us [which programs and data to put back](2026-11-16-second-n810.md). Its saved benchmarks let us decide where to look when the new machine felt slow. In the map's case, the wait was visible before the GPU even had the features to draw.
+We panned and zoomed Station Map and ran a terrain line-of-sight calculation using 4,097 elevation samples. Under load, the first sidebar overview took about five seconds to prepare. The worker produced the overview pixels, but the sidebar could discard them before its next redraw. Pocket now retains that image. The renderer also reuses the visible terrain, which removes the previous prefetch of nine neighboring views.
 
 <!-- journal-sources:start -->
 ## Code, tests and build inputs

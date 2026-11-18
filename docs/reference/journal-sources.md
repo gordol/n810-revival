@@ -531,7 +531,7 @@ Design investigation only. No Windows CE compatibility implementation or N810 te
 
 <a id="2026-11-16-second-n810"></a>
 
-## Which Pocket was the first N810 actually running?
+## Tracing the installation on the original N810
 
 [Read the journal entry](../posts/2026-11-16-second-n810.md)
 
@@ -544,7 +544,7 @@ Design investigation only. No Windows CE compatibility implementation or N810 te
 
 <a id="2026-11-17-pocket-on-the-second-n810"></a>
 
-## The speaker worked. Where did the desktop go?
+## Why enabling sound at boot stopped Pocket
 
 [Read the journal entry](../posts/2026-11-17-pocket-on-the-second-n810.md)
 

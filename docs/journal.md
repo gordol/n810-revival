@@ -42,8 +42,8 @@ The visual record begins with the [sidebar desktop](posts/2026-10-05-sidebar-des
 | 9 November 2026 | [Symbian applications on the N810](posts/2026-11-09-symbian-runtime.md) |
 | 9–10 November 2026 | [Keeping GPU work resident and testing at 480 MHz](posts/2026-11-10-gpu-residency-and-480mhz.md) |
 | 10 November 2026 | [Investigating a native ARM Windows CE runtime](posts/2026-11-10-windows-ce-runtime.md) |
-| 11–17 November 2026 | [Which Pocket was the first N810 actually running?](posts/2026-11-16-second-n810.md) |
-| 16–18 November 2026 | [The speaker worked. Where did the desktop go?](posts/2026-11-17-pocket-on-the-second-n810.md) |
+| 11–17 November 2026 | [Tracing the installation on the original N810](posts/2026-11-16-second-n810.md) |
+| 16–18 November 2026 | [Why enabling sound at boot stopped Pocket](posts/2026-11-17-pocket-on-the-second-n810.md) |
 
 The guide and reference pages describe reusable procedures and the latest reconciled state. Dated posts preserve the observations available at each checkpoint.
 
