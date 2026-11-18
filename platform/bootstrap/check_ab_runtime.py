@@ -37,6 +37,9 @@ def check(kit, debugfs):
         "/usr/local/sbin/n810-bluetooth": "platform/scripts/n810-bluetooth",
         "/usr/local/sbin/n810-bluetooth-address": "platform/scripts/n810-bluetooth-address",
     }
+    for name in ('uvpro_bank.py','uvpro-aprs-listen.py','n810-radio-read-owner.py','n810-radio-bandwidth.py','n810-kiss-bridge.py'):
+        scripts['/usr/local/lib/n810-radio/'+name]='pocket/shell/owner-service/'+name
+    scripts['/usr/local/share/pocket/shell/radio_tune_client.py']='pocket/shell/radio_tune_client.py'
     for target, original in scripts.items():
         if read(slot, target) != source(original):
             raise ValueError("Installed file differs from source: " + target)

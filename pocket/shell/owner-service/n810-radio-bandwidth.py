@@ -85,6 +85,25 @@ class Transaction:
         except (OSError,ValueError):self.seen=None
         self.active=False;self.waiting=None;self.reads={};self.result={}
 
+    def start_bank(self, ident, selected, address):
+        if self.active:raise ValueError('Radio owner is busy')
+        from uvpro_bank import download
+        self.bank_job=download(selected,address,Path.home()/'.local/state/n810-radio/backups',atomic)
+        self.active=True;self.waiting=None;self.quiet_until=0
+        self.result=dict(id=ident,action='download_bank',state='reading',completed=False)
+        self.bank_next(None)
+        return self.result.copy()
+
+    def bank_next(self, raw):
+        try:
+            command,payload=self.bank_job.send(raw)
+            self.waiting=('bank_read',command);self.deadline=time.monotonic()+5
+            self.send(command,payload,None)
+        except StopIteration as done:
+            self.result.update(done.value,state='complete',completed=True)
+            self.active=False;self.waiting=None;self.save()
+        except (OSError,ValueError,RuntimeError) as error:self.fail(error)
+
     def save(self):
         self.result['updated_at']=time.time();atomic(self.result_path,self.result)
 
@@ -249,6 +268,8 @@ class Transaction:
         try:
             if not body or body[0]!=0:raise ValueError('Radio rejected '+name)
             raw=body[1:]
+            if self.result['action']=='download_bank':
+                self.bank_next(raw);return
             if command==11:
                 if raw:raise ValueError('Unexpected settings acknowledgement')
             elif command==35:

@@ -24,6 +24,7 @@ class RadioManager:
         self.state=state;self.page=0;self.bank=0;self.index=0;self.width=78;self.height=24
         self.hits=[];self._spans=[]
         self.drafts=None;self.message='';self.editing=None;self.fields=False;self.field=0;self.review=None
+        self.bank_download=None;self.settings_offset=0;self.settings_max=0
         self._draft_root=draft_root;self._drafts_attempted=False;self._drafts_error=None
         from app_widgets import AdaptivePanels,PanelSpec,SelectList
         self.memory_layout=AdaptivePanels((PanelSpec('groups','Groups',18,22),PanelSpec('channels','Channels',25,34),PanelSpec('details','Selected',28,36)),focus='channels')
@@ -49,6 +50,13 @@ class RadioManager:
         model=self.state.result['model']
         if self.page in (3,4) and (self.drafts or self._draft_root):return self.draft_groups()
         return model['snapshot']['banks'] if self.page==1 else model['presets']['banks']
+    def bank_directory(self):
+        groups=self.state.result['model']['snapshot']['banks']
+        by_index={group['index']:group for group in groups}
+        snapshot=adapter.data(self.state.payload.get('catalog')).get('radio_snapshot') or {}
+        names=snapshot.get('bank_names') or []
+        return [by_index.get(i,dict(index=i,name=name,channels=None)) for i,name in enumerate(names)] if names else groups
+
     def edit_key(self,key):
         if not self._ensure_drafts():return False
         from radio_drafts import library,profiles
@@ -139,8 +147,25 @@ class RadioManager:
                     self.bank=self.memory_groups.index;self.index=0;self.detail_scroll=0;return True
                 self.memory_channels.rows=tuple(c.get('name') or c.get('state') or 'Unnamed' for c in groups[self.bank%len(groups)]['channels']) if groups else ()
                 self.memory_channels.index=self.index;self.memory_channels.key(key);self.index=max(0,self.memory_channels.index);return True
+        if self.page==5 and key in ('up','down','pageup','pagedown','home','end'):
+            step=max(1,self.height-7)
+            offset={'up':-1,'down':1,'pageup':-step,'pagedown':step,'home':-self.settings_max,'end':self.settings_max}[key]
+            self.settings_offset=max(0,min(self.settings_max,self.settings_offset+offset))
+            return True
+        if self.page==2 and key in ('d','D'):
+            client=self.state.read_client
+            if client is None:self.message='Radio owner unavailable';return True
+            from radio_tune_client import BankDownload
+            if self.bank_download is None:self.bank_download=BankDownload(client.path,self.state._source_changed)
+            directory=self.bank_directory()
+            selected=directory[self.bank%len(directory)]['index'] if directory and key=='D' else None
+            self.bank_download.start(selected)
+            return True
         if self.page==2:
-            groups=self.state.result['model']['snapshot']['banks']
+            groups=self.bank_directory()
+            self.bank=min(self.bank,max(0,len(groups)-1))
+            if key in ('p','\r','\n') and groups and groups[self.bank]['channels'] is None:
+                self.message='Only the bank name has been downloaded.';return True
             if key=='p' and groups:
                 try:
                     from radio_drafts import module
@@ -153,6 +178,9 @@ class RadioManager:
                 self.bank=max(0,min(len(groups)-1,0 if key=='home' else len(groups)-1 if key=='end' else self.bank+(-1 if key=='up' else 1)))
                 return True
             if key in ('\r','\n'):
+                if groups:
+                    saved=self.state.result['model']['snapshot']['banks']
+                    self.bank=next(i for i,g in enumerate(saved) if g['index']==groups[self.bank]['index'])
                 self.page=1;self.index=0;return True
         if self.page in (3,4) and self.drafts and self.edit_key(key):return True
         if key in ('\t','backtab','[',']'):
@@ -256,6 +284,7 @@ class RadioManager:
                 if self.message:rows.append(self.message)
                 if self.state.read_job.get('error'):rows.append(str(self.state.read_job['error']))
             rows+=['LAST REPORTED SETTINGS','']
+            first_setting=len(rows)
             for name in ('settings','beacon'):
                 section=r['sections'].get(name,{})
                 state_name={'owner_unavailable':'Observation unavailable','unavailable':'Not reported','stale':'Last report is stale','fresh':'Recently reported','paused':'Monitoring paused'}.get(section.get('state'),'Not reported')
@@ -265,16 +294,26 @@ class RadioManager:
                 rows += [key.replace('_',' ')+': '+value(v) for key,v in values.items()] or ['No settings observation available.']
                 rows+=['']
             rows+=['Reported settings stay separate from local desired values.','Edit desired values under Drafts or Profiles; Save is local only.']
+            self.settings_max=max(0,len(rows)-self.height+1)
+            self.settings_offset=min(self.settings_offset,self.settings_max)
+            rows=rows[:first_setting]+rows[first_setting+self.settings_offset:]
         elif self.page==2:
-            groups=model['snapshot']['banks']
-            rows+=['DOWNLOADED RADIO BANKS · same source as Memories','Enter: memories   [p Copy downloaded → Local]','']
+            groups=self.bank_directory()
+            rows+=['RADIO BANKS','Enter: memories   [p Copy downloaded → Local]','']
             self.hits.append((18,4,29,1,('action','p')))
+            if self.state.can_read:
+                label='[d Download current bank]'
+                self.hits.append((0,len(rows),len(label),1,('action','d')))
+                choose='[D Download selected]'
+                self.hits.append((len(label)+1,len(rows),len(choose),1,('action','D')))
+                rows.append(label+' '+choose)
+            if self.bank_download:rows.append(self.bank_download.status)
             room=max(1,self.height-len(rows)-4)
             start=max(0,self.bank-room+1)
             for index,group in enumerate(groups[start:start+room],start):
                 self.hits.append((0,len(rows),self.width,1,('bank',index)))
                 if index==self.bank:self._spans.append((len(rows),0,self.width,'selected'))
-                rows.append(('> ' if index==self.bank else '  ')+str(group.get('index',index))+'  '+str(group.get('name') or 'Unnamed')+'  · '+str(len(group['channels']))+' memories')
+                rows.append(('> ' if index==self.bank else '  ')+str(group.get('index',index))+'  '+str(group.get('name') or 'Unnamed')+'  · '+(str(len(group['channels']))+' memories' if group['channels'] is not None else 'name only'))
             if not groups:rows+=['No downloaded banks available.']
             rows+=['','Saved drafts: '+('No saved presets available.' if not model['presets']['banks'] else str(len(model['presets']['banks']))+' banks')]
             document=self.drafts.documents['banks'] if self.drafts else None

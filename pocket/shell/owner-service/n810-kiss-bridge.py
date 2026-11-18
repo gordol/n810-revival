@@ -127,7 +127,7 @@ class Bridge:
             elif command==14:module.wide_only(original,payload)
             elif command==34:module.disable_beacon_only(original,payload)
             else:raise ValueError('Free VFO tuning disabled while preserving APRS')
-        elif (command,payload) not in ((20,b''),(10,b''),(33,b'\2'),(4,b'\3')) and not (command==13 and len(payload)==1):
+        elif (command,payload) not in ((20,b''),(10,b''),(33,b'\2'),(4,b'\3')) and not (command in (13,73) and len(payload)==1):
             raise ValueError('Unsupported radio control request')
         frame=b'\xff\1\0'+bytes([len(payload)])+b'\0\2'+command.to_bytes(2,'big')+payload
         if self.tx_size+len(frame)>LIMIT:raise RuntimeError('Radio output queue full')
