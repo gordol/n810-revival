@@ -83,6 +83,10 @@ class StageSysVTest(unittest.TestCase):
             self.assertTrue((root / 'etc/rc2.d/S04n810-setup-touch').is_symlink())
             self.assertTrue((root / 'etc/rc2.d/S05pocket-desktop').is_symlink())
             self.assertTrue((root / 'etc/rc2.d/S03n810-displayd').is_symlink())
+            self.assertTrue((root / 'etc/rc2.d/S03n810-audio').is_symlink())
+            audio = (root / 'etc/init.d/n810-audio').read_text()
+            self.assertIn('PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', audio)
+            self.assertLess(audio.index('export PATH'), audio.index('amixer -q'))
             self.assertTrue((root / 'etc/rc2.d/S04n810-boot-mode').is_symlink())
             self.assertFalse((root / 'etc/init.d/n810-display-keys').exists())
             self.assertIn('HostKey /etc/ssh/ssh_host_ed25519_key',

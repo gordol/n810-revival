@@ -35,6 +35,7 @@ class StageServicesTests(unittest.TestCase):
             self.assertTrue((root/'home/nokia/.local/state/n810-aprs/directory.sqlite3').is_file())
             self.assertFalse(list(target.glob('test*')))
             self.assertTrue(any('visudo' in call.args[0] for call in run.call_args_list))
+            self.assertTrue(any('dialout,bluetooth,audio' in call.args[0] for call in run.call_args_list))
             self.assertEqual((root/'etc/sudoers.d/n810-setup-wifi').stat().st_mode&0o777,0o440)
 
             for name in ('n810-power','n810-radio'):

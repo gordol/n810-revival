@@ -216,3 +216,35 @@ Map display overviews and LOS use different sampling: rendering may use reduced
 levels, while path calculations use selected fine elevation. Missing coverage
 is unknown, never evidence of a clear path. A successful software LOS calculation
 is not a radio link test.
+
+## Sound
+
+Fresh images include the ALSA utilities, the N810 audio helper, and a boot service
+that initializes the speakers at a quiet level. The `nokia` account belongs to
+the `audio` group. Both OS slots use modules built for the shared flashed kernel.
+
+After boot, check the sound card and play a short test:
+
+```sh
+/usr/local/sbin/n810-audio status
+/usr/local/sbin/n810-audio pcm-status
+/usr/local/sbin/n810-audio play-test
+```
+
+The boot service checks the OMAP2420 McBSP2 device-tree configuration before
+enabling the test helper. If streaming is blocked, inspect
+`sudo /etc/init.d/n810-audio start` and `dmesg`; do not create an approval file
+manually. Older images need the matching kernel/device tree, machine driver,
+ALSA tools, and boot service together. Installing only `alsa-utils` does not
+repair an incompatible kernel configuration.
+
+To capture five seconds from the internal microphone and listen to it:
+
+```sh
+/usr/local/sbin/n810-audio record-test "$HOME/audio-test.wav"
+aplay -D hw:N810,0 "$HOME/audio-test.wav"
+rm "$HOME/audio-test.wav"
+```
+
+Speaker playback and microphone capture are separate checks. ALSA reporting
+success does not establish that a speaker is audible or a recording is clear.
