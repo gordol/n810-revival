@@ -49,11 +49,12 @@ def main():
         live = module('radio_live', 'n810-radio-live.py').Telemetry(bridge.telemetry_request,bandwidth_send=bridge.bandwidth_request)
         def bank(operation, identity, selected):
             transaction=live.bandwidth
-            if transaction.result.get('id')==identity and transaction.result.get('action')=='download_bank':
+            if transaction.result.get('id')==identity and transaction.result.get('action')==('edit_setting' if operation in ('edit_setting','setting_status') else 'download_bank'):
                 return transaction.result.copy()
-            if operation=='bank_status':raise ValueError('Unknown bank download')
+            if operation in ('bank_status','setting_status'):raise ValueError('Unknown bank download')
             if live.pending or live.read_session and live.read_session.state in ('pending','reading'):
                 raise ValueError('Radio owner is busy')
+            if operation=='edit_setting':return transaction.start_setting(identity,selected)
             return transaction.start_bank(identity,selected,addr)
         try:
             reads = module('radio_read_owner', 'n810-radio-read-owner.py').Endpoint(

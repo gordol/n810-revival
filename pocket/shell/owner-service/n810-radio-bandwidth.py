@@ -94,11 +94,24 @@ class Transaction:
         self.bank_next(None)
         return self.result.copy()
 
+    def start_setting(self,ident,edit):
+        if self.active:raise ValueError('Radio owner is busy')
+        from uvpro_settings import transaction
+        self.bank_job=transaction(edit);self.setting_edit=edit
+        self.active=True;self.waiting=None;self.quiet_until=0
+        self.result=dict(id=ident,action='edit_setting',state='reading',completed=False)
+        self.bank_next(None)
+        return self.result.copy()
+
     def bank_next(self, raw):
         try:
-            command,payload=self.bank_job.send(raw)
+            step=self.bank_job.send(raw)
+            command,payload=step[:2]
             self.waiting=('bank_read',command);self.deadline=time.monotonic()+5
-            self.send(command,payload,None)
+            if self.result['action']=='edit_setting' and command in (11,34):
+                self.result['write_attempted']=True;self.save()
+                self.send(command,payload,step[2],self.setting_edit)
+            else:self.send(command,payload,None)
         except StopIteration as done:
             self.result.update(done.value,state='complete',completed=True)
             self.active=False;self.waiting=None;self.save()
@@ -268,7 +281,7 @@ class Transaction:
         try:
             if not body or body[0]!=0:raise ValueError('Radio rejected '+name)
             raw=body[1:]
-            if self.result['action']=='download_bank':
+            if self.result['action'] in ('download_bank','edit_setting'):
                 self.bank_next(raw);return
             if command==11:
                 if raw:raise ValueError('Unexpected settings acknowledgement')

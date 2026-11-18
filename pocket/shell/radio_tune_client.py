@@ -49,22 +49,26 @@ class Tune:
 
 
 class BankDownload(Tune):
-    def start(self, index=None):
+    def start(self, index=None, edit=None):
         if self.worker and self.worker.is_alive():return
-        self.publish('Reading radio banks…')
-        self.worker=threading.Thread(target=self.download,args=(index,),daemon=True)
+        self.publish('Updating radio setting…' if edit else 'Reading radio banks…')
+        self.worker=threading.Thread(target=self.download,args=(index,edit),daemon=True)
         self.worker.start()
 
-    def download(self,index):
+    def download(self,index,edit):
         identity=uuid.uuid4().hex
         try:
-            result=self.rpc(dict(version=1,operation='download_bank',request_id=identity,bank=index))
+            request=dict(operation='edit_setting',edit=edit) if edit else dict(operation='download_bank',bank=index)
+            result=self.rpc(dict(version=1,request_id=identity,**request))
             until=time.monotonic()+600
             while not result.get('completed'):
                 if result.get('state')=='failed':raise ValueError(result.get('error','Read failed'))
                 if time.monotonic()>=until:raise ValueError('Download outcome unknown')
                 time.sleep(1)
-                result=self.rpc(dict(version=1,operation='bank_status',request_id=identity))
+                result=self.rpc(dict(version=1,operation='setting_status' if edit else 'bank_status',request_id=identity))
+            if edit:
+                self.publish('Verified '+edit['field'].replace('_',' ')+' on the radio. Refresh for current values.')
+                return
             self.publish('Saved bank %d · %d channels · %d bank names' %
                          (result['bank'],result['channels'],len(result['banks'])))
-        except (KeyError,OSError,ValueError,RuntimeError) as error:self.publish('Download: '+str(error))
+        except (KeyError,OSError,ValueError,RuntimeError) as error:self.publish(str(error))

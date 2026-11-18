@@ -74,6 +74,13 @@ class Endpoint:
             if set(value) != fields | {'requested_at', 'expires_at'}:
                 raise ValueError('Invalid read request fields')
             result = self.submit(value)
+        elif operation in ('edit_setting','setting_status') and self.bank is not None:
+            if operation=='edit_setting':
+                edit=value.get('edit')
+                if set(value)!=fields|{'edit'} or not isinstance(edit,dict) or set(edit)!={'group','field','expected','value'} or edit['group'] not in ('settings','beacon'):
+                    raise ValueError('Invalid settings edit')
+            elif set(value)!=fields:raise ValueError('Invalid settings status request')
+            result=self.bank(operation,request_id,value.get('edit'))
         elif operation in ('download_bank','bank_status') and self.bank is not None:
             if operation=='download_bank':
                 if set(value)!=fields|{'bank'}:raise ValueError('Invalid bank request')

@@ -102,7 +102,7 @@ class Bridge:
         if self.tx_size+len(frame)>LIMIT:raise RuntimeError('Radio output queue full')
         self.tx.append((frame,0,None));self.tx_size+=len(frame);self.modify_radio()
 
-    def bandwidth_request(self, command, payload, original=None):
+    def bandwidth_request(self, command, payload, original=None, setting=None):
         if command in (11,14,34,35):
             if self.writer is not None or self.tx:raise RuntimeError('KISS writer/queue must be idle before radio control')
             spec=importlib.util.spec_from_file_location('radio_bandwidth',Path(__file__).with_name('n810-radio-bandwidth.py'))
@@ -110,7 +110,11 @@ class Bridge:
             backup=module.private_read(Path('/dev/shm/n810-radio-tune-backup.json'))
             restoring=(command==11 and original.hex()==backup.get('desired_settings') and payload.hex()==backup.get('original_settings') or
                        command==14 and original.hex()==backup.get('desired_channel') and payload.hex()==backup.get('original_channel')) if original else False
-            if restoring:pass
+            if setting is not None:
+                from uvpro_settings import changed
+                expected={'settings':11,'beacon':34}.get(setting.get('group'))
+                if expected!=command or changed(original,setting)!=payload:raise ValueError('Invalid settings field update')
+            elif restoring:pass
             elif command==11:
                 spec=importlib.util.spec_from_file_location('uvpro_secondary',Path(__file__).with_name('uvpro_secondary.py'))
                 secondary=importlib.util.module_from_spec(spec);spec.loader.exec_module(secondary)

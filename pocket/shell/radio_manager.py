@@ -24,7 +24,7 @@ class RadioManager:
         self.state=state;self.page=0;self.bank=0;self.index=0;self.width=78;self.height=24
         self.hits=[];self._spans=[]
         self.drafts=None;self.message='';self.editing=None;self.fields=False;self.field=0;self.review=None
-        self.bank_download=None;self.settings_offset=0;self.settings_max=0
+        self.bank_download=None;self.settings_offset=0;self.settings_max=0;self.setting_rows=[];self.setting_editor=None
         self._draft_root=draft_root;self._drafts_attempted=False;self._drafts_error=None
         from app_widgets import AdaptivePanels,PanelSpec,SelectList
         self.memory_layout=AdaptivePanels((PanelSpec('groups','Groups',18,22),PanelSpec('channels','Channels',25,34),PanelSpec('details','Selected',28,36)),focus='channels')
@@ -110,6 +110,30 @@ class RadioManager:
         self.message=self.state.read_message
         return accepted
     def key(self,key):
+        if self.page==5 and self.setting_editor:
+            group,field,old,editor=self.setting_editor
+            if key in ('escape','\x1b'):
+                self.setting_editor=None;self.message=''
+            elif key in ('\r','\n'):
+                try:
+                    text=editor.text
+                    if type(old) is bool:
+                        if text.lower() not in ('on','off','true','false'):raise ValueError('Use on or off')
+                        new=text.lower() in ('on','true')
+                    else:new=int(text) if type(old) is int else text
+                    if self.bank_download is None:
+                        from radio_tune_client import BankDownload
+                        self.bank_download=BankDownload(self.state.read_client.path,self.state._source_changed)
+                    self.bank_download.start(edit=dict(group=group,field=field,expected=old,value=new))
+                    self.setting_editor=None;self.message=''
+                except ValueError as error:self.message=str(error)
+            else:editor.key(key)
+            return True
+        if self.page==5 and key in ('e','\r','\n') and self.setting_rows and self.state.can_read:
+            from app_widgets import TextInput
+            group,name,v=self.setting_rows[min(self.settings_offset,len(self.setting_rows)-1)]
+            self.setting_editor=(group,name,v,TextInput(('on' if v else 'off') if type(v) is bool else str(v)))
+            return True
         if self.page in (2,3,4) or self.review is not None:
             unloaded=self.drafts is None
             self._ensure_drafts(retry=key=='f5')
@@ -204,6 +228,7 @@ class RadioManager:
             if hit[0]=='page':
                 if self.editing:return True
                 self.page=hit[1];self.bank=self.index=0;self.fields=False
+            elif hit[0]=='setting':self.settings_offset=hit[1];return self.key('e')
             elif hit[0]=='bank':self.bank=hit[1];self.index=0
             elif hit[0]=='memory-group':self.memory_layout.select('groups');self.bank=hit[1];self.index=0;self.detail_scroll=0
             elif hit[0]=='panel':self.memory_layout.select(hit[1])
@@ -283,20 +308,24 @@ class RadioManager:
                 rows.append(label)
                 if self.message:rows.append(self.message)
                 if self.state.read_job.get('error'):rows.append(str(self.state.read_job['error']))
-            rows+=['LAST REPORTED SETTINGS','']
-            first_setting=len(rows)
-            for name in ('settings','beacon'):
-                section=r['sections'].get(name,{})
-                state_name={'owner_unavailable':'Observation unavailable','unavailable':'Not reported','stale':'Last report is stale','fresh':'Recently reported','paused':'Monitoring paused'}.get(section.get('state'),'Not reported')
-                age=section.get('age_seconds')
-                rows+=[name.capitalize()+': '+state_name+(' · '+str(round(age))+'s ago' if isinstance(age,(int,float)) else '')]
-                values=section.get('values') or {}
-                rows += [key.replace('_',' ')+': '+value(v) for key,v in values.items()] or ['No settings observation available.']
-                rows+=['']
-            rows+=['Reported settings stay separate from local desired values.','Edit desired values under Drafts or Profiles; Save is local only.']
-            self.settings_max=max(0,len(rows)-self.height+1)
-            self.settings_offset=min(self.settings_offset,self.settings_max)
-            rows=rows[:first_setting]+rows[first_setting+self.settings_offset:]
+            if self.bank_download:rows.append(self.bank_download.status)
+            if self.setting_editor:
+                group,field,old,editor=self.setting_editor
+                rows += ['Edit '+group+' / '+field.replace('_',' '), 'Current: '+value(old),
+                         'New: '+editor.draw(max(1,self.width-5)), 'Enter: apply to radio    Esc: cancel']
+            else:
+                rows+=['Reported settings · arrows select · Enter edits']
+                self.setting_rows=[(group,name,v) for group in ('settings','beacon')
+                                   for name,v in (r['sections'].get(group,{}).get('values') or {}).items()
+                                   if not name.startswith('_') and type(v) in (bool,int,str)]
+                self.settings_max=max(0,len(self.setting_rows)-1)
+                self.settings_offset=min(self.settings_offset,self.settings_max)
+                room=max(1,self.height-len(rows)-1)
+                start=max(0,self.settings_offset-room+1)
+                for i,(group,name,v) in enumerate(self.setting_rows[start:start+room],start):
+                    self.hits.append((0,len(rows),self.width,1,('setting',i)))
+                    rows.append(('> ' if i==self.settings_offset else '  ')+group+' / '+name.replace('_',' ')+': '+value(v))
+                if not self.setting_rows:rows.append('No settings observation available.')
         elif self.page==2:
             groups=self.bank_directory()
             rows+=['RADIO BANKS','Enter: memories   [p Copy downloaded → Local]','']
