@@ -71,7 +71,14 @@ observations, not proof that a live radio link is working.
 
 ## MeshCore through an HTIT hub
 
-A local MeshCore selection can use an explicit hub URI in `port`:
+On the N810, pair the Classic HTIT hub with the tablet first. In **Messages**,
+switch **Protocol** to **MeshCore** and choose **Companions**. Select the
+advertised radio by name and address with the touchscreen or the arrow keys
+and Enter. If prompted, enter the companion’s six-digit BLE PIN on the tablet.
+After pairing, return to Messages and choose **Connect** to sync the selected
+companion. To pair another companion, disconnect the active session first.
+
+For manual setup, a local MeshCore selection can use an explicit hub URI in `port`:
 `htit://CLASSIC_MAC/SPP_CHANNEL/BLE_MAC/ADDRESS_TYPE`, for example
 `htit://02:00:00:00:00:01/1/02:00:00:00:00:02/1` using fictional example addresses. Replace them with the paired hub and companion addresses.
 This requires a Linux host with Bluetooth RFCOMM, the optional pinned MeshCore
