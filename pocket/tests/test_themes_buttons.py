@@ -14,10 +14,10 @@ import themes
 class Buttons(unittest.TestCase):
     def test_hardware_and_terminal_equivalents(self):
         bindings=compile_bindings({'version':1})['global']
-        for raw,alt,action in ((b'\x1b[25~',b'\x1bm','wm-menu'),
-                               (b'\x1b[26~',b'\x1b\t','wm-next'),
-                               (b'\x1b[28~',b'\x1b\r','wm-maximize')):
-            for sequence in (raw,alt):
+        for raw,alt,button_action,terminal_action in ((b'\x1b[25~',b'\x1bm','wm-menu','wm-menu'),
+                               (b'\x1b[26~',b'\x1b\t','window-select','wm-next'),
+                               (b'\x1b[28~',b'\x1b\r','wm-maximize','wm-maximize')):
+            for sequence,action in ((raw,button_action),(alt,terminal_action)):
                 parser=Input(passthrough=True)
                 self.assertEqual(parser.feed(sequence[:1]),[])
                 event=parser.feed(sequence[1:])

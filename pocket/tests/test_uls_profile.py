@@ -121,7 +121,7 @@ class ProfileTests(unittest.TestCase):
         self.assertIsNotNone(result['adaptive_sampling'])
 
     def test_no_synthetic_fallback_outside_coverage(self):
-        with self.assertRaisesRegex(ValueError,'No synthetic fallback'):
+        with self.assertRaisesRegex(ValueError,'no elevation in the installed datasets'):
             calculate('40.2,-122.5','40.3,-122.5')
 
     def test_profile_app_worker_and_render(self):

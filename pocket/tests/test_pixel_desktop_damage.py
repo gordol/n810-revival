@@ -39,6 +39,7 @@ class PixelDesktopTests(unittest.TestCase):
         self.assertEqual(c.pending_damage,((3+ox)*8,(4+oy)*16,16,16))
         self.assertTrue(c.panel_text(0,0,'Battery',1,2));c.pending_damage=None
         self.assertFalse(c.panel_text(0,0,'Battery',1,2));self.assertIsNone(c.pending_damage)
-        self.assertTrue(c.panel_text(0,0,'Bat',1,2));self.assertEqual(c.pending_damage,(0,0,56,16))
+        self.assertTrue(c.panel_text(0,0,'Bat',1,2));self.assertEqual(c.pending_damage,(0,0,24,16))
+        self.assertEqual(c.panels[3,0],('tery',1,2))
 
 if __name__=='__main__':unittest.main()
