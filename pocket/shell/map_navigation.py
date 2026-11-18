@@ -90,6 +90,12 @@ def map_class(Base):
             if self.target_box.view is not None and self.renderer.module is not None:
                 from map_overview import zoom_context
                 center,span=self.target_box.view
+                displayed=getattr(self,'_display_image',None) or self._image
+                if (getattr(self.renderer,'presentation','cells')=='semantic'
+                        and contains(displayed,center,span,self.width,max(1,self.height-3))):
+                    self._zoom_context_image=None;self._zoom_context_view=None
+                    self._detail_request=None;self._loading_overview=None
+                    return True
                 retained=self._zoom_context_image
                 if retained is not None and span>=retained.projection.span*.2 and contains(retained,center,span,self.width,max(1,self.height-3)):
                     self._detail_request=None;self._loading_overview=None

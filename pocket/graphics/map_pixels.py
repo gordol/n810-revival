@@ -191,7 +191,7 @@ class View:
    self.pending[1].cancel();self.pending=None
   if not dragging and self.pending is None and key!=self.key and key!=self.failed:
    pool=surface.renderer.pool
-   if self.ready is None or self.ready_layer[:4]!=layer[:4] or pool is None:
+   if pool is None:
     try:
      self.ready=self.build(layer,surface);self.key=key;self.ready_layer=layer;self.ready_surface=surface;self.pixel_frames+=1;self.error=''
     except Exception as error:self.failed=key;self.error=str(error)
