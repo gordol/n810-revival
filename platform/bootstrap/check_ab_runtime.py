@@ -42,6 +42,7 @@ def check(kit, debugfs):
     for name in ('uvpro_bank.py','uvpro_settings.py','uvpro-aprs-listen.py','n810-radio-read-owner.py','n810-radio-bandwidth.py','n810-kiss-bridge.py'):
         scripts['/usr/local/lib/n810-radio/'+name]='pocket/shell/owner-service/'+name
     scripts['/usr/local/share/pocket/shell/radio_tune_client.py']='pocket/shell/radio_tune_client.py'
+    scripts['/usr/local/lib/n810-radio/n810-radio-backup.py']='pocket/shell/vendor/packet-console/n810-radio-backup.py'
     for target, original in scripts.items():
         if read(slot, target) != source(original):
             raise ValueError("Installed file differs from source: " + target)
