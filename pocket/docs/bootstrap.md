@@ -457,7 +457,8 @@ before generating the root image.
 On an installed N810, **N810 Setup** opens Device Setup rather than the laptop
 image builder. Finish these steps after the base installation:
 
-1. In **Wi-Fi**, enter the network details and choose **Save and join Wi-Fi**.
+1. On the tablet, open the **Wi-Fi** menu and select **Join Wi-Fi…**. Enter
+   the SSID, passphrase and country, then choose **Save and join Wi-Fi**.
    USB networking also works without Wi-Fi. Wi-Fi changes use a restricted
    helper; passwords travel over stdin.
 2. To receive from a UV-PRO, open **Bluetooth → Start**. For a new radio,
