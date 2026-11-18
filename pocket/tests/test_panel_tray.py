@@ -31,6 +31,37 @@ class TrayTests(unittest.TestCase):
             self.assertTrue({'charge:topoff','charge:longevity','cpu:performance','cpu:balanced',
                              'cpu:save','submenu:Display'} <= intents)
 
+    def test_repeat_adjustments_in_open_display_menu(self):
+        import ast
+        from unittest.mock import Mock,patch
+        from launcher import Launcher
+        from panel_tray import CONTROL_ACTIONS
+        shell=Path(__file__).resolve().parents[1]/'shell'
+        desktop=ast.parse((shell/'desktop.py').read_text())
+        opener=next(n for n in ast.walk(desktop) if isinstance(n,ast.FunctionDef) and n.name=='open_tray')
+        launcher=Launcher([])
+        env=dict(launcher=launcher,context_commands={},panel=Mock(),args=SimpleNamespace(device_radio=False),
+                 ox=0,oy=0,system_state=None,bluetooth_state=None,radio=None,
+                 open_launcher=Mock(side_effect=lambda *_:launcher.open()))
+        exec(compile(ast.Module(body=[opener],type_ignores=[]),'desktop.py','exec'),env)
+        env['open_tray']('system:Display',(8,0))
+        with patch('subprocess.run') as run:
+            run.return_value.returncode=0
+            for idx,(_,intent) in enumerate(menu('system:Display')[1]):
+                env['context_commands'][launcher.pointer(idx,20)]()
+                env['context_commands'][launcher.key('\r')]()
+                self.assertEqual(run.call_args.args[0],CONTROL_ACTIONS[intent][0])
+                self.assertTrue(launcher.active)
+                self.assertEqual(launcher.index,idx)
+            run.return_value.returncode=1
+            run.return_value.stderr='Mixer unavailable'
+            env['context_commands'][launcher.key('\r')]()
+            self.assertIn('Mixer unavailable',launcher.lines()[0])
+            self.assertTrue(launcher.active)
+            launcher.key('\x1b')
+            self.assertFalse(launcher.active)
+            env['open_launcher'].assert_called_once()
+
     def test_network_menus_link_to_shared_airplane_control(self):
         for action in ('system:WiFi','bluetooth:open','radio:Radio'):
             self.assertIn(('Airplane mode…','submenu:Airplane'),menu(action)[1])

@@ -1081,12 +1081,18 @@ def main(platform=None,argv=None):
                 elif intent in CONTROL_ACTIONS:
                     import subprocess
                     command,message=CONTROL_ACTIONS[intent]
+                    failure=None
                     try:
                         result=subprocess.run(command,capture_output=True,text=True,timeout=30)
                         if result.returncode:
-                            message=result.stderr.strip() or 'Power action failed'
-                    except (OSError,subprocess.TimeoutExpired) as error:message=str(error)
-                    open_launcher(pointer);launcher.open_context(message[:72],[('Return to Pocket','tray:done')])
+                            failure=result.stderr.strip() or 'Control action failed'
+                    except (OSError,subprocess.TimeoutExpired) as error:failure=str(error)
+                    if action=='system:Display':
+                        # Keep the existing anchor, filtered rows, and selection for the next tap or Enter.
+                        launcher.active=True
+                        launcher.context_title=' '.join(failure.split())[:72] if failure else title
+                        return
+                    open_launcher(pointer);launcher.open_context((failure or message)[:72],[('Return to Pocket','tray:done')])
                     context_commands['tray:done']=lambda:None
                     return
                 elif intent=='system:refresh':
