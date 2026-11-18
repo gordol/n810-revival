@@ -19,6 +19,17 @@ class BluetoothHardwareFallbackTests(unittest.TestCase):
             self.assertEqual(state.panel()[1]['bluetooth:open'],role)
             self.assertIsNone(state.read()['radio_connected'])
 
+    def test_local_power_without_receive_owner(self):
+        calls=[]
+        state=State(hardware=lambda:self.hardware(True),controller_request=lambda action:calls.append(action) or True)
+        self.assertTrue(state.request('controller_off'))
+        self.assertEqual(calls,['controller_off'])
+        self.assertFalse(state.available('receive_start'))
+
+    def test_remote_attachment_cannot_use_local_controller(self):
+        state=State(hardware=lambda:self.hardware(True),controller_request=lambda action:True,controller_available=lambda:False)
+        self.assertFalse(state.available('controller_off'))
+
     def test_stale_hardware_does_not_claim_power(self):
         self.assertIsNone(project(None,False,self.hardware(True,age=30))['powered'])
 

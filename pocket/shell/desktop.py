@@ -538,11 +538,21 @@ def main(platform=None,argv=None):
         host.app_forms['System']=System(system_state,open_connections=lambda:host.activate('Connections'))
     from bluetooth_view import State as BluetoothState,Bluetooth
     feed_source=getattr(radio.source,'receive',radio.source) if radio and radio.source else None
+    def local_bluetooth_source():
+        source=getattr(radio,'source',None)
+        source=getattr(source,'source',source)
+        return source if getattr(source,'local_device',False) else None
+    def controller_request(action):
+        source=local_bluetooth_source()
+        method=getattr(source,'request_bluetooth_power',None)
+        return method(action) if method else False
     bluetooth_state=BluetoothState(
         snapshot=lambda:getattr(feed_source,'feed_control',None),
         online=lambda:bool(getattr(feed_source,'feed_control_online',False)),
         request=getattr(feed_source,'request_feed_control',None),
-        feedback=lambda:getattr(getattr(feed_source,'control',None),'message',''),
+        feedback=lambda:getattr(local_bluetooth_source(),'bluetooth_message','') or getattr(getattr(feed_source,'control',None),'message',''),
+        controller_request=controller_request if args.device_radio else None,
+        controller_available=lambda:local_bluetooth_source() is not None,
         hardware=lambda:((radio.payload.get('live') or {}).get('data') or {}).get('bluetooth_controller') if radio else None)
     bluetooth_control=None if connections is not None else getattr(feed_source,'control',None)
     host.app_forms['Bluetooth']=Bluetooth(bluetooth_state)

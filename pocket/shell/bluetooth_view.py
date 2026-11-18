@@ -50,27 +50,33 @@ def project(snapshot, online=False, hardware=None):
 
 class State:
     """No collectors, transport, timers, or hardware access in presentation."""
-    def __init__(self, snapshot=lambda: None, online=lambda: False, request=None, feedback=lambda: '', hardware=lambda: None):
+    def __init__(self, snapshot=lambda: None, online=lambda: False, request=None, feedback=lambda: '', hardware=lambda: None, controller_request=None, controller_available=lambda: True):
         self.snapshot = snapshot
         self.online = online
         self.request_intent = request
         self.feedback = feedback
+        self.controller_request = controller_request
+        self.controller_available = controller_available
         self.hardware = hardware
         self.message = ''
 
     def read(self):
-        return project(self.snapshot(), self.online(), self.hardware())
+        result=project(self.snapshot(), self.online(), self.hardware())
+        if result['controller_available'] and self.controller_available() and callable(self.controller_request):
+            result['capabilities']=tuple(dict.fromkeys((*result['capabilities'],'controller_on','controller_off')))
+        return result
 
     def available(self, action):
         result = self.read()
-        return callable(self.request_intent) and action in result['capabilities']
+        return (callable(self.controller_request) if action.startswith('controller_') and self.controller_request else callable(self.request_intent)) and action in result['capabilities']
 
     def request(self, action):
         if action not in ACTIONS or not self.available(action):
             self.message = 'Bluetooth controls unavailable from this owner.'
             return False
         try:
-            accepted = self.request_intent(action)
+            request=self.controller_request if action.startswith('controller_') and self.controller_request else self.request_intent
+            accepted = request(action)
         except (OSError, ValueError, RuntimeError) as error:
             self.message = clean(error)
             return False
