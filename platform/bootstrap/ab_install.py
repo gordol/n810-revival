@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import gzip
+import fcntl
 import json
 from pathlib import Path
 import re
@@ -14,7 +15,8 @@ import sys
 import subprocess
 from ab_media import verify,MIB
 from ab_runtime import atomic,digest
-from internal_installer import identify_device,_run_flasher,configure_installer_network
+from ab_capture import capture, port_from_receipt, FALLBACK
+from internal_installer import _flasher_command, identify_device,_run_flasher,configure_installer_network
 
 
 def ram(kit):
@@ -68,7 +70,7 @@ def probe(kit,key,host):
   echo "$(basename "$d") $(cat "$d/size") $(cat "$d/device/cid")"
  done
 """
-    out=subprocess.check_output(ssh(kit,key,host)+[command],text=True).splitlines()
+    out=subprocess.check_output(ssh(kit,key,host)+[command],text=True,timeout=25).splitlines()
     if len(out)!=1:raise ValueError('Expected exactly one internal MMC in the RAM installer')
     node,sectors,cid=out[0].split()
     if not re.fullmatch(r'mmcblk[0-9]+',node) or int(sectors)*512!=2013265920 or not re.fullmatch('[0-9a-f]{32}',cid):
@@ -121,6 +123,74 @@ def write_recovery(kit,m,key,host,expected_cid,erase):
     return receipt
 
 
+def reboot_installer(kit, key, host, expected_identity):
+    try:
+        identity = probe(kit, key, host)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        raise RuntimeError('Could not verify the running installer over SSH. ' + FALLBACK) from error
+    if identity != expected_identity:
+        raise ValueError('Installer MMC identity differs from the verified recovery write')
+    # Recheck the environment and MMC on the connection issuing the reboot.
+    cid_file = '/sys/block/' + identity['node'] + '/device/cid'
+    command = ('set -eu\n' + environment_guard(kit) + 'test "$(cat ' + cid_file + ')" = ' +
+               identity['cid'] + '\nsync\nexec reboot -f')
+    return subprocess.Popen(ssh(kit, key, host)+[command], stdin=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL)
+
+
+def flash_recovery(kit, flasher, key, host):
+    receipt_path = kit/'RECOVERY-INSTALL.json'
+    receipt = json.loads(receipt_path.read_text())
+    sd = json.loads((kit/'SD-INSTALL.json').read_text())
+    if receipt.get('state') != 'recovery_written':
+        raise ValueError('Recovery kernel flash already attempted; inspect its receipt and USB-OPERATIONS.log')
+    kit_hash = digest(kit/'AB.json')
+    if any(not r.get('readback_verified') or r.get('kit_sha256') != kit_hash for r in (receipt, sd)):
+        raise ValueError('Both SD and recovery must have verified write receipts')
+
+    kernel_args = ['-m', 'kernel:'+str(kit/'recovery-kernel.bin'), '-f', '-r']
+    if key:
+        # Check flasher provenance and helper identity before asking the tablet to reboot.
+        _flasher_command(flasher, kernel_args)
+        build = json.loads((Path(flasher).resolve().parent/'BUILD.json').read_text())
+        pin_patch = Path(__file__).resolve().parents[1]/'flasher/usb-host.patch'
+        if build['identity'].get('usb_host_patch_sha256') != digest(pin_patch):
+            raise ValueError('Automatic capture requires a current host flasher and matching USB helper')
+        port = port_from_receipt(receipt)
+
+        def reboot():
+            return reboot_installer(kit, key, host, receipt.get('identity'))
+
+        token = capture(port, reboot)
+        kernel_args = ['-P', token, *kernel_args]
+    else:
+        # Preserve the attended CLI workflow for older kits and host binaries.
+        identity = identify_device(flasher)
+        for field in ('usb_location', 'usb_port'):
+            if field in receipt and receipt[field] != identity.get(field):
+                raise ValueError('Target USB port changed')
+
+    completed = r'Flashing image\.\.\.\s+Done\s+Rebooting device\.\.\.'
+    atomic(receipt_path, dict(receipt, state='kernel_flash_in_progress'))
+    try:
+        output = _run_flasher(flasher, kernel_args, 180, kit/'USB-OPERATIONS.log')
+        if not re.search(completed, output):
+            raise RuntimeError('Missing kernel flash completion record; inspect USB-OPERATIONS.log')
+    except RuntimeError as error:
+        output = str(error)
+        if key and 'POCKET_CAPTURE_MISSED' in output:
+            atomic(receipt_path, receipt)
+            raise RuntimeError('Bootloader left before capture. ' + FALLBACK) from error
+        if (re.search(completed, output) and
+                re.findall(r'Error:[^\r\n]*',output)==['Error: NOLO_REBOOT failed']):
+            atomic(receipt_path, dict(receipt, state='kernel_flashed_reboot_unconfirmed'))
+            raise RuntimeError('Kernel flash completed; reboot acknowledgement failed. Verify live boot; do not flash again.') from error
+        raise
+    result = dict(receipt, state='recovery_kernel_flashed')
+    atomic(receipt_path, result)
+    return result
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('action',choices=['boot-ram','boot-sd','inspect','write-recovery','flash-recovery'])
@@ -151,24 +221,11 @@ def main():
     elif a.action=='inspect':result=probe(kit,a.key,a.host)
     elif a.action=='write-recovery':result=write_recovery(kit,m,a.key,a.host,a.expected_cid,a.erase)
     else:
-        receipt=json.loads((kit/'RECOVERY-INSTALL.json').read_text())
-        sd=json.loads((kit/'SD-INSTALL.json').read_text())
-        if receipt.get('state')!='recovery_written':raise ValueError('Recovery kernel flash was already attempted; inspect its receipt')
-        if not receipt.get('readback_verified') or not sd.get('readback_verified') or any(v['kit_sha256']!=digest(kit/'AB.json') for v in (receipt,sd)):
-            raise ValueError('Both SD and recovery must have verified write receipts')
-        identity=identify_device(a.flasher)
-        for field in ('usb_location','usb_port'):
-            if field in receipt and receipt[field]!=identity.get(field):raise ValueError('Target USB port changed')
-        try:
-            _run_flasher(a.flasher,['-m','kernel:'+str(kit/'recovery-kernel.bin'),'-f','-r'],180,kit/'USB-OPERATIONS.log')
-        except RuntimeError as error:
-            output=str(error)
-            if (re.search(r'Flashing image\.\.\.\s+Done\s+Rebooting device\.\.\.',output) and
-                    re.findall(r'Error:[^\r\n]*',output)==['Error: NOLO_REBOOT failed']):
-                atomic(kit/'RECOVERY-INSTALL.json',dict(receipt,state='kernel_flashed_reboot_unconfirmed'))
-                raise RuntimeError('Kernel flash completed; reboot acknowledgement failed. Verify live boot; do not flash again.') from error
-            raise
-        result=dict(receipt,state='recovery_kernel_flashed');atomic(kit/'RECOVERY-INSTALL.json',result)
+        if not a.flasher:
+            p.error('--flasher required')
+        with (kit/'.kernel-flash.lock').open('a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            result = flash_recovery(kit, a.flasher, a.key, a.host)
     print(json.dumps(result,indent=2))
 
 if __name__=='__main__':main()
