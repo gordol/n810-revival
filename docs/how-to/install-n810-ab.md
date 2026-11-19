@@ -82,10 +82,15 @@ window. Holding the front Swap key (the Home key, marked with two overlapping
 rectangles on the N810) at power-on keeps the tablet in update mode so the host
 has time to connect.
 
-The current A/B installer expects the tablet to be in update mode when you start
-the flash step. It checks the install receipts and USB target, flashes the shared
-kernel, and requests a reboot. It has no step to arm a USB listener and initiate
-the preceding reboot for you. For this installer, use the held-key procedure.
+A host tool could automate this handoff by starting its USB listener first,
+requesting a normal reboot of the connected tablet, then identifying the same
+tablet as soon as its bootloader appears. If the host misses the window, hold
+Swap at the next power-on and retry.
+
+The current A/B installer automates the steps after that handoff. Start the flash
+step with the tablet in update mode. The installer checks the install receipts
+and USB target, flashes the shared kernel, and requests the following reboot.
+Arming the listener and requesting the initial reboot are still open work.
 
 An ordinary A/B update takes a different path. On reboot the tablet starts its
 existing kernel, then early startup reads the slot selection from the SD card
