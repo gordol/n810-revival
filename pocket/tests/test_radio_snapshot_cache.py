@@ -141,3 +141,44 @@ class ReconnectedRadioTests(unittest.TestCase):
             self.assertIsNone(state.read_telemetry)
             self.assertIsNone(state.read_client.worker)
         finally:state.close()
+
+class MacRadioSourceTests(unittest.TestCase):
+    def test_missing_source_does_not_enable_local_mac_radio(self):
+        state=radio_state.State()
+        try:
+            with patch.dict('os.environ',{'POCKET_FIELD_PACK':'/tmp/field-pack'}), \
+                    patch('mac_tray.enabled',return_value=True):
+                self.assertFalse(state.direct_mac())
+        finally:state.close()
+
+    def test_remote_source_keeps_its_catalog_and_status_panel(self):
+        source=SimpleNamespace(remote=True,read=lambda now:{
+            'catalog':{'radio_snapshot':{'label':'configured owner'}},'live':{}})
+        state=radio_state.State(source=source)
+        try:
+            with patch.dict('os.environ',{'POCKET_FIELD_PACK':'/tmp/field-pack'}), \
+                    patch('mac_tray.enabled',return_value=True), \
+                    patch('mac_uvpro.downloaded',return_value={'label':'paired radio'}), \
+                    patch('mac_uvpro.radio_panel') as radio_panel:
+                state.update(force=True)
+                self.assertEqual(state.payload['catalog']['radio_snapshot'],{'label':'configured owner'})
+                entries,_=state.panel(100)
+                self.assertFalse(any(action=='radio:mac' for action,_ in entries))
+                radio_panel.assert_not_called()
+        finally:state.close()
+
+    def test_explicit_endpoint_and_snapshot_disable_direct_mac(self):
+        from radio_read_client import RadioRead
+
+        source=SimpleNamespace(local_selected=True)
+        client=RadioRead('/tmp/explicit-radio/control.sock')
+        state=radio_state.State(source=source,read_client=client)
+        try:
+            with patch.dict('os.environ',{'POCKET_FIELD_PACK':'/tmp/field-pack'}), \
+                    patch('mac_tray.enabled',return_value=True):
+                self.assertFalse(state.direct_mac())
+                state._automatic_read_client=True
+                self.assertTrue(state.direct_mac())
+                snapshot=radio_state.State('/tmp/radio-snapshot',source=source)
+                self.assertFalse(snapshot.direct_mac())
+        finally:state.close()

@@ -19,7 +19,7 @@ MANUALS = {
         "install", "local-owner-recovery", "messaging", "navigation",
         "nokia", "receive-history", "releases-0.1.0", "rnode-bluetooth",
         "service-publication", "service-transports", "touch-acquisition",
-        "versioning", "map-rendering", "map-data", "bootstrap",
+        "versioning", "map-rendering", "map-data", "field-packs", "bootstrap",
     )},
     "pocket/graphics/README.md": "pocket/graphics.md",
     "pocket/shell/native/reticulum/README.md": "pocket/native-reticulum.md",

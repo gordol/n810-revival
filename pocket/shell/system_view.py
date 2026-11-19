@@ -53,6 +53,10 @@ class State:
         self.result = model.project(self.current, self.previous, now)
 
     def panel(self, width, ascii=False):
+        from mac_tray import enabled, sample
+        if enabled() and not getattr(getattr(self.connector, 'source', None), 'remote', False):
+            capacity, _, _ = sample()
+            return [('system:mac-battery', 'Bat '+capacity+'  ')], {'system:mac-battery': 'good' if capacity != '?' else 'unknown'}
         self.update()
         result = self.result
         if result['source'] is None:

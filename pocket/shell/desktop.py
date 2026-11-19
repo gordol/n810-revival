@@ -267,6 +267,8 @@ def main(platform=None,argv=None):
         connections = Connections(args.station_db or app_state/'directory.sqlite3',
                                   Path(__file__).resolve().parent/'vendor/packet-console',
                                   app_state/'connections')
+        from mac_tray import bind_connections
+        bind_connections(connections)
         connections.suggested_address = args.connection_address
         connections.ssh_key = args.connection_key
         registered_apps.providers['connections'] = connections
@@ -502,6 +504,8 @@ def main(platform=None,argv=None):
     if args.scene_quality:host.scenery={**host.scenery,'quality':args.scene_quality}
     if store.error:print(store.error,file=sys.stderr)
     inbox = Inbox()
+    from mac_tray import bind_wakeup
+    bind_wakeup(lambda:inbox.notify('panel'))
     shared_controls=scene_controls(host)
     host.app_forms=demo_apps.forms(host,shared_controls) if demo_apps is not None else {}
     if platform:platform.configure_registry(registered_apps)
@@ -538,6 +542,9 @@ def main(platform=None,argv=None):
         host.app_forms['System']=System(system_state,open_connections=lambda:host.activate('Connections'))
     from bluetooth_view import State as BluetoothState,Bluetooth
     feed_source=getattr(radio.source,'receive',radio.source) if radio and radio.source else None
+    def mac_controller_enabled():
+        source=getattr(radio,'source',None)
+        return not getattr(source,'remote',False) and local_mac_controller()
     def local_bluetooth_source():
         source=getattr(radio,'source',None)
         source=getattr(source,'source',source)
@@ -546,7 +553,9 @@ def main(platform=None,argv=None):
         source=local_bluetooth_source()
         method=getattr(source,'request_bluetooth_power',None)
         return method(action) if method else False
+    from mac_tray import enabled as local_mac_controller
     bluetooth_state=BluetoothState(
+        mac_controller=mac_controller_enabled,
         snapshot=lambda:getattr(feed_source,'feed_control',None),
         online=lambda:bool(getattr(feed_source,'feed_control_online',False)),
         request=getattr(feed_source,'request_feed_control',None),
@@ -702,6 +711,11 @@ def main(platform=None,argv=None):
                 host.content(name, lines, lines)
     bind()
     if demo_apps is not None:demo_apps.update(host,time.monotonic())
+    if os.environ.get('POCKET_OPEN_FIELD')=='1' and 'Radio Manager' in host.app_forms:
+        manager=host.app_forms['Radio Manager']
+        if getattr(manager,'field_groups',None):
+            manager.page=6
+            host.activate('Radio Manager')
     if args.smoke:
         output, changed, computed = host.flush(width*height)
         print('\n'.join(text_lines({'views': list(world.rows), 'shared_record': None if not plans else world.read('Conversations')[0] is world.read('Connectivity')[0], 'changed_cells':changed, 'composed_cells':computed, 'output_bytes':len(output.encode()), 'terminal':geometry._asdict()})))
@@ -967,7 +981,7 @@ def main(platform=None,argv=None):
             from app_widgets import TextInput
             tool.fields[2]=TextInput(str(item['rx_mhz']),limit=12)
             map_form.profile_from_qth(item['call'],(item['lat'],item['lon']))
-            tool.status='WWARA approximate location; remote antenna height assumed'
+            tool.status='Approximate directory location; remote antenna height assumed'
             host.activate('Station Map')
         def repeater_coverage(entity):
             registered_apps.forms['Station Map']._ensure()
@@ -988,9 +1002,17 @@ def main(platform=None,argv=None):
                 receive=getattr(source,'receive',source)
                 bridge=getattr(receive,'bridge',None)
                 if bridge:endpoint=Path(bridge)/'radio-control.sock'
-            if not getattr(map_form,'tuner',None):map_form.tuner=Tune(endpoint,lambda:inbox.notify('form:Station Map'))
+            if radio and radio.direct_mac():endpoint=None
+            if not getattr(map_form,'tuner',None):map_form.tuner=Tune(endpoint,lambda:inbox.notify('form:Station Map'),direct_mac=radio.direct_mac if radio else False)
             else:map_form.tuner.path=endpoint
-            map_form.tuner.start(entity.payload)
+            if endpoint is None and not (radio and radio.direct_mac()):
+                map_form.dialog=('Radio owner unavailable',['Select “This device” in Connections or attach a radio owner before tuning.'])
+                host.activate('Station Map')
+                return
+            selection=entity.payload
+            if 'FM (CTCSS listed)' in selection.get('modes',()):
+                selection=dict(selection,modes=['FM narrow' if selection.get('analog_width_as_listed') in (12.5,.0125) else 'FM wide'])
+            map_form.tuner.start(selection)
             map_form.dialog=('Tune UV-Pro',['Secondary B · RX '+str(entity.payload['rx_mhz'])+' MHz / TX '+str(entity.payload['tx_mhz'])+' MHz',
                 'Keeps APRS on A; uses matching or empty memory for B. No PTT.'])
             host.activate('Station Map')
@@ -1051,7 +1073,7 @@ def main(platform=None,argv=None):
         if action=='system:Display':title=display_levels()
         if action=='system:WiFi' and native_defaults and Path('/etc/n810-image/bootstrap.json').is_file():
             entries.insert(0,('Join Wi-Fi…','local:wifi'))
-        if action.startswith('bluetooth:') and args.device_radio:
+        if action.startswith('bluetooth:') and action != 'bluetooth:mac' and args.device_radio:
             state=bluetooth_state.read()
             if not state['radio_connected']:
                 entries=[entry for entry in entries if entry[1]!='bt:receive_start']
@@ -1061,6 +1083,16 @@ def main(platform=None,argv=None):
         open_launcher(pointer,panel.at(pointer[0]+ox,pointer[1]+oy));context_commands.clear()
         for index,(label,intent) in enumerate(entries):
             def invoke(intent=intent):
+                if intent in ('mac:battery', 'mac:bluetooth'):
+                    import subprocess
+                    pane = 'com.apple.BluetoothSettings' if intent == 'mac:bluetooth' else 'com.apple.Battery-Settings.extension'
+                    subprocess.Popen(['/usr/bin/open', 'x-apple.systempreferences:'+pane])
+                    return
+                if intent == 'mac:radio':
+                    from mac_uvpro import refresh_status
+                    refresh_status(radio._source_changed)
+                    launch('window:Radio Manager')
+                    return
                 if intent=='local:wifi':
                     launch('window:N810 Setup')
                     form=registered_apps.forms['N810 Setup'].form
@@ -1995,6 +2027,11 @@ def main(platform=None,argv=None):
                 clock_delay=clock_widget.delay(time.time())
                 timeout=clock_delay if timeout is None else min(timeout,clock_delay)
                 owner_delay('panel',clock_delay)
+            if mac_controller_enabled():
+                from mac_tray import delay as mac_tray_delay
+                tray_delay=mac_tray_delay()
+                timeout=tray_delay if timeout is None else min(timeout,tray_delay)
+                owner_delay('panel',tray_delay)
             if lifecycle_refresh:
                 for name,form in lifecycle_forms:
                     if host.shown(host.window(name)) and (getattr(form,'spin',False) or getattr(form,'transition',None)):

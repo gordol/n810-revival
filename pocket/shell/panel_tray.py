@@ -55,6 +55,15 @@ def handles(action):
 def menu(action, system=None, bluetooth=None, radio=None):
     """Return title and semantic actions. Never collect or change hardware here."""
     if not handles(action):return None
+    if action in ('system:mac-battery', 'bluetooth:mac', 'radio:mac'):
+        from mac_tray import sample
+        from mac_uvpro import status_lines
+        capacity, source, power = sample()
+        if action == 'system:mac-battery':
+            return 'Mac battery · '+capacity+' · '+source, [('Mac Battery Settings…', 'mac:battery')]
+        if action == 'bluetooth:mac':
+            return 'Mac Bluetooth · '+power, [('Mac Bluetooth Settings…', 'mac:bluetooth'), ('Connections…', 'window:Connections')]
+        return status_lines()[0], [('Read UV-PRO status', 'mac:radio'), ('Radio Manager…', 'window:Radio Manager')]
     if action.startswith('bluetooth:'):
         state=bluetooth.read() if bluetooth else {}
         powered=state.get('powered')

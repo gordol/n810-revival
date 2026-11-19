@@ -37,3 +37,4 @@ node_modules/
 !/pocket/shell/vendor/packet-console/maps/README.md
 /pocket/shell/vendor/map-library-resources/packet-console/maps/*
 !/pocket/shell/vendor/map-library-resources/packet-console/maps/README.md
+/pocket/bluetooth-macos/uvpro

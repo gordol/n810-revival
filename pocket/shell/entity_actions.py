@@ -30,8 +30,11 @@ class ContextActions:
         for entity in entities:
             if not isinstance(entity,EntityRef):continue
             for label,handler,available in self.handlers.get(entity.kind,()):
+                if entity.kind=='repeater' and (entity.payload or {}).get('monitor_only') and label.startswith('Tune UV-Pro'):continue
                 if available is not None and not available():continue
                 suffix=entity.key if entity.kind=='station' else (entity.payload or {}).get('label','') if entity.kind=='map-point' else ''
+                if entity.kind=='repeater' and entity.payload:
+                    suffix=f"{entity.payload.get('call','')} {entity.payload.get('rx_mhz','')} MHz"
                 title=label+(' · '+suffix if suffix else '')
                 actions.append((title,lambda handler=handler,entity=entity:handler(entity)))
         return actions

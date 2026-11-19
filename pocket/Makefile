@@ -35,6 +35,13 @@ gui:
 # Area-selected map acquisition and local derived levels.
 include maps.mk
 
+# Direct UV-PRO control in the macOS field-pack launcher.
+.PHONY: mac-radio
+mac-radio: bluetooth-macos/uvpro
+
+bluetooth-macos/uvpro: bluetooth-macos/uvpro.m
+	$(CC) -fobjc-arc -framework Foundation -framework IOBluetooth $< -o $@
+
 # Explicit optional game preparation; app opening never downloads data.
 .PHONY: doom
 doom:

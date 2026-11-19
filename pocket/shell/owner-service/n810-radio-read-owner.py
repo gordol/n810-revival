@@ -81,6 +81,9 @@ class Endpoint:
                     raise ValueError('Invalid settings edit')
             elif set(value)!=fields:raise ValueError('Invalid settings status request')
             result=self.bank(operation,request_id,value.get('edit'))
+        elif operation in ('upload_bank','upload_status') and self.bank is not None:
+            if set(value)!=(fields|{'plan'} if operation=='upload_bank' else fields):raise ValueError('Invalid upload fields')
+            result=self.bank(operation,request_id,value.get('plan'))
         elif operation in ('download_bank','bank_status') and self.bank is not None:
             if operation=='download_bank':
                 if set(value)!=fields|{'bank'}:raise ValueError('Invalid bank request')

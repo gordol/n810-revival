@@ -32,6 +32,20 @@ class Connections:
         self._retry_delay = 1
         self._retry_failed = False
         self._local_start = None
+        self._local_control_explicit = False
+
+    @property
+    def local_selected(self):
+        with self._lock:
+            if self.generation == 0 and self._intent is None:
+                return not self.closed
+            return (self.transport == 'local' and self._intent is not None
+                    and self._intent[0] == 'local' and not self.busy and not self.closed)
+
+    @property
+    def local_control_selected(self):
+        with self._lock:
+            return self._local_control_explicit and self.local_selected
 
     def attach_local_services(self):
         # Even worker setup imports must not hold the first screen's input loop.
@@ -48,7 +62,7 @@ class Connections:
         # Local observation and idle owners only; no saved remote endpoint replay.
         with self._lock:
             if self.closed or self.generation!=0:return
-            if self.source is None and not self.busy:self.connect('local')
+            if self.source is None and not self.busy:self.connect('local',_automatic=True)
         for name in OWNER_IDS:
             selection=getattr(self,name,None)
             if selection is not None:
@@ -134,10 +148,11 @@ class Connections:
             return DeviceSource(directory=self.directory, sources=self.sources, shared_telemetry=shared), 'Local services'
         raise ValueError('Unknown transport')
 
-    def connect(self, kind, address='', _recovery=False):
+    def connect(self, kind, address='', _recovery=False, _automatic=False):
         with self._lock:
             if self.closed or self.busy or self._future is not None and not self._future.done():
                 return False
+            if not _recovery and not _automatic:self._local_control_explicit=kind=='local'
             if self._retry is not None:self._retry.cancel();self._retry=None
             self._intent=(kind,address)
             if not _recovery:self._retry_delay=1;self._retry_failed=False
@@ -226,6 +241,7 @@ class Connections:
             self.busy = False
             self.remote = False
             self.transport = None
+            self._local_control_explicit = False
             self.label = 'Local shell'
             self.error = ''
             if source is not None:

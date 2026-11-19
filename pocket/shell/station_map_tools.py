@@ -130,13 +130,13 @@ class StationMapTools:
                 item['call']+' · '+__import__('repeater_catalog').band(item['rx_mhz']),
                 item.get('site',''),
                 'RX '+str(item['rx_mhz'])+' MHz',
-                'TX '+str(item['tx_mhz'])+' MHz',
+                'FM receive only' if item.get('monitor_only') else 'TX '+str(item['tx_mhz'])+' MHz',
                 'TX tone '+str(item.get('tx_ctcss') or 'Off'),
                 'RX tone '+str(item.get('rx_ctcss') or 'Off'),
                 'DCS '+str(item.get('dcs') or 'Off'),
                 ', '.join(item.get('modes',[])),
                 item.get('area',''),
-                'WWARA '+item.get('edition',''),
+                item.get('source','WWARA')+' '+item.get('edition',''),
                 'Approx. directory location',
                 'Right-click for tune / LOS') if text]
         if self.detail_point:
@@ -283,7 +283,7 @@ class StationMapTools:
             if lower=='t' and callable(getattr(self,'open_app_settings',None)):return self.open_app_settings()
             if lower in ('u','z'):return self.base.key(lower)
             if lower=='f':return self.base.key('g')
-        if map_screen and self._sidebar_focus and (self.layers_visible or getattr(self.base,'side_overview',False)) and key in '123456':
+        if map_screen and self._sidebar_focus and (self.layers_visible or getattr(self.base,'side_overview',False)) and key and key in '123456789'[:len(__import__('repeater_catalog').BANDS)]:
             from repeater_catalog import BANDS
             enabled=set(getattr(self.base,'repeater_bands',BANDS));band=BANDS[int(key)-1]
             enabled.symmetric_difference_update((band,));self.base.repeater_bands=tuple(b for b in BANDS if b in enabled)

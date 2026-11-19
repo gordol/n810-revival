@@ -97,6 +97,7 @@ nav:
   - Investigating a native ARM Windows CE runtime: posts/2026-11-10-windows-ce-runtime.md
   - Getting Pocket running on a second N810: posts/2026-11-17-pocket-on-the-second-n810.md
   - Loading USB audio from the N810 SD card: posts/2026-11-18-usb-audio.md
+  - Taking Pocket maps and radio banks into the field: posts/2026-11-18-field-packs-and-radio-banks.md
 - Get started: start.md
 - Guides: guides.md
 - Roadmap: roadmap.md
@@ -130,6 +131,7 @@ nav:
   - Prepare a fresh N810 SD card: how-to/prepare-fresh-n810.md
   - Install an SD A/B system: how-to/install-n810-ab.md
   - Select map areas and build elevation: pocket/map-data.md
+  - Make a personal field pack: pocket/field-packs.md
   - Connect services: pocket/connections.md
   - Send messages: pocket/messaging.md
   - Build the graphical desktop: pocket/graphics.md

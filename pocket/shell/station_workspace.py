@@ -271,7 +271,14 @@ class StationMap:
     filter_options=(('all','All stations'),('selected','Selected station'),('relays','Relay evidence'),('mobile','Mobile symbols (advertised)'),('links','Gateway/link symbols (advertised)'),('voice','Voice advertised'),('services','Services advertised'),('symbols','Symbol reported'),('unknown','No role or symbol'))
     def __init__(self,context,sources,open_directory,maps=None):
         self.context=context;self.renderer=Renderer(sources,maps=maps);self.renderer.reuse_regions=True;self.open_directory=open_directory
-        self.width=90;self.height=32;self.center=(47.25,-122.25);self.span=160.;self._image=None;self._layer=None;self._key=None
+        self.width=90;self.height=32;self.center=(47.25,-122.25);self.span=160.
+        from data_paths import data_root
+        pack_view=data_root()/'field-view.json'
+        if pack_view.is_file():
+            import json
+            view=json.loads(pack_view.read_text())
+            self.center=tuple(view['center']);self.span=view['span_km']
+        self._image=None;self._layer=None;self._key=None
         self._pan_drag=None;self._pan_dragged=False;self._track_revision=0;self._track_seen=set();self._image_view=None;self._display_layer=None;self._display_key=None;self.visible_count=0;self.map_notice=None
         self.legend=False;self.filter_mode='all';self.filter_query=TextInput(limit=40);self.filters=SelectList(tuple(label for _,label in self.filter_options))
         self.filter_open=False;self.filter_focus=0;self._filter_token=None;self._filter_rows=();self._filter_calls=frozenset();self._filter_spans=();self._station_hits=()

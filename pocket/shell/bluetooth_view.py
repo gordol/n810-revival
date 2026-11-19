@@ -50,13 +50,14 @@ def project(snapshot, online=False, hardware=None):
 
 class State:
     """No collectors, transport, timers, or hardware access in presentation."""
-    def __init__(self, snapshot=lambda: None, online=lambda: False, request=None, feedback=lambda: '', hardware=lambda: None, controller_request=None, controller_available=lambda: True):
+    def __init__(self, snapshot=lambda: None, online=lambda: False, request=None, feedback=lambda: '', hardware=lambda: None, controller_request=None, controller_available=lambda: True, mac_controller=None):
         self.snapshot = snapshot
         self.online = online
         self.request_intent = request
         self.feedback = feedback
         self.controller_request = controller_request
         self.controller_available = controller_available
+        self.mac_controller = mac_controller
         self.hardware = hardware
         self.message = ''
 
@@ -84,6 +85,10 @@ class State:
         return bool(accepted)
 
     def panel(self, ascii=False):
+        if self.mac_controller is not None and self.mac_controller():
+            from mac_tray import sample
+            _, _, power = sample()
+            return [('bluetooth:mac', 'BT  ')], {'bluetooth:mac': 'bluetooth' if power == 'on' else 'warning' if power == 'off' else 'unknown'}
         result = self.read()
         powered = result['powered']
         role = 'unknown' if powered is None else 'bluetooth' if powered else 'warning'

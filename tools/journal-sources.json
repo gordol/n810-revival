@@ -1597,6 +1597,34 @@
       ],
       "guide": "how-to/build-kernel.md",
       "note": ""
+    },
+    {
+      "post": "docs/posts/2026-11-18-field-packs-and-radio-banks.md",
+      "id": "2026-11-18-field-packs-and-radio-banks",
+      "implementation": [
+        {
+          "label": "Field-pack frequency lists",
+          "path": "pocket/shell/field_banks.py"
+        },
+        {
+          "label": "Mac radio control",
+          "path": "pocket/shell/mac_uvpro.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Radio reference lists",
+          "path": "pocket/tests/test_field_pack_radios.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Mac Bluetooth adapter",
+          "path": "pocket/bluetooth-macos/uvpro.m"
+        }
+      ],
+      "guide": "pocket/field-packs.md",
+      "note": ""
     }
   ]
 }

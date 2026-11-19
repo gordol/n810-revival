@@ -85,6 +85,9 @@ class ConnectionsView:
     def navigation_targets(self):
         from native_navigation import Target
         actions=[('i','System'),('f','Radio Feed'),('r','Reticulum'),('m','Messages')] if self.selected_service=='receive' else [('r','Reticulum')] if self.selected_service=='reticulum' else [('m','Messages')]
+        from mac_uvpro import enabled
+        if self.selected_service == 'receive' and enabled():
+            actions.append(('u', 'UV-PRO · Mac Bluetooth'))
         actions += [(key,label.strip('[]')) for label,key in self.connection_actions()]+[('e','Address')]
         return [Target('tabs','Tabs','tabs')]+[Target('action:'+key,label,'action',key) for key,label in actions]
 
@@ -138,6 +141,10 @@ class ConnectionsView:
             return True
         if key == 'h' and self.selected_service == 'reticulum':
             return self.open_app('RNode connections')
+        if key == 'u' and self.selected_service == 'receive':
+            from mac_uvpro import enabled
+            if enabled():
+                return self.open_app('Radio Manager')
         if key in ('i','f','r','m'):
             return self.open_app({'i':'System','f':'Radio Feed','r':'Reticulum','m':'Messages'}[key])
         if key in ('v','o','b'):
@@ -233,6 +240,10 @@ class ConnectionsView:
         if self.editing:self._address_input.paint(canvas,0,11,self.width)
         hint='SSH: user@host · Peer: verified identity' if self.selected_service=='receive' else 'Local: configuration folder · Socket: owner.sock'
         canvas.put(0,13,hint)
+        from mac_uvpro import enabled, status_lines
+        if self.selected_service == 'receive' and enabled():
+            button(0, 12, '[UV-PRO · Mac Bluetooth]', 'u')
+            canvas.put(0, 14, status_lines()[0])
         self._spans=tuple(canvas.spans)
         return canvas.lines()
 
