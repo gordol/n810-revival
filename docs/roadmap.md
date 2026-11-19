@@ -1,5 +1,7 @@
 # Development roadmap
 
+Reviewed 18 November 2026. A fresh SD install reached Pocket on the third tablet. Physical tests also covered lock/unlock on slot B, a six-bank radio backup and bidirectional LoRa messaging. The checks below cover the remaining cases. [Hardware results and limitations](status.md).
+
 ## Current tablet priorities
 
 | Priority | Work | Acceptance check |
@@ -7,7 +9,7 @@
 | Display recovery | Make lock and unlock reliable while Pocket owns the framebuffer. | Slide twice under GPU load; verify input, picture and lamp return without restarting. Repeat on battery and charger. |
 | Fresh install | Include the companion picker, safe glyph rendering, and revised contact navigation in a clean image. | Boot both slots, test GUI and TUI, update and roll back while retaining user data. |
 | Text and navigation | Expand the shipped GUI font with licensed punctuation, accented names and symbols. Document emoji coverage and font asset size. Use accessible hardware keys and separate channels from contacts. | Render multilingual contact fixtures with no crash, verify legibility and memory use, and page a large list with the slide-out keyboard and touch. |
-| UV-PRO channel banks | Radio Manager downloads the current bank and lists every reported bank name. The third tablet read 30 slots and six names on bank 0. | Verify the vendor app’s all-bank download protocol. Check distinct channel contents from two banks, progress and cancellation while the active bank, settings and receive connection stay unchanged throughout. |
+| UV-PRO channel banks | The full backup read all six banks and restored bank 0 and its settings. Reception paused during the sweep and reconnected after a delay. | Check cancellation on hardware and confirm a valid incoming position reaches Station Map after reconnect. |
 | Radio and mesh | Test UV-PRO reconnect, hub selection, MeshCore pairing and Reticulum executor handoff. | Verify the selected peer, sustained receive and reconnection after power loss. |
 | Sensors and audio | Verify ambient-light response, keyboard lighting, charge estimates, headset routing and per-app sound. | Record physical observations alongside sensor and mixer state. |
 | Performance and distribution | Measure cold and warm map/terrain loads, Doom, input latency, and actual disk use for cached and clean builds. | Publish repeatable timings and measured host storage requirements. |
@@ -23,7 +25,7 @@ These investigations concern future work. Each begins with evidence from the exi
 | Extend direct pixel scenes | Integrated native frontend, direct Room pixels, and ordered window overlays. | Validate more apps, resource lifetime, and physical Nokia behavior while preserving terminal views. |
 | Reduce idle work | Shared owners, subscriptions, and change-driven rendering. | Attribute CPU use to the desktop and each owner with Local-only and connected configurations. |
 | Complete source lineage | Kernel locks, component import records, licenses, and Git history. | Record upstream path/revision, modifications, and supporting development records per component. Mark unresolved human/LLM attribution explicitly. |
-| Run selected ARM Windows CE applications | Native ARM execution and managed display handoff from the Symbian runtime. | Load an independently authored ARM CE executable, resolve its imports, intercept its system requests, and verify output and clean exit on the N810. |
+| Run selected ARM Windows CE applications | Native ARM execution and managed display handoff from the Symbian runtime. | The authored fixture passed on the N810. Verify ordinal imports and the file and window services SpreadCE needs. |
 
 The [architecture](explanation/architecture.md), [rendering explanation](explanation/rendering.md), and [touch-acquisition record](pocket/touch-acquisition.md) describe the current foundations. The [journal](journal.md) records the progression and its measured results.
 
@@ -41,7 +43,7 @@ Those results establish a hardware-accelerated graphics foundation for investiga
 
 [Native ChessGenius execution](posts/2026-11-06-native-symbian.md) reached a visible board and completed d2-d4 followed by the game's e7-e6 reply on the N810. That milestone used CPU softpipe rendering. Its later run reduced startup to the first partial UI and completed graphics teardown after a requested stop.
 
-The [subsequent GPU investigation](posts/2026-11-07-symbian-surfaces.md) has exact physical-device results for selected clear, retained-surface, scissor, and large-texture operations. ChessGenius and Snakes both execute native ARM code and reach GPU jobs. Complete GPU-backed application UI, controls, and sustained execution remain pending. The driver candidates and runtime have yet to become a public reproducible compatibility checkpoint.
+The [subsequent GPU investigation](posts/2026-11-07-symbian-surfaces.md) has exact physical-device results for selected clear, retained-surface, scissor, and large-texture operations. ChessGenius and Snakes both execute native ARM code and reach GPU jobs. By 9 November ChessGenius reached its menus and board on the GPU, and Pocket could launch it and restore the desktop. Menu response averaged about 1.2 seconds. Sustained play and responsiveness remain open. [Symbian application tests](posts/2026-11-09-symbian-runtime.md). The driver candidates and runtime have yet to become a public reproducible compatibility checkpoint.
 
 ### Remaining compatibility work
 
@@ -60,27 +62,21 @@ flowchart TB
     interaction --> play["Record a repeatable playable session"]
 ```
 
-*Native loading and one software-rendered game interaction have been demonstrated. The remaining GPU application milestones build on the physical driver results linked above.*
-
 Record progress separately for executable startup, a correct rendered frame, working controls, working audio, and sustained play. Each result should identify the source revision, game version, hardware, configuration, and observed limitations. Publish technical findings and permitted captures with links to the corresponding implementation and tests. Keep unverified compatibility expectations in this roadmap until a reproducible result supports a journal entry.
 
 ## Run selected ARM Windows CE applications on Linux
 
-The [10 November design investigation](posts/2026-11-10-windows-ce-runtime.md) proposes a second compatibility runtime. It would follow the Symbian runtime's broad arrangement: load a guest executable and its libraries, run ordinary ARM instructions on the N810 CPU in an isolated Linux worker, dispatch guest operating-system requests through a supervised boundary, and return drawing and input through Pocket's session and display path. No Windows CE application has run through this proposed path.
-
-Start with a tiny, independently authored ARM Windows CE 3 program with known imports and expected output. It should call only a few `COREDLL` exports, report a recognizable result, and exit; this isolates loading and service dispatch before window behavior. A PE loader must map sections at the required address or apply available relocations, resolve DLL names and exports, set up the guest stack and thread state, and reject unsupported binaries. Begin with a small CE-facing `coredll` implementation backed by Linux services. Test loading a matching original `coredll.dll` only as a separate experiment: its wrappers still expect CE kernel and service behavior. CE 3, 4.x, and 5.x need explicit compatibility profiles rather than an assumed common ABI.
-
-The first fixture should be a small source-controlled program and a repeatable build, with no graphical interface or application data. Record its target CPU, CE version, PE image base, sections, imports, and expected result. First verify the built PE's headers and imports, then use it to check native ARM entry, one observable `COREDLL` call, and clean process exit. A second tiny window fixture can check messages and basic GDI before SpreadCE. The toolchain, exact imports, and output channel remain to be selected when implementation begins.
+The [10 November design investigation](posts/2026-11-10-windows-ce-runtime.md) led to a small ARM Windows CE 3 test program. On 11 November the experimental loader ran it on the N810, resolved two named imports, printed the expected result and exited successfully. The harness is still separate from the published source. SpreadCE imports functions by ordinal, which the loader cannot yet resolve. The next checks are a verified CE 3 export map, ordinal resolution and the file and window services needed to edit and reopen a sheet.
 
 The memory model needs a guest `VirtualAlloc` and mapping manager for the 32 MB private-process layout, shared allocations, protection changes, and address collisions. The N810's 32-bit ARM kernel uses 4 KB pages; the CE KData and trap addresses in the upper address range cannot simply be mapped as Linux user pages. Identify the target program's actual KData, thread-local, and trap accesses before choosing direct shims, instruction handling, or controlled fault interception. Keep intentional guest traps distinct from genuine faults. Full structured exception handling belongs to the compatibility work for applications that require it.
 
-Advance through separately checked milestones: loader and import resolution; native ARM execution with a small set of calls; files, handles, threads, and timers; a message loop and basic GDI window; then the first real application, SpreadCE. The locally supplied SpreadCE executable is a 5.9 MB ARM CE 3 PE with a preferred base of `0x10000`, stripped relocations, an exception directory, and imports from `COREDLL.dll`, `commctrl.dll`, `commdlg.dll`, and `WININET.dll`. Its fixed base and broad UI imports make it a poor loader diagnostic, but its ordinary spreadsheet workflow gives a concrete application goal: open a blank sheet, edit a cell, save and reopen it, and exit cleanly. Check each stage on a host and on the N810 separately; no CE runtime or N810 execution is claimed here.
+Advance through separately checked milestones: loader and import resolution; native ARM execution with a small set of calls; files, handles, threads, and timers; a message loop and basic GDI window; then the first real application, SpreadCE. The locally supplied SpreadCE executable is a 5.9 MB ARM CE 3 PE with a preferred base of `0x10000`, stripped relocations, an exception directory, and imports from `COREDLL.dll`, `commctrl.dll`, `commdlg.dll`, and `WININET.dll`. Its fixed base and broad UI imports make it a poor loader diagnostic, but its ordinary spreadsheet workflow gives a concrete application goal: open a blank sheet, edit a cell, save and reopen it, and exit cleanly. Check each stage on a host and on the N810 separately; only the small fixture has passed on the N810.
 
 PocketDOS's ARM CAB is a later target: its DOS emulator adds work beyond CE. The BE-300 build is MIPS and needs a separate CPU path. A local 56 KB ARM CE 2.11 MPEG player is smaller than SpreadCE, but playback, sound, and the older CE profile make it a less useful first application test.
 
 We'll publish runtime and harness source, not app binaries. Testers can get SpreadCE from [Bye Design's version page](https://www.byedesign.co.uk/versions.htm) (HPC 2000 ARM); the [Entertainment Pack evaluation CD](https://archive.org/details/cd-rom_20240105) and [Entertainment Pack 2 CD](https://archive.org/details/EntPack2WinCE) are other CE software sources. Check each program's CPU before testing it.
 
-[WCECL](https://github.com/gweslab/wcecl) illustrates a replacement `COREDLL`, but targets x86 applications on desktop Windows and is archived. [CERF](https://github.com/gweslab/cerf) and [MAME](https://docs.mamedev.org/initialsetup/mameintro.html) are hardware-emulation references, not native ARM runtime bases. Review the exact revision and license before reusing any code. First acceptance is the authored fixture reaching expected output and clean exit through the native worker; SpreadCE's edit and save workflow is the next application-level result. A PocketDOS screen, working controls, and usable speed are later, independent results.
+[WCECL](https://github.com/gweslab/wcecl) illustrates a replacement `COREDLL`, but targets x86 applications on desktop Windows and is archived. [CERF](https://github.com/gweslab/cerf) and [MAME](https://docs.mamedev.org/initialsetup/mameintro.html) are hardware-emulation references, not native ARM runtime bases. Review the exact revision and license before reusing any code. The next application-level result is SpreadCE’s edit and save workflow. A PocketDOS screen, working controls, and usable speed are later, independent results.
 
 ## Recording follow-up: desktop previews and background clearing
 
