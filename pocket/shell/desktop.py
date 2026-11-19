@@ -1044,10 +1044,11 @@ def main(platform=None,argv=None):
         launcher.open()
 
     def open_tray(action,pointer):
-        from panel_tray import CONTROL_ACTIONS, menu
+        from panel_tray import CONTROL_ACTIONS, display_levels, menu
         content=menu(action,system_state,bluetooth_state,radio)
         if content is None:return False
         title,entries=content
+        if action=='system:Display':title=display_levels()
         if action=='system:WiFi' and native_defaults and Path('/etc/n810-image/bootstrap.json').is_file():
             entries.insert(0,('Join Wi-Fi…','local:wifi'))
         if action.startswith('bluetooth:') and args.device_radio:
@@ -1090,7 +1091,7 @@ def main(platform=None,argv=None):
                     if action=='system:Display':
                         # Keep the existing anchor, filtered rows, and selection for the next tap or Enter.
                         launcher.active=True
-                        launcher.context_title=' '.join(failure.split())[:72] if failure else title
+                        launcher.context_title=' '.join(failure.split())[:72] if failure else display_levels()
                         return
                     open_launcher(pointer);launcher.open_context((failure or message)[:72],[('Return to Pocket','tray:done')])
                     context_commands['tray:done']=lambda:None

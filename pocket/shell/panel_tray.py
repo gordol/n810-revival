@@ -23,6 +23,31 @@ for mode in ('performance','balanced','save'):
     CONTROL_ACTIONS['cpu:'+mode] = (['sudo','-n','/usr/local/sbin/n810-cpu-policy',mode], 'CPU mode: '+mode)
 
 
+def display_levels():
+    from pathlib import Path
+    import re
+    import subprocess
+    brightness = volume = "—"
+    for light in sorted(Path("/sys/class/backlight").glob("*")):
+        try:
+            current = int((light / "brightness").read_text())
+            maximum = int((light / "max_brightness").read_text())
+            if 0 <= current <= maximum and maximum > 0:
+                brightness = f"{round(100 * current / maximum)}%"
+                break
+        except (OSError, ValueError):
+            continue
+    try:
+        mixer = subprocess.run(["/usr/bin/amixer", "-c", "N810", "get", "PCM"],
+                               capture_output=True, text=True, timeout=2, check=True)
+        levels = re.findall(r"Playback\s+\d+\s+\[(\d+)%\]", mixer.stdout)
+        if levels:
+            volume = "/".join(dict.fromkeys(levels)) + "%"
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return f"Brightness {brightness} · Volume {volume}"
+
+
 def handles(action):
     return bool(action and action.startswith(('system:', 'bluetooth:', 'radio:')))
 

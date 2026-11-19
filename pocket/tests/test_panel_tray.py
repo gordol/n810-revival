@@ -44,8 +44,9 @@ class TrayTests(unittest.TestCase):
                  ox=0,oy=0,system_state=None,bluetooth_state=None,radio=None,
                  open_launcher=Mock(side_effect=lambda *_:launcher.open()))
         exec(compile(ast.Module(body=[opener],type_ignores=[]),'desktop.py','exec'),env)
-        env['open_tray']('system:Display',(8,0))
-        with patch('subprocess.run') as run:
+        with patch('panel_tray.display_levels',side_effect=['Brightness 20% · Volume 70%']+['Brightness 30% · Volume 75%']*10),patch('subprocess.run') as run:
+            env['open_tray']('system:Display',(8,0))
+            self.assertEqual(launcher.lines()[0],'Brightness 20% · Volume 70%')
             run.return_value.returncode=0
             for idx,(_,intent) in enumerate(menu('system:Display')[1]):
                 env['context_commands'][launcher.pointer(idx,20)]()
@@ -53,6 +54,7 @@ class TrayTests(unittest.TestCase):
                 self.assertEqual(run.call_args.args[0],CONTROL_ACTIONS[intent][0])
                 self.assertTrue(launcher.active)
                 self.assertEqual(launcher.index,idx)
+                self.assertEqual(launcher.lines()[0],'Brightness 30% · Volume 75%')
             run.return_value.returncode=1
             run.return_value.stderr='Mixer unavailable'
             env['context_commands'][launcher.key('\r')]()
