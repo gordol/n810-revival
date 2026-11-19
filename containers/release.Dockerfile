@@ -7,12 +7,29 @@ FROM toolchain AS kernel
 COPY platform/kernel/ platform/kernel/
 RUN python3 platform/kernel/build.py --work /build/kernel --jobs 4
 
-FROM kernel AS graphics
-COPY graphics/mbx/ graphics/mbx/
-COPY pocket/graphics/driver/mbx/ pocket/graphics/driver/mbx/
+FROM kernel AS module
+COPY graphics/mbx/build.py graphics/mbx/source_tree.py graphics/mbx/
+COPY graphics/mbx/common/ graphics/mbx/common/
+COPY pocket/graphics/driver/mbx/common/ pocket/graphics/driver/mbx/common/
+COPY graphics/mbx/kernel/ graphics/mbx/kernel/
+COPY pocket/graphics/driver/mbx/kernel/ pocket/graphics/driver/mbx/kernel/
 RUN python3 graphics/mbx/build.py module --work /build/module --kernel-source /build/kernel/linux-5.15.224 --kernel-build /build/kernel/build
-RUN python3 -m venv /opt/mesa-tools && /opt/mesa-tools/bin/pip install meson==1.5.2 Mako==1.3.5 packaging==24.1 PyYAML==6.0.2 setuptools==75.1.0
-RUN --mount=type=cache,id=n810-mesa-inputs,target=/cache/mesa-inputs,sharing=locked PATH=/opt/mesa-tools/bin:$PATH python3 graphics/mbx/build.py mesa --work /build/mesa --jobs 4 --osmesa --download-cache /cache/mesa-inputs || { cat /build/mesa/logs/*.log; exit 1; }
+
+FROM toolchain AS mesa
+RUN python3 -m venv /opt/mesa-tools && /opt/mesa-tools/bin/pip install --no-cache-dir meson==1.5.2 Mako==1.3.5 packaging==24.1 PyYAML==6.0.2 setuptools==75.1.0
+COPY graphics/mbx/build.py graphics/mbx/source_tree.py graphics/mbx/
+COPY graphics/mbx/common/ graphics/mbx/common/
+COPY pocket/graphics/driver/mbx/common/ pocket/graphics/driver/mbx/common/
+COPY graphics/mbx/dependencies.lock.json graphics/mbx/
+COPY graphics/mbx/mesa/ graphics/mbx/mesa/
+COPY pocket/graphics/driver/mbx/mesa/ pocket/graphics/driver/mbx/mesa/
+RUN --mount=type=cache,id=n810-mesa-inputs,target=/cache/mesa-inputs,sharing=locked \
+    PATH=/opt/mesa-tools/bin:$PATH python3 graphics/mbx/build.py mesa --work /tmp/mesa --jobs 4 --osmesa --download-cache /cache/mesa-inputs || { cat /tmp/mesa/logs/*.log; exit 1; }; \
+    mkdir -p /build/mesa && mv /tmp/mesa/package /build/mesa/ && rm -rf /tmp/mesa
+
+# Keep the documented combined graphics target for local builds.
+FROM module AS graphics
+COPY --from=mesa /build/mesa/package /build/mesa/package
 
 FROM toolchain AS htit
 COPY hardware/htit/requirements-build.txt /tmp/requirements-build.txt
@@ -21,12 +38,19 @@ COPY hardware/htit/ hardware/htit/
 RUN python3 hardware/htit/build.py executor --pio /opt/htit/bin/pio --work /build/executor
 RUN python3 hardware/htit/build.py hub --pio /opt/htit/bin/pio --work /build/hub
 
+FROM toolchain AS pocket-native
+COPY pocket/tools/build_native.py pocket/tools/
+COPY pocket/shell/native_runtime.py pocket/shell/
+COPY pocket/shell/native/*.c pocket/shell/native/
+RUN python3 pocket/tools/build_native.py
+
 FROM toolchain AS source-check
 COPY requirements-docs.lock /tmp/requirements-docs.lock
 RUN python3 -m venv /opt/docs && /opt/docs/bin/pip install -r /tmp/requirements-docs.lock
 COPY . .
 RUN git init -q && git add . && python3 tools/check-journal.py --tracked && python3 tools/check-publication.py
-RUN make pocket-smoke && make -C pocket native
+COPY --from=pocket-native /root/.cache/pocket/native/ /root/.cache/pocket/native/
+RUN make pocket-smoke
 RUN python3 -m unittest discover -s tools -p test_package_source.py -v
 RUN /opt/docs/bin/python -m mkdocs build --strict
 
@@ -66,7 +90,7 @@ RUN chown -R root:root /src
 # software context, plus ARM cross-builds. It does not establish hardware speed.
 FROM full-source-check AS gui-check
 RUN apt-get update && apt-get install -y --no-install-recommends libsdl2-dev libgl1-mesa-dev libgl1-mesa-dri xvfb xauth && rm -rf /var/lib/apt/lists/*
-COPY --from=graphics /build/mesa/package /opt/arm-mesa
+COPY --from=mesa /build/mesa/package /opt/arm-mesa
 RUN make -C pocket graphics-native && python3 pocket/graphics/build_nokia.py --mesa-include /opt/arm-mesa/include --mesa-library /opt/arm-mesa/libOSMesa.so.8
 RUN python3 -m unittest discover -s pocket/tests -p test_runtime_profile.py -v && python3 -m unittest discover -s pocket/tests -p 'test_graphical_frontend.py' -v && python3 -m unittest discover -s pocket/tests -p 'test_*pixel*.py' -v && python3 -m unittest discover -s pocket/tests -p test_surface_native_backend.py -v
 RUN python3 -m unittest discover -s pocket/tests -p test_nokia_graphics.py -v && python3 -m unittest discover -s pocket/tests -p test_smooth_font.py -v
@@ -75,8 +99,8 @@ RUN xvfb-run -a python3 pocket/graphics/check.py --allow-software
 
 # Build evidence stays inside the image. No binary release is exported.
 FROM gui-check AS release-check
-COPY --from=graphics /build/module/package /verification/module
-COPY --from=graphics /build/mesa/package /verification/mesa
+COPY --from=module /build/module/package /verification/module
+COPY --from=mesa /build/mesa/package /verification/mesa
 COPY --from=htit /build/executor/BUILD.json /verification/executor.json
 COPY --from=htit /build/hub/BUILD.json /verification/hub.json
 
