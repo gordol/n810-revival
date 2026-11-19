@@ -848,6 +848,10 @@
         {
           "label": "DMA lifecycle",
           "path": "graphics/mbx/kernel/mbx_dma.c"
+        },
+        {
+          "label": "Render service and pixel checks",
+          "path": "graphics/mbx/kernel/mbx_render_service.h"
         }
       ],
       "tests": [
