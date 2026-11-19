@@ -69,5 +69,5 @@ def work(action,manifest,disk,key,flasher,progress,cancelled=None):
     if action=='write':
         result=run([*argv,'inspect','--kit',str(kit),'--key',str(private)],progress)
         return run([*argv,'write-recovery','--kit',str(kit),'--key',str(private),'--expected-cid',result['cid'],'--erase'],progress)
-    if action=='flash':return run([*argv,'flash-recovery','--kit',str(kit),'--flasher',str(flasher)],progress)
+    if action=='flash':return run([*argv,'flash-recovery','--kit',str(kit),'--flasher',str(flasher),'--key',str(private)],progress)
     raise ValueError('This action is not available for an A/B kit')
