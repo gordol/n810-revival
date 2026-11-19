@@ -94,6 +94,15 @@ class Transaction:
         self.bank_next(None)
         return self.result.copy()
 
+    def start_upload(self, ident, plan, address):
+        if self.active:raise ValueError('Radio owner is busy')
+        from uvpro_bank import upload
+        self.bank_job=upload(plan,address,Path.home()/'.local/state/n810-radio/backups',atomic)
+        self.active=True;self.waiting=None;self.quiet_until=0
+        self.result=dict(id=ident,action='upload_bank',state='checking',completed=False)
+        self.bank_next(None)
+        return self.result.copy()
+
     def start_setting(self,ident,edit):
         if self.active:raise ValueError('Radio owner is busy')
         from uvpro_settings import transaction
@@ -108,7 +117,10 @@ class Transaction:
             step=self.bank_job.send(raw)
             command,payload=step[:2]
             self.waiting=('bank_read',command);self.deadline=time.monotonic()+5
-            if self.result['action']=='edit_setting' and command in (11,34):
+            if self.result['action']=='upload_bank' and command==14:
+                self.result.update(write_attempted=True,slot=payload[0]);self.save()
+                self.send(command,payload,step[2],step[3])
+            elif self.result['action']=='edit_setting' and command in (11,34):
                 self.result['write_attempted']=True;self.save()
                 self.send(command,payload,step[2],self.setting_edit)
             else:self.send(command,payload,None)
@@ -160,7 +172,9 @@ class Transaction:
             self.repeater=request['repeater']
             spec=importlib.util.spec_from_file_location('uvpro_secondary',Path(__file__).with_name('uvpro_secondary.py'))
             self.secondary=importlib.util.module_from_spec(spec);spec.loader.exec_module(self.secondary)
-            self.settings_layout=json.loads(Path(__file__).with_name('radio-read-layouts.json').read_text())['Settings']
+            layout_file=Path(__file__).with_name('radio-read-layouts.json')
+            if not layout_file.is_file():layout_file=layout_file.parent.parent/'vendor/packet-console/radio-read-layouts.json'
+            self.settings_layout=json.loads(layout_file.read_text())['Settings']
             self.phase='secondary_meta';self.queue=[('tune_status',20,b''),('tune_settings',10,b''),('tune_beacon',33,b'\x02'),('tune_device',4,b'\x03')]
             if self.repeater.get('restore') is True:
                 self.backup=private_read(self.result_path.with_name('n810-radio-tune-backup.json'))
@@ -281,7 +295,7 @@ class Transaction:
         try:
             if not body or body[0]!=0:raise ValueError('Radio rejected '+name)
             raw=body[1:]
-            if self.result['action'] in ('download_bank','edit_setting'):
+            if self.result['action'] in ('download_bank','edit_setting','upload_bank'):
                 self.bank_next(raw);return
             if command==11:
                 if raw:raise ValueError('Unexpected settings acknowledgement')

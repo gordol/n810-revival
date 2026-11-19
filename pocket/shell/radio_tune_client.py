@@ -40,6 +40,11 @@ class Tune:
     def run(self,repeater):
         ident=uuid.uuid4().hex
         try:
+            from mac_uvpro import enabled, tune
+            if enabled() and self.path is None:
+                result=tune(repeater)
+                self.publish('Mac Bluetooth · '+('previous selection restored' if result['state']=='secondary_restored' else 'B tuned')+' · readback verified')
+                return
             self.rpc(dict(version=1,operation='tune_repeater',request_id=ident,repeater=repeater))
             until=time.monotonic()+90
             while time.monotonic()<until:
@@ -55,12 +60,65 @@ class Tune:
 class BankDownload(Tune):
     catalog_refresh_pending=False
 
+    def start_upload(self,index,rows):
+        self.publish('Checking destination and saving its backup…')
+        self.worker=threading.Thread(target=self.upload,args=(index,rows),daemon=True)
+        self.worker.start()
+
+    def upload(self,index,rows):
+        ident=uuid.uuid4().hex
+        try:
+            from mac_uvpro import enabled, upload
+            if enabled() and self.path is None:
+                result=upload(index,rows)
+                self.publish('Mac Bluetooth · verified %d channels in bank %d' % (result['channels'],index))
+                return
+            result=self.rpc(dict(version=1,request_id=ident,operation='upload_bank',plan=dict(bank=index,channels=rows)))
+            deadline=time.monotonic()+600
+            while not result.get('completed'):
+                if result.get('state')=='failed':raise ValueError(result.get('error','Upload failed'))
+                if time.monotonic()>=deadline:raise ValueError('Upload outcome unknown; read the bank before retrying')
+                time.sleep(.5)
+                result=self.rpc(dict(version=1,request_id=ident,operation='upload_status'))
+            self.publish('Verified %d channels in bank %d (%d written)' % (result['channels'],index,result['written']))
+        except (KeyError,OSError,ValueError,RuntimeError) as error:self.publish(str(error))
+
+    def start_rename(self, index, expected, name):
+        if self.worker and self.worker.is_alive():
+            return
+        def run():
+            from mac_uvpro import rename_bank
+            try:
+                message = rename_bank(index, expected, name)
+                self.catalog_refresh_pending = True
+            except (OSError, ValueError, RuntimeError) as error:
+                message = str(error)
+            self.publish(message)
+        self.publish('Writing bank name and reading it back…')
+        self.worker = threading.Thread(target=run, daemon=False)
+        self.worker.start()
+
     def start_all(self):
         if self.worker and self.worker.is_alive():return
+        from mac_uvpro import enabled
+        if enabled() and self.path is None:
+            self.publish('Connecting to UV-PRO…')
+            self.worker = threading.Thread(target=self._mac_all_banks, daemon=False)
+            self.worker.start()
+            return
         if str(self.path)!='/dev/shm/n810-radio-read/control.sock':
             self.publish('Download all banks on the paired tablet');return
         self.publish('Downloading all banks… Reception resumes when finished.')
         self.worker=threading.Thread(target=self._all_banks,daemon=True);self.worker.start()
+
+    def _mac_all_banks(self):
+        from mac_uvpro import download_all
+        try:
+            message = download_all(self.publish)
+            self.catalog_refresh_pending = True
+        except (OSError, ValueError, RuntimeError) as error:
+            message = str(error)
+        self.publish(message)
 
     def _all_banks(self):
         import subprocess,sys
@@ -80,6 +138,19 @@ class BankDownload(Tune):
     def download(self,index,edit):
         identity=uuid.uuid4().hex
         try:
+            from mac_uvpro import enabled, download_bank, edit_setting, check
+            if enabled() and self.path is None and edit is not None:
+                edit_setting(edit)
+                self.publish('Verified '+edit['field'].replace('_',' ')+' on the radio.')
+                check()
+                self.publish(self.status)
+                return
+            if enabled() and self.path is None and edit is None:
+                result = download_bank(index)
+                self.catalog_refresh_pending = True
+                self.publish('Saved bank %d · %d channels · %d bank names' %
+                             (result['bank'], result['channels'], len(result['banks'])))
+                return
             request=dict(operation='edit_setting',edit=edit) if edit else dict(operation='download_bank',bank=index)
             result=self.rpc(dict(version=1,request_id=identity,**request))
             until=time.monotonic()+600

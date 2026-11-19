@@ -110,7 +110,11 @@ class Bridge:
             backup=module.private_read(Path('/dev/shm/n810-radio-tune-backup.json'))
             restoring=(command==11 and original.hex()==backup.get('desired_settings') and payload.hex()==backup.get('original_settings') or
                        command==14 and original.hex()==backup.get('desired_channel') and payload.hex()==backup.get('original_channel')) if original else False
-            if setting is not None:
+            if setting is not None and setting.get('group')=='field_channel':
+                from uvpro_bank import bank_channel
+                if command!=14 or not original or len(original) not in (25,27) or module.bits(original,10,30) or module.bits(original,42,30) or original[14]&0xf0 or bank_channel(original,setting['row'])!=payload:
+                    raise ValueError('Invalid field bank write')
+            elif setting is not None:
                 from uvpro_settings import changed
                 expected={'settings':11,'beacon':34}.get(setting.get('group'))
                 if expected!=command or changed(original,setting)!=payload:raise ValueError('Invalid settings field update')

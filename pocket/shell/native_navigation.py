@@ -37,6 +37,7 @@ class Navigation:
         if name=='RadioManager':
             if f.page==0:return result+([Target('action:'+key,label,'action',key) for key,label in (('r','Read current status'),('c','Cancel read'),('k','Check read'))] if f.state.can_read else [])+[Target('content','Reported status','details')]
             if f.page==1:return result+[Target('pane:'+p.key,p.title,'details' if p.key=='details' else 'list') for p in f.memory_layout.panels]
+            if f.page==6:return result+[Target('field-bank','Field banks','choice')]
             if f.page==2:return result+[Target('banks','Downloaded banks','list'),Target('action:p','Copy downloaded bank','action','p')]
             if f.page in (3,4):
                 if not f.drafts:return result+[Target('content','Local drafts unavailable','details')]
@@ -182,6 +183,7 @@ class Navigation:
         if f.bank!=f.memory_groups.index:f.bank=f.memory_groups.index;f.index=0
     def modal(self):
         f=self.form;name=type(f).__name__
+        if name=='RadioManager' and (f.field_target is not None or getattr(f,'bank_name_editor',None) is not None):return True
         modal=getattr(f,'modal',None)
         if callable(modal):return bool(modal())
         return bool(getattr(f,'search_edit',False)) or getattr(f,'self_editor',None) is not None or bool(getattr(f,'filter_open',False)) or bool(self.layout() and self.layout().resizing) or getattr(f,'entry',None) is not None or getattr(f,'review',None) is not None or bool(getattr(f,'editing',False)) or (name=='Messages' and f.composing) or (name=='System' and f.page==1 and (f.links.choosing or f.links.review))

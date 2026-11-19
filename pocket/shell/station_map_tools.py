@@ -130,13 +130,13 @@ class StationMapTools:
                 item['call']+' · '+__import__('repeater_catalog').band(item['rx_mhz']),
                 item.get('site',''),
                 'RX '+str(item['rx_mhz'])+' MHz',
-                'TX '+str(item['tx_mhz'])+' MHz',
+                'FM receive only' if item.get('monitor_only') else 'TX '+str(item['tx_mhz'])+' MHz',
                 'TX tone '+str(item.get('tx_ctcss') or 'Off'),
                 'RX tone '+str(item.get('rx_ctcss') or 'Off'),
                 'DCS '+str(item.get('dcs') or 'Off'),
                 ', '.join(item.get('modes',[])),
                 item.get('area',''),
-                'WWARA '+item.get('edition',''),
+                item.get('source','WWARA')+' '+item.get('edition',''),
                 'Approx. directory location',
                 'Right-click for tune / LOS') if text]
         if self.detail_point:

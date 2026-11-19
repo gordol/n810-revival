@@ -33,6 +33,14 @@ class Connections:
         self._retry_failed = False
         self._local_start = None
 
+    @property
+    def local_selected(self):
+        with self._lock:
+            if self.generation == 0 and self._intent is None:
+                return not self.closed
+            return (self.transport == 'local' and self._intent is not None
+                    and self._intent[0] == 'local' and not self.busy and not self.closed)
+
     def attach_local_services(self):
         # Even worker setup imports must not hold the first screen's input loop.
         with self._lock:

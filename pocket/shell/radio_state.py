@@ -145,6 +145,10 @@ class State:
                 prefix='Receive transport: ' if self.source and getattr(self.source,'remote',False) else 'Radio snapshot updater: '
                 message=prefix+str(message) if message else None
                 if message!=self.error:self.error=message;changed=True
+        from mac_uvpro import enabled as direct_mac, downloaded
+        if direct_mac() and downloaded() is not None:
+            catalog = dict(adapter.data(self.payload.get('catalog')), radio_snapshot=downloaded())
+            self.payload = dict(self.payload, catalog=dict(data=catalog))
         self.payload=self.with_read_telemetry(self.payload)
         live=adapter.data(self.payload.get('live'))
         owner_source=getattr(self.source,'receive',None) or self.source
@@ -215,6 +219,10 @@ class State:
         transport='Local' if self.payload.get('connector',{}).get('local') is True else 'SSH '+ssh
         return f'{transport}  Feed {feed}  BT {bt}  Radio {radio} '
     def panel(self,width,ascii=False):
+        from mac_uvpro import enabled, radio_panel
+        if enabled():
+            label, style = radio_panel()
+            return [('radio:mac', 'Radio  ')], {'radio:mac': style}
         s=self.result['statusbar'];radio=s['radio'];entries=[];styles={}
         parts=[('Radio',radio['state'])] if width<120 else [('SSH',s['ssh']['state']),('RX',s['feed']['state']),('BT',radio['link']['state']),('Radio',radio['state'])]
         attachment=(self.payload.get('connector') or {}).get('attachment') or {}

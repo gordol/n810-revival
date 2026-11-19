@@ -25,6 +25,15 @@ class RadioManager:
         self.hits=[];self._spans=[]
         self.drafts=None;self.message='';self.editing=None;self.fields=False;self.field=0;self.review=None
         self.bank_download=None;self.settings_offset=0;self.settings_max=0;self.setting_rows=[];self.setting_editor=None
+        import os
+        self.bank_name_editor=None;self.field_groups=[];self.field_target=None;self.field_job=None
+        pack=os.environ.get('POCKET_FIELD_PACK')
+        if pack:
+            from pathlib import Path
+            from field_banks import load
+            try:self.field_groups=load(Path(pack))
+            except (OSError,ValueError,TypeError,KeyError) as exc:self.message='Field pack: '+str(exc)
+            self.pages=(*self.pages,'Field')
         self._draft_root=draft_root;self._drafts_attempted=False;self._drafts_error=None
         from app_widgets import AdaptivePanels,PanelSpec,SelectList
         self.memory_layout=AdaptivePanels((PanelSpec('groups','Groups',18,22),PanelSpec('channels','Channels',25,34),PanelSpec('details','Selected',28,36)),focus='channels')
@@ -106,10 +115,85 @@ class RadioManager:
     def action(self,action):
         """Semantic read intents shared by buttons, shortcuts and app commands."""
         if action not in ('read','check','cancel'):raise ValueError('Unsupported radio action')
+        from mac_uvpro import enabled, refresh_status
+        if self.page in (0, 5) and enabled() and action in ('read', 'check'):
+            refresh_status(self.state._source_changed)
+            return True
         accepted=self.state.read_action(action)
         self.message=self.state.read_message
         return accepted
     def key(self,key):
+        if self.bank_name_editor is not None:
+            index, old, editor = self.bank_name_editor
+            if key in ('escape', '\x1b'):
+                self.bank_name_editor = None
+            elif key in ('enter', '\r', '\n'):
+                self.bank_name_editor = None
+                self.bank_download.start_rename(index, old, editor.text)
+            else:
+                editor.key(key)
+            return True
+        if self.page == 2 and key == 'n':
+            from mac_uvpro import enabled
+            groups = self.bank_directory()
+            if enabled() and groups:
+                from app_widgets import TextInput
+                from radio_tune_client import BankDownload
+                if self.bank_download and self.bank_download.worker and self.bank_download.worker.is_alive():
+                    return True
+                self.bank_download = BankDownload(None, self.state._source_changed)
+                group = groups[self.bank % len(groups)]
+                old = group.get('name') or ''
+                self.bank_name_editor = group['index'], old, TextInput(old, limit=10)
+            return True
+        if self.page == 0 and key in ('r', 'k'):
+            from mac_uvpro import enabled
+            if enabled():
+                return self.action('read')
+        if self.page==6 and self.field_groups:
+            self.bank%=len(self.field_groups)
+            name,channels=self.field_groups[self.bank]
+            self.index=max(0,min(self.index,len(channels)-1))
+            from mac_uvpro import enabled as direct_mac
+            if self.field_target is None and direct_mac() and key.lower()=='p':
+                import subprocess
+                subprocess.Popen(['open','x-apple.systempreferences:com.apple.BluetoothSettings'])
+                return True
+            if self.field_target is None and direct_mac() and key.lower()=='c':
+                import threading
+                from mac_uvpro import check
+                from radio_tune_client import Tune
+                if self.field_job and self.field_job.worker and self.field_job.worker.is_alive():return True
+                job=Tune(None,self.state._source_changed);self.field_job=job
+                def probe():
+                    try:job.publish(check())
+                    except (OSError,ValueError,RuntimeError) as exc:job.publish(str(exc))
+                job.publish('Checking Mac Bluetooth…')
+                job.worker=threading.Thread(target=probe,daemon=True);job.worker.start()
+                return True
+            if self.field_target is not None:
+                if key in ('escape','\x1b'):self.field_target=None
+                elif key=='backspace':self.field_target=self.field_target[:-1]
+                elif len(key)==1 and key.isdecimal() and len(self.field_target)<2:self.field_target+=key
+                elif key in ('\r','\n') and self.field_target:
+                    from radio_tune_client import BankDownload
+                    endpoint=None if direct_mac() else getattr(self.state.read_client,'path',None)
+                    if endpoint is None and not direct_mac():self.message='Connect the radio owner in Connections first.'
+                    elif int(self.field_target)>63:self.message='Bank index must be between 0 and 63.'
+                    else:
+                        self.field_job=BankDownload(endpoint,self.state._source_changed)
+                        self.field_job.start_upload(int(self.field_target),[c[3] for c in channels])
+                    self.field_target=None
+                return True
+            if key in ('left','right'):
+                self.bank=(self.bank+(1 if key=='right' else -1))%len(self.field_groups);self.index=0;self.message=''
+                return True
+            if key in ('up','down','home','end'):
+                self.index=max(0,min(len(channels)-1,{'home':0,'end':len(channels)-1,'up':self.index-1,'down':self.index+1}[key]))
+                return True
+            if key.lower()=='u' and channels[0][3] and not (self.field_job and self.field_job.worker and self.field_job.worker.is_alive()):
+                self.field_target='';self.message='';return True
+        from mac_uvpro import enabled as direct_mac
         if self.page==5 and self.setting_editor:
             group,field,old,editor=self.setting_editor
             if key in ('escape','\x1b'):
@@ -121,15 +205,16 @@ class RadioManager:
                         if text.lower() not in ('on','off','true','false'):raise ValueError('Use on or off')
                         new=text.lower() in ('on','true')
                     else:new=int(text) if type(old) is int else text
-                    if self.bank_download is None:
+                    endpoint = None if direct_mac() else getattr(self.state.read_client,'path',None)
+                    if self.bank_download is None or self.bank_download.path != endpoint:
                         from radio_tune_client import BankDownload
-                        self.bank_download=BankDownload(self.state.read_client.path,self.state._source_changed)
+                        self.bank_download=BankDownload(endpoint,self.state._source_changed)
                     self.bank_download.start(edit=dict(group=group,field=field,expected=old,value=new))
                     self.setting_editor=None;self.message=''
                 except ValueError as error:self.message=str(error)
             else:editor.key(key)
             return True
-        if self.page==5 and key in ('e','\r','\n') and self.setting_rows and self.state.can_read:
+        if self.page==5 and key in ('e','\r','\n') and self.setting_rows and (self.state.can_read or direct_mac()):
             from app_widgets import TextInput
             group,name,v=self.setting_rows[min(self.settings_offset,len(self.setting_rows)-1)]
             self.setting_editor=(group,name,v,TextInput(('on' if v else 'off') if type(v) is bool else str(v)))
@@ -178,9 +263,12 @@ class RadioManager:
             return True
         if self.page==2 and key in ('d','D','c','a'):
             client=self.state.read_client
-            if client is None:self.message='Radio owner unavailable';return True
+            from mac_uvpro import enabled
+            if client is None and not enabled():self.message='Radio owner unavailable';return True
             from radio_tune_client import BankDownload
-            if self.bank_download is None:self.bank_download=BankDownload(client.path,self.state._source_changed)
+            endpoint = None if enabled() else getattr(client, 'path', None)
+            if self.bank_download is None or self.bank_download.path != endpoint:
+                self.bank_download=BankDownload(endpoint,self.state._source_changed)
             directory=self.bank_directory()
             selected=directory[self.bank%len(directory)]['index'] if directory and key!='c' else None
             if key=='a':self.bank_download.start_all()
@@ -227,8 +315,9 @@ class RadioManager:
         hit=next((action for x,y,w,h,action in self.hits if x<=column<x+w and y<=row<y+h),None)
         if hit:
             if hit[0]=='page':
-                if self.editing:return True
+                if self.editing or self.field_target is not None or self.bank_name_editor is not None:return True
                 self.page=hit[1];self.bank=self.index=0;self.fields=False
+            elif hit[0]=='field-row':self.index=hit[1]
             elif hit[0]=='setting':self.settings_offset=hit[1];return self.key('e')
             elif hit[0]=='bank':self.bank=hit[1];self.index=0
             elif hit[0]=='memory-group':self.memory_layout.select('groups');self.bank=hit[1];self.index=0;self.detail_scroll=0
@@ -248,6 +337,25 @@ class RadioManager:
             label=('['+name+']') if i==self.page else ' '+name+' '
             self.hits.append((cursor,0,len(label),1,('page',i)));self._spans.append((0,cursor,len(label),'tab' if i==self.page else 'muted'));cursor+=len(label)+2
         rows=['  '.join(('['+p+']') if i==self.page else ' '+p+' ' for i,p in enumerate(self.pages)), 'Browsing and local drafts do not tune or program the radio','']
+        if self.page==6:
+            if not self.field_groups:return tuple(rows+[self.message or 'No field banks installed'])
+            self.bank%=len(self.field_groups)
+            name,channels=self.field_groups[self.bank]
+            self.index=max(0,min(self.index,len(channels)-1))
+            help_line='U upload to selected radio bank' if channels[0][3] else 'Frequency reference · manual tuning'
+            rows[1]='←/→ bank   ↑/↓ frequency   '+help_line
+            rows[2]=name+' · '+str(len(channels))+' channels'
+            from mac_uvpro import enabled as direct_mac
+            if direct_mac():rows.append('Mac Bluetooth   P Pair radio   C Check connection')
+            if self.field_target is not None:rows+=['Select the empty destination on the radio.', 'Enter its zero-based bank index, then Enter to write: '+self.field_target]
+            elif self.field_job:rows.append(self.field_job.status)
+            if self.message:rows.append(self.message)
+            start=max(0,self.index-max(1,self.height-len(rows)-2))
+            for i,(title,hz,mode,_) in enumerate(channels[start:],start):
+                if len(rows)>=self.height:break
+                rows.append(('%s %-18s %9.5f MHz  %s'%('>' if i==self.index else ' ',title,hz/1e6,mode))[:self.width])
+                self.hits.append((0,len(rows)-1,self.width,1,('field-row',i)))
+            return tuple(rows)
         data=self.state.result;s=data['statusbar'];r=s['radio'];model=data['model']
         if self.review is not None:
             plan=self.review;proposed=plan['proposed_bank']
@@ -261,7 +369,17 @@ class RadioManager:
                      'Esc: cancel · no file or radio changes until explicit action']
             if self._drafts_error:rows.append(self._drafts_error)
         elif self.page==0:
-            if self.state.can_read:
+            from mac_uvpro import enabled, last_observation, refresh_status, status_lines
+            mac = enabled()
+            if mac:
+                if not getattr(self, '_mac_status_opened', False):
+                    self._mac_status_opened = True
+                    refresh_status(self.state._source_changed)
+                label = '[ Read current status r ]'
+                self.hits.append((0, len(rows), len(label), 1, ('read-action', 'read')))
+                self._spans.append((len(rows), 0, len(label), 'control'))
+                rows.append(label)
+            elif self.state.can_read:
                 row=len(rows);actions=(('[ Read current status r ]','read'),('[ Cancel c ]','cancel'),('[ Check k ]','check'))
                 cursor=0;labels=[]
                 for label,key in actions:
@@ -284,28 +402,44 @@ class RadioManager:
                 rows.append('Status/settings/APRS only; saved memories unchanged.')
             else:rows.append('Read current status unavailable: no owner endpoint configured.')
             if self.message:rows.append(self.message)
-            rows+=['CONNECTION',('Console receive sockets' if getattr(self.state.source,'remote',False) else 'Device-local snapshots (SSH not used)') if self.state.source else s['ssh']['label'],s['feed']['label'],r['link']['label'],r['label'],self.state.link_observation()]
-            if r['state']=='paused':
-                rows.append('Periodic status polling is off.')
-                if self.state.can_read:rows.append('Read current status to request a fresh snapshot.')
-            if self.state.catalog_sync():rows += ['Saved radio sync: '+self.state.catalog_sync()]
-            if self.state.error:rows += [self.state.error]
-            status_error=adapter.data(self.state.payload.get('live')).get('radio_transport_error')
-            if status_error:rows += [str(status_error)]
+            if mac:
+                observed = last_observation()
+                rows += ['CONNECTION', 'Mac Bluetooth Classic · UV-PRO', status_lines()[0]]
+                if observed:
+                    import time
+                    rows.append('Last observation: '+time.strftime('%H:%M:%S %Z', time.localtime(observed['observed'])))
+            else:
+                rows+=['CONNECTION',('Console receive sockets' if getattr(self.state.source,'remote',False) else 'Device-local snapshots (SSH not used)') if self.state.source else s['ssh']['label'],s['feed']['label'],r['link']['label'],r['label'],self.state.link_observation()]
+                if r['state']=='paused':
+                    rows.append('Periodic status polling is off.')
+                    if self.state.can_read:rows.append('Read current status to request a fresh snapshot.')
+                if self.state.catalog_sync():rows += ['Saved radio sync: '+self.state.catalog_sync()]
+                if self.state.error:rows += [self.state.error]
+                status_error=adapter.data(self.state.payload.get('live')).get('radio_transport_error')
+                if status_error:rows += [str(status_error)]
             rows+=['','LAST REPORTED RADIO']
             active=r['active']
             signal=r.get('indicators',{}).get('signal',{})
             raw=signal.get('raw')
+            if mac:
+                active = observed.get('active', active)
+                raw = observed.get('signal')
             signal_text=f'{raw}/15 relative' if type(raw) is int else 'Unknown ('+str(signal.get('state','unavailable'))+')'
             rows += ['Signal: '+signal_text]
             rows += [key.replace('_',' ').capitalize()+': '+value(v) for key,v in active.items() if key!='source']
-            rows += ['Feed rates: Unknown (no owner counters)','', 'SOURCES', 'Backup: '+value(model['snapshot'].get('captured_at')),'Catalog: '+value(data['sources']['catalog_captured'])]
-            rows += self.state.receive_observations()
-            if not self.state.path and not self.state.source:rows += ['','No connector configured; use --radio-state FILE.']
+            if mac:
+                if observed:
+                    rows.append('Bank name: '+observed['bank_name'])
+                rows += ['', 'SOURCES', 'Backup: '+value(observed.get('backup')), 'Catalog: Local field pack']
+            else:
+                rows += ['Feed rates: Unknown (no owner counters)','', 'SOURCES', 'Backup: '+value(model['snapshot'].get('captured_at')),'Catalog: '+value(data['sources']['catalog_captured'])]
+                rows += self.state.receive_observations()
+                if not self.state.path and not self.state.source:rows += ['','No connector configured; use --radio-state FILE.']
         elif self.page==1:
             rows+=self.memory_lines()
         elif self.page==5:
-            if self.state.can_read:
+            from mac_uvpro import enabled, last_observation
+            if self.state.can_read or enabled():
                 label='[ Refresh from radio (r) ]'
                 self.hits.append((0,len(rows),len(label),1,('read-action','read')))
                 self._spans.append((len(rows),0,len(label),'control'))
@@ -319,8 +453,11 @@ class RadioManager:
                          'New: '+editor.draw(max(1,self.width-5)), 'Enter: apply to radio    Esc: cancel']
             else:
                 rows+=['Reported settings · arrows select · Enter edits']
+                sections = r['sections']
+                if enabled():
+                    sections = {key: {'values': vals} for key,vals in last_observation().get('telemetry', {}).items()}
                 self.setting_rows=[(group,name,v) for group in ('settings','beacon')
-                                   for name,v in (r['sections'].get(group,{}).get('values') or {}).items()
+                                   for name,v in (sections.get(group,{}).get('values') or {}).items()
                                    if not name.startswith('_') and type(v) in (bool,int,str)]
                 self.settings_max=max(0,len(self.setting_rows)-1)
                 self.settings_offset=min(self.settings_offset,self.settings_max)
@@ -334,16 +471,24 @@ class RadioManager:
             groups=self.bank_directory()
             rows+=['RADIO BANKS','Enter: memories   [p Copy downloaded → Local]','']
             self.hits.append((18,4,29,1,('action','p')))
-            if self.state.can_read:
+            from mac_uvpro import enabled
+            if self.state.can_read or enabled():
                 label='[d Download selected]'
                 self.hits.append((0,len(rows),len(label),1,('action','d')))
                 choose='[c Download current bank]'
                 self.hits.append((len(label)+1,len(rows),len(choose),1,('action','c')))
                 rows.append(label+' '+choose)
-                if str(self.state.read_client.path)=='/dev/shm/n810-radio-read/control.sock':
+                if enabled() or str(getattr(self.state.read_client, 'path', None))=='/dev/shm/n810-radio-read/control.sock':
                     label='[a Download all banks] · pauses reception, then restores it'
                     self.hits.append((0,len(rows),22,1,('action','a')))
                     rows.append(label)
+            if enabled() and groups:
+                label = '[n Rename selected bank]'
+                self.hits.append((0,len(rows),len(label),1,('action','n')))
+                rows.append(label)
+            if self.bank_name_editor is not None:
+                index, _, editor = self.bank_name_editor
+                rows.append(f'Bank {index} name: '+editor.draw(12)+'   Enter saves · Esc cancels')
             if self.bank_download:rows.append(self.bank_download.status)
             room=max(1,self.height-len(rows)-4)
             start=max(0,self.bank-room+1)

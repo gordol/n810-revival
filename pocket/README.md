@@ -27,6 +27,8 @@ Apple Silicon compute dependencies and verification. `make tui` selects the
 terminal frontend explicitly. Both builds use repository sources and generated
 local outputs, without sibling experiment directories or downloaded map data.
 
+For a personal offline map and radio collection, see the [field-pack guide and agent prompt](docs/field-packs.md).
+
 ## Source layout
 
 | Path | Contents |

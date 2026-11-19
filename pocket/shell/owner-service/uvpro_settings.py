@@ -9,7 +9,10 @@ def changed(raw, edit):
     layout=blocks.get(group,{}).get(len(raw))
     if not layout or not isinstance(name,str) or name.startswith('_'):
         raise ValueError('Unknown settings field or radio layout')
-    fields=json.loads(Path(__file__).with_name('radio-read-layouts.json').read_bytes())[layout]
+    layouts = Path(__file__).with_name('radio-read-layouts.json')
+    if not layouts.is_file():
+        layouts = layouts.parent.parent / 'vendor/packet-console/radio-read-layouts.json'
+    fields=json.loads(layouts.read_bytes())[layout]
     if sum(width for _,width,_ in fields)!=8*len(raw):raise ValueError('Incomplete settings layout')
     bits=int.from_bytes(raw,'big');shift=len(raw)*8
     for key,width,kind in fields:
