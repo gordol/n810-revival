@@ -51,10 +51,13 @@ class State:
     def can_read(self):return self.read_client is not None
     def direct_mac(self):
         if self.path is not None:return False
+        source=self.source
+        if source is None:return False
+        if hasattr(source,'local_control_selected') and not source.local_control_selected:return False
         from mac_uvpro import enabled
         client=self.read_client
         endpoint=None if self._automatic_read_client else getattr(client,'path',None)
-        return enabled(self.source,endpoint)
+        return enabled(source,endpoint)
     def read_action(self,action):
         client=self.read_client
         if client is None:self.read_message='No owner read endpoint configured.';return False

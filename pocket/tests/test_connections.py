@@ -111,6 +111,32 @@ class Tests(unittest.TestCase):
             self.assertTrue(state._automatic_read_client)
             self.assertTrue(state.direct_mac())
 
+    def test_automatic_local_attachment_does_not_select_mac_radio(self):
+        from radio_state import State
+        from unittest.mock import patch
+        class Source:
+            local_device=True
+            receive=SimpleNamespace(bridge=None)
+            def bind_wakeup(self,callback):pass
+            def close(self):pass
+            def read(self,now):return {'catalog':{},'live':{'data':{}}}
+        service=self.connection(lambda kind,address:(Source(),kind))
+        state=State(source=service)
+        self.addCleanup(state.close)
+        with patch.dict('os.environ',{'POCKET_FIELD_PACK':'/tmp/field-pack'}), \
+                patch('mac_tray.enabled',return_value=True):
+            self.assertTrue(service.connect('local',_automatic=True))
+            self.wait(lambda:not service.busy)
+            state._source_changed();state.update()
+            self.assertTrue(service.local_selected)
+            self.assertFalse(service.local_control_selected)
+            self.assertFalse(state.direct_mac())
+            self.assertTrue(service.connect('local'))
+            self.wait(lambda:not service.busy)
+            state._source_changed();state.update()
+            self.assertTrue(service.local_control_selected)
+            self.assertTrue(state.direct_mac())
+
     def test_cold_local_setup_keeps_observation_and_cancel_available(self):
         import builtins
         from unittest.mock import patch

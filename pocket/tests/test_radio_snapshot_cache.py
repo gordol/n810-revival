@@ -143,6 +143,14 @@ class ReconnectedRadioTests(unittest.TestCase):
         finally:state.close()
 
 class MacRadioSourceTests(unittest.TestCase):
+    def test_missing_source_does_not_enable_local_mac_radio(self):
+        state=radio_state.State()
+        try:
+            with patch.dict('os.environ',{'POCKET_FIELD_PACK':'/tmp/field-pack'}), \
+                    patch('mac_tray.enabled',return_value=True):
+                self.assertFalse(state.direct_mac())
+        finally:state.close()
+
     def test_remote_source_keeps_its_catalog_and_status_panel(self):
         source=SimpleNamespace(remote=True,read=lambda now:{
             'catalog':{'radio_snapshot':{'label':'configured owner'}},'live':{}})
