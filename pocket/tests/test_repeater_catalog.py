@@ -29,3 +29,14 @@ class Tests(unittest.TestCase):
             hits=annotate(image,View(),overlay,set(),show_labels=False)
         self.assertEqual(len(overlay),1)
         self.assertEqual(hits,((3,2,1,row),))
+
+    def test_every_band_has_a_keyboard_toggle(self):
+        from types import SimpleNamespace
+        from repeater_catalog import BANDS
+        from station_map_tools import StationMapTools
+        base=SimpleNamespace(side_overview=True,repeater_bands=BANDS)
+        tools=object.__new__(StationMapTools)
+        tools.__dict__.update(base=base,internet_editor=None,dialog=None,layers_visible=True,_sidebar_focus=True,terrain_active=False,_session_callback=None)
+        self.assertTrue(tools.key(str(len(BANDS))))
+        self.assertNotIn(BANDS[-1],base.repeater_bands)
+        self.assertEqual(len(base.repeater_bands),len(BANDS)-1)
