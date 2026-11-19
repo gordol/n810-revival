@@ -57,6 +57,7 @@ validation:
     absolute_links: warn
 nav:
 - Project: index.md
+- Why revive an N810?: about.md
 - Journal:
   - Read from the beginning: journal.md
   - Recovering the machine and booting Debian: posts/beginnings.md
