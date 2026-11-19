@@ -24,7 +24,7 @@ def main():
     logs=work/'logs';logs.mkdir();out=work/'package';out.mkdir()
     if not a.checkpoint:
         from source_tree import assemble
-        source_root=assemble(HERE,work/'driver-source')
+        source_root=assemble(HERE,work/'driver-source',target='kernel' if a.target=='module' else 'mesa')
     def run(args,label,cwd=None,env=None):
         print(label,flush=True)
         with (logs/(label+'.log')).open('wb') as f:r=subprocess.run(list(map(str,args)),cwd=cwd,env=env,stdout=f,stderr=subprocess.STDOUT)

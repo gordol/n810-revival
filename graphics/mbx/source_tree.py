@@ -3,10 +3,11 @@ from pathlib import Path
 import shutil
 
 
-def assemble(base, destination):
+def assemble(base, destination, *, target=None):
     base, destination = Path(base), Path(destination)
     overlay = base.parents[1] / 'pocket/graphics/driver/mbx'
-    for component in ('common', 'kernel', 'mesa'):
+    components = ('common', 'kernel', 'mesa') if target is None else ('common', target)
+    for component in components:
         shutil.copytree(base / component, destination / component)
         for source in (overlay / component).iterdir():
             if source.is_file() and source.suffix in ('.c', '.h'):
@@ -17,7 +18,10 @@ def assemble(base, destination):
         if source.suffix in ('.c', '.h'):
             if (destination / 'kernel' / source.name).exists() and not (overlay / 'kernel' / source.name).exists():
                 shutil.copyfile(source, destination / 'kernel' / source.name)
-    shutil.copytree(base / 'build-inputs', destination / 'build-inputs')
+    if target is None:
+        shutil.copytree(base / 'build-inputs', destination / 'build-inputs')
+    if 'mesa' not in components:
+        return destination
     for source in (overlay / 'common').iterdir():
         if source.suffix in ('.c', '.h') and not (overlay / 'mesa' / source.name).exists():
             shutil.copyfile(source, destination / 'mesa' / source.name)
