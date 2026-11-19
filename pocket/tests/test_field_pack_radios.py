@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 import unittest.mock
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'shell'))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "shell/owner-service"))
@@ -28,6 +29,19 @@ class FieldPackRadios(unittest.TestCase):
             groups = dict(load(root))
             self.assertNotIn('Belka Local', groups)
             self.assertEqual(groups['Belka Frequencies'][0][2:], ('AM', None))
+
+    def test_malformed_csv_is_reported_without_aborting_radio_manager_startup(self):
+        from radio_manager import RadioManager
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            path=root/'uv-pro/broken.csv'
+            path.parent.mkdir()
+            path.write_text('title,rx_freq,tx_freq,tx_sub_audio,bandwidth,rx_modulation,tx_dis,tx_modulation,tx_power,rx_sub_audio,scan,talk around,pre_de_emph_bypass,sign,mute\n'+
+                            'Test,1,1,0,12500,0,1,0,L,0,1,0,0,0,0,extra\n')
+            with unittest.mock.patch.dict('os.environ',{'POCKET_FIELD_PACK':str(root)}):
+                manager=RadioManager(SimpleNamespace())
+            self.assertEqual(manager.field_groups,[])
+            self.assertIn('Invalid column count in broken.csv',manager.message)
 
 
 class MacRadioRecovery(unittest.TestCase):

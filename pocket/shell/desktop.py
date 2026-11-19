@@ -504,6 +504,8 @@ def main(platform=None,argv=None):
     if args.scene_quality:host.scenery={**host.scenery,'quality':args.scene_quality}
     if store.error:print(store.error,file=sys.stderr)
     inbox = Inbox()
+    from mac_tray import bind_wakeup
+    bind_wakeup(lambda:inbox.notify('panel'))
     shared_controls=scene_controls(host)
     host.app_forms=demo_apps.forms(host,shared_controls) if demo_apps is not None else {}
     if platform:platform.configure_registry(registered_apps)
@@ -2025,6 +2027,11 @@ def main(platform=None,argv=None):
                 clock_delay=clock_widget.delay(time.time())
                 timeout=clock_delay if timeout is None else min(timeout,clock_delay)
                 owner_delay('panel',clock_delay)
+            if mac_controller_enabled():
+                from mac_tray import delay as mac_tray_delay
+                tray_delay=mac_tray_delay()
+                timeout=tray_delay if timeout is None else min(timeout,tray_delay)
+                owner_delay('panel',tray_delay)
             if lifecycle_refresh:
                 for name,form in lifecycle_forms:
                     if host.shown(host.window(name)) and (getattr(form,'spin',False) or getattr(form,'transition',None)):

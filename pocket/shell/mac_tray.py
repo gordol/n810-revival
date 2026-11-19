@@ -10,9 +10,18 @@ _enabled = sys.platform == 'darwin'
 _lock = threading.Lock()
 _deadline = 0
 _state = ('?', 'unknown', 'unknown')
+_wakeup = None
 
 
 _connections = None
+
+
+def bind_wakeup(callback):
+    global _wakeup
+    if callback is not None and not callable(callback):
+        raise TypeError('wakeup must be callable')
+    with _lock:
+        _wakeup = callback
 
 
 def bind_connections(connections):
@@ -49,6 +58,9 @@ def _collect():
         pass
     with _lock:
         _state = battery, source, power
+        wakeup = _wakeup
+    if wakeup is not None:
+        wakeup()
 
 
 def sample():
@@ -58,3 +70,8 @@ def sample():
             _deadline = time.monotonic() + 30
             threading.Thread(target=_collect, daemon=True).start()
         return _state
+
+
+def delay():
+    with _lock:
+        return max(0, _deadline-time.monotonic()) if _deadline else 0
