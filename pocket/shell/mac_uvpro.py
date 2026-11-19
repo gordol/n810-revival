@@ -319,6 +319,24 @@ def download_all(progress):
             if active() != index:
                 raise ValueError('Bank selection readback mismatch')
 
+        recovery = device / 'restore-pending.json'
+
+        def restore(index, saved_settings, saved_beacon):
+            select(index)
+            if link.request(10, b'') != saved_settings:
+                link.request(11, saved_settings)
+            if link.request(33, b'\x02') != saved_beacon:
+                link.request(34, saved_beacon)
+            if (active() != index or link.request(10, b'') != saved_settings
+                    or link.request(33, b'\x02') != saved_beacon):
+                raise ValueError('Original radio configuration restoration pending; reconnect to retry')
+
+        if recovery.exists():
+            progress('Recovering the radio configuration saved before an interrupted download…')
+            saved = json.loads(recovery.read_bytes())
+            restore(saved['bank'], bytes.fromhex(saved['settings']), bytes.fromhex(saved['beacon']))
+            recovery.unlink()
+
         original = active()
         settings = link.request(10, b'')
         beacon = link.request(33, b'\x02')
@@ -330,6 +348,8 @@ def download_all(progress):
         switched = pause_attempted = False
         stamp = datetime.now(timezone.utc)
         root = device / 'backups'
+        # Keep the original configuration on disk until restoration is verified.
+        owner.atomic(recovery, {'bank': original, 'settings': settings.hex(), 'beacon': beacon.hex()})
         try:
             # Inhibit automatic location reports while other regions are selected.
             if beacon != paused:
@@ -367,13 +387,14 @@ def download_all(progress):
                 if link.request(10, b'') != settings:
                     link.request(11, settings)
             if active() != original or link.request(10, b'') != settings:
-                raise ValueError('Original bank or settings restoration unverified')
+                raise ValueError('Original bank or settings restoration pending; reconnect to retry')
             if pause_attempted:
                 current = link.request(33, b'\x02')
                 if current == paused:
                     link.request(34, beacon)
                 if link.request(33, b'\x02') != beacon:
-                    raise ValueError('Original beacon settings restoration unverified')
+                    raise ValueError('Original beacon settings restoration pending; reconnect to retry')
+            recovery.unlink()
         capture = dict(part, banks=sorted(banks, key=lambda b: b['index']),
                        status=dict(curr_region=original), restored=True, restore_bank=original,
                        started=stamp.isoformat(), finished=datetime.now(timezone.utc).isoformat())
@@ -410,7 +431,7 @@ def rename_bank(index, expected, name):
             reply = link.request(73, selector)
             if reply[:1] != selector:
                 raise ValueError('Bank name reply has the wrong index')
-            return reply[1:].split(b'\0', 1)[0].decode('utf-8')
+            return reply[1:].split(b'\0', 1)[0].decode('gbk', errors='replace')
         before = read_name()
         if before != name:
             if before != expected:
