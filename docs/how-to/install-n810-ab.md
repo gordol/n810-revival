@@ -66,13 +66,46 @@ reported by the inspection. The writer verifies the isolated SD environment and 
 MMC type, capacity, identity, and mounted-state guards, then reads back every
 written byte.
 
-Leave the verified SD card inserted and return the same tablet to update mode on the
-same USB port. Run `ab_install.py flash-recovery --kit PATH --flasher PATH`.
-It requires matching successful SD and recovery receipts and flashes only the
-shared kernel. On the next boot, early internal startup waits up to 120 seconds
+Leave the SD inserted and USB connected to the same port. With the temporary
+installer still running, choose **Install** again in Pocket Setup, or run:
+
+```sh
+python3 platform/bootstrap/ab_install.py flash-recovery --kit PATH --flasher PATH --key SSH_PRIVATE_KEY
+```
+
+Use the host flasher from this checkout. If replacing an older build, build to
+a fresh directory with `make flasher FLASHER_OUTPUT=PATH` and pass its
+`0xFFFF` executable. On macOS, replace an installed privileged helper with
+the one built for that binary.
+
+The host checks the SD and recovery write receipts, starts watching the recorded
+USB port, verifies the running installer's internal storage identity over SSH,
+and requests a reboot. When the bootloader appears, the flasher checks for an
+RX-44 on that USB connection, writes the shared kernel, and requests the next
+boot. On the next boot, early internal startup waits up to 120 seconds
 for the configured card, prepares the selected slot and persistent mounts, and
 switches into that root filesystem before starting services. The kernel keeps
 running throughout; normal SD boot does not use kexec.
+
+### The USB icon and the A/B boot selection
+
+With the N810 connected to the host over USB, the USB icon appears briefly during
+reboot. A host already listening can catch the Nokia bootloader during that
+window. Holding the front Swap key (the Home key, marked with two overlapping
+rectangles on the N810) at power-on keeps the tablet in update mode so the host
+has time to connect.
+
+If the 45-second capture window expires, or the bootloader leaves before the
+flasher opens it, hold Swap at power-on and retry the same step. The host can
+use an already waiting bootloader. The attended CLI procedure also accepts
+`flash-recovery` without `--key` once the tablet is in update mode. If writing
+started and the result is uncertain, check the kit’s `USB-OPERATIONS.log`,
+`RECOVERY-INSTALL.json`, and the tablet’s boot before another attempt.
+
+An ordinary A/B update takes a different path. On reboot the tablet starts its
+existing kernel, then early startup reads the slot selection from the SD card
+and mounts the chosen Debian filesystem. Switching slots needs no host at the
+USB icon and writes nothing to kernel flash.
 
 ## Storage and updates
 

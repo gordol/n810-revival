@@ -36,7 +36,11 @@ class HelperTimeout(unittest.TestCase):
             script = output / 'helper'
             script.write_text(script.read_text().replace('/bin/sleep "$limit"', '/bin/sleep 1'))
             subprocess.run(['/bin/sh', '-n', str(script)], check=True)
-            result = subprocess.run(['/bin/sh', str(script), '-m', 'kernel:/fixture', '-f', '-r'], timeout=5,
+            rejected = subprocess.run(['/bin/sh', str(script), '-P', 'invalid', '-m',
+                                       'kernel:/fixture', '-f', '-r'])
+            self.assertEqual(rejected.returncode, 64)
+            self.assertFalse(pid_file.exists())
+            result = subprocess.run(['/bin/sh', str(script), '-P', '12345', '-m', 'kernel:/fixture', '-f', '-r'], timeout=5,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.assertNotEqual(result.returncode, 0)
             pid = int(pid_file.read_text())

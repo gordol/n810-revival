@@ -17,3 +17,96 @@
  
  	/* USB */
  	usb = usb_open_and_wait_for_device();
+--- a/src/main.c
++++ b/src/main.c
+@@ -30,6 +30,7 @@
+ #include <libgen.h>
+ 
+ #include "global.h"
++extern const char *pocket_usb_instance;
+ 
+ #include "image.h"
+ #include "fiasco.h"
+@@ -422,7 +423,7 @@
+ 	"i"
+ 	"p"
+ 	"Q"
+-	"snvh"
++	"snvhP:"
+ 	"";
+ 	int c;
+ 
+@@ -695,6 +696,10 @@
+ 				verbose = 1;
+ 				break;
+ 
++			case 'P':
++				pocket_usb_instance = optarg;
++				break;
++
+ 			case 'h':
+ 				help = 1;
+ 				break;
+@@ -1007,6 +1012,12 @@
+ 			if ( ! dev ) {
+ 				ERROR("No device detected");
+ 				break;
++			}
++
++			if (pocket_usb_instance && dev->detected_device != DEVICE_RX_44) {
++				ERROR("Pinned device is not an RX-44");
++				ret = 1;
++				goto clean;
+ 			}
+ 
+ 			/* cold flash */
+--- a/src/usb-device.c
++++ b/src/usb-device.c
+@@ -153,11 +153,35 @@
+ 
+ }
+ 
++/* A capture is bound to one enumeration of the recorded physical port.
++ * Never wait for a replacement after that enumeration disappears. */
++const char *pocket_usb_instance;
++
++static int pocket_matches_instance(struct usb_device *dev) {
++    char token[64];
++    if (dev->descriptor.idVendor != 0x0421 || dev->descriptor.idProduct != 0x0105)
++        return 0;
++#ifdef __APPLE__
++    /* libusb-compat stores its libusb_device in dev->dev. Darwin uses
++     * the IORegistry sessionID as libusb session data. */
++    unsigned long (*session)(void *) = dlsym(RTLD_DEFAULT, "libusb_get_session_data");
++    if (!session || !dev->dev)
++        return 0;
++    snprintf(token, sizeof(token), "%lu", session(dev->dev));
++#else
++    snprintf(token, sizeof(token), "%u:%u", (unsigned)strtoul(dev->bus->dirname, NULL, 10), dev->devnum);
++#endif
++    return strcmp(token, pocket_usb_instance) == 0;
++}
++
+ static struct usb_device_info * usb_device_is_valid(struct usb_device * dev) {
+ 
+ 	size_t i;
+ 	char product[1024];
+ 	struct usb_device_info * ret = NULL;
++
++	if (pocket_usb_instance && !pocket_matches_instance(dev))
++		return NULL;
+ 
+ 	for ( i = 0; i < sizeof(usb_devices)/sizeof(usb_devices[0]); ++i ) {
+ 
+@@ -370,6 +394,11 @@
+ 		if ( ret )
+ 			break;
+ 
++		if (pocket_usb_instance) {
++			fprintf(stderr, "\nPOCKET_CAPTURE_MISSED\n");
++			break;
++		}
++
+ 		MSLEEP(50);
+ 
+ 	}

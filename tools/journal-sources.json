@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-10",
+  "date": "2026-11-18",
   "entries": [
     {
       "post": "docs/posts/beginnings.md",
@@ -1573,6 +1573,30 @@
       "guide": "how-to/run-n810-gpu.md",
       "source_heading": "Code, tests and build inputs",
       "note": "[Installing the two Debian slots](../how-to/install-n810-ab.md)"
+    },
+    {
+      "post": "docs/posts/2026-11-18-usb-audio.md",
+      "id": "2026-11-18-usb-audio",
+      "implementation": [
+        {
+          "label": "Kernel builder",
+          "path": "platform/kernel/build.py"
+        }
+      ],
+      "tests": [
+        {
+          "label": "Kernel package checks",
+          "path": "platform/kernel/test_build.py"
+        }
+      ],
+      "inputs": [
+        {
+          "label": "Kernel configuration",
+          "path": "platform/kernel/n810.config"
+        }
+      ],
+      "guide": "how-to/build-kernel.md",
+      "note": ""
     },
     {
       "post": "docs/posts/2026-11-18-field-packs-and-radio-banks.md",

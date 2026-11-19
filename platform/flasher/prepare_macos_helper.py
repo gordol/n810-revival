@@ -38,9 +38,15 @@ if [ "$#" = 2 ] && [ "$1" = --configure-network ]; then
 fi
 case "$#" in
   1) test "$1" = -I; limit=25 ;;
-  6) test "$1" = -m; case "$2" in kernel:/*) ;; *) exit 64;; esac
-     test "$3" = -m; case "$4" in initfs:/*) ;; *) exit 64;; esac
-     test "$5" = -l; test "$6" = -b; limit=165 ;;
+  6) if [ "$1" = -P ]; then
+       case "$2" in ''|0|*[!0-9]*) exit 64;; esac
+       test "$3" = -m; case "$4" in kernel:/*) ;; *) exit 64;; esac
+       test "$5" = -f; test "$6" = -r; limit=165
+     else
+       test "$1" = -m; case "$2" in kernel:/*) ;; *) exit 64;; esac
+       test "$3" = -m; case "$4" in initfs:/*) ;; *) exit 64;; esac
+       test "$5" = -l; test "$6" = -b; limit=165
+     fi ;;
   4) test "$1" = -m; case "$2" in kernel:/*) ;; *) exit 64;; esac
      case "$3:$4" in -f:-r|-l:-b) limit=165 ;; *) exit 64;; esac ;;
   *) exit 64 ;;
