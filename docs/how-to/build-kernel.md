@@ -19,6 +19,8 @@ flowchart TB
     trial --> package
 ```
 
+Pass `--usb-audio` to the kernel builder to include USB audio capture. Install the matching module tree on the root filesystem. A compatible USB interface can request the driver through its device alias, or you can load it with `modprobe snd-usb-audio`. No boot-time module entry is needed.
+
 ## Prepare a Linux builder
 
 Use a Linux machine or VM with at least 3 GiB of free build space. On Debian:

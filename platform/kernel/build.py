@@ -47,6 +47,7 @@ def main() -> None:
     parser.add_argument('--ram-installer', action='store_true', help='build the temporary NOLO initramfs installer kernel')
     parser.add_argument('--sd-installer', action='store_true', help='temporary NOLO kernel booting A/B slot A directly from SD')
     parser.add_argument('--ab-boot', action='store_true', help='one flashed kernel; early internal init selects the SD root')
+    parser.add_argument('--usb-audio', action='store_true', help='package USB audio as loadable modules')
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--root-device', default='/dev/mmcblk0p2', help='Root device or PARTUUID= value for the intended filesystem')
     args = parser.parse_args()
@@ -143,6 +144,8 @@ def main() -> None:
                    '--enable', 'RD_XZ',
                    '--disable', 'EXT4_FS', '--disable', 'PM_DEBUG', '--disable', 'PM_SLEEP_DEBUG',
                    '--disable', 'DEBUG_BUGVERBOSE']
+    if args.usb_audio:
+        config += ['--enable', 'SND_USB', '--module', 'SND_USB_AUDIO']
     run(config, 'configure')
     base = ['make', '-C', str(source), 'O=' + str(build), 'ARCH=arm',
             'CROSS_COMPILE=arm-linux-gnueabihf-', 'CC=arm-linux-gnueabihf-gcc', 'HOSTCC=gcc', 'LOCALVERSION=']
@@ -183,6 +186,11 @@ def main() -> None:
     # External initramfs decompression links five compression helpers into the
     # recovery kernel that are modules in the permanent build.
     expected_modules = lock['expected_modules'] - 5 if args.ram_installer else lock['expected_modules']
+    if args.usb_audio:
+        audio_modules = {'snd-usb-audio', 'snd-usbmidi-lib', 'snd-hwdep', 'snd-rawmidi'}
+        if not audio_modules <= {path.stem for path in modules}:
+            raise RuntimeError('USB audio module set is incomplete.')
+        expected_modules += len(audio_modules)
     if len(modules) != expected_modules:
         raise RuntimeError(f'Expected {expected_modules} configured modules; got {len(modules)}.')
     for relative, name in [('arch/arm/boot/zImage', 'zImage'),
@@ -213,7 +221,7 @@ def main() -> None:
               'root_device': 'initramfs:/init' if args.ram_installer else args.root_device,
               'ab_boot': args.ab_boot, 'boot_method': 'same-kernel-root-switch' if args.ab_boot else 'direct',
               'vmlinux_sha256': digest(build / 'vmlinux'),
-              'kernel_modules': len(modules),
+              'kernel_modules': len(modules), 'usb_audio': args.usb_audio,
               'external_module_crc_checks': len(crcs), 'external_module_vermagic': info,
               'image_bytes': image.stat().st_size, 'image_limit': lock['image_limit'],
               'device_action': False,
