@@ -6,7 +6,7 @@ For a road trip, I wanted to open a map, pick a nearby repeater and tune the han
 
 Radio Manager handles the other half of the trip. The Field tab holds the groups I prepared in advance. I picked a group of eight GMRS repeater outputs and loaded it into an empty bank for receive-only scanning. From the same window I could download all six banks, browse their channels in Memories and give the new group a name I would recognize on the handheld. After the download, the radio was back on the group I had been using.
 
-The pack follows the trip. The hardware connection follows the device I choose in Pocket. On the laptop I can use the UV-PRO directly over Bluetooth. Selecting an N810 over SSH gives Pocket access to the tablet’s own services. The same pack can also hold a shortwave schedule for a receiver or receive and transmit frequencies for a transceiver such as an X6100. Those lists are available for manual tuning; direct radio control is implemented for the UV-PRO.
+The pack follows the trip. The hardware connection follows the device I choose in Pocket. On the laptop I can use the UV-PRO directly over Bluetooth. Selecting an N810 over SSH gives Pocket access to the tablet’s own services. The same pack can also hold a shortwave schedule for a receiver or receive and transmit frequencies for a transceiver such as an X6100. Today I can tune the X6100 by hand from its frequency list. In the coming weeks we plan to add CAT control so I can select a frequency in Pocket and tune the X6100 directly.
 
 For another trip, I can choose a different region, terrain detail and set of radios. The [field-pack guide](../pocket/field-packs.md) includes a prompt anyone can adapt to build their own.
 
