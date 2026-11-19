@@ -49,6 +49,12 @@ class State:
     def read_job(self):return self.read_client.publication if self.read_client else {}
     @property
     def can_read(self):return self.read_client is not None
+    def direct_mac(self):
+        if self.path is not None:return False
+        from mac_uvpro import enabled
+        client=self.read_client
+        endpoint=None if self._automatic_read_client else getattr(client,'path',None)
+        return enabled(self.source,endpoint)
     def read_action(self,action):
         client=self.read_client
         if client is None:self.read_message='No owner read endpoint configured.';return False
@@ -145,8 +151,8 @@ class State:
                 prefix='Receive transport: ' if self.source and getattr(self.source,'remote',False) else 'Radio snapshot updater: '
                 message=prefix+str(message) if message else None
                 if message!=self.error:self.error=message;changed=True
-        from mac_uvpro import enabled as direct_mac, downloaded
-        if direct_mac() and downloaded() is not None:
+        from mac_uvpro import downloaded
+        if self.direct_mac() and downloaded() is not None:
             catalog = dict(adapter.data(self.payload.get('catalog')), radio_snapshot=downloaded())
             self.payload = dict(self.payload, catalog=dict(data=catalog))
         self.payload=self.with_read_telemetry(self.payload)
@@ -219,8 +225,8 @@ class State:
         transport='Local' if self.payload.get('connector',{}).get('local') is True else 'SSH '+ssh
         return f'{transport}  Feed {feed}  BT {bt}  Radio {radio} '
     def panel(self,width,ascii=False):
-        from mac_uvpro import enabled, radio_panel
-        if enabled():
+        from mac_uvpro import radio_panel
+        if self.direct_mac():
             label, style = radio_panel()
             return [('radio:mac', 'Radio  ')], {'radio:mac': style}
         s=self.result['statusbar'];radio=s['radio'];entries=[];styles={}

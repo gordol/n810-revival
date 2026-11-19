@@ -540,6 +540,9 @@ def main(platform=None,argv=None):
         host.app_forms['System']=System(system_state,open_connections=lambda:host.activate('Connections'))
     from bluetooth_view import State as BluetoothState,Bluetooth
     feed_source=getattr(radio.source,'receive',radio.source) if radio and radio.source else None
+    def mac_controller_enabled():
+        source=getattr(radio,'source',None)
+        return not getattr(source,'remote',False) and local_mac_controller()
     def local_bluetooth_source():
         source=getattr(radio,'source',None)
         source=getattr(source,'source',source)
@@ -550,7 +553,7 @@ def main(platform=None,argv=None):
         return method(action) if method else False
     from mac_tray import enabled as local_mac_controller
     bluetooth_state=BluetoothState(
-        mac_controller=local_mac_controller,
+        mac_controller=mac_controller_enabled,
         snapshot=lambda:getattr(feed_source,'feed_control',None),
         online=lambda:bool(getattr(feed_source,'feed_control_online',False)),
         request=getattr(feed_source,'request_feed_control',None),
@@ -997,8 +1000,7 @@ def main(platform=None,argv=None):
                 receive=getattr(source,'receive',source)
                 bridge=getattr(receive,'bridge',None)
                 if bridge:endpoint=Path(bridge)/'radio-control.sock'
-            from mac_uvpro import enabled as local_mac_radio
-            if local_mac_radio():endpoint=None
+            if radio and radio.direct_mac():endpoint=None
             if not getattr(map_form,'tuner',None):map_form.tuner=Tune(endpoint,lambda:inbox.notify('form:Station Map'))
             else:map_form.tuner.path=endpoint
             selection=entity.payload

@@ -153,7 +153,7 @@ class MacRadioRecovery(unittest.TestCase):
             manager = object.__new__(RadioManager)
             manager.__dict__.update(
                 page=6, bank=0, index=0, field_groups=[('Bank', [(None, None, None, None)])],
-                field_target='12', state=SimpleNamespace(source=None, read_client=None),
+                field_target='12', state=SimpleNamespace(source=None, read_client=None,direct_mac=lambda:False),
                 bank_name_editor=None,
             )
             self.assertTrue(manager.key(key))

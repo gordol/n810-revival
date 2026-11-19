@@ -39,9 +39,7 @@ class RadioManager:
         self.memory_layout=AdaptivePanels((PanelSpec('groups','Groups',18,22),PanelSpec('channels','Channels',25,34),PanelSpec('details','Selected',28,36)),focus='channels')
         self.memory_groups=SelectList(());self.memory_channels=SelectList(());self.detail_scroll=0
     def direct_mac(self):
-        from mac_uvpro import enabled
-        client=self.state.read_client
-        return enabled(self.state.source,getattr(client,'path',None))
+        return self.state.direct_mac()
     def _ensure_drafts(self,retry=False):
         if self.drafts is None and self._draft_root and (retry or not self._drafts_attempted):
             self._drafts_attempted=True
