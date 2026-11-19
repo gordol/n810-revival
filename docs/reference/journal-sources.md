@@ -544,3 +544,17 @@ Design investigation only. No Windows CE compatibility implementation or N810 te
 [Build and test instructions](../how-to/run-n810-gpu.md) · [Chronological source index](../reference/journal-sources.md#2026-11-17-pocket-on-the-second-n810)
 
 [Installing the two Debian slots](../how-to/install-n810-ab.md)
+
+<a id="2026-11-18-usb-audio"></a>
+
+## Loading USB audio from the N810 SD card
+
+[Read the journal entry](../posts/2026-11-18-usb-audio.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Kernel builder](../assets/source/journal/platform/kernel/build.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/kernel/build.py)) |
+| Checks and fixtures | [Kernel package checks](../assets/source/journal/platform/kernel/test_build.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/kernel/test_build.py)) |
+| Build inputs | [Kernel configuration](../assets/source/journal/platform/kernel/n810.config.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/kernel/n810.config)) |
+
+[Build and test instructions](../how-to/build-kernel.md) · [Chronological source index](../reference/journal-sources.md#2026-11-18-usb-audio)

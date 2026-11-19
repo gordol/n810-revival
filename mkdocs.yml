@@ -96,6 +96,7 @@ nav:
   - Keeping GPU work resident and testing at 480 MHz: posts/2026-11-10-gpu-residency-and-480mhz.md
   - Investigating a native ARM Windows CE runtime: posts/2026-11-10-windows-ce-runtime.md
   - Getting Pocket running on a second N810: posts/2026-11-17-pocket-on-the-second-n810.md
+  - Loading USB audio from the N810 SD card: posts/2026-11-18-usb-audio.md
 - Get started: start.md
 - Guides: guides.md
 - Roadmap: roadmap.md
