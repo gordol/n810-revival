@@ -43,6 +43,7 @@ The visual record begins with the [sidebar desktop](posts/2026-10-05-sidebar-des
 | 9–10 November 2026 | [Keeping GPU work resident and testing at 480 MHz](posts/2026-11-10-gpu-residency-and-480mhz.md) |
 | 10 November 2026 | [Investigating a native ARM Windows CE runtime](posts/2026-11-10-windows-ce-runtime.md) |
 | 11–18 November 2026 | [Getting Pocket running on a second N810](posts/2026-11-17-pocket-on-the-second-n810.md) |
+| 18 November 2026 | [Taking Pocket maps and radio banks into the field](posts/2026-11-18-field-packs-and-radio-banks.md) |
 
 The guide and reference pages describe reusable procedures and the latest reconciled state. Dated posts preserve the observations available at each checkpoint.
 

@@ -544,3 +544,17 @@ Design investigation only. No Windows CE compatibility implementation or N810 te
 [Build and test instructions](../how-to/run-n810-gpu.md) · [Chronological source index](../reference/journal-sources.md#2026-11-17-pocket-on-the-second-n810)
 
 [Installing the two Debian slots](../how-to/install-n810-ab.md)
+
+<a id="2026-11-18-field-packs-and-radio-banks"></a>
+
+## Taking Pocket maps and radio banks into the field
+
+[Read the journal entry](../posts/2026-11-18-field-packs-and-radio-banks.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Field-pack frequency lists](../assets/source/journal/pocket/shell/field_banks.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/field_banks.py))<br>[Mac radio control](../assets/source/journal/pocket/shell/mac_uvpro.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/mac_uvpro.py)) |
+| Checks and fixtures | [Radio reference lists](../assets/source/journal/pocket/tests/test_field_pack_radios.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_field_pack_radios.py)) |
+| Build inputs | [Mac Bluetooth adapter](../assets/source/journal/pocket/bluetooth-macos/uvpro.m.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/bluetooth-macos/uvpro.m)) |
+
+[Build and test instructions](../pocket/field-packs.md) · [Chronological source index](../reference/journal-sources.md#2026-11-18-field-packs-and-radio-banks)
