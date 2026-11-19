@@ -53,6 +53,11 @@ class SharedMapTests(unittest.TestCase):
     @patch.dict('os.environ', {'POCKET_DESKTOP_TERRAIN':'0'})
     def test_nokia_locator_stays_readable_and_controls_scroll_below_it(self):
         app=self.map();app.width=98;app.height=27;app.key('s');app.lines()
+        deadline=time.monotonic()+60
+        while app.base._locator_rect[-1].source=='overview-loading':
+            if time.monotonic()>=deadline:self.fail('Sidebar terrain did not load')
+            time.sleep(.02)
+            app.lines()
         x,y,w,h,image=app.base._locator_rect
         self.assertEqual(w,30);self.assertEqual(h,15)
         self.assertEqual(x,app.width-32+1)

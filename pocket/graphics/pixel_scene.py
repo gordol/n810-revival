@@ -23,10 +23,49 @@ def landscape_marks(layer,width):
                     for (x,y),(char,ink) in layer.items())
 
 
+def uncovered_records(records,cols,rows,cuts):
+    """Keep chrome/sidebar cells outside the actual pixel map rectangles."""
+    from gpu_scene import subtract
+    regions=[(0,0,cols,rows)]
+    for cut in cuts:regions=[piece for region in regions for piece in subtract(region,cut)]
+    for x,y,w,h in regions:
+        raw=bytearray()
+        for row in range(h):
+            for column in range(w):
+                offset=((y+row)*cols+x+column)*16
+                raw.extend(struct.pack('=I',row*w+column));raw.extend(records[offset+4:offset+16])
+        yield bytes(raw),x,y,w,h
+
+
+_PUNCTUATION = str.maketrans({'‘': "'", '’': "'", '“': '"', '”': '"', '–': '-', '—': '-', ' ': ' '})
+
+
+def display_glyph(code, supported):
+    if code in supported:
+        return code
+    substitute = _PUNCTUATION.get(code, '?')
+    fallback = ord(substitute)
+    return fallback if fallback in supported else 32
+
+
+def display_records(records, supported):
+    patched = None
+    for index, (_, code, _) in enumerate(struct.iter_unpack('<IIQ', records)):
+        if code != 32 and code not in supported:
+            if patched is None:
+                patched = bytearray(records)
+            struct.pack_into('<I', patched, index * 16 + 4, display_glyph(code, supported))
+    return records if patched is None else bytes(patched)
+
+
 class Context(SharedContext):
     native_pixels=True
     def __init__(self,platform):
         super().__init__(platform)
+        self.font_codes=frozenset(platform.renderer.font_codes)
+        host=platform.host
+        host.available_effects=('flux','pnw')
+        if host.effect not in host.available_effects:host.set_effect(host.available_effects[0])
         self.background=None;self.panels={};self.text_views={};self.started_cpu=0
         self.batches={};self.batch_builds=0;self.batch_replays=0
         self.lib.pocket_scene_batch_supported.restype=C.c_int
@@ -179,8 +218,19 @@ class Context(SharedContext):
         raise RuntimeError('Full desktop cells are not part of the native pixel path')
     def draw_records(self,records,cols,rows,x,y,fill,opacity):
         r=self.platform.renderer
-        self.check(self.lib.pocket_scene_window_draw(self.handle,C.c_char_p(records),cols,rows,x,y,r.layer_palette,len(r.layer_palette),r.layer_fallback,int(fill),opacity))
-    def draw_window(self,window,x,y,dx,dy):
+        records=display_records(records,self.font_codes)
+        result=self.lib.pocket_scene_window_draw(self.handle,C.c_char_p(records),cols,rows,x,y,r.layer_palette,len(r.layer_palette),r.layer_fallback,int(fill),opacity)
+        if result:
+            codes=set(r.font_codes)
+            cells=list(struct.iter_unpack('<IIQ',records))
+            missing=sorted({glyph for _,glyph,_ in cells if glyph!=32 and glyph not in codes})
+            bad_indices=[(i,index) for i,(index,_,_) in enumerate(cells) if i!=index][:8]
+            try:self.check(result)
+            except RuntimeError as error:
+                raise RuntimeError(f'{error}; window cells={cols}x{rows}, records={len(cells)}, '
+                                   f'position={x},{y}, opacity={opacity}, '
+                                   f'missing_glyphs={missing}, invalid_indices={bad_indices}') from error
+    def draw_window(self,window,x,y,dx,dy,pixel_clips=()):
         h=self.platform.host;n=h._native
         signature,plane=n.planes[window.name][:2];cols,rows=signature[:2]
         key=(signature,window.version,id(window.layer))
@@ -191,28 +241,50 @@ class Context(SharedContext):
         else:records=old[1]
         view=n.cell_view(h,window,h.bounds(window))
         state=(key,dx,dy,h.shadow_enabled,h.shadow_opacity,h.window_fill,h.window_opacity,
-               bytes(self.platform.renderer.layer_palette),self.platform.renderer.layer_fallback,view)
+               bytes(self.platform.renderer.layer_palette),self.platform.renderer.layer_fallback,view,tuple(pixel_clips))
         def draw():
             if h.shadow_enabled:
                 self.check(self.lib.pocket_scene_rect(self.handle,x+dx,y+dy,cols*8,rows*16,round(h.shadow_opacity*255)))
             self.draw_records(records,cols,rows,x,y,h.window_fill,round(h.window_opacity*255))
             if view is not None:
                 data,cw,ch,cx,cy=view;ox,oy=h.origin
-                self.draw_records(data,cw,ch,(cx+ox)*8,(cy+oy)*16,h.window_fill,round(h.window_opacity*255))
+                cuts=[(px//8-cx-ox,py//16-cy-oy,pw//8,ph//16) for px,py,pw,ph in pixel_clips]
+                for raw,lx,ly,lw,lh in uncovered_records(data,cw,ch,cuts):
+                    self.draw_records(raw,lw,lh,(cx+ox+lx)*8,(cy+oy+ly)*16,h.window_fill,round(h.window_opacity*255))
         self.batch(('window',window.name),(state,x,y) if view is not None else state,draw,position=None if view is not None else (x,y))
     def panel_text(self,x,y,text,fg,bg):
-        previous=self.panels.get((x,y));current=(text,fg,bg)
-        if previous==current:return False
+        current=(text,fg,bg)
+        if self.panels.get((x,y))==current:return False
+        # Panel runs change boundaries when a task closes or its style changes.
+        # Replace overlapping old runs, retaining only their unaffected edges.
+        end=x+len(text)
+        for (left,row),(label,old_fg,old_bg) in tuple(self.panels.items()):
+            right=left+len(label)
+            if row!=y or right<=x or left>=end:continue
+            del self.panels[left,row]
+            if left<x:self.panels[left,row]=(label[:x-left],old_fg,old_bg)
+            if right>end:self.panels[end,row]=(label[end-left:],old_fg,old_bg)
         self.panels[x,y]=current
-        self.damage_rect(x*8,y*16,max(len(text),len(previous[0]) if previous else 0)*8,16)
+        self.damage_rect(x*8,y*16,len(text)*8,16)
         return True
     def present(self,text):
         for (x,y),(label,fg,bg) in self.panels.items():
             def draw():
                 self.check(self.lib.pocket_scene_rect(self.handle,x*8,y*16,len(label)*8,16,(rgb565(bg)<<8)|255))
-                encoded=label.encode('utf-32-le')
+                encoded=''.join(chr(display_glyph(ord(c),self.font_codes)) for c in label).encode('utf-32-le')
                 self.check(self.lib.pocket_scene_text(self.handle,x*8,y*16,C.c_char_p(encoded),len(label),rgb565(fg)))
             self.batch(('panel',(x,y)),(label,fg,bg),draw)
+        # Two one-pixel edges per panel give the bar relief at native resolution.
+        # Drawing them once per panel keeps text runs and their hit areas intact.
+        for panel in self.platform.panel.panels:
+            x,y,w,h=panel.rect
+            if w<=0 or h<=0:continue
+            x*=8;y*=16;w*=8;h*=16
+            if panel.dock in ('top','bottom'):
+                edges=((x,y,w,1,0x525263ff),(x,y+h-1,w,1,0x191921ff))
+            else:
+                edges=((x,y,1,h,0x525263ff),(x+w-1,y,1,h,0x191921ff))
+            for edge in edges:self.check(self.lib.pocket_scene_rect(self.handle,*edge))
         super().present(False);self.model_frames+=1
         self.pending_damage=None;self.full_damage=False
         self.platform.host._flux_painted((time.process_time_ns()-self.started_cpu)/1e9)

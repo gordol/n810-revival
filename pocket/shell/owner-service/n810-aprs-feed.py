@@ -48,7 +48,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--proxy', action='store_true', help='Expose a phone Bluetooth relay while receiving packets')
     args = parser.parse_args()
-    receiver = '/home/nokia/n810-radio-proxy.py' if args.proxy else '/home/nokia/uvpro-aprs-listen.py'
+    receiver = str(Path(__file__).with_name('n810-radio-proxy.py' if args.proxy else 'uvpro-aprs-listen.py'))
     path = '/dev/shm/n810-aprs.sock'
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     # Refuse an active feed; only remove a stale socket.

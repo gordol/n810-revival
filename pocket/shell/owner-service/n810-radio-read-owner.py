@@ -23,10 +23,10 @@ def peer_uid(client):
 
 
 class Endpoint:
-    def __init__(self, *, submit, status, cancel, path=PATH, authenticate=peer_uid, radio_live=None, tune=None):
+    def __init__(self, *, submit, status, cancel, path=PATH, authenticate=peer_uid, radio_live=None, tune=None, bank=None):
         if authenticate is peer_uid and not hasattr(socket, 'SO_PEERCRED'):
             raise OSError('Same-user peer authentication unavailable')
-        self.tune=tune
+        self.tune=tune;self.bank=bank
         self.submit = submit; self.status = status; self.cancel = cancel
         self.path = Path(path); self.authenticate = authenticate; self.radio_live = radio_live
         self.selector = selectors.DefaultSelector(); self.clients = {}
@@ -74,6 +74,20 @@ class Endpoint:
             if set(value) != fields | {'requested_at', 'expires_at'}:
                 raise ValueError('Invalid read request fields')
             result = self.submit(value)
+        elif operation in ('edit_setting','setting_status') and self.bank is not None:
+            if operation=='edit_setting':
+                edit=value.get('edit')
+                if set(value)!=fields|{'edit'} or not isinstance(edit,dict) or set(edit)!={'group','field','expected','value'} or edit['group'] not in ('settings','beacon'):
+                    raise ValueError('Invalid settings edit')
+            elif set(value)!=fields:raise ValueError('Invalid settings status request')
+            result=self.bank(operation,request_id,value.get('edit'))
+        elif operation in ('download_bank','bank_status') and self.bank is not None:
+            if operation=='download_bank':
+                if set(value)!=fields|{'bank'}:raise ValueError('Invalid bank request')
+                index=value['bank']
+                if index is not None and (type(index) is not int or not 0<=index<64):raise ValueError('Invalid bank index')
+            elif set(value)!=fields:raise ValueError('Invalid bank status request')
+            result=self.bank(operation,request_id,value.get('bank'))
         elif operation=='tune_repeater' and self.tune is not None:
             if set(value)!=fields|{'repeater'}:raise ValueError('Invalid tuning request fields')
             result=self.tune(request_id,value['repeater'])

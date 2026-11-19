@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Read or select a bounded CPUFreq policy on the local N810."""
+import json
+import sys
+from pathlib import Path
+
+CPUFREQ = Path('/sys/devices/system/cpu/cpufreq/policy0')
+DISPLAY_MODE = Path('/sys/class/graphics/fb0/update_mode')
+DISPLAY_OVERLAY = Path('/sys/devices/platform/omapdss/overlay0/enabled')
+
+
+def read(path):
+    return (path).read_text().strip()
+
+
+def available(root):
+    return sorted({int(value) for value in read(root / 'scaling_available_frequencies').split()})
+
+
+def status(root=CPUFREQ):
+    frequencies = available(root)
+    governors = read(root / 'scaling_available_governors').split()
+    return dict(available_khz=frequencies, available_governors=governors,
+                current_khz=int(read(root / 'scaling_cur_freq')),
+                minimum_khz=int(read(root / 'scaling_min_freq')),
+                maximum_khz=int(read(root / 'scaling_max_freq')),
+                governor=read(root / 'scaling_governor'))
+
+
+def select(mode, root=CPUFREQ, display_mode=DISPLAY_MODE,
+           display_overlay=DISPLAY_OVERLAY):
+    before = status(root)
+    rates = before['available_khz']
+    governors = before['available_governors']
+    if mode == 'performance':
+        governor, maximum = 'performance', rates[-1]
+    elif mode == 'balanced':
+        governor = 'performance'
+        lower = [rate for rate in rates if rate <= rates[-1] * 85 // 100]
+        maximum = lower[-1] if lower else rates[-1]
+    elif mode == 'save':
+        governor = 'powersave'
+        lower = [rate for rate in rates if rate <= rates[-1] * 85 // 100]
+        maximum = lower[-1] if lower else rates[-1]
+    else:
+        raise ValueError('Unsupported CPU mode')
+    if governor not in governors:
+        raise ValueError('Required CPU governor is unavailable')
+    if maximum < before['minimum_khz']:
+        raise ValueError('CPU minimum exceeds requested cap')
+    previous_display_mode = read(display_mode)
+    if previous_display_mode not in ('1', '2'):
+        raise OSError('Unsupported framebuffer update mode')
+    if read(display_overlay) != '1':
+        raise OSError('Graphics overlay is not enabled')
+    if previous_display_mode == '1':
+        display_mode.write_text('2\n')
+    try:
+        display_overlay.write_text('0\n')
+        try:
+            try:
+                (root / 'scaling_max_freq').write_text(str(maximum) + '\n')
+                (root / 'scaling_governor').write_text(governor + '\n')
+                after = status(root)
+                if after['maximum_khz'] != maximum or after['governor'] != governor:
+                    raise OSError('CPUFreq did not accept the requested policy')
+                return after
+            except OSError:
+                # Restore the policy observed immediately before this request.
+                (root / 'scaling_max_freq').write_text(str(before['maximum_khz']) + '\n')
+                (root / 'scaling_governor').write_text(before['governor'] + '\n')
+                raise
+        finally:
+            display_overlay.write_text('1\n')
+    finally:
+        if previous_display_mode == '1':
+            display_mode.write_text('1\n')
+
+
+def main(argv):
+    if len(argv) != 1 or argv[0] not in ('status', 'balanced', 'save', 'performance'):
+        raise ValueError('Usage: n810-cpu-policy {status|balanced|save|performance}')
+    result = status() if argv[0] == 'status' else select(argv[0])
+    print(json.dumps(result, sort_keys=True))
+
+
+if __name__ == '__main__':
+    try:
+        main(sys.argv[1:])
+    except (OSError, ValueError) as error:
+        print('n810-cpu-policy: ' + str(error), file=sys.stderr)
+        raise SystemExit(1)

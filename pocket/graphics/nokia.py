@@ -56,11 +56,17 @@ def main():
     if a.seconds is not None and not 0<a.seconds<=86400:p.error('seconds must be in (0,86400]')
     from keyboard_runtime import console_foreground
     if not console_foreground(sys.stdin.fileno()):p.error('An owned foreground Linux VT is required for input')
-    a.state.mkdir(parents=True,exist_ok=True)
+    a.state.mkdir(parents=True,exist_ok=True,mode=0o700)
+    from client_state import prepare_station_database
+    prepare_station_database(a.state,rest)
     display=Window(a.display_library,fd=a.framebuffer_fd)
     platform=NokiaPlatform(a.font,a.renderer_library,display,output=a.output,
         actions=json.loads(a.actions.read_text()) if a.actions else (),seconds=a.seconds,
         font_mode=a.font_mode,require_gpu=not a.allow_software,cell_renderer=a.cell_renderer,diagnostics=a.report is not None)
+    import socket
+    platform.power_socket=socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM)
+    platform.power_socket.setsockopt(socket.SOL_SOCKET,socket.SO_PASSCRED,1)
+    platform.power_socket.bind('\0n810-pocket-power')
     previous={};old=termios.tcgetattr(sys.stdin)
     def stop(signum,frame):
         platform.closed=True
@@ -75,6 +81,7 @@ def main():
             '--app-state',str(a.state),'--station-db',str(a.state/'directory.sqlite3'),
             '--native',str(a.native_library),'--touch-acquisition','process',*rest])
     finally:
+        platform.power_socket.close()
         try:platform.close()
         finally:
             termios.tcsetattr(sys.stdin,termios.TCSANOW,old)

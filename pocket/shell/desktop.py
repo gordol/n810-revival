@@ -27,7 +27,7 @@ from weather import Weather, PRESETS
 from effects import NAMES as EFFECTS
 from input import Input,WM_ESCAPES,phone_action
 from controls import scene_controls,Button,Slider,Choice
-from core import World, Record, Host, Window, Inbox, compile_model, STYLES, PALETTES
+from core import World, Record, Host, Window, Inbox, compile_model, STYLES, PALETTES, OVERLAY_BORDERS
 
 
 def present_form_content(host,name,form,lines,spans,layer,metrics=None):
@@ -114,6 +114,7 @@ def arguments(argv=None,full=False):
     parser.add_argument('--receive-sources',type=Path,help='approved client Directory ingest modules; requires --receive-feed and --station-db')
     parser.add_argument('--receive-bridge',type=Path,help='owned SSH bridge directory for bounded read-only radio status')
     parser.add_argument('--no-save', action='store_true')
+    parser.add_argument('--recovery-report',type=Path,help='open recovery without restoring or overwriting the saved session')
     parser.add_argument('--profile', choices=['small', 'wide'], default='small')
     parser.add_argument('--panel', choices=DOCKS, default=None)
     parser.add_argument('--panel-mode',choices=MODES,help='bar, responsive auto, icon dock or compact sidebar')
@@ -233,7 +234,8 @@ def main(platform=None,argv=None):
     geometry = platform.geometry() if platform else measure(sys.stdout.fileno())
     panel=Panels(args.panel or 'top',mode=args.panel_mode or ('auto' if workspace else 'bar'))
     panel.launcher_count=2+len(workspace)
-    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)))
+    screen_size=trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)
+    ox,oy,width,height=panel.layout(*screen_size)
     if width < 40 or height < 12:
         raise SystemExit('Use a terminal at least 40 columns by 14 rows.')
     windows = (app_gallery.windows(width,height) if app_gallery is not None else [])+[
@@ -241,6 +243,7 @@ def main(platform=None,argv=None):
         Window('Scenery',1,1,min(100,width),min(32,height-1),visible=False,opened=False),
         Window('Font Preview',1,1,min(78,width),min(28,height-1),visible=False,opened=False),
         Window('Calendar',max(0,(width-40)//2),1,min(40,width),min(13,height-1),visible=False,opened=False)]
+    if args.recovery_report:windows.append(Window('Desktop Recovery',1,1,min(76,width),min(25,height-1),visible=False,opened=False))
     windows.append(Window('Bluetooth',max(0,(width-62)//2),1,min(62,width),min(23,height-1),visible=False,opened=False))
     if not args.minimal or args.shell or args.radio_state or args.device_radio or args.receive_feed or args.radio_read_socket:
         windows.append(Window('Radio Manager',max(0,(width-86)//2),2,min(86,width),min(29,height-2),visible=False,opened=False))
@@ -273,7 +276,7 @@ def main(platform=None,argv=None):
         selected_socket=args.reticulum_socket
         selected_local=args.reticulum_local
         local_options=None
-        if selected_socket is None and selected_local is None and not args.shell:
+        if selected_socket is None and selected_local is None and not args.shell and __import__('service_policy').enabled('reticulum'):
             selection=saved_reticulum_selection(app_state)
             if selection is not None:
                 if selection['mode']=='external':selected_socket=selection['socket']
@@ -311,7 +314,7 @@ def main(platform=None,argv=None):
             rect=source.rect if source else app.rect
             windows.append(Window(app.name,*rect,visible=False,opened=False))
     if native_defaults:
-        for name in ('Messages','Nets','Services','APRS Walk Logs','CW','N810 Setup','ULS Lookup','Radio Feed','Heard'):
+        for name in ('Messages','Nets','Services','APRS Walk Logs','Offline Data','CW','N810 Setup','ULS Lookup','Radio Feed','Heard'):
             if not any(w.name==name for w in windows):windows.append(Window(name,1,1,min(86,width-1),min(28,height-1),visible=False,opened=False))
     def local_domain_installed(name):
         here=Path(__file__).resolve().parent
@@ -366,7 +369,7 @@ def main(platform=None,argv=None):
         return create
     native_specs=(('Messages','native_messages','Messages',None),('Services','native_services','Services','service_view'),
                   ('Nets','native_nets','Nets','net_view'),('APRS Walk Logs','native_walk','Walk','walk_view'),
-                  ('CW','native_cw','CW',None),('N810 Setup','native_setup','N810Setup',None),('ULS Lookup','native_uls','ULSLookup',None),
+                  ('Offline Data','native_data_setup','OfflineData',None),('CW','native_cw','CW',None),('N810 Setup','native_setup','N810Setup',None),('ULS Lookup','native_uls','ULSLookup',None),
                   ('Radio Feed','native_feed','RadioFeed','feed_view'),
                   ('Heard','native_heard','Heard','heard_view'))
     if native_defaults:
@@ -403,7 +406,7 @@ def main(platform=None,argv=None):
     if station_enabled and width<=100 and height<=40:host.full_window_apps.add('Station Map')
     host._flux_external_budget=True
     host.pointer_trace=pointer_trace
-    host.origin=(ox,oy);host.reserved_bottom=panel.overlay_bottom
+    host.origin=(ox,oy);host.overlay_screen=screen_size;host.reserved_bottom=panel.overlay_bottom
     host.session_shells={'Terminal'}
     host.minimum_sizes={a.name:(a.minimum[0]+2,a.minimum[1]+2) for a in workspace}
     host.minimum_sizes.update({a.name:(a.minimum[0]+2,a.minimum[1]+2) for a in terminal_fallbacks})
@@ -416,10 +419,10 @@ def main(platform=None,argv=None):
     host.background_enabled = not args.shell or bool(args.effect)
     host.set_effect(args.effect or ('flux' if args.shell else 'terrain'))
     host.scene_seed=int.from_bytes(os.urandom(4),'little')
-    store=Store(args.session,enabled=not args.no_save and not args.smoke and not args.minimal,remember_layout=True)
+    store=Store(args.session,enabled=not args.no_save and not args.smoke and not args.minimal and not args.recovery_report,remember_layout=True)
     # Read saved settings independently of writing changes back. Minimal/smoke
     # remain fresh launch modes; --no-save alone is a read-only session.
-    if not args.smoke and not args.minimal:store.load(host,panel)
+    if not args.smoke and not args.minimal and not args.recovery_report:store.load(host,panel)
     if args.timezone:
         from time_display import validate_zone
         try:validate_zone(args.timezone)
@@ -477,8 +480,9 @@ def main(platform=None,argv=None):
         other=next((p for p in panel.panels if p is not first and p.dock==args.panel),None)
         if other:other.dock=first.dock
         first.dock=args.panel
-    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)))
-    host.reserved_bottom=panel.overlay_bottom;host.resize(width,height+panel.overlay_bottom);host.origin=(ox,oy)
+    screen_size=trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)
+    ox,oy,width,height=panel.layout(*screen_size)
+    host.reserved_bottom=panel.overlay_bottom;host.resize(width,height+panel.overlay_bottom);host.origin=(ox,oy);host.overlay_screen=screen_size
     if args.native_stations and not station_enabled:parser.error('--native-stations requires --station-db or a workspace containing Directory')
     if native_defaults and workspace and not store.loaded:
         # Seed only a new operator profile. Restored layouts own their focus.
@@ -534,14 +538,24 @@ def main(platform=None,argv=None):
         host.app_forms['System']=System(system_state,open_connections=lambda:host.activate('Connections'))
     from bluetooth_view import State as BluetoothState,Bluetooth
     feed_source=getattr(radio.source,'receive',radio.source) if radio and radio.source else None
+    def local_bluetooth_source():
+        source=getattr(radio,'source',None)
+        source=getattr(source,'source',source)
+        return source if getattr(source,'local_device',False) else None
+    def controller_request(action):
+        source=local_bluetooth_source()
+        method=getattr(source,'request_bluetooth_power',None)
+        return method(action) if method else False
     bluetooth_state=BluetoothState(
         snapshot=lambda:getattr(feed_source,'feed_control',None),
         online=lambda:bool(getattr(feed_source,'feed_control_online',False)),
         request=getattr(feed_source,'request_feed_control',None),
-        feedback=lambda:getattr(getattr(feed_source,'control',None),'message',''),
+        feedback=lambda:getattr(local_bluetooth_source(),'bluetooth_message','') or getattr(getattr(feed_source,'control',None),'message',''),
+        controller_request=controller_request if args.device_radio else None,
+        controller_available=lambda:local_bluetooth_source() is not None,
         hardware=lambda:((radio.payload.get('live') or {}).get('data') or {}).get('bluetooth_controller') if radio else None)
     bluetooth_control=None if connections is not None else getattr(feed_source,'control',None)
-    host.app_forms['Bluetooth']=Bluetooth(bluetooth_state)
+    host.app_forms['Bluetooth']=Bluetooth(bluetooth_state,local_receive=args.device_radio)
     if DEVELOPMENT:
         def create_render_debug(host):
             from draw_metrics import RenderDebug
@@ -636,6 +650,38 @@ def main(platform=None,argv=None):
         # Keep service readiness attached without overriding saved visibility,
         # focus, desktop or stacking order.
         registered_apps.forms['Connections'].open(activate=False)
+    if args.recovery_report:
+        from desktop_recovery import Recovery
+        host.transient_windows.add('Desktop Recovery')
+        # Saved state stays untouched until the user deliberately leaves recovery.
+        for window in host.windows:window.opened=window.visible=False
+        host.background_enabled=False
+        def restore_recovery(name):
+            nonlocal resized
+            store.load(host,panel)
+            if store.error:return store.error
+            if not store.loaded:return 'No saved desktop was found.'
+            # Loading replaces Panel objects; lay them out before the next frame.
+            resized=True
+            restore_pending.clear()
+            for app,form in host.app_forms.items():
+                if hasattr(form,'restore_session'):form.restore_session(getattr(host,'app_view_state',{}).get(app,{}))
+            for window in host.windows:
+                if name is not None and window.name!=name:window.opened=window.visible=False
+            for app,form in registered_apps.forms.items():
+                if host.window(app).opened and form.owner is None:
+                    form.restore_pending=True;restore_pending.append(app)
+            if name is not None:host.activate(name)
+            return 'Restored. Saved desktop remains protected during recovery.'
+        def resume_recovery():
+            try:args.recovery_report.write_text('{"accepted": true}\n')
+            except OSError as error:return 'Could not finish recovery: '+str(error)
+            host.close('Desktop Recovery')
+            store.enabled=not args.no_save
+            store.bind(host,panel,time.monotonic())
+            return 'Normal saving resumed.'
+        host.app_forms['Desktop Recovery']=Recovery(args.recovery_report,store,restore_recovery,resume_recovery)
+        host.activate('Desktop Recovery')
     def close_apps():
         if map_open is not None:map_open.close()
         for application in applications:application.close()
@@ -673,6 +719,15 @@ def main(platform=None,argv=None):
     if platform:platform.attach(host,panel,registered_apps)
     old = termios.tcgetattr(sys.stdin) if platform is None else None
     selector = selectors.DefaultSelector()
+    power_socket=getattr(platform,'power_socket',None)
+    screen_watch = None
+    display_locked = False
+    if power_socket is not None:
+        from importlib import import_module
+        lock_path = Path('/run/n810-screen/locked')
+        screen_watch = import_module('owner-service.control_changes').ControlChanges([lock_path])
+        selector.register(screen_watch.fd, selectors.EVENT_READ, screen_watch)
+        selector.register(power_socket,selectors.EVENT_READ)
     if bluetooth_control is not None:selector.register(bluetooth_control.readable,selectors.EVENT_READ,bluetooth_control)
     from app_readiness import AppReadiness,AppReady
     app_readiness=AppReadiness(selector)
@@ -756,7 +811,7 @@ def main(platform=None,argv=None):
     settings_items=[
         ('Frame style',lambda:host.style,lambda d:cycle(STYLES,host.style,host.set_style,d)),
         ('Colors',lambda:host.palette,lambda d:cycle(PALETTES,host.palette,host.set_palette,d)),
-        ('Background',lambda:host.effect,lambda d:cycle(EFFECTS,host.effect,host.set_effect,d)),
+        ('Background',lambda:host.effect,lambda d:cycle(host.available_effects,host.effect,host.set_effect,d)),
         ('Backdrop enabled',lambda:'on' if host.background_enabled else 'off',toggle_backdrop),
         ('Animation',lambda:'on' if host.animate else 'off',toggle_animation),
         ('Window animations',lambda:'on' if host.window_animations else 'off',toggle_window_animation),
@@ -800,7 +855,7 @@ def main(platform=None,argv=None):
             ('Configuration',[('Shortcut file',lambda:str(bindings.path),lambda d:None),
                 ('Reload shortcuts',lambda:bindings.error or 'Reload keys.json',lambda d:bindings.reload()),
                 ('Scope',lambda:'Common navigation + window controls',lambda d:None)])]),
-        ('Appearance',(' ▄▀▄ ',' ▀▄▀ ','  Aa '),'Colors, fonts and presentation',[('Style',[rows['Colors']]),('Windows',[window_rows[1],('Show underlying text',lambda:'on' if host.show_underlying_text else 'off',lambda d:host.set_show_underlying_text(not host.show_underlying_text))]),('Fonts',font_preview.settings_rows())]),
+        ('Appearance',(' ▄▀▄ ',' ▀▄▀ ','  Aa '),'Colors, fonts and presentation',[('Style',[rows['Colors'],Choice('Overlay borders',lambda:host.overlay_borders,lambda mode:host.set_preference('overlay_borders',mode),OVERLAY_BORDERS).row()]),('Windows',[window_rows[1],('Show underlying text',lambda:'on' if host.show_underlying_text else 'off',lambda d:host.set_show_underlying_text(not host.show_underlying_text))]),('Fonts',font_preview.settings_rows())]),
         ('Window Manager',('╭───╮','│   │','╰───╯'),'Frames, focus and effects',[
             ('Style',[rows['Frame style'],title_controls,window_rows[0]]),
             ('Behavior',[rows['Focused click'],rows['Move drawing'],rows['Resize drawing'],('Resize borders',lambda:'on' if host.resize_edges else 'off',lambda d:host.set_preference('resize_edges',not host.resize_edges)),('Desktop wheel',lambda:'on' if host.desktop_scroll else 'off',lambda d:host.set_preference('desktop_scroll',not host.desktop_scroll))]),
@@ -973,27 +1028,74 @@ def main(platform=None,argv=None):
                 if station_directory.select(entity.key):position=(context.target or {}).get('position')
                 map_form.profile_from_qth(entity.key,position);host.activate('Station Map')
             entity_actions.register('station','Profile from QTH',qth_profile_station,available=terrain_feature_enabled)
-    def open_launcher(pointer=None):
+    def open_launcher(pointer=None, source_panel=None):
         nonlocal manager_mode
         manager_mode=True
         host.finish(False);panel.cancel()
-        if pointer is not None:host.launcher_anchor=(*pointer,1,1)
-        else:
-            button=next((hit for p in panel.panels for hit in p.hits if hit[3]=='key:,'),None)
-            host.launcher_anchor=(button[0]-ox,button[1]-oy,button[2],1) if button else None
+        if pointer is None:
+            for candidate in panel.panels:
+                button=next((hit for hit in candidate.hits if hit[3]=='key:,'),None)
+                if button:
+                    pointer=(button[0]-ox,button[1]-oy)
+                    source_panel=candidate
+                    break
+        host.place_launcher((*pointer,1,1) if pointer is not None else None,
+                            source_panel.dock if source_panel is not None else None)
         launcher.open()
 
     def open_tray(action,pointer):
-        from panel_tray import menu
+        from panel_tray import CONTROL_ACTIONS, display_levels, menu
         content=menu(action,system_state,bluetooth_state,radio)
         if content is None:return False
         title,entries=content
+        if action=='system:Display':title=display_levels()
+        if action=='system:WiFi' and native_defaults and Path('/etc/n810-image/bootstrap.json').is_file():
+            entries.insert(0,('Join Wi-Fi…','local:wifi'))
+        if action.startswith('bluetooth:') and args.device_radio:
+            state=bluetooth_state.read()
+            if not state['radio_connected']:
+                entries=[entry for entry in entries if entry[1]!='bt:receive_start']
+                entries.insert(0,('Connect UV-PRO','bt:receive_start' if state['online'] else 'local:receive'))
         title=''.join(c for c in title if c.isprintable())
         if len(title)>72:title=title[:71]+'…'
-        open_launcher(pointer);context_commands.clear()
+        open_launcher(pointer,panel.at(pointer[0]+ox,pointer[1]+oy));context_commands.clear()
         for index,(label,intent) in enumerate(entries):
             def invoke(intent=intent):
+                if intent=='local:wifi':
+                    launch('window:N810 Setup')
+                    form=registered_apps.forms['N810 Setup'].form
+                    if form is not None:form.open_wifi()
+                    return
+                if intent=='local:receive':
+                    launch('window:Bluetooth');host.app_forms['Bluetooth'].start_receive();return
                 if intent.startswith('bt:'):bluetooth_state.request(intent[3:])
+                elif intent=='power:confirm-shutdown':
+                    open_launcher(pointer)
+                    launcher.open_context('Shut down this tablet?', [('Cancel','tray:done'),('Shut down','tray:shutdown')])
+                    context_commands.clear()
+                    context_commands['tray:done']=lambda:None
+                    context_commands['tray:shutdown']=lambda:invoke('power:shutdown')
+                    return
+                elif intent.startswith('submenu:'):
+                    open_tray('system:'+intent.split(':',1)[1],pointer)
+                    return
+                elif intent in CONTROL_ACTIONS:
+                    import subprocess
+                    command,message=CONTROL_ACTIONS[intent]
+                    failure=None
+                    try:
+                        result=subprocess.run(command,capture_output=True,text=True,timeout=30)
+                        if result.returncode:
+                            failure=result.stderr.strip() or 'Control action failed'
+                    except (OSError,subprocess.TimeoutExpired) as error:failure=str(error)
+                    if action=='system:Display':
+                        # Keep the existing anchor, filtered rows, and selection for the next tap or Enter.
+                        launcher.active=True
+                        launcher.context_title=' '.join(failure.split())[:72] if failure else display_levels()
+                        return
+                    open_launcher(pointer);launcher.open_context((failure or message)[:72],[('Return to Pocket','tray:done')])
+                    context_commands['tray:done']=lambda:None
+                    return
                 elif intent=='system:refresh':
                     if system_state:system_state.connector.update(True);system_state.update()
                 elif intent in ('radio:check','radio:read'):
@@ -1153,6 +1255,7 @@ def main(platform=None,argv=None):
                 nonlocal model_inputs
                 result=app_command(host,launch,build_identity.IDENTITY,request)
                 if request.get('command')=='status':
+                    result['desktop_view']=dict(effect=host.effect,background=host.background_enabled,menu=launcher.context_title if launcher.active else None,window_selection=window_selection.active)
                     result['restoring_apps']=[name for name in restore_pending if registered_apps.forms[name].restore_pending]
                 if request.get('command') not in ('status','radio-status','system-status'):model_inputs=True
                 return result
@@ -1191,11 +1294,20 @@ def main(platform=None,argv=None):
             if stopping:break
             flux_cpu_start=time.thread_time() if host.background_enabled and host.effect=='flux' else None
             iteration_start=metrics.begin() if DEVELOPMENT and (metrics) else None
-            input_events = platform.events() if platform else decoder.feed(b'', expire=not events)
+            input_events = decoder.events(platform, expire=not events)
             quit_now = False
             if platform and platform.closed:break
             if platform and platform.resized:resized=True;platform.resized=False
             for key, _ in events:
+                if screen_watch is not None and key.data is screen_watch:
+                    screen_watch.drain()
+                    continue
+                if power_socket is not None and key.fileobj is power_socket:
+                    import socket as unix_socket,struct as unix_struct
+                    message,credentials,_,_=power_socket.recvmsg(4,unix_socket.CMSG_SPACE(12))
+                    if message==b'P' and any(level==unix_socket.SOL_SOCKET and kind==unix_socket.SCM_CREDENTIALS and unix_struct.unpack('3i',value)[1]==0 for level,kind,value in credentials):
+                        open_tray('system:Power',(0,0));model_inputs=True
+                    continue
                 if bluetooth_control is not None and key.data is bluetooth_control:
                     bluetooth_control.ready();model_inputs=True;continue
                 if keyboard is not None and key.fileobj is keyboard:
@@ -1240,6 +1352,26 @@ def main(platform=None,argv=None):
                         if keyboard_router is not None:keyboard_router.cancel()
                         quit_now=True
                     else:input_events.extend(decoder.feed(raw))
+            if screen_watch is not None:
+                locked = lock_path.exists()
+                if locked and not display_locked:
+                    cancel_touch()
+                    terminal_keys.cancel()
+                    if keyboard_router is not None:keyboard_router.cancel()
+                    platform.display.present(bytes(platform.display.width * platform.display.height * 2))
+                if locked:
+                    display_locked = True
+                    events = selector.select()
+                    continue
+                if display_locked:
+                    display_locked = False
+                    platform.dirty = True
+                    platform.gpu_context.full_damage = True
+                    host.front = [None] * (host.width * host.height)
+                    host.invalidate((0, 0, host.width, host.height))
+                    for p in panel.panels:p.cache = None
+                    input_events.clear()
+                    model_inputs = True
             if input_events:
                 wake=console_wake()
                 if wake:
@@ -1276,12 +1408,9 @@ def main(platform=None,argv=None):
                     host.report_mouse(x-ox,y-oy)
                     if launcher.active:
                         if button==0 and not released:
-                            left,top,mw,mh=host.launcher_bounds()
-                            row=y-oy-top-2
-                            if left<=x-ox<left+mw:
-                                action=launcher.pointer(row,host.height)
-                                if action:launch(action)
-                            else:launcher.active=False
+                            row=host.launcher_pointer_row(x-ox,y-oy)
+                            action=launcher.pointer(row,host.overlay_capacity())
+                            if action:launch(action)
                         continue
                     if host.help_lines:continue
                     if host.drag and host.pointer_origin is not None and (released or button&32):
@@ -1314,7 +1443,7 @@ def main(platform=None,argv=None):
                             entities=form.entities_at(x-ox-hit.x-1,y-oy-hit.y-1)
                             if open_entity_menu(entities,(x-ox,y-oy)):
                                 host.select(hit.name);continue
-                        open_launcher((x-ox,y-oy))
+                        open_launcher((x-ox,y-oy),tray_panel)
                         continue
                     if panel.at(x,y) or panel.drag or panel.pending_drag:
                         if released and host.pointer_origin and not panel.drag:
@@ -1374,7 +1503,13 @@ def main(platform=None,argv=None):
                     continue
                 global_key=bindings.global_key(char,WM_ESCAPES[host.wm_escape])
                 if global_key=='window-select':
-                    window_selection.enter();manager_mode=False;continue
+                    if power_socket is not None:
+                        entries=[(w.name,'window:'+w.name) for w in host.windows if w.opened]
+                        open_launcher();launcher.open_context('Switch window',entries or [('Return to desktop','tray:done')])
+                        context_commands['tray:done']=lambda:None
+                    else:
+                        launcher.active=False;window_selection.enter();manager_mode=False
+                    continue
                 if global_key=='window-commands':
                     window_selection.reset_sequence();manager_mode=not manager_mode;continue
                 char=global_key
@@ -1383,13 +1518,8 @@ def main(platform=None,argv=None):
                 elif host.focus=='Calendar':form=calendar_view
                 safe_escape=not (manager_mode or launcher.active or host.help_lines or host.screensaver or host.drag or host.overview or host.focus in terminals)
                 if form is not None:
-                    from native_navigation import navigation
-                    native_form=getattr(form,'navigation_form',form)
-                    if native_form is None or getattr(native_form,'layer_only',False):
-                        safe_escape=False
-                    else:
-                        nav=navigation(native_form);listing,_=nav.listing()
-                        safe_escape=safe_escape and not (nav.modal() or nav.current().kind=='input' or nav.input() is not None or listing is not None and listing.searching)
+                    from native_navigation import native_escape_allowed
+                    safe_escape=native_escape_allowed(form,safe_escape)
                 if window_selection.double_escape(char,time.monotonic(),allowed=safe_escape):
                     manager_mode=False;continue
                 if phone_action(char,host,launcher,open_launcher):
@@ -1461,7 +1591,7 @@ def main(platform=None,argv=None):
                     weather_index=(weather_index+1)%len(PRESETS)
                     observation=PRESETS[weather_index]
                     inbox.submit(lambda observation=observation: observation)
-                elif char == 'e': host.set_effect(EFFECTS[(EFFECTS.index(host.effect)+1)%len(EFFECTS)])
+                elif char == 'e': cycle(host.available_effects,host.effect,host.set_effect,1)
                 elif char == 'c': host.set_palette(tuple(PALETTES)[(tuple(PALETTES).index(host.palette)+1)%len(PALETTES)])
                 elif char == 'b':
                     host.set_background_enabled(not host.background_enabled)
@@ -1539,7 +1669,7 @@ def main(platform=None,argv=None):
             if not first_frame and (host.ui_damage or launcher.active or host.launcher_lines or host.drag and host.latest is not None):
                 # WM/input updates already changed the retained model. Present
                 # their damage before polling/rebuilding unrelated applications.
-                host.set_launcher(launcher.lines(host.height))
+                host.set_launcher(launcher.lines(host.overlay_capacity()))
                 model_deferred=model_deferred or refresh_models
                 model_full_deferred=model_full_deferred or full_models
                 refresh_models=False
@@ -1589,9 +1719,10 @@ def main(platform=None,argv=None):
                     else:
                         selector.unregister(touch);touch.close();touch=None;touch_error='viewport too small'
                 if geometry.columns >= 24 and geometry.rows >= 6:
-                    ox,oy,width,height=panel.layout(*(trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)))
+                    screen_size=trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)
+                    ox,oy,width,height=panel.layout(*screen_size)
                     host.reserved_bottom=panel.overlay_bottom;host.resize(width,height+panel.overlay_bottom)
-                    host.origin=(ox,oy)
+                    host.origin=(ox,oy);host.overlay_screen=screen_size
                     for p in panel.panels:p.cache=None
                     # Buffered ANSI uses the old geometry. Drop it and close
                     # any synchronized output before clearing the new viewport.
@@ -1603,7 +1734,7 @@ def main(platform=None,argv=None):
                 section_start=metrics.begin() if DEVELOPMENT and (metrics) else None
                 if panel_models:
                     tabs = [(f'@{i}', f'{i+1}{"*" if i == host.desktop else ""} ') for i in range(3)] + [(w.name,host.window_label(w)) for w in host.task_windows()]
-                    next_menu=launcher.lines(host.height)
+                    next_menu=launcher.lines(host.overlay_capacity())
                     host.set_launcher(next_menu)
                 sw=host.window('Settings')
                 if (full_models or 'form:Settings' in due_owners) and host.shown(sw) and not sw.rolled:
@@ -1914,6 +2045,7 @@ def main(platform=None,argv=None):
         try:
             if DEVELOPMENT:
                 pointer_trace.sample(host);pointer_trace.close()
+            if screen_watch is not None:screen_watch.close()
             if keyboard_router is not None:keyboard_router.close()
             if DEVELOPMENT and (trial):
                 try:trial.finish(sys.exc_info()[1],metrics.render if DEVELOPMENT and (metrics) else None)

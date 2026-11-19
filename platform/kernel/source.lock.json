@@ -7,7 +7,7 @@
   "checksum_source": "https://cdn.kernel.org/pub/linux/kernel/v5.x/sha256sums.asc",
   "release": "5.15.224-n810-mbx-clock-wip1",
   "image_limit": 2095104,
-  "expected_modules": 199,
+  "expected_modules": 198,
   "excluded_legacy_paths": [
     "README.md",
     "n810/.gitignore",
@@ -29,7 +29,15 @@
     "clock-module/mbx_reset.h": "d08ec4492d152c023b536530c455f77ee35e816b242c35372ba7199b03ff22b5",
     "clock-module/n810_mbx_clock_trial.c": "c18de982f850099413472b454e7e096fca5f11f964d9b0a86d9ea2ab80f3796a",
     "n810-5.15.224.patch": "daf8e4ae00500d33e55d275680711e6c8ea82b8b47a58a7a17b1dc767f5383c2",
-    "n810.config": "8c765e23449f6f61211b854bd93d6e886187fbbf9ccb0e02c1cefecf111a80e2",
-    "source-files.json": "719b0ee883cc850a5acdb53d630cb406257308bc1287fd303c0a223fd5d5dfa2"
+    "n810.config": "66d1023cd4662bb94733af9456de3d68b7edab791eb0773001a9123ba9bcaa7a",
+    "source-files.json": "719b0ee883cc850a5acdb53d630cb406257308bc1287fd303c0a223fd5d5dfa2",
+    "n810-480mhz.patch": "832fa3a9805262d7f435935767ff368ea7d3b603c0ef77ea51e65233f517f59b",
+    "cpu-source-files.json": "e89ffcd8641c7c9a6b1c2472ed6a0739a580ddae34383ca03672f6769db6996e",
+    "n810-device-fixes.patch": "b60618d8a25ea803f0cfe4bcdeb5aaec5b50bbd6bd81f290b59d8d557bf16bc8",
+    "device-source-files.json": "3f42c83649fe15953f2e2d29709ed89fadbf809c5b4260ce7417850dd58b7df4"
+  },
+  "toolchain": {
+    "gcc_version": "12.2.0",
+    "binutils_version": "2.40"
   }
 }

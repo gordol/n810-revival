@@ -46,6 +46,13 @@ class PipelineTests(unittest.TestCase):
         prepare(folder/'raw.tif',folder/'export.json',target)
         return target/'index.json'
 
+    def test_cancelled_portable_terrain_does_not_read_tiles(self):
+        import elevation_display
+        from concurrent.futures import CancelledError
+        view=SimpleNamespace(span=10,width=20,height=10,cell_aspect=2,center=(5.5555,5.5555))
+        with patch.object(local_elevation,'display_sources',side_effect=AssertionError('Cancelled work read the catalogue')):
+            with self.assertRaises(CancelledError):elevation_display.sample(view,cancel=lambda:True)
+
     def test_cached_fine_data_builds_overviews_once_without_network_or_copies(self):
         index=self.pack()
         bbox=(1,1,1.0064,1.0064)
@@ -162,7 +169,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(calls,[False])
         self.assertEqual(len(cells),40)
         self.assertIn('local overviews',legend)
-        self.assertTrue(any(cell[1]==(20,100,30) for cell in cells))
+        self.assertTrue(any(104<=cell[1][0]<=224 and 128<=cell[1][1]<=214 and 76<=cell[1][2]<=180 for cell in cells))
 
     def test_3d_geometry_uses_the_same_catalogue_without_a_legacy_terrain_pack(self):
         from offline_map import Renderer

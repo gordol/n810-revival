@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "files": {
+    "3826.arm": {
+      "url": "https://daemonizer.de/prism54/prism54-fw/stlc4560/2.13.0.0.a.22.8.arm",
+      "sha256": "6ac8f6f4a4ee12bc086dbabda3f701e576e9f27bd921d0f1f7c63c68fb9021b8",
+      "version": "2.13.0.0.a.22.8",
+      "source": "Prism54 archive linked by Linux Wireless; matches the project's working live-Maemo copy",
+      "license_status": "No blob-specific redistribution grant located. Downloaded into the owner's local image; excluded from project source and release assets."
+    },
+    "bc4fw.bin": {
+      "url": "https://raw.githubusercontent.com/openwrt/openwrt/dbc2e08418a5f6dfd911f32ea9e0c5d69408142b/target/linux/omap24xx/base-files/lib/firmware/bc4fw.bin",
+      "sha256": "623b43389fac664b82bad4f9faba3418aa58893f17cbc1ead6dcd3cf9a83062e",
+      "bytes": 2034,
+      "source": "OpenWrt commit dbc2e08418a5f6dfd911f32ea9e0c5d69408142b: omap24xx: Add bluetooth firmware",
+      "license_status": "No blob-specific redistribution grant located. The repository GPL notice establishes no separate firmware grant. Local acquisition only."
+    }
+  }
+}

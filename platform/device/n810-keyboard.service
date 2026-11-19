@@ -2,6 +2,7 @@
 Description=N810 console hardware-button overlay
 Requires=n810-fn-remap.service
 After=console-setup.service keyboard-setup.service n810-fn-remap.service
+Before=getty@tty1.service pocket-desktop.service
 
 [Service]
 Type=oneshot

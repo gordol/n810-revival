@@ -16,11 +16,14 @@ def load(identity):
  p=Path(identity[0]);raw=p.read_bytes()
  return json.loads(gzip.decompress(raw) if p.suffix=='.gz' else raw)
 @lru_cache(maxsize=32)
-def tile(path,digest):
+def tile_bytes(path,digest):
  raw=Path(path).read_bytes()
  if hashlib.sha256(raw).hexdigest()!=digest:raise ValueError('Geography tile integrity failure')
- return json.loads(gzip.decompress(raw))
-def data_for_view(view,display_span=None):
+ return raw
+def tile(path,digest):
+ # Retain compressed inputs, not tens of megabytes of Python objects per tile.
+ return json.loads(gzip.decompress(tile_bytes(path,digest)))
+def data_for_view(view,display_span=None,accept=None,cancel=None):
  data=load(signature())
  if 'tiles' not in data:return data
  if (view.span if display_span is None else display_span)>80:return dict(roads=data.get('overview_roads',[]),streams=[],labels=data['labels'])
@@ -30,9 +33,17 @@ def data_for_view(view,display_span=None):
   for ix in range(math.floor(max(west,a)/step),math.floor(min(east,c)/step)+1):
    row=data['tiles'].get(f'{ix},{iy}')
    if row is None:continue
+   if cancel and cancel():
+    from concurrent.futures import CancelledError
+    raise CancelledError()
    pack=tile(str(INDEX.parent/row['file']),row['sha256'])
-   for n,r in enumerate(pack['roads']):roads[r.get('id',('road',r.get('name'),tuple(r['bbox'])))]=r
-   for n,r in enumerate(pack['streams']):streams[r.get('id',('stream',n))]=r
+   for category,selected in (('roads',roads),('streams',streams)):
+    for n,r in enumerate(pack[category]):
+     if accept is not None and not accept(category,r):continue
+     ra,rb,rc,rd=r.get('bbox',(-180,-90,180,90))
+     if rc<west or ra>east or rd<south or rb>north:continue
+     key=('road',r.get('name'),tuple(r['bbox'])) if category=='roads' else ('stream',n)
+     selected[r.get('id',key)]=r
  return dict(roads=tuple(roads.values()),streams=tuple(streams.values()),labels=data['labels'])
 def covers(view):
  data=load(signature());bounds=data.get('coverage')
@@ -43,31 +54,27 @@ def covers(view):
 def selected_geography(engine,view,roads=True,display_span=None,detail_pixels=1,forest_roads=None):
  """Select geographic features once for terminal and pixel consumers."""
  span=view.span if display_span is None else display_span
- data=data_for_view(view,span);west,south,east,north=view.bbox
- def intersects(item):
-  a,b,c,d=item.get('bbox',(-180,-90,180,90))
-  return not (c<west or a>east or d<south or b>north)
- streams=tuple(item for item in data.get('streams',())
-               if intersects(item) and (view.ground_m_per_halfcell<=250 or item.get('kind')=='river'))
- chosen=[]
- if roads:
-  for item in data.get('roads',()):
-   role=item.get('kind')
-   show_forest=getattr(engine,'forest_roads',False) if forest_roads is None else forest_roads
-   if role=='forest' and not show_forest:continue
-   limit={'residential':20,'unclassified':20,'living_street':12,'service':8}.get(role)
-   # Cell maps have one stroke per cell. The desktop semantic scene has eight
-   # horizontal pixels per cell, so it can keep useful local streets at scale.
-   if limit is not None and view.ground_m_per_halfcell/max(1,detail_pixels)>limit:continue
-   if limit is None and span>item.get('max_span',100):continue
-   if intersects(item):chosen.append(item)
- return streams,tuple(chosen),data.get('labels',())
+ west,south,east,north=view.bbox
+ limits={'residential':20,'unclassified':20,'living_street':12,'service':8}
+ show_forest=getattr(engine,'forest_roads',False) if forest_roads is None else forest_roads
+ def accept(category,item):
+  role=item.get('kind')
+  if category=='streams':return view.ground_m_per_halfcell<=250 or role=='river'
+  if not roads or (role=='forest' and not show_forest):return False
+  limit=limits.get(role)
+  return view.ground_m_per_halfcell/max(1,detail_pixels)<=limit if limit is not None else span<=item.get('max_span',100)
+ data=data_for_view(view,span,accept,getattr(engine,'cancel_requested',None))
+ def visible(category):
+  for item in data.get(category,()):
+   a,b,c,d=item.get('bbox',(-180,-90,180,90))
+   if not (c<west or a>east or d<south or b>north) and accept(category,item):yield item
+ return tuple(visible('streams')),tuple(visible('roads')),data.get('labels',())
 
-def vector_segments(engine,view,roads=True,detail_pixels=1,forest_roads=None):
+def vector_segments(engine,view,roads=True,detail_pixels=1,forest_roads=None,selection=None):
  """Return geographic road and stream geometry selected for this view."""
  if covers(view):
-  streams,chosen,_=selected_geography(engine,view,roads,detail_pixels=detail_pixels,
-                                     forest_roads=forest_roads)
+  streams,chosen,_=selection if selection is not None else selected_geography(
+      engine,view,roads,detail_pixels=detail_pixels,forest_roads=forest_roads)
   for items,color in ((streams,(55,177,196)),(chosen,(219,205,155))):
    points=array('d')
    for item in items:
@@ -91,10 +98,10 @@ def vector_segments(engine,view,roads=True,detail_pixels=1,forest_roads=None):
   for i in sorted(ids):points.extend(value/100000 for value in coords[i*4:i*4+4])
   yield ((55,177,196) if role==2 else (219,205,155)),points
 
-def _semantic_labels(engine,view,frame,roads=True,display_span=None,detail_pixels=1,forest_roads=None):
+def _semantic_labels(engine,view,frame,roads=True,display_span=None,detail_pixels=1,forest_roads=None,selection=None):
  # A narrow edge patch inherits the whole display's road/label detail level.
  span=view.span if display_span is None else display_span
- streams,chosen,place_labels=selected_geography(engine,view,roads,span,detail_pixels,forest_roads)
+ streams,chosen,place_labels=selection if selection is not None else selected_geography(engine,view,roads,span,detail_pixels,forest_roads)
  labels=[];w,h=view.width,view.height
  west,south,east,north=view.bbox
  def visible(lon,lat):return west<=lon<=east and south<=lat<=north
@@ -157,12 +164,12 @@ def decorate(engine,view,frame,roads=True,display_span=None):
  for index,cell in _semantic_labels(engine,view,frame,roads,display_span).items():frame[index]=cell
  return tuple(frame)
 
-def label_annotations(engine,view,roads=True,display_span=None,detail_pixels=1,forest_roads=None):
+def label_annotations(engine,view,roads=True,display_span=None,detail_pixels=1,forest_roads=None,selection=None):
  """Expose place and road-name labels without decoding painted map cells."""
  from paint import ink
  return {index:(char,ink(*foreground,background=background))
          for index,(char,foreground,background) in _semantic_labels(
-             engine,view,None,roads,display_span,detail_pixels,forest_roads).items()}
+             engine,view,None,roads,display_span,detail_pixels,forest_roads,selection).items()}
 
 def maidenhead(lat,lon,precision=6):
  lon=max(0,min(359.999999,lon+180));lat=max(0,min(179.999999,lat+90))

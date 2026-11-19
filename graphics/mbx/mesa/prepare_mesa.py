@@ -18,6 +18,7 @@ def prepare(source):
             raise RuntimeError(f'Mesa integration anchor changed: {name}')
         path.write_text(data.replace(before, after))
     for name in ('sp_mbx_vgp.h','sp_mbx_vgp_impl.h','sp_mbx.c','sp_mbx.h','sp_mbx_backend.h',
+                 'sp_texture.c','sp_state_surface.c',
                  'separate_blend.c','channel_wire.c','sg_texture_resource.c','linear_resource.c'):
         (target / name).write_bytes((own / name).read_bytes())
     for header in own.glob('*.h'):
@@ -229,7 +230,9 @@ static void mbx_pipeline_profile(const uint64_t t[5])
     prepare_float_fetch(translate/'translate_generic.c')
     from prepare_tile_cache import prepare_tile_cache
     prepare_tile_cache(target)
-    names = ['sp_mbx.c', 'sp_mbx.h', 'sp_mbx_backend.h', 'mbx_startup_gate.h','mbx_cpu_profile.h','mbx_color_cache.h', 'meson.build', 'sp_context.h', 'sp_setup.c', 'sp_clear.c', 'sp_context.c','sp_flush.c','sp_fence.c','sp_screen.c','sp_tile_cache.c','sp_tile_cache.h']
+    from prepare_texture_cache import prepare_texture_cache
+    prepare_texture_cache(target)
+    names = ['sp_mbx.c', 'sp_mbx.h', 'sp_mbx_backend.h', 'sp_texture.c', 'sp_state_surface.c', 'mbx_startup_gate.h','mbx_cpu_profile.h','mbx_color_cache.h', 'meson.build', 'sp_context.h', 'sp_setup.c', 'sp_clear.c', 'sp_context.c','sp_flush.c','sp_fence.c','sp_screen.c','sp_tile_cache.c','sp_tile_cache.h','sp_tex_tile_cache.c','sp_tex_tile_cache.h']
     result={name: hashlib.sha256((target/name).read_bytes()).hexdigest() for name in names}
     result['draw_pt_fetch_shade_pipeline.c']=hashlib.sha256(pp.read_bytes()).hexdigest()
     result['draw_vs_exec.c']=hashlib.sha256(vp.read_bytes()).hexdigest()

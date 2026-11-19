@@ -89,9 +89,9 @@ discover)
 	need_controller
 	duration=$(seconds "${2:-20}")
 	"$bluetoothctl" power on
-	"$bluetoothctl" scan on
 	trap '"$bluetoothctl" scan off >/dev/null 2>&1 || true' EXIT INT TERM
-	sleep "$duration"
+	# Keep the discovery client alive for the entire scan.
+	"$bluetoothctl" --timeout "$duration" scan on
 	"$bluetoothctl" scan off
 	trap - EXIT INT TERM
 	"$bluetoothctl" devices

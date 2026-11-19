@@ -73,6 +73,7 @@ class Launcher:
     def display_rows(self,height=None):
         rows=self.matches()
         if height is None or len(rows)+4<=height:return rows
+        if height<6:return rows[self.index:self.index+1]
         count=max(1,height-6);start=(self.index//count)*count
         return ([('‹ Previous','menu:previous')] if start else [])+rows[start:start+count]+([('Next ›','menu:next')] if start+count<len(rows) else [])
 

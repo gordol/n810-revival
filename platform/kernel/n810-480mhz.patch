@@ -1,0 +1,245 @@
+--- a/arch/arm/boot/dts/omap2420-n810.dts
++++ b/arch/arm/boot/dts/omap2420-n810.dts
+@@ -82,6 +82,18 @@
+ 		};
+ 	};
+ 
++};
++
++&{/cpus/cpu} {
++	/* N810 clock steps use the OMAP2 PRCM rate table in this kernel. */
++	operating-points = <
++		330000 1400000
++		400000 1400000
++		420000 1400000
++		440000 1400000
++		460800 1400000
++		480000 1400000
++	>;
+ };
+ 
+ &retu {
+--- a/arch/arm/mach-omap2/board-n8x0.c
++++ b/arch/arm/mach-omap2/board-n8x0.c
+@@ -19,6 +19,7 @@
+ #include <linux/spi/spi.h>
+ #include <linux/usb/musb.h>
+ #include <linux/mmc/host.h>
++#include <linux/platform_device.h>
+ #include <linux/platform_data/spi-omap2-mcspi.h>
+ #include <linux/platform_data/mmc-omap.h>
+ #include <linux/mfd/menelaus.h>
+@@ -571,11 +572,20 @@
+ 
+ static int __init n8x0_late_initcall(void)
+ {
++	struct platform_device *cpu;
++
+ 	if (!board_caps)
+ 		return -ENODEV;
+ 
+ 	n8x0_mmc_init();
+ 	n8x0_usb_init();
++	if (board_is_n810()) {
++		cpu = platform_device_register_simple("omap-cpufreq", -1,
++						NULL, 0);
++		if (IS_ERR(cpu))
++			pr_err("N810 CPUFreq registration failed: %ld\n",
++			       PTR_ERR(cpu));
++	}
+ 
+ 	return 0;
+ }
+--- a/arch/arm/mach-omap2/clkt2xxx_dpllcore.c
++++ b/arch/arm/mach-omap2/clkt2xxx_dpllcore.c
+@@ -61,14 +61,10 @@
+ 
+ 	v = omap2xxx_cm_get_core_clk_src();
+ 
+-	pr_info("%s: core-clk=%lld v=%d\n", __func__, core_clk, v);
+-
+ 	if (v == CORE_CLK_SRC_32K)
+ 		core_clk = 32768;
+ 	else
+ 		core_clk *= v;
+-
+-	pr_info("%s: result=%lld\n", __func__, core_clk);
+ 
+ 	return core_clk;
+ }
+@@ -120,9 +116,6 @@
+ 	struct prcm_config tmpset;
+ 	const struct dpll_data *dd;
+ 
+-	pr_warn("%s: '%s' domain='%s' rate=%lu parent_rate=%lu\n", __func__,
+-			clk_hw_get_name(hw), clk->clkdm_name, rate, parent_rate);
+-
+ 	cur_rate = omap2xxx_clk_get_core_rate();
+ 	mult = omap2xxx_cm_get_core_clk_src();
+ 
+@@ -132,10 +125,8 @@
+ 		omap2xxx_sdrc_reprogram(CORE_CLK_SRC_DPLL_X2, 1);
+ 	} else if (rate != cur_rate) {
+ 		valid_rate = omap2_dpllcore_round_rate(rate);
+-		if (valid_rate != rate) {
+-			pr_warn("%s: rate mismatch %u != %lu\n", __func__, valid_rate, rate);
++		if (valid_rate != rate)
+ 			return -EINVAL;
+-		}
+ 
+ 		if (mult == 1)
+ 			low = curr_prcm_set->dpll_speed;
+@@ -143,10 +134,8 @@
+ 			low = curr_prcm_set->dpll_speed / 2;
+ 
+ 		dd = clk->dpll_data;
+-		if (!dd) {
+-			pr_warn("%s: no dpll_data!\n", __func__);
++		if (!dd)
+ 			return -EINVAL;
+-		}
+ 
+ 		tmpset.cm_clksel1_pll =
+ 			omap_clk_ll_ops.clk_readl(&dd->mult_div1_reg);
+--- a/arch/arm/mach-omap2/io.c
++++ b/arch/arm/mach-omap2/io.c
+@@ -437,6 +437,7 @@
+ 	omap_hwmod_init_postsetup();
+ 	omap_clk_soc_init = omap2420_dt_clk_init;
+ 	rate_table = omap2420_rate_table;
++	cpu_mask = RATE_IN_242X;
+ }
+ 
+ void __init omap2420_init_late(void)
+--- a/arch/arm/mach-omap2/opp2420_data.c
++++ b/arch/arm/mach-omap2/opp2420_data.c
+@@ -54,6 +54,30 @@
+  * Note: This table needs to be sorted, fastest to slowest.
+  **/
+ const struct prcm_config omap2420_rate_table[] = {
++	/* N810 overclock steps; keep SDRAM and most peripheral clocks at or below
++	 * Nokia's OP_0 rates, with DSP below its OP_1 ceiling.
++	 * 19.2 MHz PLL gives approximate 420/440.
++	 */
++	{19200000, 960000000, 480000000, 0x00000002,
++		0x00000626, 0x00000002, 0x04480828, 0x00096500,
++		0x00000002, 0, SDRC_RFR_CTRL_133MHz, RATE_IN_242X},
++	{19200000, 921600000, 460800000, 0x00000002,
++		0x00000626, 0x00000002, 0x04480828, 0x00090500,
++		0x00000002, 0, SDRC_RFR_CTRL_133MHz, RATE_IN_242X},
++	{19200000, 877714286, 438857143, 0x00000002,
++		0x00000626, 0x00000002, 0x04480828, 0x000a0600,
++		0x00000002, 0, SDRC_RFR_CTRL_133MHz, RATE_IN_242X},
++	{19200000, 839314286, 419657143, 0x00000002,
++		0x00000626, 0x00000002, 0x04480828, 0x00099600,
++		0x00000002, 0, SDRC_RFR_CTRL_133MHz, RATE_IN_242X},
++	/* N810 19.2 MHz crystal. 400 MHz timings from Nokia's Diablo OP_0. */
++	{19200000, 800000000, 400000000, 0x00000002,
++		0x00000426, 0x00000002, 0x04360626, 0x0007d500,
++		0x00000002, 0, SDRC_RFR_CTRL_133MHz, RATE_IN_242X},
++	/* Preserve the bootloader's 329.143 MHz settings for rollback. */
++	{19200000, 658285714, 329142857, 0x00000002,
++		0x00000643, 0x00000001, 0x04360626, 0x00078600,
++		0x00000002, 0, 0x00035201, RATE_IN_242X},
+ 	/* PRCM I - FAST */
+ 	{S12M, S660M, S330M, RI_CM_CLKSEL_MPU_VAL,		/* 330MHz ARM */
+ 		RI_CM_CLKSEL_DSP_VAL, RI_CM_CLKSEL_GFX_VAL,
+--- a/drivers/cpufreq/cpufreq-dt-platdev.c
++++ b/drivers/cpufreq/cpufreq-dt-platdev.c
+@@ -186,6 +186,10 @@
+ 
+ 	if (!np)
+ 		return -ENODEV;
++	if (of_machine_is_compatible("nokia,n810")) {
++		of_node_put(np);
++		return -ENODEV;
++	}
+ 
+ 	match = of_match_node(allowlist, np);
+ 	if (match) {
+--- a/drivers/cpufreq/omap-cpufreq.c
++++ b/drivers/cpufreq/omap-cpufreq.c
+@@ -27,6 +27,7 @@
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+ #include <linux/regulator/consumer.h>
++#include <linux/reboot.h>
+ 
+ #include <asm/smp_plat.h>
+ #include <asm/cpu.h>
+@@ -38,6 +39,30 @@
+ static atomic_t freq_table_users = ATOMIC_INIT(0);
+ static struct device *mpu_dev;
+ static struct regulator *mpu_reg;
++
++/* The N810 boot path expects the original clock before a warm restart,
++ * including kexec. This platform driver is registered only for that board.
++ */
++static int omap_cpufreq_reboot(struct notifier_block *nb,
++			      unsigned long action, void *data)
++{
++	struct clk *clk;
++
++	if (action != SYS_RESTART)
++		return NOTIFY_DONE;
++
++	clk = clk_get(NULL, "cpufreq_ck");
++	if (!IS_ERR(clk)) {
++		if (clk_set_rate(clk, 330000000))
++			pr_warn("failed to restore boot clock before restart\n");
++		clk_put(clk);
++	}
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block omap_cpufreq_reboot_nb = {
++	.notifier_call = omap_cpufreq_reboot,
++};
+ 
+ static int omap_target(struct cpufreq_policy *policy, unsigned int index)
+ {
+@@ -156,11 +181,16 @@
+ 
+ static int omap_cpufreq_probe(struct platform_device *pdev)
+ {
++	int ret;
++
+ 	mpu_dev = get_cpu_device(0);
+ 	if (!mpu_dev) {
+ 		pr_warn("%s: unable to get the MPU device\n", __func__);
+ 		return -EINVAL;
+ 	}
++	ret = dev_pm_opp_of_add_table(mpu_dev);
++	if (ret)
++		return ret;
+ 
+ 	mpu_reg = regulator_get(mpu_dev, "vcc");
+ 	if (IS_ERR(mpu_reg)) {
+@@ -179,12 +209,25 @@
+ 		}
+ 	}
+ 
+-	return cpufreq_register_driver(&omap_driver);
++	ret = cpufreq_register_driver(&omap_driver);
++	if (!ret) {
++		ret = register_reboot_notifier(&omap_cpufreq_reboot_nb);
++		if (ret)
++			cpufreq_unregister_driver(&omap_driver);
++	}
++	if (ret)
++		dev_pm_opp_of_remove_table(mpu_dev);
++	return ret;
+ }
+ 
+ static int omap_cpufreq_remove(struct platform_device *pdev)
+ {
+-	return cpufreq_unregister_driver(&omap_driver);
++	int ret;
++
++	unregister_reboot_notifier(&omap_cpufreq_reboot_nb);
++	ret = cpufreq_unregister_driver(&omap_driver);
++	dev_pm_opp_of_remove_table(mpu_dev);
++	return ret;
+ }
+ 
+ static struct platform_driver omap_cpufreq_platdrv = {

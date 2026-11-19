@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0
+"""Read NOLO's bounded OMAP boot-reason record without changing hardware."""
+import sys
+from pathlib import Path
+
+
+def decode(data):
+    if len(data) > 16384:
+        raise ValueError('OMAP boot metadata exceeds 16 KiB')
+    offset = 0
+    reason = None
+    while offset < len(data):
+        if len(data) - offset < 4:
+            raise ValueError('Truncated OMAP boot metadata')
+        tag = int.from_bytes(data[offset:offset+2], 'little')
+        length = int.from_bytes(data[offset+2:offset+4], 'little')
+        offset += 4
+        if length % 4 or length > len(data) - offset:
+            raise ValueError('Invalid OMAP record length')
+        if tag == 0x4f80:
+            if length != 12 or reason is not None:
+                raise ValueError('Malformed or duplicate boot reason')
+            raw = data[offset:offset+length].split(b'\0', 1)[0]
+            if not raw or any(c not in b'abcdefghijklmnopqrstuvwxyz0123456789_' for c in raw):
+                raise ValueError('Invalid boot reason text')
+            reason = raw.decode('ascii')
+        offset += length
+    return reason
+
+
+def main():
+    path = Path('/sys/firmware/devicetree/base/chosen/omap-config')
+    try:
+        with path.open('rb') as stream:
+            reason = decode(stream.read(16385))
+    except FileNotFoundError:
+        return 1
+    except (OSError, ValueError) as error:
+        print(error, file=sys.stderr)
+        return 2
+    if reason is None:
+        return 1
+    print(reason)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

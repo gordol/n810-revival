@@ -528,3 +528,46 @@ The linked source includes the compatibility fix and opt-in compilation candidat
 [Chronological source index](../reference/journal-sources.md#2026-11-10-windows-ce-runtime)
 
 Design investigation only. No Windows CE compatibility implementation or N810 test is included.
+
+<a id="2026-11-17-pocket-on-the-second-n810"></a>
+
+## Getting Pocket running on a second N810
+
+[Read the journal entry](../posts/2026-11-17-pocket-on-the-second-n810.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [build.py](../assets/source/journal/platform/kernel/build.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/kernel/build.py))<br>[ab_early.py](../assets/source/journal/platform/bootstrap/ab_early.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/bootstrap/ab_early.py))<br>[map_pixels.py](../assets/source/journal/pocket/graphics/map_pixels.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/map_pixels.py))<br>[owner_session.py](../assets/source/journal/platform/bootstrap/gpu_runtime/owner_session.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/bootstrap/gpu_runtime/owner_session.py))<br>[n810-cpu-policy](../assets/source/journal/platform/scripts/n810-cpu-policy.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/scripts/n810-cpu-policy))<br>[Desktop presentation and frame counter](../assets/source/journal/pocket/graphics/full.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/full.py))<br>[Surface Room pixel view](../assets/source/journal/pocket/graphics/room_pixels.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/graphics/room_pixels.py)) |
+| Checks and fixtures | [test_build.py](../assets/source/journal/platform/kernel/test_build.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/kernel/test_build.py))<br>[test_ab_early.py](../assets/source/journal/platform/bootstrap/test_ab_early.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/bootstrap/test_ab_early.py))<br>[test_gpu_audio_owner.py](../assets/source/journal/platform/bootstrap/test_gpu_audio_owner.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/bootstrap/test_gpu_audio_owner.py))<br>[test_map_pixel_handoff.py](../assets/source/journal/pocket/tests/test_map_pixel_handoff.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/tests/test_map_pixel_handoff.py)) |
+
+[Build and test instructions](../how-to/run-n810-gpu.md) · [Chronological source index](../reference/journal-sources.md#2026-11-17-pocket-on-the-second-n810)
+
+[Installing the two Debian slots](../how-to/install-n810-ab.md)
+
+<a id="2026-11-18-sd-boot"></a>
+
+## Booting Pocket from a fresh SD installation
+
+[Read the journal entry](../posts/2026-11-18-sd-boot.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Implementation](../assets/source/journal/platform/bootstrap/ab_early.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/bootstrap/ab_early.py)) |
+| Checks and fixtures | [Verification](../assets/source/journal/platform/bootstrap/check_ab_runtime.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/bootstrap/check_ab_runtime.py)) |
+| Build inputs | [Installer or runtime input](../assets/source/journal/platform/bootstrap/ab_media.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/platform/bootstrap/ab_media.py)) |
+
+[Build and test instructions](../how-to/install-n810-ab.md) · [Chronological source index](../reference/journal-sources.md#2026-11-18-sd-boot)
+
+<a id="2026-11-18-radio-banks"></a>
+
+## Downloading six UV-PRO banks from Pocket
+
+[Read the journal entry](../posts/2026-11-18-radio-banks.md)
+
+| Material | Repository files |
+|---|---|
+| Implementation | [Implementation](../assets/source/journal/pocket/shell/radio_manager.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/radio_manager.py)) |
+| Checks and fixtures | [Verification](../assets/source/journal/pocket/shell/vendor/packet-console/test-radio-backup.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/vendor/packet-console/test-radio-backup.py)) |
+| Build inputs | [Installer or runtime input](../assets/source/journal/pocket/shell/vendor/packet-console/n810-radio-backup.py.txt) ([GitHub](https://github.com/gordol/n810-revival/blob/main/pocket/shell/vendor/packet-console/n810-radio-backup.py)) |
+
+[Build and test instructions](../how-to/install-n810-ab.md) · [Chronological source index](../reference/journal-sources.md#2026-11-18-radio-banks)

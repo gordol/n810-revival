@@ -121,7 +121,7 @@ static bool sp_mbx_vgp_draw_attempt(struct draw_context *draw,const struct draw_
    for(unsigned i=0;i<16;++i)if(m[i]!=(i%5==0?0x3f800000U:0))mbx_fail("linear texture matrix must be identity");
   }
   for(unsigned i=0;i<v->count;++i){const struct vertex_header *vertex=(const void*)((const char*)v->verts+i*v->stride);
-   if(!(vertex->data[p->texture_input][0]>=0&&vertex->data[p->texture_input][0]<=1&&vertex->data[p->texture_input][1]>=0&&vertex->data[p->texture_input][1]<=1))mbx_fail("linear texture coordinates outside admitted border range");
+   if(!(vertex->data[p->texture_input][0]>=0&&vertex->data[p->texture_input][0]<=1&&vertex->data[p->texture_input][1]>=0&&vertex->data[p->texture_input][1]<=1)){fprintf(stderr,"N810_MBX_UV_REJECT vertex=%u count=%u uv=%a,%a texture=%u,%u target=%u,%u\n",i,v->count,(double)vertex->data[p->texture_input][0],(double)vertex->data[p->texture_input][1],c->texture_uv_width,c->texture_uv_height,c->header.width,c->header.height);mbx_fail("linear texture coordinates outside admitted border range");}
   }
   if(uniform_data!=uniform_storage)memcpy(uniform_storage,uniform_data,p->constants*16);
   linear_program=*p;unsigned slot=linear_program.constants++;

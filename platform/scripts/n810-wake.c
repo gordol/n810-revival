@@ -14,6 +14,9 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <stddef.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -76,6 +79,18 @@ static int command(const char *path, const char *action)
     if (WIFEXITED(status) && !WEXITSTATUS(status)) return 0;
     fprintf(stderr, "%s %s failed\n", path, action);
     return -1;
+}
+/* The framebuffer desktop displays its own menu without switching VTs. */
+static void pocket_power_menu(void)
+{
+    struct sockaddr_un target = {.sun_family = AF_UNIX};
+    const char name[] = "n810-pocket-power";
+    memcpy(target.sun_path + 1, name, sizeof(name) - 1);
+    int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+    if (fd < 0) return;
+    sendto(fd, "P", 1, 0, (struct sockaddr *)&target,
+           offsetof(struct sockaddr_un, sun_path) + sizeof(name));
+    close(fd);
 }
 static int screen(const char *action)
 {
@@ -177,10 +192,10 @@ static int lock_settle(struct lock_debounce *state, double time)
 }
 int main(int argc, char **argv)
 {
-    if (argc == 2 && !strcmp(argv[1], "--version")) { puts("n810-wake 3"); return 0; }
+    if (argc == 2 && !strcmp(argv[1], "--version")) { puts("n810-wake 4"); return 0; }
     int trace_lock = argc == 2 && !strcmp(argv[1], "--trace-lock");
     if (argc != 1 && !trace_lock) return 2;
-    unsigned enabled = 0, idle_enabled = 0, keyboard_wake = 1, slide_wake = 1;
+    unsigned enabled = 0, idle_enabled = 0, keyboard_wake = 1, slide_wake = 1, lock_only = 0;
     unsigned dim_seconds = 60, off_seconds = 300;
     FILE *config = fopen(CONFIG_PATH, "r");
     if (config) {
@@ -191,19 +206,21 @@ int main(int argc, char **argv)
             else if (!strcmp(key, "idle_enabled")) idle_enabled = value;
             else if (!strcmp(key, "keyboard_wake")) keyboard_wake = value;
             else if (!strcmp(key, "slide_wake")) slide_wake = value;
+            else if (!strcmp(key, "lock_only")) lock_only = value;
             else if (!strcmp(key, "dim_seconds")) dim_seconds = value;
             else if (!strcmp(key, "off_seconds")) off_seconds = value;
         }
         fclose(config);
     }
-    if (enabled > 1 || idle_enabled > 1 || keyboard_wake > 1 || slide_wake > 1 || !dim_seconds || off_seconds <= dim_seconds || off_seconds > 86400) {
+    if (enabled > 1 || idle_enabled > 1 || keyboard_wake > 1 || slide_wake > 1 || lock_only > 1 || !dim_seconds || off_seconds <= dim_seconds || off_seconds > 86400) {
         fputs("Invalid idle settings\n", stderr); return 2;
     }
     if (!enabled) { puts("Display idle/wake disabled pending hardware validation"); return 0; }
     char inhibit[512];
     snprintf(inhibit, sizeof(inhibit), "%s/power-only", SCREEN_DIR);
-    if (keyboard_wake) unlink(inhibit);
-    else {
+    /* The Debian key service owns Power and brightness in lock-only mode. */
+    if (!lock_only && keyboard_wake) unlink(inhibit);
+    else if (!lock_only) {
         if (mkdir(SCREEN_DIR, 0755) < 0 && errno != EEXIST) { perror(SCREEN_DIR); return 1; }
         FILE *f = fopen(inhibit, "w");
         if (!f) { perror(inhibit); return 1; }
@@ -217,7 +234,7 @@ int main(int argc, char **argv)
     int idle_state = 0;
     while (!stopping) {
         double time = now();
-        if (time >= scan) { discover(); scan = time + 2; }
+        if (!lock_only && time >= scan) { discover(); scan = time + 2; }
         if (menu && waitpid(menu, NULL, WNOHANG) == menu) {
             menu = 0; activity = time;
         }
@@ -249,12 +266,13 @@ int main(int argc, char **argv)
             }
         }
         lock_actions += lock_settle(&lock_state, now());
-        if (!graphics && !marker("quiet-charging")) while (lock_actions-- > 0) {
+        if (!marker("quiet-charging")) while (lock_actions-- > 0) {
             const char *action = marker("locked") ? "unlock" : "lock";
             if (trace_lock) fprintf(stderr, "lock action %.6f %s\n", now(), action);
             screen(action);
             activity = now(); idle_state = 0;
         }
+        if (lock_only) continue;
         for (int i = count - 1; i >= 0; i--) {
             if (!fds[i].revents) continue;
             struct input_event event;
@@ -273,7 +291,6 @@ int main(int argc, char **argv)
                     }
                     continue;
                 }
-                if (graphics) continue;
                 int key_input = devices[i].kind == 1 && event.type == EV_KEY && event.value > 0;
                 int slide_input = devices[i].kind == 2 && event.type == EV_SW &&
                                   event.code == SW_KEYPAD_SLIDE && event.value == 1;
@@ -294,6 +311,9 @@ int main(int argc, char **argv)
                             }
                             if (marker("blanked") || marker("hold")) {
                                 if (!screen("on")) idle_state = 0;
+                            } else if (graphics) {
+                                if (marker("idle-percent")) screen("on");
+                                else pocket_power_menu();
                             } else if (!menu) {
                                 if (marker("idle-percent") && !screen("on")) idle_state = 0;
                                 menu = fork();
@@ -333,7 +353,7 @@ int main(int argc, char **argv)
             else retry = time + 5;
         }
     }
-    unlink(inhibit);
+    if (!lock_only) unlink(inhibit);
     if (lock_fd >= 0) close(lock_fd);
     for (int i = 0; i < count; i++) close(devices[i].fd);
     return stopping ? 0 : 1;

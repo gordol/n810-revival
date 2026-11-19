@@ -1,0 +1,22 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          n810-ssh-hostkeys
+# Required-Start:    $local_fs
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Generate this tablet's SSH host key before ssh starts
+### END INIT INFO
+set -eu
+case "${1:-}" in
+start)
+    key=/etc/ssh/ssh_host_ed25519_key
+    if test ! -s "$key"; then
+        rm -f "$key" "$key.pub"
+        ssh-keygen -q -t ed25519 -N '' -f "$key"
+    fi
+    ;;
+stop) :;;
+status) test -s /etc/ssh/ssh_host_ed25519_key;;
+*) echo 'Usage: n810-ssh-hostkeys {start|stop|status}' >&2; exit 2;;
+esac

@@ -1,0 +1,29 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-2.0-or-later
+"""Fresh-install adapter: require this tablet's root-owned endpoint policy."""
+import json
+import os
+import signal
+import subprocess
+import sys
+sys.path.insert(0, '/usr/local/lib/n810-platform')
+import rnode_spp_prepare as helper
+
+
+def deadline(*_):
+    raise TimeoutError('Serial mapping preparation exceeded 25 seconds')
+
+
+try:
+    if os.geteuid()!=0 or len(sys.argv)!=1:raise ValueError('This helper requires root and no arguments')
+    config=helper.load_configuration()
+    helper.ADDRESS,helper.CONTROLLER=config['address'],config['controller']
+    signal.signal(signal.SIGALRM,deadline);signal.alarm(25)
+    if helper._existing_mapping_ready():
+        result=dict(ok=True,device=helper.DEVICE,address=helper.ADDRESS,channel=1,
+                    mapping_created=False,owner_changed=False,radio_opened=False,rf_enabled=False,fast_path=True)
+    else:result=helper.prepare()
+    print(json.dumps(result))
+except (OSError,ValueError,KeyError,subprocess.SubprocessError) as error:
+    print(json.dumps(dict(ok=False,error=str(error)[:400])))
+    raise SystemExit(1)

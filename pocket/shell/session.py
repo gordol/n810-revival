@@ -14,7 +14,7 @@ RETIRED=frozenset(('Terrain Profile','Weather','Moon Lab','Notes','Activity','Di
     'APRS (terminal)','Directory (terminal)','Walk (terminal)'))
 
 WINDOW_FIELDS=('x','y','w','h','desktop','visible','rolled','pinned','opened')
-PREFS=('application_menu_mode','app_preferences','scenery','font_preview_id','show_underlying_text','timezone_name','list_scrollbars','list_counts','status_verbosity','pager_position','show_pager','resize_edges','desktop_scroll','wm_escape','mouse_trails','terminal_opacity','window_controls','terrain_grid','season','show_foliage','show_animals','show_flowers','show_lookout','arrival_duration','snap_windows','flux_performance','flux_arms','flux_density','flux_glow','window_opacity','flurry_sway','flurry_speed','flurry_strands','style','palette','animate','window_animations','animation_duration','move_mode','resize_mode',
+PREFS=('application_menu_mode','overlay_borders','app_preferences','scenery','font_preview_id','show_underlying_text','timezone_name','list_scrollbars','list_counts','status_verbosity','pager_position','show_pager','resize_edges','desktop_scroll','wm_escape','mouse_trails','terminal_opacity','window_controls','terrain_grid','season','show_foliage','show_animals','show_flowers','show_lookout','arrival_duration','snap_windows','flux_performance','flux_arms','flux_density','flux_glow','window_opacity','flurry_sway','flurry_speed','flurry_strands','style','palette','animate','window_animations','animation_duration','move_mode','resize_mode',
        'tinted','background_enabled','focused_button_minimizes','overview_opacity','scene_seed','nature_epoch','nature_rate','light_mode','moon_phase','parallax','overview_zoom','terrain_shadows','shadow_enabled','shadow_size','shadow_opacity','shadow_direction','show_clock','show_connectivity')
 
 
@@ -61,7 +61,7 @@ def renamed_windows(data,known):
 
 
 def restore(data,host,panels,layout=True):
-    from core import STYLES,PALETTES
+    from core import STYLES,PALETTES,OVERLAY_BORDERS
     from panel import MODES
     data=renamed_windows(data,set(host.focus_order))
     views=data.get('app_views',{})
@@ -88,6 +88,8 @@ def restore(data,host,panels,layout=True):
     from input import WM_ESCAPES
     for key in ('show_pager','resize_edges','desktop_scroll'):prefs.setdefault(key,getattr(host,key))
     from launcher import MENU_MODES
+    prefs.setdefault('overlay_borders',OVERLAY_BORDERS[0])
+    if prefs['overlay_borders'] not in OVERLAY_BORDERS:raise ValueError('invalid overlay borders')
     prefs.setdefault('application_menu_mode','Alphabetical')
     if prefs['application_menu_mode'] not in MENU_MODES:raise ValueError('invalid application menu mode')
     prefs.setdefault('wm_escape','ctrl-]')

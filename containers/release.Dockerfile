@@ -9,6 +9,7 @@ RUN python3 platform/kernel/build.py --work /build/kernel --jobs 4
 
 FROM kernel AS graphics
 COPY graphics/mbx/ graphics/mbx/
+COPY pocket/graphics/driver/mbx/ pocket/graphics/driver/mbx/
 RUN python3 graphics/mbx/build.py module --work /build/module --kernel-source /build/kernel/linux-5.15.224 --kernel-build /build/kernel/build
 RUN python3 -m venv /opt/mesa-tools && /opt/mesa-tools/bin/pip install meson==1.5.2 Mako==1.3.5 packaging==24.1 PyYAML==6.0.2 setuptools==75.1.0
 RUN --mount=type=cache,id=n810-mesa-inputs,target=/cache/mesa-inputs,sharing=locked PATH=/opt/mesa-tools/bin:$PATH python3 graphics/mbx/build.py mesa --work /build/mesa --jobs 4 --osmesa --download-cache /cache/mesa-inputs || { cat /build/mesa/logs/*.log; exit 1; }

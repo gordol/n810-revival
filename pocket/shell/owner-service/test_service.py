@@ -56,7 +56,7 @@ class History:
 SNAPSHOT='fixture'
 ''')
             (root/'n810-packet-monitor.py').write_text('def describe(value):return str(value)\n')
-            (root/'radio.py').write_text('''
+            (root/'uvpro-aprs-listen.py').write_text('''
 import pathlib,os,time
 p=pathlib.Path(os.environ['HOME'])/'starts'
 with p.open('a') as f:f.write('start\\n')
@@ -72,7 +72,6 @@ def save_intent(path,enabled):
         raise OSError('injected sync failure')
     return _real_save_intent(path,enabled)
 def main():''')
-            text = text.replace("'/home/nokia/uvpro-aprs-listen.py'", repr(str(root/'radio.py')))
             text = text.replace("'/dev/shm/n810-aprs.sock'", repr(str(root/'feed.sock')))
             text = text.replace("'/dev/shm/n810-aprs-replay.sock'", repr(str(root/'replay.sock')))
             # Deliver a matching observation before the queued power action is dispatched.

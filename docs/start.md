@@ -5,15 +5,15 @@ managed desktop launcher. Keep the tablet's charger connected during installatio
 
 ## A tablet running its original Maemo system
 
-Start by preserving the original system and device-specific calibration. Prepare
-an SD card for Debian, then install the matching N810 kernel, modules and firmware.
-The desktop and its supervisor are installed after Debian boots successfully.
+Start by preserving the original system and device-specific calibration.
+[N810 Setup](pocket/bootstrap.md) builds complete Debian/Pocket kits for internal
+storage or SD, including the matching kernel and modules. Read its host support
+matrix and prerequisites before building. Guarded storage writers are available for macOS and Linux. Windows and BSD
+need a Linux environment with storage/USB access; native installation adapters
+are not provided. Physical acceptance of the new complete SD route remains outstanding.
 
-The project still needs a tested, end-to-end first-install kit for this route.
-A stock N810 owner should wait for that kit before replacing the installed system.
-The [kernel build guide](how-to/build-kernel.md) and
-[platform reference](reference/platform-files.md) provide the components available
-for developers preparing an installation.
+The [minimal SD image guide](how-to/prepare-fresh-n810.md) is a separate developer
+route and does not include the complete Pocket desktop.
 
 ## A tablet already running our Debian system
 

@@ -81,7 +81,7 @@ class LatencyTests(unittest.TestCase):
     self.assertTrue(any(entity.key=='NEAR' for entity in app.entities_at(x,y+2)))
     self.assertEqual(sum(cell[0]=='N' for cell in app._display_layer[4]),1)
   finally:app.close();app.renderer.close()
- def test_locator_uses_retained_terrain_when_legacy_preview_is_not_installed(self):
+ def test_locator_shows_loading_until_real_surrounding_terrain_is_ready(self):
   from station_workspace import StationMap,Context
   app=StationMap(Context(),ROOT/'shell/vendor/packet-console',lambda:None)
   app.width=96;app.height=27;app.center=(47.,-122.);app.span=20.
@@ -93,11 +93,37 @@ class LatencyTests(unittest.TestCase):
     app.lines()
     x,y,w,h,locator=app._locator_rect
     self.assertEqual((w,h),(30,15))
-    self.assertEqual(locator.source,'locator')
+    self.assertEqual(locator.source,'overview-loading')
     self.assertEqual(locator.projection.center,app.center)
     self.assertGreater(locator.projection.span,app.span)
-    self.assertGreater(len({cell[1] for cell in locator.cells}),2)
+    self.assertEqual(len({cell[1] for cell in locator.cells}),1)
+    self.assertIn('Loading overview', ''.join(cell[0] for cell in app._locator_layer[4]))
+    overview=Image(160,80,(('▀',ink(60,90,40,background=(20,80,130))),)*(160*80),'',(),0.,engine.Viewport(app.center,160.,160,80))
+    with patch.object(app.renderer,'context_frame',return_value=overview):
+     app.lines()
+     x,y,w,h,locator=app._locator_rect
+     self.assertEqual((w,h),(30,15))
+     self.assertEqual(locator.source,'locator')
+     self.assertNotIn('Loading overview', ''.join(cell[0] for cell in app._locator_layer[4]))
   finally:app.close();app.renderer.close()
+ def test_cached_main_view_does_not_cancel_pending_overview(self):
+  from concurrent.futures import Future
+  from offline_map import Renderer
+  renderer=Renderer();self.addCleanup(renderer.close)
+  main=('map',(47.,-122.),20.,96,24,True,True)
+  context=('context',(47.,-122.),160.,160,80,True,True)
+  image=object();renderer.ready[main]=image
+  future=Future();future.set_running_or_notify_cancel()
+  renderer.pending=(context,future);renderer._wanted=context
+  renderer.error='Previous overview failed'
+  with patch('desktop_elevation.enabled',return_value=False):
+   self.assertIs(renderer._request(main),image)
+  self.assertIsNone(renderer.error)
+  self.assertEqual(renderer._wanted,context)
+  self.assertEqual(renderer.pending,(context,future))
+  self.assertFalse(future.cancelled())
+  future.set_result(object())
+
  def test_region_prefetch_is_bounded_near_visible_area(self):
   from map_regions import Regions
   view=engine.Viewport((47.,-122.),40.,240,90);prepared=[]

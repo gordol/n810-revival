@@ -22,6 +22,13 @@ class InteractionTests(unittest.TestCase):
   image=Image(120,40,tuple((' ',0) for _ in range(4800)),'',(),0.,view)
   f._image=f._shown_image=image;f._image_view=(f.center,f.span);f._display_layer=f.station_layer(image)
   return f
+ def test_native_preview_zoom_keeps_detail_until_enter(self):
+  f=self.form();f.renderer.presentation='semantic';f.preview=True
+  with patch('map_overview.zoom_context',side_effect=AssertionError('unexpected overview')),patch.object(f.renderer,'frame',side_effect=AssertionError('unexpected detail request')),patch.object(f._local_overview,'image',side_effect=AssertionError('unexpected overview job')):
+   f.key('+');f.key('+');f.lines()
+   self.assertIsNone(f._detail_request);self.assertIs(f._shown_image,f._image)
+   self.assertLess(f.target_box.view[1],f.span)
+   f.key('\r');self.assertIsNotNone(f._detail_request)
  def test_drag_moves_map_with_hand_without_preview_box_or_overview(self):
   f=self.form();old=f.center
   f.pointer(35,15,120,0,False);f.pointer(41,21,120,32,False);f.pointer(41,21,120,0,True)

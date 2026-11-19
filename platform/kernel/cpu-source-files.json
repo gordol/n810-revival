@@ -1,0 +1,9 @@
+{
+  "arch/arm/boot/dts/omap2420-n810.dts": "7e80515fdba64c007a498b29d1a46c895b2dd6b47cf936000c5cc9846eaf198a",
+  "arch/arm/mach-omap2/board-n8x0.c": "0479cfc7278bbc27b69a2d8a6e7172f5bbf851be595571973a7786fcf7f5795b",
+  "arch/arm/mach-omap2/clkt2xxx_dpllcore.c": "d8c28b3339c3b09d991e3a11ee79b9796005d07e27b3080eb8507c551ba5f733",
+  "arch/arm/mach-omap2/io.c": "d1423133dc1e76e1651f05a3ee039bf621357e25ca14b58a7d8a9b1d28343e5a",
+  "arch/arm/mach-omap2/opp2420_data.c": "6d96ce99ebd61a93e43fe875d88d48beecc29c78362b4c7932566a2bd762bb1b",
+  "drivers/cpufreq/cpufreq-dt-platdev.c": "e64bb5f9d628e0c09d21403438e427ead2d6ebbb06c643b2bb07b1ad8d7e4189",
+  "drivers/cpufreq/omap-cpufreq.c": "71d0ba2667698c71f5744af2ca85998e35f576ad53a7192e99026195c1154bfb"
+}

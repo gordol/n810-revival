@@ -139,7 +139,7 @@ class Platform:
    prepare=getattr(app,'prepare_gpu',None)
    if prepare and not prepare(self.gpu_context):transitions_ready=False
   if not transitions_ready:return False
-  visible=[app for app in self.pixel_apps if self.host.shown(self.host.window(app.name)) and not self.host.window(app.name).rolled]
+  visible=[app for app in self.pixel_apps if not getattr(app,"closed",False) and not getattr(self.host.app_forms.get(app.name),"error",None) and self.host.shown(self.host.window(app.name)) and not self.host.window(app.name).rolled]
   if not complete or not (self.dirty or any(app.pixel_dirty for app in visible)):return False
   from presentation_text import supported
   text=None if getattr(self.gpu_context,'native_pixels',False) else self.presentation_text

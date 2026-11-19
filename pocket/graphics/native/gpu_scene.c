@@ -217,7 +217,7 @@ int pocket_scene_batch_replay_offset(void *ptr,void *batch,int dx,int dy){
  scene_window_image_admit(s,image);
  if(image->image_cache){if(scene_target(s,s->canvas))return -1;Scene_Rect dst={image->x+dx,image->y+dy,image->texture->w,image->texture->h};return Scene_RenderCopy(s->device,image->texture,NULL,&dst);}
  if(!image->texture->recorded_scene)return -1;
- for(size_t i=0;i<image->texture->count;i++){Scene_Texture *q=image->texture->commands[i].source;if(q&&(q->room_region||q->recorded_scene))return -1;}
+ for(size_t i=0;i<image->texture->count;i++){Scene_Texture *q=image->texture->commands[i].source;if(q&&(q->room_region||q->recorded_scene==1))return -1;}
  if(scene_target(s,s->canvas)||Scene_RenderCopy(s->device,image->texture,NULL,NULL))return -1;
  struct scene_command *c=s->canvas->commands+s->canvas->count-1;c->dx=dx;c->dy=dy;return 0;
 #else
@@ -343,7 +343,15 @@ int pocket_scene_begin(void *ptr){struct gpu_scene *s=ptr;if(!s||scene_target(s,
 }
 void *pocket_scene_map(void *ptr,const uint32_t *colors,unsigned cols,unsigned rows,unsigned sample_width,unsigned sample_height){
  struct gpu_scene *s=ptr;if(!s||!colors||!cols||!rows||cols>512||rows>256||!sample_width||!sample_height||sample_width>4096||sample_height>4096)return NULL;struct scene_texture *image=calloc(1,sizeof(*image));if(!image)return NULL;image->width=cols*8;image->height=rows*16;
- image->texture=Scene_CreateTexture(s->device,Scene_PIXELFORMAT_ABGR8888,Scene_TEXTUREACCESS_TARGET,image->width,image->height);Scene_Texture *samples=Scene_CreateTexture(s->device,Scene_PIXELFORMAT_ABGR8888,Scene_TEXTUREACCESS_STATIC,sample_width,sample_height);
+#ifdef POCKET_SCENE_GL
+ /* Map surfaces retain GPU commands, not one resident render target per128px
+  * tile. A fullscreen map exceeds the fixed window-image arena. */
+ image->texture=calloc(1,sizeof(*image->texture));
+ if(image->texture){image->texture->w=image->width;image->texture->h=image->height;image->texture->refs=1;image->texture->recorded_scene=2;image->texture->format=Scene_PIXELFORMAT_ABGR8888;}
+#else
+ image->texture=Scene_CreateTexture(s->device,Scene_PIXELFORMAT_ABGR8888,Scene_TEXTUREACCESS_TARGET,image->width,image->height);
+#endif
+ Scene_Texture *samples=Scene_CreateTexture(s->device,Scene_PIXELFORMAT_ABGR8888,Scene_TEXTUREACCESS_STATIC,sample_width,sample_height);
  uint32_t *rgba=malloc((size_t)sample_width*sample_height*4);if(!image->texture||!samples||!rgba)goto fail;
  for(size_t i=0;i<(size_t)sample_width*sample_height;i++){uint32_t c=colors[i];rgba[i]=((c&255)<<16)|(c&0xff00)|((c>>16)&255)|0xff000000u;}
  if(Scene_UpdateTexture(samples,NULL,rgba,sample_width*4)||Scene_SetTextureScaleMode(samples,Scene_ScaleModeNearest)||scene_target(s,image->texture)||Scene_RenderCopy(s->device,samples,NULL,NULL))goto fail;
@@ -480,6 +488,13 @@ int pocket_scene_draw(void *ptr,int native_text){
  (void)native_text;
 #endif
  return 0;
+}
+const char *pocket_scene_error(void){
+#ifdef POCKET_SCENE_GL
+ return scene_error[0]?scene_error:"Scene presentation failed without a backend diagnostic";
+#else
+ return Scene_GetError();
+#endif
 }
 int pocket_scene_present(void *ptr,int native_text){struct gpu_scene *s=ptr;
 #ifdef POCKET_SCENE_GL

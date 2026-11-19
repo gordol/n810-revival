@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Unit]
+Description=N810 RGB LED policy
+Wants=n810-powerd.service
+After=systemd-udev-settle.service n810-powerd.service n810-first-boot-led.service
+ConditionPathExists=/sys/class/leds/green/brightness
+ConditionPathExists=/sys/class/leds/red/brightness
+ConditionPathExists=/sys/class/leds/blue/brightness
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/n810-ledd
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

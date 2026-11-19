@@ -81,6 +81,12 @@ class Selection:
                 candidate = factory(socket_path=path, register=False)
                 label = str(path)
             elif kind in ('local','local-auto'):
+                if kind == 'local-auto':
+                    from service_policy import enabled
+                    if not enabled(self.service_name):
+                        with self.lock:
+                            if generation == self.generation:self.busy=False
+                        return
                 from app_registry import saved_reticulum_selection
                 # Reading a configuration does not activate the radio.
                 directory = Path(address).expanduser() if address else self.state_directory

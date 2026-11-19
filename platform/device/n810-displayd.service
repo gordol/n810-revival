@@ -1,0 +1,10 @@
+[Unit]
+Description=N810 ambient LCD policy
+After=n810-backlightd.service
+Before=n810-boot-mode.service
+[Service]
+ExecStart=/usr/local/sbin/n810-displayd
+Restart=on-failure
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

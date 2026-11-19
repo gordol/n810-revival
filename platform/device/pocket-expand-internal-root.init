@@ -1,0 +1,22 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          pocket-expand-internal-root
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Expand the installed root partition once
+### END INIT INFO
+set -eu
+case "${1:-}" in
+start)
+    marker=/var/lib/pocket/internal-root-expanded
+    test ! -e "$marker" || exit 0
+    udevadm settle --timeout=15
+    resize2fs /dev/disk/by-partuuid/BOOTSTRAP_DISK_ID-01
+    touch "$marker"
+    ;;
+stop) :;;
+status) test -e /var/lib/pocket/internal-root-expanded;;
+*) echo 'Usage: pocket-expand-internal-root {start|stop|status}' >&2; exit 2;;
+esac

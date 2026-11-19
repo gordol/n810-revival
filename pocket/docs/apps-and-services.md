@@ -71,7 +71,14 @@ observations, not proof that a live radio link is working.
 
 ## MeshCore through an HTIT hub
 
-A local MeshCore selection can use an explicit hub URI in `port`:
+On the N810, pair the Classic HTIT hub with the tablet first. In **Messages**,
+switch **Protocol** to **MeshCore** and choose **Companions**. Select the
+advertised radio by name and address with the touchscreen or the arrow keys
+and Enter. If prompted, enter the companion’s six-digit BLE PIN on the tablet.
+After pairing, return to Messages and choose **Connect** to sync the selected
+companion. To pair another companion, disconnect the active session first.
+
+For manual setup, a local MeshCore selection can use an explicit hub URI in `port`:
 `htit://CLASSIC_MAC/SPP_CHANNEL/BLE_MAC/ADDRESS_TYPE`, for example
 `htit://02:00:00:00:00:01/1/02:00:00:00:00:02/1` using fictional example addresses. Replace them with the paired hub and companion addresses.
 This requires a Linux host with Bluetooth RFCOMM, the optional pinned MeshCore
@@ -82,8 +89,9 @@ and syncs contacts and configured channels. **Disconnect** closes that bridge.
 Shell launch alone does not connect the radio. Loss of the owner closes the
 bridge's parent pipe, ending its session; commands are never replayed.
 
-Channels appear first. Use **[ Prev contacts** / **] Next contacts** to browse
-all contacts, 32 at a time. Contact sync allows 60 seconds before failing.
+The list opens on contacts and repeaters. Press **G** or choose **Channels**
+to see channel conversations. Choose **Contacts** to switch back. Use **B**
+for the previous page and **N** for the next page of 32 contacts. Contact sync allows 60 seconds before failing.
 
 After setup Pocket automatically pulls pending messages from the companion.
 This consumes their copies in the radio's receive queue. Each received message
@@ -97,3 +105,10 @@ the unsaved message is retained in owner memory for a manual reconnect/save
 attempt. MeshCore provides no transactional acknowledge-after-disk-write command,
 so a power failure between radio dequeue and local commit can still lose that
 in-flight message. The hub itself is a transport and does not maintain a mailbox.
+
+
+## Downloading UV-PRO memories
+
+Open **Radio Manager → Banks** while the radio is connected. On the paired tablet, **a Download all banks** pauses reception, reads every bank into one backup, restores the original bank and settings, and reconnects reception. Pocket leaves location-sharing settings alone. With a zero sharing interval and Smart Beacon off, it can read all banks. If reporting is enabled, it saves the current bank and explains why the sweep stopped. Press **c** for **Download current bank** to save every slot in the receive bank and list the names of the other banks. A row marked **name only** has no saved channel contents in this download. Press **d** for **Download selected**. Pocket checks that the selected bank is active before reading channels. A download fails if the final active bank differs from the starting bank. Opening a saved bank displays its memories. Press **p** to review a copy for a local draft.
+
+Open **Settings**, select **Refresh from radio**, then select a reported general or APRS beacon field with the arrow keys and press Enter. Tapping a field also opens its editor. Enter applies the value and Esc cancels the edit. Pocket reads the current settings before applying a change, preserves the other fields, and checks the full settings block afterward. A stale value requires a refresh. Hardware-specific controls outside those two settings blocks, including programmable buttons, use separate radio commands.

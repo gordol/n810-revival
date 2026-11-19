@@ -36,6 +36,17 @@ def radio_summary(state,accepted):
 def dispatch(host,launch,identity,request):
     if not isinstance(request,dict):raise ValueError('Expected an object')
     command=request.get('command')
+    if command=='app-status':
+        if set(request)!={'command','name'} or not isinstance(request['name'],str):raise ValueError('Expected application name')
+        name=request['name'];form=host.app_forms.get(name)
+        if form is None:raise ValueError('Application unavailable')
+        window=host.window(name)
+        from itertools import islice
+        render=getattr(form,'lines',None)
+        lines=[text_summary(line,120) for line in islice(render(),30)] if callable(render) else []
+        return dict(ok=True,focus=host.focus,name=name,opened=window.opened,visible=host.shown(window),
+                    error=text_summary(getattr(form,'error',''),500),
+                    bounds=list(window.rect),origin=list(host.origin),lines=lines)
     if command=='symbian-open':
         if set(request)!={'command','application'} or not isinstance(request['application'],str):raise ValueError('Invalid Symbian application request')
         from symbian_catalog import resolve
@@ -67,7 +78,7 @@ def dispatch(host,launch,identity,request):
         accepted=None if command=='radio-status' else form.action(command[6:])
         return dict(ok=True,identity=dict(identity),radio=radio_summary(form.state,accepted))
     fields={'open-map':{'command'},'status':{'command'},'pan':{'command','direction'},
-            'zoom':{'command','direction'},'set-view':{'command','latitude','longitude','span'},'pointer-trace':{'command','enabled'}}
+            'apply-map-preview':{'command'},'zoom':{'command','direction'},'set-view':{'command','latitude','longitude','span'},'pointer-trace':{'command','enabled'}}
     if command not in fields or set(request)!=fields[command]:raise ValueError('Unsupported command or fields')
     if command=='pointer-trace':
         trace=getattr(host,'pointer_trace',None)
@@ -84,7 +95,7 @@ def dispatch(host,launch,identity,request):
         form=form.owner
         if form is None:raise ValueError('Open Station Map first')
     if command=='open-map':launch('window:Station Map')
-    if command in ('pan','zoom','set-view'):
+    if command in ('pan','zoom','set-view','apply-map-preview'):
         if hasattr(form,'reset_double_tap'):form.reset_double_tap()
         if not window.opened:raise ValueError('Open Station Map first')
         if form.filter_open:raise ValueError('Close the map filter before changing its view')
@@ -93,6 +104,7 @@ def dispatch(host,launch,identity,request):
             options={'left':'left','right':'right','up':'up','down':'down'} if command=='pan' else {'in':'+','out':'-'}
             if not isinstance(direction,str) or direction not in options:raise ValueError('Invalid direction')
             form.key(options[direction])
+        elif command=='apply-map-preview':form.key('\r')
         else:
             values=[request[key] for key in ('latitude','longitude','span')]
             if any(type(value) not in (int,float) or not math.isfinite(value) for value in values):raise ValueError('Finite numeric view values required')
@@ -110,6 +122,7 @@ def dispatch(host,launch,identity,request):
                 map=dict(opened=window.opened,visible=host.shown(window),center=list(form.center),span=form.span,double_tap_interval_ms=form.double_tap.interval_ns//1_000_000,
                          cache=cache if cache in ('prepared','ram','cold') else None,
                          pending=getattr(form.renderer,'pending',None) is not None,
+                         error=getattr(form.renderer,'error',None),
                          image_ready=image is not None,coherent=coherent,image_cache=image_cache,
                          viewport=[getattr(form,'width',None),max(1,form.height-3) if hasattr(form,'height') else None],
                          presented_view=getattr(form,'_image_view',None)))

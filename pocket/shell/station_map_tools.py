@@ -464,7 +464,7 @@ class StationMapTools:
         rect=getattr(self.base,'_locator_rect',None)
         if rect is None or layer is None:return None
         x,y,width,height,image=rect
-        if image.projection is None:return None
+        if image.projection is None or image.source=='overview-loading':return None
         from array import array
         from map_overview import corners
         from offline_map import ContextPlane,MapSurface
@@ -476,7 +476,7 @@ class StationMapTools:
         key=('locator',id(image),rect[:4],tuple(center),span)
         cells=ContextPlane(image.cells,image.width,image.height,width,height)
         surface=MapSurface(image,(x,y,width,height,cells),self.base.renderer,key,
-                           overlay_vectors=(((255,210,65),outline),),labels=False)
+                           overlay_vectors=(((255,210,65),outline),),labels=False,pixel_overview=True)
         return surface,x-layer[0],y-layer[1]
     def map_surface(self):
         """The current semantic map source, independent of its tool screen."""
@@ -549,6 +549,12 @@ class StationMapTools:
     def selected_entities(self):
         position=self.base.center
         return tuple(self.base.selected_entities())+(EntityRef('map-point',f'{position[0]:.7f},{position[1]:.7f}',payload={'position':position}),)
+    def on_close(self):
+        renderer=self.base.renderer
+        renderer._wanted=None
+        if renderer.pending:renderer.pending[1].cancel()
+        self.base.cancel_pointer()
+
     def close(self):
         if self.internet:self.internet.close()
         if self.tool:self.tool.close()

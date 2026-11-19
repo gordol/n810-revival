@@ -8,6 +8,7 @@ backlight=${N810_SCREEN_BACKLIGHT:-}
 run_dir=${N810_SCREEN_RUN_DIR:-/run/n810-screen}
 hold=$run_dir/hold
 blanked=$run_dir/blanked
+lamp_only=$run_dir/pocket-lamp-only
 idle_percent=$run_dir/idle-percent
 manual_brightness=$run_dir/manual-brightness
 saved_brightness=$run_dir/brightness
@@ -106,7 +107,8 @@ restore_brightness()
 case "${1:-}" in
 lock)
     : > "$run_dir/locked"
-    echo 0 > /sys/class/leds/n810::keyboard/brightness
+    keyboard_led=${N810_KEYBOARD_LED:-/sys/class/leds/n810::keyboard/brightness}
+    if test -w "$keyboard_led"; then echo 0 > "$keyboard_led"; fi
     exec "$0" off
     ;;
 unlock)
@@ -119,7 +121,13 @@ off|blank)
 	if test "$1" = off; then : > "$hold"; else rm -f "$hold"; fi
 	echo 0 > "$backlight/brightness"
 	if test -w "$backlight/bl_power"; then echo 4 > "$backlight/bl_power"; fi
-	echo 1 > "$fb/blank"
+	if test -s "${N810_POCKET_ACTIVE:-/run/n810-pocket-native/active.json}"; then
+		# Pocket owns scanout. Lock input and extinguish the lamp without
+		# racing a GPU presentation against the framebuffer blank ioctl.
+		: > "$lamp_only"
+	else
+		echo 1 > "$fb/blank"
+	fi
 	: > "$blanked"
 	;;
 on)
@@ -127,13 +135,13 @@ on)
 	# Poke the VT first: it can itself unblank fb0 when the console blanker
 	# owns the blank state. Keep the settling delay after the final explicit
 	# unblank before restoring the user's last nonzero brightness.
-	if test ! -e "$run_dir/x11-managed"; then
+	if test ! -e "$lamp_only" && test ! -e "$run_dir/x11-managed"; then
 		TERM=linux setterm --blank poke < "$tty" > "$tty" 2>/dev/null || true
 	fi
-	echo 0 > "$fb/blank"
+	if test ! -e "$lamp_only"; then echo 0 > "$fb/blank"; fi
 	sleep "$wake_delay"
 	restore_brightness
-	rm -f "$hold" "$blanked"
+	rm -f "$hold" "$blanked" "$lamp_only"
 	;;
 dim)
 	test ! -e "$blanked" && test ! -e "$hold" || exit 0

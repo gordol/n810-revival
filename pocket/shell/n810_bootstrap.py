@@ -15,7 +15,9 @@ import stat
 import tempfile
 
 KINDS={'n810-system':('system-image','kernel','modules','boot-guide'),
-       'pocket-update':('payload','installer','install-guide')}
+       'pocket-update':('payload','installer','install-guide'),
+       'n810-internal':('root-filesystem','kernel','install-plan','kernel-build-manifest','install-guide')}
+INTERNAL_RECOVERY={'installer-kernel','installer-filesystem','installer-build-manifest','installer-host-key'}
 MAX_MANIFEST=65536
 MAX_FILES=64
 
@@ -54,7 +56,7 @@ def inspect(manifest,progress=None,cancelled=None):
     data=json.loads(manifest.read_text(),object_pairs_hook=unique_object)
     if not isinstance(data,dict) or data.get('version')!=1 or type(data.get('version')) is not int:raise ValueError('Expected installation manifest version 1')
     kind=data.get('kind');release=data.get('release')
-    if kind not in KINDS:raise ValueError('Choose an n810-system or pocket-update manifest')
+    if kind not in KINDS:raise ValueError('Choose an N810 system, internal-install, or Pocket update manifest')
     if not isinstance(release,str) or not release.strip() or len(release)>100 or not release.isprintable():raise ValueError('Manifest needs a readable release name')
     files=data.get('files')
     if not isinstance(files,list) or not 1<=len(files)<=MAX_FILES:raise ValueError('Manifest needs 1–64 files')
@@ -83,7 +85,9 @@ def inspect(manifest,progress=None,cancelled=None):
         seen.add(name);roles.add(role);verified.append(dict(path=name,role=role,bytes=size,sha256=sha))
     missing=set(KINDS[kind])-roles
     if missing:raise ValueError('Missing required artifacts: '+', '.join(sorted(missing)))
-    if kind=='n810-system':
+    if kind=='n810-internal' and roles not in (set(KINDS[kind]),set(KINDS[kind])|INTERNAL_RECOVERY):
+        raise ValueError('Internal kit has an incomplete or unexpected RAM-installer payload')
+    if kind in ('n810-system','n810-internal'):
         kernel=data.get('kernel_release')
         if not isinstance(kernel,str) or not kernel or len(kernel)>100 or not kernel.isprintable():raise ValueError('System kit needs its matching kernel release')
     return dict(version=1,kind=kind,release=release,kernel_release=data.get('kernel_release'),

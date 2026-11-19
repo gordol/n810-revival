@@ -1,0 +1,108 @@
+--- sp_tex_tile_cache.h
++++ sp_tex_tile_cache.h
+@@ -88,7 +88,9 @@
+    struct pipe_resource *texture;  /**< if caching a texture */
+    unsigned timestamp;
+ 
+-   struct softpipe_tex_cached_tile entries[NUM_TEX_TILE_ENTRIES];
++   /* Keep address writes off unused 16 KiB payload pages. */
++   union tex_tile_address tile_addrs[NUM_TEX_TILE_ENTRIES];
++   unsigned last_tile_index;
+ 
+    struct pipe_transfer *tex_trans;
+    void *tex_trans_map;
+@@ -101,6 +103,9 @@
+    enum pipe_format format;
+ 
+    struct softpipe_tex_cached_tile *last_tile;  /**< most recently retrieved tile */
++
++   /* MBX_COMPACT_TEXTURE_METADATA: all writable metadata precedes payloads. */
++   struct softpipe_tex_cached_tile entries[NUM_TEX_TILE_ENTRIES];
+ };
+ 
+ 
+@@ -150,7 +155,7 @@
+ sp_get_cached_tile_tex(struct softpipe_tex_tile_cache *tc, 
+                        union tex_tile_address addr )
+ {
+-   if (tc->last_tile->addr.value == addr.value)
++   if (tc->tile_addrs[tc->last_tile_index].value == addr.value)
+       return tc->last_tile;
+ 
+    return sp_find_cached_tile_tex( tc, addr );
+--- sp_tex_tile_cache.c
++++ sp_tex_tile_cache.c
+@@ -52,11 +52,14 @@
+    /* make sure max texture size works */
+    assert((TEX_TILE_SIZE << TEX_Y_BITS) >= (1 << (SP_MAX_TEXTURE_2D_LEVELS-1)));
+ 
+-   tc = CALLOC_STRUCT( softpipe_tex_tile_cache );
++   /* MBX_LAZY_TEXTURE_PAYLOAD: metadata now, zero payload on first use.
++    * malloc avoids eagerly clearing all software-only texture storage. */
++   tc = MALLOC_STRUCT(softpipe_tex_tile_cache);
+    if (tc) {
++      memset(tc, 0, offsetof(struct softpipe_tex_tile_cache, entries));
+       tc->pipe = pipe;
+       for (pos = 0; pos < ARRAY_SIZE(tc->entries); pos++) {
+-         tc->entries[pos].addr.bits.invalid = 1;
++         tc->tile_addrs[pos].value = UINT64_MAX;
+       }
+       tc->last_tile = &tc->entries[0]; /* any tile */
+    }
+@@ -98,7 +101,7 @@
+    assert(tc->texture);
+ 
+    for (i = 0; i < ARRAY_SIZE(tc->entries); i++) {
+-      tc->entries[i].addr.bits.invalid = 1;
++      tc->tile_addrs[i].bits.invalid = 1;
+    }
+ }
+ 
+@@ -148,7 +151,7 @@
+       /* mark as entries as invalid/empty */
+       /* XXX we should try to avoid this when the teximage hasn't changed */
+       for (i = 0; i < ARRAY_SIZE(tc->entries); i++) {
+-         tc->entries[i].addr.bits.invalid = 1;
++         tc->tile_addrs[i].bits.invalid = 1;
+       }
+ 
+       tc->tex_z = -1; /* any invalid value here */
+@@ -170,7 +173,7 @@
+    if (tc->texture) {
+       /* caching a texture, mark all entries as empty */
+       for (pos = 0; pos < ARRAY_SIZE(tc->entries); pos++) {
+-         tc->entries[pos].addr.bits.invalid = 1;
++         tc->tile_addrs[pos].bits.invalid = 1;
+       }
+       tc->tex_z = -1;
+    }
+@@ -206,9 +209,13 @@
+ {
+    struct softpipe_tex_cached_tile *tile;
+ 
+-   tile = tc->entries + tex_cache_pos( addr );
+-
+-   if (addr.value != tile->addr.value) {
++   unsigned pos = tex_cache_pos(addr);
++   tile = tc->entries + pos;
++
++   if (addr.value != tc->tile_addrs[pos].value) {
++      if (tc->tile_addrs[pos].value == UINT64_MAX)
++         memset(&tile->data, 0, sizeof(tile->data));
++
+ 
+       /* cache miss.  Most misses are because we've invalidated the
+        * texture cache previously -- most commonly on binding a new
+@@ -267,8 +274,10 @@
+                          tc->format,
+                          (float *) tile->data.color);
+       tile->addr = addr;
+-   }
+-
++      tc->tile_addrs[pos] = addr;
++   }
++
++   tc->last_tile_index = pos;
+    tc->last_tile = tile;
+    return tile;
+ }

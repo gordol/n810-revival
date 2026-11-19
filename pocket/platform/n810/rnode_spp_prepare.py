@@ -12,6 +12,32 @@ CONTROLLER = '02:00:00:00:00:15'
 DEVICE = '/dev/rfcomm0'
 
 
+def load_configuration(path='/etc/n810/rnode-spp.json'):
+    """Only root-controlled, explicit per-device endpoints may be prepared."""
+    import json
+    import re
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1 or info.st_mode & 0o077:
+            raise ValueError('RNode setup must be a root-owned private regular file')
+        raw = stream.read(4097)
+    if len(raw) > 4096:raise ValueError('RNode setup exceeds limit')
+    return validate_configuration(json.loads(raw))
+
+
+def validate_configuration(value):
+    import re
+    if not isinstance(value, dict) or set(value) != {'controller', 'address'}:
+        raise ValueError('Set controller and address only; rfcomm0 uses SPP channel 1')
+    for key in ('controller', 'address'):
+        if not isinstance(value[key], str) or not re.fullmatch(r'(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}', value[key]):
+            raise ValueError('Use a Bluetooth address for ' + key)
+    value = {key: address.upper() for key, address in value.items()}
+    if value['controller'] == value['address']:raise ValueError('Controller and peripheral must differ')
+    return value
+
+
 def _capture(args):
     """Bounded native read-only probes without importing subprocess."""
     reader, writer = os.pipe()
@@ -90,7 +116,10 @@ def _existing_mapping_ready():
 
 
 if __name__ == '__main__' and _existing_mapping_ready():
-    print('{"ok":true,"device":"/dev/rfcomm0","address":"02:00:00:00:00:16","channel":1,"mapping_created":false,"owner_changed":false,"radio_opened":false,"rf_enabled":false,"fast_path":true}')
+    import json
+    print(json.dumps(dict(ok=True, device=DEVICE, address=ADDRESS, channel=1,
+                          mapping_created=False, owner_changed=False,
+                          radio_opened=False, rf_enabled=False, fast_path=True)))
     raise SystemExit(0)
 
 # Creation, ownership changes and ambiguous state use the original full checks.

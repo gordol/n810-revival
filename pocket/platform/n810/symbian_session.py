@@ -1,5 +1,6 @@
 """Serialize Pocket and native Symbian applications under one graphics owner."""
 import os
+import errno
 import re
 import select
 import signal
@@ -12,10 +13,26 @@ from symbian_catalog import resolve,packages
 
 APPS={'chess':'ChessGenius_20036D63.exe','snakes':'6r45_1b.exe'}
 
+def remove_stale_socket(path,uid,sock_type=socket.SOCK_SEQPACKET):
+    try:record=path.lstat()
+    except FileNotFoundError:return
+    if not stat.S_ISSOCK(record.st_mode) or record.st_uid!=uid:
+        raise RuntimeError('Unexpected Symbian launch socket path')
+    with socket.socket(socket.AF_UNIX,sock_type) as probe:
+        probe.settimeout(1)
+        try:probe.connect(str(path))
+        except OSError as error:
+            if error.errno!=errno.ECONNREFUSED:raise
+        else:raise RuntimeError('Symbian launch socket is still owned')
+    current=path.lstat()
+    if (current.st_dev,current.st_ino)!=(record.st_dev,record.st_ino):
+        raise RuntimeError('Symbian launch socket changed during recovery')
+    path.unlink()
+
 class Session:
     def __init__(self,directory,uid,gid,windows=None):
         self.path=Path(directory)/'symbian.sock';self.uid=uid;self.windows=windows
-        if self.path.exists():raise RuntimeError('Symbian launch socket already exists')
+        remove_stale_socket(self.path,uid)
         self.server=socket.socket(socket.AF_UNIX,socket.SOCK_SEQPACKET)
         self.server.bind(str(self.path));os.chown(self.path,uid,gid);os.chmod(self.path,0o600)
         self.server.listen(1)

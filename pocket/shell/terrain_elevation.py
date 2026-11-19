@@ -106,9 +106,12 @@ def sample_elevation(latitude,longitude):
             return values[(y%256)*width+x%256]
         value=_sample(metadata,latitude,longitude,get)
         if value is not None:return value,metadata
-    value=elevation(latitude,longitude)
-    if value is not None:return value,grid()[0]
-    metadata,values=regional_grid()
+    try:
+        value=elevation(latitude,longitude)
+        if value is not None:return value,grid()[0]
+    except FileNotFoundError:pass  # Optional legacy pack; selected fine data may be the only installation.
+    try:metadata,values=regional_grid()
+    except FileNotFoundError:return None,{}
     value=_sample(metadata,latitude,longitude,lambda x,y:values[y*metadata['nx']+x])
     return value,metadata
 
@@ -190,7 +193,7 @@ def calculate(start,end,*,frequency_mhz=144.39,tx_height_m=2,rx_height_m=10,k=4/
             source_counts[identity]=source_counts.get(identity,0)+1
         samples.append((distance*fraction,height));locations.append((lat,lon))
     if samples[0][1] is None or samples[-1][1] is None:
-        raise ValueError('Endpoint outside installed PNW elevations (43–52 N, 128–116 W). No synthetic fallback.')
+        raise ValueError('An endpoint has no elevation in the installed datasets. Choose covered points or install additional terrain.')
     result=profile(samples,frequency_mhz=frequency_mhz,tx_height_m=tx_height_m,rx_height_m=rx_height_m,k=k)
     spacing=max(EARTH_M*math.radians(m['latitude_step']) for m in sources.values())
     identities=[m.get('sha256') or hashlib.sha256(json.dumps(m,sort_keys=True).encode()).hexdigest() for m in sources.values()]

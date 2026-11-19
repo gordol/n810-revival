@@ -6,6 +6,10 @@ from concurrent.futures import ThreadPoolExecutor,CancelledError
 from dataclasses import dataclass
 from functools import partial
 import time
+import marshal
+import stat
+import sys
+import zlib
 import math
 import os
 from array import array
@@ -73,6 +77,7 @@ class MapSurface:
     labels:bool=True
     inset:object=None
     box_plane:object=None
+    pixel_overview:bool=False
     def viewport(self):
         projection=self.image.projection;_,_,width,height,_=self.layer
         return self.renderer.module.Viewport(projection.center,projection.span,width,height,projection.cell_aspect)
@@ -80,6 +85,11 @@ class MapSurface:
         if self.unavailable_reason:raise ValueError(self.unavailable_reason)
         prepared=getattr(self.image,'features',None)
         projection=self.image.projection
+        if (self.pixel_overview and prepared is not None and projection is not None and
+            (tuple(view.center),view.span,view.cell_aspect)==
+            (tuple(projection.center),projection.span,projection.cell_aspect)):
+            return MapFeatures(prepared.terrain,prepared.vectors,{},prepared.sample_width,
+                               prepared.sample_height,prepared.forest_roads,prepared.pixel_detail)
         if (prepared is not None and projection is not None and
             prepared.forest_roads==bool(getattr(self.renderer,'forest_roads',False)) and
             prepared.pixel_detail and
@@ -235,6 +245,12 @@ class ReprojectedPlane:
         return value
 
 
+def display_terrain_sampler(engine):
+    """Use the installed prepared display pack; LOS retains its fine reader."""
+    prepared=getattr(engine,'_catalogue_original_rgb',None)
+    return prepared if prepared is not None and getattr(engine,'terrain',None) is not None else engine._rgb_terrain
+
+
 class Renderer:
     def __init__(self,root=ROOT,maps=None):
         from data_paths import map_directory
@@ -242,6 +258,7 @@ class Renderer:
         self.module=self.engine=None;self.meshes=OrderedDict();self.latest3d=None;self._wanted=None
         from map_regions import Regions
         self.reuse_regions=False;self.regions=Regions();self.completion_wakeup=None;self.loading_phase='idle'
+        self._closed=False
         self.presentation='cells'
         self.timing_enabled=False;self._request_timing={};self._worker_timing={};self._worker_counts={};self._wanted_since=None
     def _completed(self,future):
@@ -275,8 +292,10 @@ class Renderer:
             samples.extend(map_rgb(upper) for _,upper,_ in cells)
             samples.extend(map_rgb(lower) for _,_,lower in cells)
         detail_pixels=8 if pixel_detail else 1
-        vectors=list(vector_segments(self.engine,view,roads=roads,detail_pixels=detail_pixels))
-        labels=label_annotations(self.engine,view,roads=roads,detail_pixels=detail_pixels)
+        from map_geography import selected_geography
+        selection=selected_geography(self.engine,view,roads,detail_pixels=detail_pixels)
+        vectors=list(vector_segments(self.engine,view,roads=roads,detail_pixels=detail_pixels,selection=selection))
+        labels=label_annotations(self.engine,view,roads=roads,detail_pixels=detail_pixels,selection=selection)
         if grid_enabled(grid_mode,view.span):
             grid_vector,grid_labels=grid_features(view)
             vectors.insert(0,grid_vector)
@@ -295,7 +314,8 @@ class Renderer:
         if self.engine is None:return 'Loading offline map library…'
         return {'region':'Reusing geographic region…','saved':'Loading saved map view…',
                 'build':'Building missing map view…','memory':'Reusing map in memory…',
-                'ready':'Map ready'}.get(self.loading_phase,'Finding reusable map view…')
+                'terrain':'Loading terrain…','features':'Preparing map features…',
+                'places':'Loading place labels…','ready':'Map ready'}.get(self.loading_phase,'Finding reusable map view…')
     def timing_snapshot(self):
         return dict(requests=dict(self._request_timing),worker=dict(self._worker_timing),outcomes=dict(self._worker_counts))
     def _count_request(self,name):
@@ -321,11 +341,15 @@ class Renderer:
         if key!=self._wanted:raise CancelledError()
         began=time.monotonic();self.loading_phase='lookup'
         stage=time.monotonic() if self.timing_enabled else None
-        if self.module is None:
+        if self.engine is None:
+            if not (self.maps/'walk-layers.n8w').is_file():
+                raise FileNotFoundError('No offline map views installed; install prepared reference data using n810-install-reference-data')
             path=self.root/'n810-map-next.py'
             spec=importlib.util.spec_from_file_location('framework_offline_map',path)
             module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-            self.module=module;self.engine=module.Engine(self.maps,'rgb',cache_directory=map_cache_directory())
+            engine=module.Engine(self.maps,'rgb',cache_directory=map_cache_directory())
+            self.module=module;self.engine=engine
+        self.engine.cancel_requested=lambda:self._closed or key!=self._wanted
         from desktop_elevation import configure
         configure(self.engine)
         from elevation_display import configure as configure_portable
@@ -354,18 +378,61 @@ class Renderer:
         if key!=self._wanted:raise CancelledError()
         if source is None:source={'prepared':'prepared','ram':'memory'}.get(getattr(self.engine,'stats',{}).get('cache'),'rendered')
         stage=time.monotonic() if self.timing_enabled else None
+        self.loading_phase='places'
         places=tuple((p['name'] if 'name' in p else p.get('label',''),p['lon'],p['lat']) for p in self.engine.places(viewport))
         if stage is not None:self._stage('places_seconds',stage)
         self.loading_phase='ready'
         return Image(width,height,cells,legend,places,time.monotonic()-began,projection or viewport,source)
+    def prepared_path(self,kind,view,options):
+        store=getattr(self.engine,'prepared',None)
+        if store is None:return None
+        from map_geography import signature as geography
+        from map_hydrography import signature as hydrography
+        return store.disk_path(('pixel-map-v1',kind,sys.byteorder,tuple(view),options,
+                                geography(),hydrography()))
+
+    def read_prepared(self,path):
+        if not path:return None
+        try:
+            fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+            with os.fdopen(fd,'rb') as stream:
+                info=os.fstat(fd)
+                if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o022:return None
+                if info.st_size>4*1024*1024 or stream.read(4)!=b'N8M2':return None
+                decoder=zlib.decompressobj()
+                payload=decoder.decompress(stream.read(4*1024*1024),8*1024*1024)
+            if decoder.eof and not decoder.unused_data:return marshal.loads(payload)
+        except (OSError,EOFError,ValueError,TypeError,zlib.error):pass
+        return None
+
     def _render_semantic(self,key,began):
         """Prepare one clean source frame; native and TUI share the map engine."""
         _,center,span,width,height,terrain,roads=key
         view=self.module.Viewport(center,span,width,height)
-        frame,legend=self.engine._rgb_terrain(view,terrain)
+        forest=bool(getattr(self,'forest_roads',False))
+        path=self.prepared_path('geography',view,(terrain,roads,forest))
+        saved=self.read_prepared(path)
+        if saved is not None:
+            try:
+                samples,lines,labels,legend,places=saved
+                if len(samples)!=width*height*2*4:raise ValueError('Terrain size mismatch')
+                features=MapFeatures(array('I',samples),tuple((color,array('d',coords)) for color,coords in lines),
+                                     labels,width,height*2,forest,True)
+                self.loading_phase='ready'
+                return Image(width,height,SemanticPlane(features.terrain,width,height),legend,places,
+                             time.monotonic()-began,view,'semantic-prepared',features)
+            except (ValueError,TypeError,OverflowError):pass
+        self.loading_phase='terrain'
+        frame,legend=display_terrain_sampler(self.engine)(view,terrain)
+        self.loading_phase='features'
         features=self._features_from_terrain(view,frame,roads,pixel_detail=self.presentation=='semantic')
         if key!=self._wanted:raise CancelledError()
+        self.loading_phase='places'
         places=tuple((p['name'] if 'name' in p else p.get('label',''),p['lon'],p['lat']) for p in self.engine.places(view))
+        if path and key==self._wanted:
+            self.engine.prepared.save_base(path,(features.terrain.tobytes(),
+                tuple((color,coords.tobytes()) for color,coords in features.vectors),
+                features.labels,legend,places))
         self.loading_phase='ready'
         return Image(width,height,SemanticPlane(features.terrain,width,height),legend,places,
                      time.monotonic()-began,view,'semantic',features)
@@ -417,6 +484,12 @@ class Renderer:
             self._count_request('changed');self._wanted_since=time.monotonic()
         selection=getattr(self,'provider_selection',None)
         if selection is not None:key=(*key,selection)
+        # A cache hit observes an existing view; it must not cancel a sibling
+        # overview request using the same worker and engine.
+        if key in self.ready:
+            self.error=self.failed.get(key)
+            if self.timing_enabled:self._count_request('cache_hits')
+            self.ready.move_to_end(key);return self.ready[key]
         self._wanted=key
         if self.pending and self.pending[0]!=key and self.pending[1].cancel():
             if self.timing_enabled:self._count_request('cancelled_before_start')
@@ -508,7 +581,7 @@ class Renderer:
         return Image(width,height,tuple(cells[x,y] for y in range(height) for x in range(width)),f'{nx} x {nz} samples / Z {exaggeration:g}x',(),time.monotonic()-began)
     def close(self):
         if getattr(self,'_closed',False):return
-        self._closed=True
+        self._closed=True;self._wanted=None;self.completion_wakeup=None
         cleanup=getattr(self,'_retire_provider',None)
         selected=getattr(self,'_provider_lifecycle',False)
         if self.pool:

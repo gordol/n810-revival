@@ -17,6 +17,7 @@ STYLES = {
     'double': ('╔','╗','╚','╝','═','║'),
     'bare': (' ',' ',' ',' ',' ',' '),
 }
+OVERLAY_BORDERS = ('Exposed edges', 'All edges', 'Off')
 PALETTES = {
     'ice': ('37','96','38;2;128;153;159','93'),
     'amber': ('37','93','38;2;163;143;111','97'),
@@ -43,6 +44,31 @@ Particle = namedtuple('Particle', 'x y born desktop glyph')
 Wake = namedtuple('Wake', 'name rect dx dy born desktop')
 BLANK = Cell(' ', 0)
 DESKTOP_BLANK=Cell(' ',13)
+
+
+@lru_cache(maxsize=32)
+def overlay_rows(lines, width, height, edges, glyphs, style, ascii):
+    """Build one cell plane for both the portable and native compositors."""
+    top, right, bottom, left = edges
+    fallback = ('+', '+', '+', '+', '-', '|')
+    frame = STYLES[style if style != 'bare' else 'thin']
+    tl, tr, bl, br, horizontal, vertical = (
+        glyph if glyphs.cell(glyph, ascii) == glyph else substitute
+        for glyph, substitute in zip(frame, fallback)
+    )
+    body_width = width - left - right
+    rows = []
+    if top:
+        rows.append(((tl if left else '') + horizontal * body_width + (tr if right else ''), 0))
+    body_height = height - top - bottom
+    for index in range(body_height):
+        line = lines[index] if index < len(lines) else ''
+        text = glyphs.text(line[:body_width].ljust(body_width), ascii)
+        text = (vertical if left else '') + text + (vertical if right else '')
+        rows.append((text, int(index == 0 or line.startswith('>'))))
+    if bottom:
+        rows.append(((bl if left else '') + horizontal * body_width + (br if right else ''), 0))
+    return tuple(rows)
 
 
 @lru_cache(maxsize=128)
@@ -373,6 +399,7 @@ class Host:
         self.loose_leaves = []
         self.weather = PRESETS[1]
         self.surfaces = Surfaces()
+        self.available_effects = EFFECTS
         self.desktop_effects = ['matrix']*3
         self.overview_opacity = .65
         self.window_opacity = .88
@@ -386,6 +413,8 @@ class Host:
         self.show_pager=False;self.pager=None;self.pager_position='bottom left'
         self.mouse_trails=False;self.pointer_trail=None
         self.application_menu_mode='Alphabetical'
+        self.overlay_borders=OVERLAY_BORDERS[0]
+        self.overlay_screen=None
         self.wm_escape='ctrl-]'
         self.timezone_name='UTC'
         self.list_scrollbars='auto';self.list_counts='auto';self.status_verbosity='compact'
@@ -413,6 +442,7 @@ class Host:
         self._launcher_dirty=set()
         self._launcher_presented_bounds=None
         self.launcher_anchor = None
+        self.launcher_dock = None
         self.settings_lines = ()
         self.animation_duration = .16
         self.help_page = 0
@@ -581,7 +611,14 @@ class Host:
         if key=='app_preferences':
             from app_registry import validate_app_preferences
             value=validate_app_preferences(value)
+        previous_menu = self.launcher_bounds() if key=='overlay_borders' and self.launcher_lines else None
         setattr(self,key,value)
+        if key=='overlay_borders':
+            if previous_menu is not None:
+                self._invalidate_launcher(previous_menu)
+                self._invalidate_launcher(self.launcher_bounds())
+            if self.help_lines or self.settings_lines:
+                self.invalidate((0,0,self.width,self.height))
         self.session_changed('preference',key)
 
     def titlebar(self,w,width):
@@ -712,18 +749,81 @@ class Host:
                       for xx in range(max(0,x),min(self.width,x+width)))
         self.damage.update(indices);self.ui_damage.update(indices);self._launcher_dirty.update(indices)
 
+    def place_launcher(self, anchor, dock=None):
+        previous = self.launcher_bounds() if self.launcher_lines else None
+        self.launcher_anchor, self.launcher_dock = anchor, dock
+        self._invalidate_launcher(previous)
+        if self.launcher_lines:
+            self._invalidate_launcher(self.launcher_bounds())
+
+    def overlay_capacity(self):
+        return max(3,self.work_height - (0 if self.overlay_borders == 'Off' else 2))
+
     def launcher_bounds(self):
-        width=min(36,self.width)
-        height=min(len(self.launcher_lines),self.height)
-        if self.launcher_anchor is None:return 0,max(0,self.height-height),width,height
-        x,y,w,h=self.launcher_anchor
-        if x<0:x=0
-        elif x>=self.width:x=self.width-width
-        if y<0:y=0
-        elif y>=self.height:y=self.height-height
-        elif y+h+height<=self.height:y+=h
-        else:y-=height
-        return max(0,min(self.width-width,x)),max(0,min(self.height-height,y)),width,height
+        width = min(36, self.width)
+        available = self.work_height
+        height = min(len(self.launcher_lines) + (2 if self.launcher_lines and self.overlay_borders != 'Off' else 0), available)
+        if self.launcher_anchor is None:
+            return 0, available-height, width, height
+        x,y,_,h = self.launcher_anchor
+        if self.launcher_dock == 'top':
+            y = 0
+        elif self.launcher_dock == 'bottom':
+            y = available-height
+        elif self.launcher_dock == 'left':
+            x = 0
+        elif self.launcher_dock == 'right':
+            x = self.width-width
+        elif y < 0:
+            y = 0
+        elif y >= available:
+            y = available-height
+        elif y+h+height > available:
+            y -= height
+        else:
+            y += h
+        return max(0,min(self.width-width,x)), max(0,min(available-height,y)), width, height
+
+    def floating_overlay_bounds(self, lines):
+        return max(0,(self.width-58)//2), 1, min(self.width,58), min(
+            len(lines) + (2 if self.overlay_borders != 'Off' else 0), self.work_height-1)
+
+    def overlay_edges(self, bounds, dock=None):
+        if self.overlay_borders == 'Off':
+            return False, False, False, False
+        if self.overlay_borders == 'All edges':
+            return True, True, True, True
+        x,y,width,height = bounds
+        ox,oy = self.origin
+        screen_width,screen_height = self.overlay_screen or (self.width,self.height)
+        return (dock != 'top' and y+oy > 0,
+                dock != 'right' and x+ox+width < screen_width,
+                dock != 'bottom' and y+oy+height < screen_height,
+                dock != 'left' and x+ox > 0)
+
+    def overlay_rows(self, lines, bounds, dock=None):
+        return overlay_rows(tuple(lines), *bounds[2:], self.overlay_edges(bounds,dock),
+                            self.glyphs, self.style, self.ascii)
+
+    def launcher_edges(self, bounds):
+        top,right,bottom,left = self.overlay_edges(bounds,self.launcher_dock)
+        # Preserve the title, search and at least one action on short viewports.
+        height = bounds[3]
+        bottom = bottom and height-top > 3
+        top = top and height-bottom > 3
+        return top,right,bottom,left
+
+    def launcher_rows(self, bounds=None):
+        bounds = self.launcher_bounds() if bounds is None else bounds
+        return overlay_rows(self.launcher_lines, *bounds[2:],self.launcher_edges(bounds),
+                            self.glyphs,self.style,self.ascii)
+
+    def launcher_pointer_row(self, x, y):
+        left,top,width,height = bounds = self.launcher_bounds()
+        north,east,south,west = self.launcher_edges(bounds)
+        if left+west <= x < left+width-east and top+north <= y < top+height-south:
+            return y-top-north-2
+        return -1
 
     def window_status(self,w):
         if not w.visible:return 'minimized'
@@ -800,6 +900,7 @@ class Host:
              'q in WM mode       Quit (outside this help)'),
             ('HELP 2/3 — Appearance and demo effects',
              'Frame style        Settings > Window Manager > Style',
+             'Overlay borders    Settings > Appearance > Style',
              'c                  Color palette',
              'e                  Desktop background effect',
              'w                  Synthetic weather preset',
@@ -840,6 +941,7 @@ class Host:
 
     def set_effect(self, name):
         if name not in EFFECTS: raise ValueError('unknown effect')
+        if name not in self.available_effects:name=self.available_effects[0]
         expected='terrain' if name=='terrain' else 'effect:'+name
         if self.terrain_renderer is not None and getattr(self.terrain_renderer,'mode','terrain')!=expected and hasattr(self.terrain_renderer,'suspend'):
             self.terrain_renderer.suspend()
@@ -1818,26 +1920,28 @@ class Host:
 
     _pointer_cell=cell
 
+    def _text_overlay_cell(self, x, y, lines, bounds):
+        left,top,width,height = bounds
+        if top <= y < top+height and left <= x < left+width:
+            text,color = self.overlay_rows(lines,bounds)[y-top]
+            return Cell(text[x-left],color)
+        return None
+
     def overlay_cell(self, x, y):
         if self.launcher_lines:
-            left,top,width,height=self.launcher_bounds()
-            if top<=y<top+height and left<=x<left+width:
-                line=self.launcher_lines[y-top].ljust(width)
-                return Cell(line[x-left],1 if line.startswith('>') or y==top else 0)
+            left,top,width,height = bounds = self.launcher_bounds()
+            if top <= y < top+height and left <= x < left+width:
+                text,color = self.launcher_rows(bounds)[y-top]
+                return Cell(text[x-left],color)
         if self.screensaver:return self.backdrop.get((x,y),DESKTOP_BLANK)
         if self.settings_lines:
-            left=max(0,(self.width-58)//2)
-            if 1<=y<=len(self.settings_lines) and left<=x<min(self.width,left+58):
-                line=self.settings_lines[y-1].ljust(58)
-                return Cell(line[x-left],1 if line.startswith('>') or y==1 else 0)
+            settings = self._text_overlay_cell(x,y,self.settings_lines,self.floating_overlay_bounds(self.settings_lines))
+            if settings is not None:return settings
         if self.drag and self.pointer_origin is None and y==0 and not self.help_lines:
             label=('RESIZE ' if self.drag[3] else 'MOVE ')+self.drag[0]+' | Arrows/hjkl adjust | Enter save | Esc cancel'
             return Cell(label[x] if x<len(label) else ' ',3)
         if self.help_lines:
-            left = max(0,(self.width-58)//2)
-            if 1 <= y <= len(self.help_lines) and left <= x < min(self.width,left+58):
-                line = self.help_lines[y-1].ljust(58)
-                return Cell(line[x-left],1 if y == 1 else 0)
+            return self._text_overlay_cell(x,y,self.help_lines,self.floating_overlay_bounds(self.help_lines))
         return None
 
     def _cell(self, x, y):

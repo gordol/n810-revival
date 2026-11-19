@@ -229,7 +229,8 @@ static void test_page_groups(void){
     unsigned previous=0;
     for(unsigned k=g->page_offsets[page];k<g->page_offsets[page+1];k++){
      unsigned id=g->page_primitives[k];assert(id<g->vertices/3);assert(g->primitive[id].page==(int)page);
-     if(k>g->page_offsets[page])assert(previous<id);previous=id;++groups;
+     if(k>g->page_offsets[page])assert(previous<id);
+     previous=id;++groups;
     }
    }
   }
@@ -240,8 +241,22 @@ static void test_page_groups(void){
  assert(groups>0&&candidates[1]<candidates[0]);free(reference);free(pixels);pocket_scene_close(s);OSMesaDestroyContext(gl);
  printf("atlas_page_groups cases=3 exact_pixels=1152000 stable_primitive_memberships=%u scratch_vertex_copies=0 page_candidates_before=%llu after=%llu rgb565_hash=%08x\n",groups,(unsigned long long)candidates[0],(unsigned long long)candidates[1],pixel_hash);
 }
+static void test_map_commands(void){
+ uint16_t backing[400*400];OSMesaContext gl=OSMesaCreateContextExt(OSMESA_RGB_565,24,0,0,NULL);assert(gl);assert(OSMesaMakeCurrent(gl,backing,GL_UNSIGNED_SHORT_5_6_5,400,400));
+ uint16_t *pixels=calloc(800*480,2);struct window w={800,480,1600,pixels,0};void *s=pocket_scene_open(&w,0);assert(s);assert(!pocket_scene_size(s,800,480));
+ setenv("POCKET_SCENE_WINDOW_IMAGES","1",1);
+ const uint32_t colors[4]={0xff0000,0xff0000,0xff0000,0xff0000};
+ void *map=pocket_scene_map(s,colors,96,26,2,2);assert(map);
+ Scene_Texture *t=((struct scene_texture*)map)->texture;assert(t->recorded_scene==2&&t->n==0);
+ assert(!pocket_scene_begin_pixels(s,0));
+ assert(!pocket_scene_retained_draw(s,map,32,48,400,200));assert(!pocket_scene_present(s,0));
+ assert(pixels[60*800+40]==0xf800);assert(pixels[40*800+40]==0);assert(pixels[60*800+440]==0);
+ pocket_scene_texture_free(map);pocket_scene_close(s);free(pixels);OSMesaDestroyContext(gl);
+ puts("PASS: 768x416 map uses retained GPU commands, translated and clipped, no resident map targets");
+}
 int main(int argc,char **argv){
  test_opaque_coverage();
+ if(argc==2&&!strcmp(argv[1],"--map-reference")){test_map_commands();return 0;}
  if(argc==2&&!strcmp(argv[1],"--page-reference")){test_page_groups();return 0;}
  if(argc==2&&!strcmp(argv[1],"--wide-reference")){test_wide_target();return 0;}
  if(argc==2&&!strcmp(argv[1],"--desktop-reference")){test_desktop_damage();return 0;}

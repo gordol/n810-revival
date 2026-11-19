@@ -1,0 +1,19 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          pocket-services
+# Required-Start:    $local_fs $remote_fs bluetooth n810-boot-mode
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Start user-selected Pocket radio owners
+### END INIT INFO
+set -eu
+case "${1:-}" in
+start)
+    test "$(/usr/local/sbin/n810-mode status)" != charging || exit 0
+    # The user owns all radio state and private keys. Empty choices start nothing.
+    runuser -u nokia -- /usr/bin/python3 /usr/local/share/pocket/shell/optional_services.py --boot >>/var/log/pocket-services.log 2>&1
+    ;;
+stop) :;; # User owners terminate at shutdown; never stop them when a UI closes.
+*) echo 'Usage: pocket-services start' >&2; exit 2;;
+esac

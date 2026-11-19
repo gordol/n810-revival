@@ -20,7 +20,7 @@ class Tests(unittest.TestCase):
   self.selector=selectors.DefaultSelector();self.addCleanup(self.selector.close)
   self.selector.register(self.inbox.readable,selectors.EVENT_READ)
  def env(self,events,map_open=None):
-  return dict(events=events,bluetooth_control=None,keyboard=None,control=None,touch=None,terminals={},AppReady=AppReady,
+  return dict(events=events,screen_watch=None,power_socket=None,bluetooth_control=None,keyboard=None,control=None,touch=None,terminals={},AppReady=AppReady,
               inbox=self.inbox,notified_owners=set(),map_open=map_open,sys=sys,Weather=object,Link=object)
  def test_actual_map_open_raw_wake_and_keyed_form_coalesce_without_losing_changed_map(self):
   for keyed_first in (True,False):

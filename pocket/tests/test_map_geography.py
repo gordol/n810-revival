@@ -6,6 +6,17 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
 from map_geography import maidenhead,grid,grid_features,grid_enabled,load,signature,decorate,label_annotations,vector_segments,selected_geography
 from map_fixtures import install, regional_data_available
 class GeographyTests(unittest.TestCase):
+ def test_tile_cache_retains_compressed_bytes_not_mutable_geometry(self):
+  import tempfile,hashlib
+  from map_geography import tile,tile_bytes
+  with tempfile.TemporaryDirectory() as folder:
+   path=Path(folder)/'tile.gz';raw=gzip.compress(json.dumps({'roads':[{'id':1,'points':[[0,0],[1,1]]}],'streams':[]}).encode());path.write_bytes(raw)
+   digest=hashlib.sha256(raw).hexdigest()
+   first=tile(str(path),digest);first['roads'].clear()
+   self.assertEqual(tile_bytes(str(path),digest),raw)
+   self.assertEqual(len(tile(str(path),digest)['roads']),1)
+   tile_bytes.cache_clear()
+
  def test_one_detail_policy_selects_terminal_and_pixel_roads(self):
   data=dict(streams=[dict(kind='river',bbox=(-1,-1,1,1),points=((0,0),(.1,0)))],
             roads=[dict(kind='residential',bbox=(-1,-1,1,1),points=((0,0),(.1,0))),

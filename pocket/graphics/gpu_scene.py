@@ -64,8 +64,10 @@ class Context:
         self.backend=self.lib.pocket_scene_backend(self.handle).decode()
     def check(self,result):
         if result:
-            self.lib.pocket_window_error.restype=C.c_char_p
-            raise RuntimeError(self.lib.pocket_window_error().decode())
+            error=getattr(self.lib,"pocket_scene_error",self.lib.pocket_window_error)
+            error.restype=C.c_char_p
+            message=error()
+            raise RuntimeError(message.decode(errors="replace") if message else "Scene operation failed without a diagnostic")
     def release(self,handle):
         if handle in self.retained_handles:
             self.check(self.lib.pocket_scene_retained_forget(handle))
@@ -229,8 +231,18 @@ class Context:
         ox,oy=h.origin
         for window in windows:
             x,y,_,_=h.bounds(window);x=(x+ox)*8;y=(y+oy)*16
+            app=by_name.get(window.name)
+            map_view=app is not None and getattr(app,'input_role',None)=='map'
+            map_result=app.render_image() if map_view else None
+            pixel_clips=[]
+            if map_result is not None:
+                from scenes import MapComposite
+                source,px,py,pw,ph=map_result
+                if isinstance(source,MapComposite):
+                    pixel_clips=[(px+item[3],py+item[4],item[5],item[6]) if len(item)>3 else (px,py,pw,ph) for item in source.layers]
+                else:pixel_clips=[(px,py,pw,ph)]
             if getattr(self,'native_pixels',False):
-                self.draw_window(window,x,y,round(dx*h.shadow_size*8),round(dy*h.shadow_size*16))
+                self.draw_window(window,x,y,round(dx*h.shadow_size*8),round(dy*h.shadow_size*16),pixel_clips=pixel_clips)
             elif covered:
                 active_layers.add(window.name);layer=self.layer(window)
                 for clip in covered:self.check(self.lib.pocket_scene_layer(self.handle,layer,x,y,round(dx*h.shadow_size*8),round(dy*h.shadow_size*16),round(h.shadow_opacity*255) if h.shadow_enabled else 0,*clip))
@@ -241,7 +253,7 @@ class Context:
             if native is not None:
                 active_images.add(app.name);rect=native
             else:
-                result=app.render_image()
+                result=map_result if map_view else app.render_image()
                 if result is None:continue
                 source,px,py,w,height=result
                 from scenes import MapComposite
@@ -256,6 +268,8 @@ class Context:
                         layer_clip=clip if len(item)==3 else (px+item[3],py+item[4],item[5],item[6])
                         active_maps.add((id(scene),bool(defer)));texture=self.texture(scene,defer)
                         self.check(self.lib.pocket_scene_layer(self.handle,texture,px+sx,py+sy,0,0,0,*layer_clip))
+                    for x,y,rw,rh in source.outline:
+                        self.check(self.lib.pocket_scene_rect(self.handle,px+x,py+y,rw,rh,0xffd241ff))
                     rect=(px,py,clip_width,clip_height)
                 else:
                     active_images.add(app.name);texture=self.upload(source,w,height,app.name)

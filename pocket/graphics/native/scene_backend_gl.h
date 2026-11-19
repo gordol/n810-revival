@@ -12,6 +12,7 @@
 #include <sys/resource.h>
 #include "present.h"
 #include <dlfcn.h>
+#include "scene_texture_coordinate.h"
 #include "../driver/mbx/common/mbx_owned_surface.h"
 static int (*scene_surface_begin)(void),(*scene_surface_end)(struct mbx_owned_surface *),(*scene_surface_copy)(const struct mbx_surface_sink *),(*scene_surface_release)(void);
 static int (*scene_surface_dma_copy)(const struct mbx_surface_dma_sink *);
@@ -46,7 +47,11 @@ typedef struct {const char *name;unsigned flags;} Scene_RendererInfo;
 int pocket_window_acquire(void *,struct mbx_surface *);
 int pocket_window_prepare(void *,struct mbx_surface *);
 typedef struct {int sink_deferred,matrix_valid,matrix_forward,matrix_x,matrix_y,matrix_dx,matrix_dy;unsigned matrix_w,matrix_h;int profile,draw_profile,dma_damage,damage_cull;unsigned window_pages;uint64_t page_candidates,damage_culled_batches,geometry_builds,geometry_replays,draw_cpu_ns,draw_calls,geometry_cpu_ns,finish_cpu_ns,sink_cpu_ns;int translate_x,translate_y,sink_forward,last_sink_forward;void *presented_pixels;int presented_stride;void *sink_pixels;int sink_stride,sink_dma,sink_fd;uint64_t sink_bytes,sink_jobs,dma_bytes,dma_jobs;float color_float[256];OSMesaContext context;Scene_Texture *target;Scene_Rect clip;int clipped;Scene_Color color;Scene_BlendMode blend;void *window;int pack_invert;unsigned tile_first,tile_end;uint16_t *capture_tile;size_t capture_capacity;Scene_Vertex *filtered;unsigned *filtered_indices;size_t filtered_capacity;Scene_Rect occlusion[8];unsigned occlusion_count;int presenting,previous_room_valid;Scene_Texture *preserved_room,*presented_target;Scene_Rect preserve_rect;Scene_Vertex previous_room_vertices[6];float previous_room_state[6];unsigned previous_room_width,previous_room_height;Scene_RoomRegion previous_room_draw;int (*previous_room_eye)(float);uint64_t presented_revision,preserved_frames;uint64_t owner_checks,owner_rejects,target_switches,readback_calls,readback_bytes,presentation_bytes;} Scene_Renderer;
-static int Scene_SetError(const char *text,...){(void)text;return -1;}
+static char scene_error[512];
+static int Scene_SetError(const char *text,...){
+ va_list args;va_start(args,text);vsnprintf(scene_error,sizeof(scene_error),text,args);va_end(args);
+ fprintf(stderr,"POCKET_SCENE_ERROR: %s\n",scene_error);return -1;
+}
 static Scene_Renderer *scene_device(void *window){
  OSMesaContext c=OSMesaGetCurrentContext();if(!c)return NULL;
  Scene_Renderer *r=calloc(1,sizeof(*r));if(r){for(unsigned i=0;i<256;i++)r->color_float[i]=i/255.f;r->context=c;r->window=window;r->profile=getenv("POCKET_SCENE_PROFILE")&&!strcmp(getenv("POCKET_SCENE_PROFILE"),"1");r->damage_cull=getenv("POCKET_SCENE_DAMAGE_CULL")&&!strcmp(getenv("POCKET_SCENE_DAMAGE_CULL"),"1");r->dma_damage=getenv("POCKET_SCENE_DMA_DAMAGE")&&!strcmp(getenv("POCKET_SCENE_DMA_DAMAGE"),"1");r->draw_profile=r->profile&&getenv("POCKET_SCENE_DRAW_PROFILE")&&!strcmp(getenv("POCKET_SCENE_DRAW_PROFILE"),"1");const char *extensions=(const char*)glGetString(GL_EXTENSIONS);r->pack_invert=extensions&&strstr(extensions,"GL_MESA_pack_invert");}return r;
@@ -141,12 +146,12 @@ static int Scene_RenderClear(Scene_Renderer *r){
 /* Fused opaque Room draw. The shared scene retains camera/geometry, not a
  * CPU image. The same depth target then accepts ordinary 2D overlays. */
 static int scene_gl_room_now(Scene_Renderer *r,Scene_Texture *source,const Scene_Vertex *v,int n){
- if(n!=6||source->blend!=Scene_BLENDMODE_NONE)return -1;
+ if(n!=6||source->blend!=Scene_BLENDMODE_NONE)return Scene_SetError("Room requires one opaque quad: vertices=%d blend=%d",n,source->blend);
  if(source==r->preserved_room)return 0;
  int x=(int)v[0].position.x,y=(int)v[0].position.y;
  if(v[0].position.x!=x||v[0].position.y!=y||v[2].position.x!=x+(int)source->w||v[2].position.y!=y+(int)source->h)return -1;
  for(unsigned ti=r->tile_first;ti<r->tile_end;ti++){
-  struct scene_gl_tile *q=r->target->tiles+ti;if(!q->depth)return -1;
+  struct scene_gl_tile *q=r->target->tiles+ti;if(!q->depth)return Scene_SetError("Room target lacks depth: tile=%ux%u",q->pw,q->ph);
   if(!scene_gl_target(r,q))continue;
   int left=x>(int)q->x?x:(int)q->x,top=y>(int)q->y?y:(int)q->y;
   int right=x+(int)source->w<(int)(q->x+q->w)?x+(int)source->w:(int)(q->x+q->w),bottom=y+(int)source->h<(int)(q->y+q->h)?y+(int)source->h:(int)(q->y+q->h);
@@ -157,7 +162,7 @@ static int scene_gl_room_now(Scene_Renderer *r,Scene_Texture *source,const Scene
   GLfloat pos[]={x,y,0,x+(int)source->w,y,0,x+(int)source->w,y+(int)source->h,0,x,y,0,x+(int)source->w,y+(int)source->h,0,x,y+(int)source->h,0};
   glDisable(GL_TEXTURE_2D);glDisable(GL_BLEND);glDisableClientState(GL_COLOR_ARRAY);glDisableClientState(GL_NORMAL_ARRAY);glDisableClientState(GL_TEXTURE_COORD_ARRAY);glEnableClientState(GL_VERTEX_ARRAY);glColor4f(0,0,0,1);glVertexPointer(3,GL_FLOAT,0,pos);glDrawArrays(GL_TRIANGLES,0,6);
   r->matrix_valid=0; /* Room owns and replaces all three matrices. */
-  float *a=source->room_state;if(source->room_eye(a[5])||source->room_region(a[0],a[1],a[2],a[3],a[4],source->w,source->h,(int)q->x-x,(int)q->y-y,q->w,q->h,q->ph,1))return -1;
+  float *a=source->room_state;if(source->room_eye(a[5])||source->room_region(a[0],a[1],a[2],a[3],a[4],source->w,source->h,(int)q->x-x,(int)q->y-y,q->w,q->h,q->ph,1))return Scene_SetError("Room producer rejected region: source=%ux%u tile=%ux%u offset=%d,%d target_height=%u",source->w,source->h,q->w,q->h,(int)q->x-x,(int)q->y-y,q->ph);
  }
  return glGetError()==GL_NO_ERROR?0:-1;
 }
@@ -191,9 +196,9 @@ static struct scene_geometry *scene_gl_compile(Scene_Renderer *r,Scene_Texture *
   }
   if(source){float u=(v[first].tex_coord.x+v[first+1].tex_coord.x+v[first+2].tex_coord.x)*source->w/3,t=(v[first].tex_coord.y+v[first+1].tex_coord.y+v[first+2].tex_coord.y)*source->h/3;
    for(unsigned i=0;i<source->n;i++){struct scene_gl_tile *q=source->tiles+i;if(u<q->x||u>=q->x+q->w||t<q->y||t>=q->y+q->h)continue;b->page=i;
-    for(unsigned k=0;k<3;k++){float x=v[first+k].tex_coord.x*source->w-q->x,y=v[first+k].tex_coord.y*source->h-q->y;
-     if(x<-.01f||x>q->w+.01f||y<-.01f||y>q->h+.01f)b->uv_valid=0;
-     b->uv[k*4]=x/q->pw;b->uv[k*4+1]=q->fbo?1-y/q->ph:y/q->ph;b->uv[k*4+2]=0;b->uv[k*4+3]=1;
+    for(unsigned k=0;k<3;k++){if(!scene_texture_coordinate(v[first+k].tex_coord.x,source->w,q->x,q->w,q->pw,0,&b->uv[k*4])||
+        !scene_texture_coordinate(v[first+k].tex_coord.y,source->h,q->y,q->h,q->ph,!!q->fbo,&b->uv[k*4+1]))b->uv_valid=0;
+     b->uv[k*4+2]=0;b->uv[k*4+3]=1;
     }break;
    }
   }
@@ -242,7 +247,16 @@ static int scene_gl_geometry_now(Scene_Renderer *r,Scene_Texture *source,const S
   }
   Scene_Rect saved_clip=r->clip;int saved_clipped=r->clipped;Scene_BlendMode saved_blend=r->blend;int result=0;
   int saved_x=r->translate_x,saved_y=r->translate_y;
-  for(size_t i=0;i<source->count&&!result;i++){struct scene_command *c=source->commands+i;r->translate_x=saved_x+c->dx;r->translate_y=saved_y+c->dy;r->clip=c->clip;r->clip.x+=r->translate_x;r->clip.y+=r->translate_y;r->clipped=c->clipped;r->blend=c->blend;result=scene_gl_geometry_now(r,c->source,source->stream+c->first,c->count,NULL,0,&c->compiled);}
+  for(size_t i=0;i<source->count&&!result;i++){struct scene_command *c=source->commands+i;r->translate_x=saved_x+c->dx;r->translate_y=saved_y+c->dy;r->clip=c->clip;r->clip.x+=r->translate_x;r->clip.y+=r->translate_y;r->clipped=c->clipped;
+   if(source->recorded_scene==2&&saved_clipped){
+    if(!r->clipped){r->clip=saved_clip;r->clipped=1;}
+    else{int left=r->clip.x>saved_clip.x?r->clip.x:saved_clip.x,top=r->clip.y>saved_clip.y?r->clip.y:saved_clip.y;
+     int right=r->clip.x+r->clip.w<saved_clip.x+saved_clip.w?r->clip.x+r->clip.w:saved_clip.x+saved_clip.w;
+     int bottom=r->clip.y+r->clip.h<saved_clip.y+saved_clip.h?r->clip.y+r->clip.h:saved_clip.y+saved_clip.h;
+     if(right<=left||bottom<=top)continue;
+     r->clip=(Scene_Rect){left,top,right-left,bottom-top};}
+   }
+   r->blend=c->blend;result=scene_gl_geometry_now(r,c->source,source->stream+c->first,c->count,NULL,0,&c->compiled);}
   r->translate_x=saved_x;r->translate_y=saved_y;r->clip=saved_clip;r->clipped=saved_clipped;r->blend=saved_blend;return result;
  }
  if(source&&source->room_region)return scene_gl_room_now(r,source,v,n);
@@ -307,7 +321,7 @@ static int scene_gl_geometry_now(Scene_Renderer *r,Scene_Texture *source,const S
      continue;
     }
     for(unsigned k=0;k<3;k++){unsigned vk=rotate?(k+1)%3:k;const Scene_Vertex *a=vertices+first+vk;if(pre){positions[used*9+k*3]=a->position.x;positions[used*9+k*3+1]=a->position.y;positions[used*9+k*3+2]=0;memcpy(colors+used*12+k*4,pre->colors+vk*4,4*sizeof(float));if(q){if(!pre->uv_valid)return -1;memcpy(uv+used*12+k*4,pre->uv+vk*4,4*sizeof(float));}continue;}positions[used*9+k*3]=a->position.x;positions[used*9+k*3+1]=a->position.y;positions[used*9+k*3+2]=0;colors[used*12+k*4]=r->color_float[a->color.r];colors[used*12+k*4+1]=r->color_float[a->color.g];colors[used*12+k*4+2]=r->color_float[a->color.b];colors[used*12+k*4+3]=r->color_float[a->color.a];
-     if(q){float u=a->tex_coord.x*source->w-q->x,t=a->tex_coord.y*source->h-q->y;if(u<-.01f||u>q->w+.01f||t<-.01f||t>q->h+.01f)return -1;uv[used*12+k*4]=u/q->pw;uv[used*12+k*4+1]=q->fbo?1-t/q->ph:t/q->ph;uv[used*12+k*4+2]=0;uv[used*12+k*4+3]=1;}}
+     if(q){if(!scene_texture_coordinate(a->tex_coord.x,source->w,q->x,q->w,q->pw,0,&uv[used*12+k*4])||!scene_texture_coordinate(a->tex_coord.y,source->h,q->y,q->h,q->ph,!!q->fbo,&uv[used*12+k*4+1]))return -1;uv[used*12+k*4+2]=0;uv[used*12+k*4+3]=1;}}
     ++used;
     if(used==256){glVertexPointer(3,GL_FLOAT,0,positions);glColorPointer(4,GL_FLOAT,0,colors);if(q)glTexCoordPointer(4,GL_FLOAT,0,uv);scene_gl_draw_arrays(r,used*3);used=0;}
    }
@@ -331,6 +345,10 @@ static int scene_gl_covers(const Scene_Texture *t,const struct scene_command *c,
  if(c->clipped&&(c->clip.x>(int)q->x||c->clip.y>(int)q->y||c->clip.x+c->clip.w<(int)(q->x+q->w)||c->clip.y+c->clip.h<(int)(q->y+q->h)))return 0;
  return 1;
 }
+static size_t scene_tile_start(const Scene_Texture *t,const struct scene_gl_tile *q){
+ for(size_t j=t->count;j>0;j--)if(scene_gl_covers(t,t->commands+j-1,q))return j-1;
+ return 0;
+}
 static int scene_gl_opaque_rect(const Scene_Texture *t,const struct scene_command *c,Scene_Rect *out){
  if(c->count!=6||(c->source?c->source->blend:c->blend)!=Scene_BLENDMODE_NONE)return 0;
  const Scene_Vertex *v=t->stream+c->first;float x=v[0].position.x,y=v[0].position.y,xx=v[2].position.x,yy=v[2].position.y;
@@ -347,12 +365,69 @@ static int scene_gl_damaged(const Scene_Texture *t,const struct scene_gl_tile *q
  const Scene_Rect *d=&t->damage;
  return d->x<(int)(q->x+q->w)&&d->y<(int)(q->y+q->h)&&d->x+d->w>(int)q->x&&d->y+d->h>(int)q->y;
 }
+/* Bound a complete GPU submission, not merely each glDrawArrays call.
+ * Conservatively count triangle bounding boxes through retained batches. No
+ * pixels are shaded here; every surviving primitive is replayed in original
+ * order by the GPU into disjoint output tiles. Keep the kernel limits intact.
+ * 768 leaves room for masks, window composition and driver bookkeeping. */
+#define SCENE_TILE_TRIANGLES 768U
+static unsigned scene_tile_triangles(const Scene_Texture *t,const struct scene_gl_tile *q,int dx,int dy,unsigned depth){
+ if(depth>16)return SCENE_TILE_TRIANGLES+1;
+ unsigned total=0;
+ for(size_t j=depth?0:scene_tile_start(t,q);j<t->count;j++){
+  const struct scene_command *c=t->commands+j;
+  if(c->source&&c->source->room_region)continue; /* Producer owns its 3D draw budget. */
+  if(c->source&&c->source->recorded_scene){
+   total+=scene_tile_triangles(c->source,q,dx+c->dx,dy+c->dy,depth+1);
+  }else for(int i=0;i<c->count;i+=3){
+   const Scene_Vertex *v=t->stream+c->first+i;
+   float left=v[0].position.x,right=left,top=v[0].position.y,bottom=top;
+   for(int k=1;k<3;k++){float x=v[k].position.x,y=v[k].position.y;if(x<left)left=x;if(x>right)right=x;if(y<top)top=y;if(y>bottom)bottom=y;}
+   if(right+dx+c->dx>q->x&&left+dx+c->dx<q->x+q->w&&bottom+dy+c->dy>q->y&&top+dy+c->dy<q->y+q->h)++total;
+   if(total>SCENE_TILE_TRIANGLES)return total;
+  }
+  if(total>SCENE_TILE_TRIANGLES)return total;
+ }
+ return total;
+}
+static int scene_tile_storage(Scene_Renderer *r,struct scene_gl_tile *q){
+ q->pw=(q->w+15)&~15U;q->ph=(q->h+15)&~15U;
+ glGenTextures(1,&q->color);glBindTexture(GL_TEXTURE_2D,q->color);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+ glTexImage2D(GL_TEXTURE_2D,0,GL_RGB565,q->pw,q->ph,0,GL_RGBA,GL_UNSIGNED_BYTE,NULL);
+ glGenFramebuffers(1,&q->fbo);scene_gl_bind(r,q->fbo);glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,q->color,0);
+ return glCheckFramebufferStatus(GL_FRAMEBUFFER)==GL_FRAMEBUFFER_COMPLETE&&glGetError()==GL_NO_ERROR?0:-1;
+}
+static int scene_bound_output(Scene_Renderer *r,Scene_Texture *t){
+ if(!r->sink_dma||t->format!=Scene_PIXELFORMAT_RGB565||!t->clear_pending)return 0;
+ unsigned rooms=0;for(size_t j=0;j<t->count;j++)if(t->commands[j].source&&t->commands[j].source->room_region)rooms++;
+ for(unsigned i=0;i<t->n;){
+  struct scene_gl_tile q=t->tiles[i];
+  /* The full desktop is the sole large-target exception. A low-density
+   * half-frame still needs subdivision if either padded side exceeds 400. */
+  int dimensions=(!rooms&&q.w==800&&q.h==480)||(((q.w+15)&~15U)<=400&&((q.h+15)&~15U)<=400);
+  if(dimensions&&scene_tile_triangles(t,&q,0,0,0)<=SCENE_TILE_TRIANGLES){++i;continue;}
+  if(q.w<=16&&q.h<=16){fprintf(stderr,"Pocket scene exceeds bounded GPU tile density at %u,%u\n",q.x,q.y);return -1;}
+  struct scene_gl_tile a={.x=q.x,.y=q.y,.w=q.w,.h=q.h},b=a;
+  if(q.w>=q.h&&q.w>16){unsigned half=((q.w/2)/16)*16;if(!half)half=16;a.w=half;b.x+=half;b.w-=half;}
+  else{unsigned half=((q.h/2)/16)*16;if(!half)half=16;a.h=half;b.y+=half;b.h-=half;}
+  if(scene_tile_storage(r,&a)||scene_tile_storage(r,&b)){glDeleteFramebuffers(1,&a.fbo);glDeleteTextures(1,&a.color);glDeleteFramebuffers(1,&b.fbo);glDeleteTextures(1,&b.color);return -1;}
+  struct scene_gl_tile *tiles=realloc(t->tiles,(t->n+1)*sizeof(*tiles));
+  if(!tiles){glDeleteFramebuffers(1,&a.fbo);glDeleteTextures(1,&a.color);glDeleteFramebuffers(1,&b.fbo);glDeleteTextures(1,&b.color);return -1;}
+  t->tiles=tiles;t->tiles[i]=a;t->tiles[t->n++]=b;
+  glDeleteFramebuffers(1,&q.fbo);glDeleteTextures(1,&q.color);if(q.depth)glDeleteRenderbuffers(1,&q.depth);
+  t->damage_valid=0;r->matrix_valid=0;
+ }
+ return 0;
+}
 static int scene_gl_flush(Scene_Renderer *r,Scene_Texture *t){
  if(!t||(!t->count&&!t->clear_pending))return 0;
  Scene_Texture *old=r->target;Scene_Rect clip=r->clip;int clipped=r->clipped;Scene_BlendMode blend=r->blend;
  unsigned first=r->tile_first,end=r->tile_end;int result=0;r->target=t;r->matrix_valid=0;
  unsigned rooms=0;for(size_t j=0;j<t->count;j++)if(t->commands[j].source&&t->commands[j].source->room_region)rooms++;
- if(rooms>1|| (rooms&&!t->clear_pending)){r->target=old;return -1;}
+ if(rooms>1|| (rooms&&!t->clear_pending)){r->target=old;return Scene_SetError("Room composition requires one room and a clear: rooms=%u clear=%d",rooms,t->clear_pending);}
+ if(scene_bound_output(r,t)){r->target=old;return -1;}
  if(r->sink_pixels){
   r->sink_forward=r->sink_dma&&!rooms&&getenv("POCKET_DMA_FORWARD")&&!strcmp(getenv("POCKET_DMA_FORWARD"),"1");
   if(r->last_sink_forward!=r->sink_forward)t->damage_valid=0;
@@ -365,7 +440,7 @@ static int scene_gl_flush(Scene_Renderer *r,Scene_Texture *t){
   uint64_t cpu_phase=scene_gl_cpu(r);
   r->tile_first=i;r->tile_end=i+1;r->clipped=0;
   if(t->clear_pending){scene_gl_target(r,t->tiles+i);glDisable(GL_SCISSOR_TEST);glDepthMask(GL_TRUE);glClearColor(t->clear.r/255.f,t->clear.g/255.f,t->clear.b/255.f,t->clear.a/255.f);glClear(GL_COLOR_BUFFER_BIT|(t->tiles[i].depth?GL_DEPTH_BUFFER_BIT:0));}
-  size_t start=0;for(size_t j=0;j<t->count;j++)if(scene_gl_covers(t,t->commands+j,t->tiles+i))start=j;
+  size_t start=scene_tile_start(t,t->tiles+i);
   for(size_t j=start;j<t->count&&!result;j++){struct scene_command *c=t->commands+j;
    r->occlusion_count=0;for(size_t k=j+1;k<t->count&&r->occlusion_count<8;k++)if(scene_gl_opaque_rect(t,t->commands+k,r->occlusion+r->occlusion_count))++r->occlusion_count;
    r->translate_x=c->dx;r->translate_y=c->dy;r->clip=c->clip;r->clipped=c->clipped;r->blend=c->blend;
@@ -435,7 +510,16 @@ static int Scene_RenderGeometry(Scene_Renderer *r,Scene_Texture *source,const Sc
 static int Scene_RenderCopy(Scene_Renderer *r,Scene_Texture *t,const Scene_Rect *src,const Scene_Rect *dst){
  if(!r||!t||src)return -1;
  if(!r->target)return 0;
- if(t->recorded_scene){if(dst||r->target->w!=t->w||r->target->h!=t->h)return -1;return Scene_RenderGeometry(r,t,NULL,0,NULL,0);}
+ if(t->recorded_scene){
+  if(t->recorded_scene==2){
+   Scene_Rect d=dst?*dst:(Scene_Rect){0,0,(int)r->target->w,(int)r->target->h};
+   if(d.w!=(int)t->w||d.h!=(int)t->h)return -1;
+   if(Scene_RenderGeometry(r,t,NULL,0,NULL,0))return -1;
+   struct scene_command *c=r->target->commands+r->target->count-1;c->dx=d.x;c->dy=d.y;return 0;
+  }
+  if(dst||r->target->w!=t->w||r->target->h!=t->h)return -1;
+  return Scene_RenderGeometry(r,t,NULL,0,NULL,0);
+ }
  Scene_Rect d=dst?*dst:(Scene_Rect){0,0,(int)r->target->w,(int)r->target->h};
  for(unsigned i=0;i<(t->room_region?1:t->n);i++){struct scene_gl_tile full={.w=t->w,.h=t->h};struct scene_gl_tile *q=t->room_region?&full:t->tiles+i;Scene_Vertex v[6];const unsigned c[6]={0,1,2,0,2,3};for(unsigned j=0;j<6;j++){unsigned k=c[j];float x=q->x+((k==1||k==2)?q->w:0),y=q->y+(k>=2?q->h:0);v[j]=(Scene_Vertex){{d.x+x*d.w/t->w,d.y+y*d.h/t->h},{255,255,255,255},{x/t->w,y/t->h}};}if(Scene_RenderGeometry(r,t,v,6,NULL,0))return -1;}
  return 0;

@@ -12,7 +12,7 @@ flowchart TB
     config["Repository: configuration + export whitelist"] --> compile["ARM cross-compiler"]
     source --> compile
     compile --> image["zImage + generated N810 device tree"]
-    compile --> modules["199 matching kernel modules"]
+    compile --> modules["198 matching kernel modules"]
     compile --> trial["Build clock module and compare symbol CRCs"]
     image --> package["Size-checked package + output hashes"]
     modules --> package
@@ -75,11 +75,11 @@ The `package/` directory contains:
 
 - `zImage-omap2420-n810`, formed by appending the generated N810 device tree to `zImage`.
 - The separate `zImage` and `omap2420-n810.dtb` files.
-- Matching modules under `root/lib/modules/5.15.224-n810-mbx-clock-wip1/`.
+- Matching modules under `root/lib/modules/5.15.224-n810-mbx-clock-bootstrap1/`.
 - The separate clock trial module and its symbol-version comparison results.
 - `kernel.config`, `Module.symvers`, `KERNELRELEASE`, and `BUILD.json`.
 
-The build checks the 2,095,104-byte image budget and the expected 199 configured
+The build checks the 2,095,104-byte image budget and the expected 198 configured
 modules. It compares the clock module's imported symbol versions with this
 build's exported versions. The result manifest records file hashes, compiler,
 source inputs and configuration choices. Generated development symlinks are

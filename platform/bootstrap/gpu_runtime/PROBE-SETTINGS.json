@@ -1,0 +1,41 @@
+{
+  "requested": {
+    "N810_GPU_PERMIT_GPU_PROBE": null,
+    "N810_GPU_TARGET_DIVIDER": null,
+    "N810_GPU_HANDSHAKE_SAMPLES": null,
+    "N810_GPU_READINESS_LIMIT": null,
+    "N810_GPU_PAUSE_MIN_US": null,
+    "N810_GPU_PAUSE_MAX_US": null,
+    "N810_GPU_OPERATION_SAMPLES": null,
+    "N810_GPU_OPERATION_PAUSE_MIN_US": null,
+    "N810_GPU_OPERATION_PAUSE_MAX_US": null,
+    "N810_GPU_FILL_PIXEL": null
+  },
+  "effective": {
+    "permit_gpu_probe": 1,
+    "target_divider": 2,
+    "handshake_samples": 1000,
+    "readiness_limit": 1000,
+    "pause_min_us": 100,
+    "pause_max_us": 200,
+    "operation_samples": 1000,
+    "operation_pause_min_us": 100,
+    "operation_pause_max_us": 200,
+    "fill_pixel": 4294967295,
+    "gpu_resident_surfaces": 0
+  },
+  "defaults": {
+    "permit_gpu_probe": 1,
+    "target_divider": 2,
+    "handshake_samples": 1000,
+    "readiness_limit": 1000,
+    "pause_min_us": 100,
+    "pause_max_us": 200,
+    "operation_samples": 1000,
+    "operation_pause_min_us": 100,
+    "operation_pause_max_us": 200,
+    "fill_pixel": 305419896
+  },
+  "units": "sample counts are observations; pause bounds are microseconds",
+  "device_access": false
+}

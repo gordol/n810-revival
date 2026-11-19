@@ -24,7 +24,8 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGHUP, stop)
     print('KISS bridge enabled; raw sockets open after radio connection', flush=True)
-    addr = '02:00:00:00:00:13'
+    from peripheral_setup import receive_profile
+    addr = receive_profile()['address']
     sdp = subprocess.check_output(['sdptool','search','--bdaddr',addr,'SP'], timeout=25, text=True)
     match = re.search(r'Channel: (\d+)', sdp)
     if not match: raise ConnectionError('UV-PRO serial service unavailable')
@@ -46,10 +47,19 @@ def main():
         print('Radio settings unchanged. Waiting for RF packet data...', flush=True)
         bridge = bridge_module.Bridge(radio, status=status, capture=capture, packet=packet)
         live = module('radio_live', 'n810-radio-live.py').Telemetry(bridge.telemetry_request,bandwidth_send=bridge.bandwidth_request)
+        def bank(operation, identity, selected):
+            transaction=live.bandwidth
+            if transaction.result.get('id')==identity and transaction.result.get('action')==('edit_setting' if operation in ('edit_setting','setting_status') else 'download_bank'):
+                return transaction.result.copy()
+            if operation in ('bank_status','setting_status'):raise ValueError('Unknown bank download')
+            if live.pending or live.read_session and live.read_session.state in ('pending','reading'):
+                raise ValueError('Radio owner is busy')
+            if operation=='edit_setting':return transaction.start_setting(identity,selected)
+            return transaction.start_bank(identity,selected,addr)
         try:
             reads = module('radio_read_owner', 'n810-radio-read-owner.py').Endpoint(
                 submit=live.start_read, status=live.read_progress, cancel=live.cancel_read,
-                radio_live=live.read_state,tune=live.tune_repeater)
+                radio_live=live.read_state,tune=live.tune_repeater,bank=bank)
         except (OSError, ValueError) as exc:
             status('Radio read endpoint unavailable: '+str(exc))
         from control_changes import ControlChanges

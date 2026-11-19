@@ -27,12 +27,17 @@ def configure(engine):
             engine.prepared.fingerprint.append(('elevation-catalogue:v1',engine.cache_identity))
 
 
-def sample(view):
+def sample(view,cancel=None):
     from local_elevation import display_sources,read_index,_sample_entry
+    from concurrent.futures import CancelledError
+    def check():
+        if cancel is not None and cancel():raise CancelledError()
+    check()
     step=view.span/max(1,view.width-1)
     pixels=step*1000*min(1,view.cell_aspect/2)
     entries=[]
     for path in display_sources(pixels):
+        check()
         m=read_index(path,path.stat().st_mtime_ns,path.stat().st_size)
         entries.append((path,m))
     def rank(entry):
@@ -48,6 +53,7 @@ def sample(view):
     dy=step*view.cell_aspect/2/111.32
     result=[]
     for y in range(view.height*2):
+        check()
         lat=view.center[0]-(y-(view.height*2-1)/2)*dy;row=[]
         for x in range(view.width):
             lon=view.center[1]+(x-(view.width-1)/2)*dx
@@ -60,11 +66,19 @@ def sample(view):
     return result
 
 
+WATER_COLOR=(35,100,160)
+
+def display_color(height,low,high):
+    """Light earth tones keep land distinct from blue water on the LCD."""
+    t=max(0.,min(1.,(height-low)/max(1.,high-low)))
+    return tuple(round(a+(b-a)*t) for a,b in zip((104,128,76),(224,214,180)))
+
+
 def render(engine,view,terrain):
     # Flat base keeps mapped water/land, without decoding legacy terrain-next.n8t.
     frame,legend=engine._catalogue_original_rgb(view,False)
     if not terrain:return frame,legend
-    heights=sample(view);known=[v for row in heights for v in row if v is not None]
+    heights=sample(view,getattr(engine,'cancel_requested',None));known=[v for row in heights for v in row if v is not None]
     if not known:return frame,'No selected-area elevation coverage'
     interval=5 if view.span<=2.5 else 10 if view.span<=5 else 25
     low=math.floor(min(known)/interval)*interval;high=math.floor(max(known)/interval+1)*interval
@@ -75,9 +89,11 @@ def render(engine,view,terrain):
             _,a,b=frame[y*view.width+x];pair=[a,b]
             for j in (0,1):
                 height=heights[y*2+j][x]
-                if kinds[y*2+j][x]==0 or height is None:continue
+                if kinds[y*2+j][x]==0:
+                    pair[j]=WATER_COLOR;continue
+                if height is None:continue
                 band=math.floor(height/interval)*interval
-                if band not in colors:colors[band]=engine.palette.band_color(band,low,high)
+                if band not in colors:colors[band]=display_color(band,low,high)
                 pair[j]=colors[band]
             frame[y*view.width+x]=(' ' if pair[0]==pair[1] else '▀',*pair)
     return frame,f'Selected-area elevation · {interval} m display bands · local overviews'

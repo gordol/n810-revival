@@ -17,6 +17,19 @@ spec=importlib.util.spec_from_file_location('symbian_session',ROOT/'platform/n81
 session=importlib.util.module_from_spec(spec);spec.loader.exec_module(session)
 
 class SymbianLaunchTest(unittest.TestCase):
+    def test_stale_socket_reclaimed_but_live_listener_preserved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'s'
+            with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as server:
+                server.bind(str(path));server.listen(1)
+                with self.assertRaises(RuntimeError):session.remove_stale_socket(path,os.getuid(),socket.SOCK_STREAM)
+                self.assertTrue(path.exists())
+            session.remove_stale_socket(path,os.getuid(),socket.SOCK_STREAM)
+            self.assertFalse(path.exists())
+            path.write_text('preserve')
+            with self.assertRaises(RuntimeError):session.remove_stale_socket(path,os.getuid(),socket.SOCK_STREAM)
+            self.assertEqual(path.read_text(),'preserve')
+
     def test_unknown_app_never_connects(self):
         with self.assertRaises(ValueError):launch('../shell')
     @unittest.skipUnless(sys.platform=="linux", "Linux descriptor handoff")

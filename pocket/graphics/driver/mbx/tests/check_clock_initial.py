@@ -1,12 +1,16 @@
 # SPDX-License-Identifier: MIT
 """Compile actual initial-admission and clock-cleanup blocks with fault injection."""
+import argparse
 import os
 from pathlib import Path
 import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root / 'kernel/n810_mbx_gpu_probe.c').read_text()
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--source-root', type=Path, default=root)
+args = parser.parse_args()
+source = (args.source_root / 'kernel/n810_mbx_gpu_probe.c').read_text()
 with tempfile.TemporaryDirectory(prefix='mbx-initial-clock-') as temporary:
     out = Path(temporary)
     start = source.index('static unsigned int initial_divider(')

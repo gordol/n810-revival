@@ -13,3 +13,7 @@ platform/symbian/eka2l1.patch -whitespace
 **/mbx/mesa/sp_state_surface.c -whitespace
 **/mbx/mesa/sp_texture.c -whitespace
 **/mbx/mesa/sp_texture.h -whitespace
+
+# Preserve upstream whitespace in unified patch context.
+platform/flasher/*.patch -whitespace
+platform/kernel/*.patch -whitespace

@@ -1,0 +1,2 @@
+# Configuration is validated; preparation accepts no arguments and verifies the bond.
+%n810-radio ALL=(root) NOPASSWD: NOSETENV: /usr/local/sbin/n810-rnode-configure --stdin, /usr/local/sbin/n810-rnode-spp-prepare ""

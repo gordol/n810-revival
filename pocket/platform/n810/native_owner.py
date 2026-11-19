@@ -8,8 +8,16 @@ parser.add_argument('--release',type=Path,default=Path('/usr/local/lib/n810-grap
 parser.add_argument('--source',type=Path,default=Path('/usr/local/share/pocket-gui/managed-native/source'))
 parser.add_argument('--symbian-code',type=Path)
 parser.add_argument('--symbian-windows',action='store_true')
+parser.add_argument('--recovery-report',type=Path)
 parser.add_argument('--probe',type=Path,help='run one offscreen GPU integration probe instead of Pocket')
 options=parser.parse_args()
+# A failed recovery attempt stays stopped, including explicit service retries.
+recovery_record=Path('/run/n810-pocket-native/recovery.json')
+if not options.probe and options.recovery_report is None and recovery_record.is_file():
+ try:accepted=json.loads(recovery_record.read_text()).get('accepted') is True
+ except (OSError,ValueError,AttributeError):accepted=False
+ if accepted:recovery_record.unlink()
+ else:options.recovery_report=recovery_record
 release=options.release.resolve(strict=True)
 source=options.source.resolve(strict=True)
 manifest=json.loads((release/'MANIFEST.json').read_text())
@@ -38,6 +46,7 @@ assets=Path('/usr/local/share/pocket-gui/managed-native/assets')
 # Optional preparation accelerators belong to the same immutable release.
 # Older releases retain their existing native library and replay policy.
 native_library=(release if '_cellengine.abi3.so' in manifest['files'] else assets)/'_cellengine.abi3.so'
+renderer_library=(release if 'renderer.so' in manifest['files'] else assets)/'renderer.so'
 page_groups=json.loads((release/'defaults.json').read_text()).get('native',{}).get('POCKET_SCENE_PAGE_GROUPS','0')
 assert page_groups in ('0','1')
 base=Path('/sys/module/n810_mbx_gpu_probe/parameters')
@@ -83,6 +92,30 @@ def child_tty():
  except BaseException as error:
   os.write(2,('desktop_spawn_failure phase='+phase+' error='+str(error)+'\n').encode());raise
 
+def restore_display(fb,tty,console,vt,old_kd,original,mode,original_mode,saved_frame,switched):
+ """Try every display restoration step, including after a failed VT ioctl."""
+ errors=[]
+ def attempt(action):
+  try:action()
+  except OSError as error:errors.append(error)
+ attempt(lambda: fcntl.ioctl(fb,0x4f25))
+ def restore_frame():
+  if os.pwrite(fb,saved_frame,0)!=len(saved_frame):raise OSError('Short framebuffer restore')
+ attempt(restore_frame)
+ attempt(lambda: fcntl.ioctl(fb,0x40444f36,struct.pack('17I',0,0,800,480,0,0,0,800,480,*([0]*8))))
+ attempt(lambda: fcntl.ioctl(fb,0x4f25))
+ if switched:
+  attempt(lambda: os.close(tty))
+  try:tty=os.open('/dev/tty'+str(vt),os.O_RDWR|os.O_NOCTTY|os.O_CLOEXEC)
+  except OSError as error:errors.append(error);tty=None
+  if tty is not None:attempt(lambda: fcntl.ioctl(tty,0x4b3a,old_kd))
+  attempt(lambda: fcntl.ioctl(console,0x5606,int(original[3:])))
+  attempt(lambda: fcntl.ioctl(console,0x5607,int(original[3:])))
+ attempt(lambda: mode.write_text(original_mode))
+ for fd in (fb,tty,console):
+  if fd is not None:attempt(lambda fd=fd: os.close(fd))
+ return errors
+
 try:
  mode.write_text('2\n');fcntl.ioctl(fb,0x4f25)
  fcntl.ioctl(tty,0x4b3a,1);fcntl.ioctl(console,0x5606,vt);fcntl.ioctl(console,0x5607,vt);switched=True
@@ -90,7 +123,8 @@ try:
   env.update(HOME=account.pw_dir,USER='nokia',LOGNAME='nokia',POCKET_NATIVE_PIXELS='1',POCKET_GL_TARGET='direct',POCKET_SCENE_BATCHES='1',POCKET_SCENE_PARTIAL='1',POCKET_SCENE_MOVE_REUSE='1',POCKET_SCENE_COMPILED='1',POCKET_SCENE_MATRIX_CACHE='1',POCKET_SCENE_DMA_DAMAGE='1',POCKET_SCENE_WINDOW_IMAGES='1',POCKET_SCENE_WINDOW_WARMUP='8',POCKET_SCENE_OVERLAP='1',POCKET_SCENE_OUTPUT_TILE='800x480',POCKET_DMA_SINK='1',POCKET_DMA_FORWARD='1',N810_MBX_TEXTURE_SUBSET='1',N810_MBX_TEXTURE_RESIDENCY='1',N810_MBX_WINDOW_IMAGES='1',N810_MBX_RESOURCE_REFERENCES='1',N810_MBX_DESKTOP_TARGET='1',LD_LIBRARY_PATH=str(release)+':'+str(assets),LD_PRELOAD=str(release/'libOSMesa.so.8'))
   env['POCKET_SCENE_PAGE_GROUPS']=page_groups
   env['POCKET_SCENE_DAMAGE_CULL']='0'
-  command=[sys.executable,str(source/'graphics/nokia.py'),'--framebuffer-fd',str(fb),'--font',str(assets/'console-font.psf'),'--renderer-library',str(assets/'renderer.so'),'--display-library',str(release/'window.so'),'--native-library',str(native_library),'--state','/home/nokia/.local/state/current-world','--touch-device','/dev/input/n810-touch','--touch-calibration','/home/nokia/.local/state/current-world/touch-calibration.json','--touch-display','800x480','--touch-rotation','0']
+  command=[sys.executable,str(source/'graphics/nokia.py'),'--framebuffer-fd',str(fb),'--font',str(assets/'console-font.psf'),'--renderer-library',str(renderer_library),'--display-library',str(release/'window.so'),'--native-library',str(native_library),'--state','/home/nokia/.local/state/current-world','--device-radio','--native-stations','--station-db','/home/nokia/.local/state/n810-aprs/directory.sqlite3','--touch-device','/dev/input/n810-touch','--touch-calibration','/home/nokia/.local/state/current-world/touch-calibration.json','--touch-display','800x480','--touch-rotation','0']
+  if options.recovery_report:command.extend(['--recovery-report',str(options.recovery_report)])
   render_fd=os.open(device,os.O_RDWR|os.O_CLOEXEC);env['N810_MBX_RENDER_FD']=str(render_fd)
   window_mode=env.get('POCKET_SYMBIAN_WINDOWS')=='1'
   if window_mode:
@@ -103,6 +137,12 @@ try:
    env.update(N810_MBX_JOB_LOCK_FD=str(job_lock_fd),N810_MBX_NATIVE_WINDOWS='1',N810_MBX_WINDOW_FIRST='6',N810_MBX_WINDOW_COUNT='8',N810_MBX_SEPARATE_ALPHA='1')
   if options.probe:command=[str(options.probe.resolve(strict=True))]
   desktop_fds=(fb,render_fd,job_lock_fd) if window_mode else (fb,render_fd)
+  # Acquire launch IPC before spawning a desktop that would outlive a failed owner.
+  sys.path.insert(0,str(Path(__file__).resolve().parent))
+  from symbian_session import Session,command as symbian_command,run as run_symbian,keyboard_device
+  from symbian_windows import Broker
+  broker=Broker(account,render_fd,job_lock_fd,env,symbian_drop,status_directory=runtime,code=options.symbian_code) if window_mode and not options.probe else None
+  launches=None if options.probe else Session(runtime,account.pw_uid,account.pw_gid,windows=broker)
   child=subprocess.Popen(command,env=env,cwd=root,stdin=tty,stdout=log,stderr=subprocess.STDOUT,pass_fds=desktop_fds,preexec_fn=child_tty)
   def record_child(application='pocket'):
    (runtime/'active.json').write_text(json.dumps(dict(owner_pid=os.getpid(),child_pid=child.pid,application=application,release=str(release),log=str(root/('visible-'+suffix+'.log')))))
@@ -112,11 +152,6 @@ try:
    stopping=True
    if child.poll() is None:child.send_signal(signal.SIGTERM)
   signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
-  sys.path.insert(0,str(Path(__file__).resolve().parent))
-  from symbian_session import Session,command as symbian_command,run as run_symbian,keyboard_device
-  from symbian_windows import Broker
-  broker=Broker(account,render_fd,job_lock_fd,env,symbian_drop,status_directory=runtime,code=options.symbian_code) if window_mode and not options.probe else None
-  launches=None if options.probe else Session(runtime,account.pw_uid,account.pw_gid,windows=broker)
   def ready(app):
    symbian_command(app,account.pw_dir)
    keyboard_device()
@@ -152,15 +187,11 @@ try:
    if launches:launches.close()
  report['status']=('OFFSCREEN_PROBE_FINISHED' if options.probe else 'VISIBLE_COMPARISON_FINISHED') if child.returncode==0 else 'COMPARISON_FAILED'
 finally:
+ cleanup_errors=[]
  if child is None or child.poll() is not None:
-  fcntl.ioctl(fb,0x4f25)
-  assert os.pwrite(fb,saved_frame,0)==768000
-  fcntl.ioctl(fb,0x40444f36,struct.pack('17I',0,0,800,480,0,0,0,800,480,*([0]*8)));fcntl.ioctl(fb,0x4f25)
-  if switched:
-   os.close(tty);tty=os.open('/dev/tty'+str(vt),os.O_RDWR|os.O_NOCTTY|os.O_CLOEXEC);fcntl.ioctl(tty,0x4b3a,old_kd);fcntl.ioctl(console,0x5606,int(original[3:]));fcntl.ioctl(console,0x5607,int(original[3:]))
-  mode.write_text(original_mode)
-  os.close(fb);os.close(tty);os.close(console)
+  cleanup_errors=restore_display(fb,tty,console,vt,old_kd,original,mode,original_mode,saved_frame,switched)
   report.update(vt_restored=active.read_text().strip()==original,mode_restored=mode.read_text()==original_mode,boot_unchanged=Path('/proc/sys/kernel/random/boot_id').read_text()==boot)
+  if cleanup_errors:report['display_restore_errors']=[str(error) for error in cleanup_errors]
  (root/('owner-'+suffix+'.json')).write_text(json.dumps(report,indent=2)+'\n')
  if render_fd is not None:os.close(render_fd)
  if job_lock_fd is not None:os.close(job_lock_fd)
@@ -171,4 +202,15 @@ finally:
  archives.chmod(0o700)
  assert not (archives/root.name).exists()
  shutil.move(str(root),str(archives/root.name))
+ if cleanup_errors:raise RuntimeError('Display restoration failed') from cleanup_errors[0]
+# Retry once only after the existing owner stop and display restoration passed.
+# Never use systemd's unbounded restart policy for a failed GPU owner.
+if report.get('returncode',1)!=0 and not stopping and not options.probe and not options.recovery_report:
+ failure_log=archives/root.name/('visible-'+suffix+'.log')
+ lines=failure_log.read_text(errors='replace').splitlines()
+ recovery_record.write_text(json.dumps(dict(log=str(failure_log),returncode=report.get('returncode'),message=lines[-1][:500] if lines else 'Pocket exited unexpectedly'))+'\n')
+ recovery_record.chmod(0o600)
+ os.chown(recovery_record,account.pw_uid,account.pw_gid)
+ lock.close()
+ os.execv(sys.executable,[sys.executable,*sys.argv,'--recovery-report',str(recovery_record)])
 raise SystemExit(report.get('returncode',1))

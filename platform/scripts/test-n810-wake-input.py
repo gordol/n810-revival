@@ -2,6 +2,7 @@
 import os
 import pathlib
 import struct
+import socket
 import subprocess
 import tempfile
 import time
@@ -235,17 +236,32 @@ esac
 
     (root/'config').write_text('enabled=1\nidle_enabled=1\ndim_seconds=1\noff_seconds=2\n')
     (root/'active-vt').write_text('1')  # KD_GRAPHICS
+    for path in (root/'input').iterdir(): path.unlink()
+    fds=[]
+    physical,power,switch=[device(i) for i in range(3)]
     for path in (root/'screen').iterdir(): path.unlink()
     clear()
     daemon=subprocess.Popen([str(root/'daemon')])
     try:
         time.sleep(3.2)
         assert not actions(), 'graphics VT was dimmed or blanked'
+        for wake in (lambda:event(physical,1,30,1),lambda:event(switch,5,10,1),power_press):
+            clear(); (root/'screen/blanked').touch(); wake(); wait('on')
+            assert actions()==['on'], 'graphics wake launched a console menu'
+        with socket.socket(socket.AF_UNIX,socket.SOCK_DGRAM) as menu:
+            menu.bind('\0n810-pocket-power');menu.settimeout(2)
+            clear();power_press();assert menu.recv(2)==b'P'
+        assert not actions(), 'graphics menu switched VTs'
+        event(physical,1,225,1);wait('brighter')
+        event(physical,1,224,1);wait('dimmer')
+        lock_press();wait('lock');time.sleep(.1);lock_press();wait('unlock')
+        print('PASS: native graphics power menu, brightness, slider and wake')
         (root/'active-vt').write_text('0')  # KD_TEXT
         wait('dim'); wait('blank')
         print('PASS: graphics VT inhibits idle; text VT resumes dim/blank')
     finally:
         daemon.terminate(); daemon.wait(timeout=3)
+        for fd in fds: os.close(fd)
 
     # An explicit GUI adapter marker enables the same policy on graphics VTs.
     (root/'active-vt').write_text('1')
@@ -278,3 +294,25 @@ esac
     finally:
         daemon.terminate();daemon.wait(timeout=3)
         for fd in fds:os.close(fd)
+
+    # Fresh Debian keeps only the slider logic while its separate key daemon
+    # owns Power and brightness. A graphics VT must still accept slider edges.
+    (root/'config').write_text('enabled=1\nlock_only=1\nidle_enabled=0\n')
+    for path in (root/'input').iterdir(): path.unlink()
+    fds=[]
+    physical,power=[device(i) for i in range(2)]
+    for path in (root/'screen').iterdir(): path.unlink()
+    clear()
+    daemon=subprocess.Popen([str(root/'daemon')])
+    try:
+        lock_press();wait('lock');clear()
+        power_press();event(physical,1,225,1);time.sleep(.3)
+        assert not actions(), 'lock-only helper handled Power or brightness'
+        lock_press();wait('unlock');clear()
+        time.sleep(2.2)
+        assert not actions(), 'lock-only helper invoked idle policy'
+        print('PASS: lock-only slider works on graphics VT without competing for Power')
+    finally:
+        daemon.terminate();daemon.wait(timeout=3)
+        for fd in fds:os.close(fd)
+        os.close(lock_fd)

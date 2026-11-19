@@ -1,0 +1,25 @@
+--- a/src/usb-device.c
++++ b/src/usb-device.c
+@@ -163,6 +163,11 @@
+ 
+ 		if ( dev->descriptor.idVendor == usb_devices[i].vendor && dev->descriptor.idProduct == usb_devices[i].product ) {
+ 
++#ifdef POCKET_NOLO_ONLY
++			if ( usb_devices[i].protocol != FLASH_NOLO )
++				continue;
++#endif
++
+ 			if ( usb_devices[i].protocol == FLASH_UNKN )
+ 				continue;
+ 
+@@ -330,8 +335,10 @@
+ 	void (*prev)(int);
+ 	static char progress[] = {'/','-','\\', '|'};
+ 
++#ifndef POCKET_NOLO_ONLY
+ 	if ( dlsym(RTLD_DEFAULT, "libusb_init") )
+ 		ERROR_RETURN("You are trying to use broken libusb-1.0 library (either directly or via wrapper) which has slow listing of usb devices. It cannot be used for flashing or cold-flashing. Please use libusb 0.1.", NULL);
++#endif
+ 
+ 	usb_init();
+ 	usb_find_busses();

@@ -14,6 +14,12 @@ def budget(name,baseline):
 LOG_LIMIT=budget('N810_GPU_KERNEL_LOG_BYTES',262144)
 SCALAR_LIMIT=budget('N810_GPU_SCALAR_BYTES',256)
 
+def parse_scalar(value):
+    value=value.strip()
+    if value in ('Y','N'):
+        return int(value=='Y')
+    return int(value,0)
+
 def drain(fd):
     chunks=[];total=0;previous=None;lost=False
     while True:
@@ -100,7 +106,7 @@ def main(argv=None):
         try:
             with (Path('/sys/module/n810_mbx_gpu_probe/parameters')/name).open() as f:value=f.read(SCALAR_LIMIT+1)
             if len(value)>SCALAR_LIMIT:raise ValueError('oversize scalar')
-            values[name]=int(value.strip(),0)
+            values[name]=parse_scalar(value)
         except (OSError,ValueError):missing.append(name)
     receipt=dict(kernel_release=os.uname().release,module_sha256=pin,boot_id=boot_id,mode=a.mode,
                  loader_exit_code=done.returncode,elapsed_seconds=elapsed,parameters=values,

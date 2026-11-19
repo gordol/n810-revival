@@ -1,8 +1,9 @@
 """The existing radio adapter reuses its interpreter while the owner retains control."""
 from pathlib import Path
-import importlib.util,unittest
+import importlib.util,sys,unittest
 from unittest.mock import patch
 SHELL=Path(__file__).resolve().parents[1]/'shell'
+sys.path.insert(0,str(SHELL))
 class RetryTests(unittest.TestCase):
  def modules(self):
   for path in (SHELL/'owner-service/uvpro-aprs-listen.py',SHELL/'vendor/packet-console/uvpro-aprs-listen.py'):
@@ -20,7 +21,7 @@ class RetryTests(unittest.TestCase):
     self.assertEqual(module.run(retry=False),1)
  def test_offline_connection_does_not_import_bridge_machinery(self):
   for path,module in self.modules():
-   with self.subTest(path=path),patch.object(module.signal,'signal'),patch.object(module.subprocess,'check_output',return_value='Channel: 1'),patch.object(module.socket,'socket') as socket,patch.object(module.socket,'AF_BLUETOOTH',31,create=True),patch.object(module.socket,'BTPROTO_RFCOMM',3,create=True),patch.object(module,'module') as load,patch('builtins.print'):
+   with self.subTest(path=path),patch('peripheral_setup.receive_profile', return_value={'address':'02:00:00:00:00:01','callsign':'N0CALL'}),patch.object(module.signal,'signal'),patch.object(module.subprocess,'check_output',return_value='Channel: 1'),patch.object(module.socket,'socket') as socket,patch.object(module.socket,'AF_BLUETOOTH',31,create=True),patch.object(module.socket,'BTPROTO_RFCOMM',3,create=True),patch.object(module,'module') as load,patch('builtins.print'):
     socket.return_value.connect.side_effect=ConnectionError('off')
     with self.assertRaises(ConnectionError):module.main()
     load.assert_not_called();socket.return_value.close.assert_called_once()

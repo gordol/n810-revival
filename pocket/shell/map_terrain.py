@@ -145,6 +145,9 @@ class Renderer(PreparedRenderer):
         result=super().region_status(image)
         result['terrain_assets']=dict(available=self._asset_ready,checked=self._asset_checked,reason=self.asset_reason)
         result['pack']=dict(getattr(image,'pack_status',None) or self.pack_state)
+        if getattr(self.engine,'_catalogue_identity',None) is not None:
+            result['terrain_assets']=dict(available=True,checked=True,source='selected elevation catalogue',reason=None)
+            result['packs']=dict(provider_policy='selected reference data',generation_enabled=True,errors=[])
         return result
 
     def _fallback(self,key):
@@ -175,7 +178,8 @@ class Renderer(PreparedRenderer):
             if key[0] not in ('map','context'):raise ValueError('Imported maps provide prepared 2D views only')
             return self._render_provider(key)
         from desktop_elevation import enabled
-        if enabled() and key[0] in ('map','context'):
+        from data_paths import data_root
+        if (enabled() or (data_root()/'elevation.json').is_file()) and key[0] in ('map','context'):
             return VanillaRenderer._render(self,key)
         if key[0] not in ('map','context') or not key[5] or os.environ.get('CW_MAP_STYLE')=='classic' or not self.prepared_available():
             if key[0]=='context':raise ValueError('Local overview requires matching prepared terrain assets')

@@ -31,6 +31,7 @@ DESCRIPTIONS = {
     'Window animations': 'Animate window restore, minimize and roll changes. Off makes window geometry change immediately.',
     'Animation time': 'Duration of window transitions. Shorter values make them finish sooner.',
     'Animation': 'Animate desktop transitions and effects. Turning this off also skips the terrain reveal.',
+    'Overlay borders': 'Draw borders on exposed edges, on every edge, or leave them off.',
     'Frame style': 'Choose the characters used to draw window borders and corners.',
     'Colors': 'Choose the desktop color palette for frames, controls and text.',
     'Background': 'Choose the desktop background effect or landscape.',

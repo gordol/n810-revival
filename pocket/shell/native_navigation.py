@@ -187,6 +187,7 @@ class Navigation:
         return bool(getattr(f,'search_edit',False)) or getattr(f,'self_editor',None) is not None or bool(getattr(f,'filter_open',False)) or bool(self.layout() and self.layout().resizing) or getattr(f,'entry',None) is not None or getattr(f,'review',None) is not None or bool(getattr(f,'editing',False)) or (name=='Messages' and f.composing) or (name=='System' and f.page==1 and (f.links.choosing or f.links.review))
     def key(self,key):
         f=self.form;name=type(f).__name__;target=self.current()
+        if key in getattr(f,'navigation_help_keys',()):return False
         from keybindings import current
         listing,_=self.listing()
         editing=self.modal() or target.kind=='input' or self.input() is not None or listing is not None and listing.searching
@@ -326,11 +327,21 @@ def navigation(form):
 
 
 def native_key(form,key):
+    guarded=getattr(form,'native_key',None)
+    return guarded(key) if callable(guarded) else _native_key(form,key)
+
+
+def _native_key(form,key):
     target=getattr(form,'navigation_form',form)
     return form.key(key) if target is None else target.key(key) if getattr(target,'layer_only',False) else navigation(target).key(key)
 
 
 def native_presentation(form,lines,spans,width,height):
+    guarded=getattr(form,'native_presentation',None)
+    return guarded(lines,spans,width,height) if callable(guarded) else _native_presentation(form,lines,spans,width,height)
+
+
+def _native_presentation(form,lines,spans,width,height):
     form=getattr(form,'navigation_form',form)
     if form is None or getattr(form,'layer_only',False):return lines,spans
     state=navigation(form);target=state.current();listing,_=state.listing();rows=list(lines[:height]);rows+=['']*max(0,height-len(rows));spans=list(spans)
@@ -397,6 +408,11 @@ def native_presentation(form,lines,spans,width,height):
 
 
 def native_pointer(form,column,row,width,button=0,released=False,*,event=None):
+    guarded=getattr(form,'native_pointer',None)
+    return guarded(column,row,width,button,released,event=event) if callable(guarded) else _native_pointer(form,column,row,width,button,released,event=event)
+
+
+def _native_pointer(form,column,row,width,button=0,released=False,*,event=None):
     wrapper=form;form=getattr(form,'navigation_form',form)
     if form is None:
         from pointer_events import deliver_pointer
@@ -422,3 +438,14 @@ def native_pointer(form,column,row,width,button=0,released=False,*,event=None):
         if type(form).__name__=='Stations' and row==1:state.select('filter')
         if type(form).__name__=='SplitPane':navigation(form.right).target=None
     return result
+
+def native_escape_allowed(form,allowed):
+    guarded=getattr(form,'native_escape_allowed',None)
+    return guarded(allowed) if callable(guarded) else _native_escape_allowed(form,allowed)
+
+
+def _native_escape_allowed(form,allowed):
+    target=getattr(form,'navigation_form',form)
+    if target is None or getattr(target,'layer_only',False):return False
+    nav=navigation(target);listing,_=nav.listing()
+    return allowed and not (nav.modal() or nav.current().kind=='input' or nav.input() is not None or listing is not None and listing.searching)

@@ -1,10 +1,16 @@
 # N810 revival
 
-Debian and a terminal desktop on the Nokia N810. The tablet has 128 MB of RAM,
+Debian and the Pocket graphical and terminal desktops on the Nokia N810. The tablet has 128 MB of RAM,
 an 800 × 480 screen, and a slide-out keyboard. The work here is to make it a
 useful general-purpose Linux computer again.
 
 [Project website](https://gordol.github.io/n810-revival/) · [Get started](https://gordol.github.io/n810-revival/start/) · [Journal](https://gordol.github.io/n810-revival/journal/)
+
+## What works on the tablet?
+
+A fresh SD A/B installation has booted into Pocket on physical hardware. Tested paths include USB SSH, Wi-Fi, calibrated touch, GPU window rendering, audio playback and capture, and Bluetooth radio connections. Display wake after locking and interactive performance still need work.
+
+[Hardware and app support](docs/status.md) · [Development roadmap](docs/roadmap.md) · [Install the SD A/B system](docs/how-to/install-n810-ab.md)
 
 ## Where things are
 

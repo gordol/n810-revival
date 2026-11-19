@@ -6,6 +6,10 @@ hide:
   - toc
 ---
 
+## On the N810
+
+Pocket runs as a native GPU desktop or a terminal interface. See [hardware and application support](status.md) for physical test results and known failures, the [roadmap](roadmap.md) for planned work, and the [SD A/B installation guide](how-to/install-n810-ab.md) for the tested install route.
+
 ## Get started
 
 Start with [Set up an N810](start.md) for the tablet installation routes and their requirements. To explore Pocket on a laptop, follow [Your first Pocket session](tutorials/first-session.md). The tutorial includes downloads, launch commands, and the controls for opening applications and quitting.

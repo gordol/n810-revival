@@ -19,6 +19,7 @@ class MapComposite:
     layers:tuple
     clip_width:int=0
     clip_height:int=0
+    outline:tuple=()
 
 @dataclass(eq=False,frozen=True)
 class RasterScene:

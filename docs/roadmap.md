@@ -1,5 +1,19 @@
 # Development roadmap
 
+## Current tablet priorities
+
+| Priority | Work | Acceptance check |
+|---|---|---|
+| Display recovery | Make lock and unlock reliable while Pocket owns the framebuffer. | Slide twice under GPU load; verify input, picture and lamp return without restarting. Repeat on battery and charger. |
+| Fresh install | Include the companion picker, safe glyph rendering, and revised contact navigation in a clean image. | Boot both slots, test GUI and TUI, update and roll back while retaining user data. |
+| Text and navigation | Expand the shipped GUI font with licensed punctuation, accented names and symbols. Document emoji coverage and font asset size. Use accessible hardware keys and separate channels from contacts. | Render multilingual contact fixtures with no crash, verify legibility and memory use, and page a large list with the slide-out keyboard and touch. |
+| UV-PRO channel banks | Radio Manager downloads the current bank and lists every reported bank name. The third tablet read 30 slots and six names on bank 0. | Verify the vendor app’s all-bank download protocol. Check distinct channel contents from two banks, progress and cancellation while the active bank, settings and receive connection stay unchanged throughout. |
+| Radio and mesh | Test UV-PRO reconnect, hub selection, MeshCore pairing and Reticulum executor handoff. | Verify the selected peer, sustained receive and reconnection after power loss. |
+| Sensors and audio | Verify ambient-light response, keyboard lighting, charge estimates, headset routing and per-app sound. | Record physical observations alongside sensor and mixer state. |
+| Performance and distribution | Measure cold and warm map/terrain loads, Doom, input latency, and actual disk use for cached and clean builds. | Publish repeatable timings and measured host storage requirements. |
+
+[Current hardware and app support](status.md) records the evidence behind these priorities.
+
 These investigations concern future work. Each begins with evidence from the existing implementation and has a specific question to resolve.
 
 | Investigation | Existing foundation | Evidence needed before changing the design |
@@ -94,3 +108,9 @@ The next work follows the remaining boundaries in those tests:
 - Validate direct scene pixels, transparency, and mixed GPU state on the physical N810. Ordinary desktop text now uses native C cell rasterization, with calibrated process-owned touch; GPU scene acceptance remains separate from that desktop baseline.
 
 Moving projectiles would extend the current immediate ray-based target test with travel time and collision over simulation steps. That remains a possible scene extension, separate from the implemented hit/reset behavior.
+
+## N810 installation and application follow-up
+
+Functional acceptance covers both the terminal desktop and native GUI, followed by physical MBX GPU checks. Track cold map preparation, retained map memory, Flux frame pacing and Doom responsiveness separately from correctness; record matched workloads before changing quality or rendering paths.
+
+Measure peak disk usage separately for installing a prebuilt kit and building from source. Audit Docker layers, intermediate root filesystems and kit copies before revising the current free-space requirement. Card capacity must not require an equally large laptop image: persistent data occupies the remaining card partition and its filesystem grows on the tablet.

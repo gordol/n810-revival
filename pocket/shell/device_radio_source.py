@@ -43,6 +43,23 @@ class DeviceSource:
         self.receive=Source(feed,snapshots,directory=directory or self.aprs/'directory.sqlite3',sources=sources)
         self.receive.bind_wakeup(self._receive_changed)
 
+    def request_bluetooth_power(self,action):
+        if self.closed or action not in ('controller_on','controller_off'):return False
+        future=getattr(self,'bluetooth_pending',None)
+        if future is not None and not future.done():return False
+        self.bluetooth_message='Changing Bluetooth power…'
+        def change():
+            try:
+                import dbus
+                adapter=dbus.SystemBus().get_object('org.bluez','/org/bluez/hci0',introspect=False)
+                dbus.Interface(adapter,'org.freedesktop.DBus.Properties').Set(
+                    'org.bluez.Adapter1','Powered',dbus.Boolean(action=='controller_on',variant_level=1),signature='ssv',timeout=5)
+                self.bluetooth_message='Bluetooth power updated'
+            except Exception as error:self.bluetooth_message='Bluetooth: '+str(error)[:160]
+            self._collect_requested=True
+        self.bluetooth_pending=self._submit(change)
+        return True
+
     def bind_wakeup(self,callback):
         if callback is not None and not callable(callback):raise TypeError('wakeup must be callable')
         self._wakeup=callback

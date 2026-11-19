@@ -1,0 +1,24 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          n810-display-keys
+# Required-Start:    $local_fs n810-console-ux
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: N810 Power and brightness keys
+### END INIT INFO
+set -eu
+pidfile=/run/n810-display-keys.pid
+case "${1:-}" in
+start)
+    start-stop-daemon --start --quiet --background --make-pidfile --pidfile "$pidfile" \
+        --startas /usr/bin/python3 -- -I /usr/local/sbin/n810-display-keys.py
+    ;;
+stop)
+    start-stop-daemon --stop --quiet --retry TERM/3/KILL/2 --pidfile "$pidfile" \
+        --exec /usr/bin/python3 --remove-pidfile || true
+    ;;
+restart|force-reload) "$0" stop; "$0" start;;
+status) start-stop-daemon --stop --test --quiet --pidfile "$pidfile" --exec /usr/bin/python3;;
+*) echo 'Usage: n810-display-keys {start|stop|restart|status}' >&2; exit 2;;
+esac

@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Thomas Gordon Lowrey IV
+# SPDX-License-Identifier: GPL-2.0-or-later
+[Unit]
+Description=N810 compressed swap
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/n810-zram start
+ExecStop=/usr/local/sbin/n810-zram stop
+
+[Install]
+WantedBy=multi-user.target
