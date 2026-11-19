@@ -19,9 +19,47 @@ HELPER = HERE.parent / 'bluetooth-macos/uvpro'
 OWNER = HERE / 'owner-service'
 
 
-def enabled():
+def enabled(source=None, endpoint=None):
     from mac_tray import enabled as local_mac
+    if endpoint is not None or source is not None and not getattr(source, 'local_selected', False):
+        return False
     return local_mac() and bool(os.environ.get('POCKET_FIELD_PACK'))
+
+
+def _recover_pending(link, device):
+    recovery = device / 'restore-pending.json'
+    if not recovery.exists():
+        return
+    try:
+        saved = json.loads(recovery.read_bytes())
+        if not isinstance(saved, dict) or not isinstance(saved.get('settings'), str) or not isinstance(saved.get('beacon'), str):
+            raise ValueError
+        bank = saved.get('bank')
+        settings = bytes.fromhex(saved['settings'])
+        beacon = bytes.fromhex(saved['beacon'])
+    except (TypeError, ValueError) as error:
+        raise ValueError('Invalid saved radio restoration; refusing radio actions') from error
+    if type(bank) is not int or not 0 <= bank < 64 or len(settings) != 22 or len(beacon) not in (50, 52):
+        raise ValueError('Invalid saved radio restoration; refusing radio actions')
+
+    def active():
+        status = link.request(20, b'')
+        if len(status) != 4 or not status[0] & 128 or status[0] & 64:
+            raise ValueError('UV-PRO must be powered on and idle to restore its saved configuration')
+        return (int.from_bytes(status, 'big') >> 6) & 63
+
+    if active() != bank:
+        link.request(60, bytes([bank]))
+        time.sleep(.2)
+    if active() != bank:
+        raise ValueError('Original bank restoration pending; reconnect to retry')
+    if link.request(10, b'') != settings:
+        link.request(11, settings)
+    if link.request(33, b'\x02') != beacon:
+        link.request(34, beacon)
+    if active() != bank or link.request(10, b'') != settings or link.request(33, b'\x02') != beacon:
+        raise ValueError('Original radio configuration restoration pending; reconnect to retry')
+    recovery.unlink()
 
 
 class Link:
@@ -92,6 +130,7 @@ def connection():
                     else:
                         device = directory / hashlib.sha256(address.encode()).hexdigest()[:16]
                         device.mkdir(mode=0o700, exist_ok=True)
+                        _recover_pending(link, device)
                         yield link, device, address
                         return
                 finally:
@@ -320,22 +359,6 @@ def download_all(progress):
                 raise ValueError('Bank selection readback mismatch')
 
         recovery = device / 'restore-pending.json'
-
-        def restore(index, saved_settings, saved_beacon):
-            select(index)
-            if link.request(10, b'') != saved_settings:
-                link.request(11, saved_settings)
-            if link.request(33, b'\x02') != saved_beacon:
-                link.request(34, saved_beacon)
-            if (active() != index or link.request(10, b'') != saved_settings
-                    or link.request(33, b'\x02') != saved_beacon):
-                raise ValueError('Original radio configuration restoration pending; reconnect to retry')
-
-        if recovery.exists():
-            progress('Recovering the radio configuration saved before an interrupted download…')
-            saved = json.loads(recovery.read_bytes())
-            restore(saved['bank'], bytes.fromhex(saved['settings']), bytes.fromhex(saved['beacon']))
-            recovery.unlink()
 
         original = active()
         settings = link.request(10, b'')

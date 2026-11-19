@@ -87,7 +87,7 @@ def bank_channel(original, row):
 
 
 def upload(plan, address, root, atomic):
-    from uvpro_secondary import bits
+    from uvpro_secondary import bits, field
     if not isinstance(plan,dict) or set(plan) != {'bank','channels'}:
         raise ValueError('Invalid field bank request')
     target, rows = plan['bank'], plan['channels']
@@ -99,11 +99,31 @@ def upload(plan, address, root, atomic):
         status = yield 20,b''
         if len(status)!=4 or bits(status,20,6)!=target or not bits(status,0,1) or bits(status,1,1):
             raise ValueError('Select destination bank %d on the idle radio first' % target)
-    yield from current()
+        return (bits(status,26,4) << 4) | bits(status,8,4)
+    selected = yield from current()
+    settings = yield 10, b''
+    beacon = yield 33, b'\x02'
+    if len(settings) != 22 or len(beacon) not in (50, 52):
+        raise ValueError('Unsupported automatic location reporting layout')
+    layouts_path = Path(__file__).with_name('radio-read-layouts.json')
+    if not layouts_path.is_file():
+        layouts_path = layouts_path.parent.parent / 'vendor/packet-console/radio-read-layouts.json'
+    layouts = json.loads(layouts_path.read_bytes())
+    settings_layout = layouts.get('Settings')
+    beacon_layout = layouts.get('BSSSettings' if len(beacon) == 50 else 'BSSSettingsV2')
+    if not settings_layout or not beacon_layout:
+        raise ValueError('Unsupported automatic location reporting layout')
+    encoded = (bits(settings, *field(settings_layout, 'auto_share_loc_ch_upper')) << 5) | bits(
+        settings, *field(settings_layout, 'auto_share_loc_ch'))
+    reporting = (bool(bits(beacon, *field(beacon_layout, 'should_share_location'))
+                       and (bits(beacon, *field(beacon_layout, 'location_share_interval'))
+                            or bits(beacon, *field(beacon_layout, 'smart_beacon_en')))))
     # Read and back up every destination slot before making any edits.
     backup = yield from download(target,address,root,atomic)
     if backup['channels'] < len(rows):
         raise ValueError('Bank has too few slots')
+    if encoded > backup['channels']:
+        raise ValueError('Automatic location reporting maps outside the destination bank')
     def read(index):
         raw=yield 13,bytes([index])
         if len(raw) not in (25,27) or raw[0]!=index:
@@ -116,9 +136,14 @@ def upload(plan, address, root, atomic):
         if desired==original:continue
         if bits(original,42,30) or bits(original,10,30) or original[14]&0xf0:
             raise ValueError('Destination slot %d is occupied or fixed; select an empty bank' % (index+1))
+        if reporting and (encoded == index + 1 or encoded == 0 and selected == index):
+            raise ValueError('Automatic location reporting uses this channel; disable reporting before upload')
         pending.append((index,row,original,desired))
     for index,row,original,desired in pending:
-        yield from current()
+        if (yield from current()) != selected:
+            raise ValueError('Selected channel changed during upload')
+        if (yield 10,b'') != settings or (yield 33,b'\x02') != beacon:
+            raise ValueError('Automatic location reporting settings changed; upload cancelled')
         if (yield from read(index))!=original:
             raise ValueError('Destination channel changed')
         ack=yield 14,desired,original,{'group':'field_channel','row':row}

@@ -68,6 +68,7 @@ class MacRadioRecovery(unittest.TestCase):
 
         @contextlib.contextmanager
         def connection():
+            mac_uvpro._recover_pending(radio, device)
             yield radio, device, 'AA:BB'
 
         def read_bank(index, address):
@@ -98,6 +99,24 @@ class MacRadioRecovery(unittest.TestCase):
             self.assertEqual((radio.bank, radio.settings, radio.beacon), original)
             self.assertFalse((device / 'restore-pending.json').exists())
 
+    def test_pending_recovery_restores_and_clears_verified_state(self):
+        import json
+        import mac_uvpro
+        radio = self.Radio()
+        original = (radio.bank, radio.settings, radio.beacon)
+        radio.bank = 1
+        radio.settings = b'\x55' * 22
+        radio.beacon = radio.beacon[:1] + bytes([radio.beacon[1] & ~0x10]) + radio.beacon[2:]
+        with tempfile.TemporaryDirectory() as directory:
+            device = Path(directory)
+            (device / 'restore-pending.json').write_text(json.dumps({
+                'bank': original[0], 'settings': original[1].hex(), 'beacon': original[2].hex(),
+            }))
+            with unittest.mock.patch.object(mac_uvpro.time, 'sleep'):
+                mac_uvpro._recover_pending(radio, device)
+            self.assertEqual((radio.bank, radio.settings, radio.beacon), original)
+            self.assertFalse((device / 'restore-pending.json').exists())
+
     def test_rename_accepts_existing_gbk_name(self):
         import mac_uvpro
         radio = self.Radio()
@@ -114,3 +133,68 @@ class MacRadioRecovery(unittest.TestCase):
                 unittest.mock.patch.object(mac_uvpro, 'load_catalog', return_value=({}, {'bank_names': ['x', 'y']})):
             mac_uvpro.rename_bank(0, '\u554a', 'ABC')
         self.assertEqual(radio.name, b'ABC')
+
+    def test_direct_mac_rejects_remote_sources_and_explicit_endpoints(self):
+        import mac_uvpro
+
+        class LocalSource:
+            local_selected = True
+
+        with unittest.mock.patch.dict('os.environ', {'POCKET_FIELD_PACK': '/tmp/field-pack'}), \
+                unittest.mock.patch('mac_tray.enabled', return_value=True):
+            self.assertTrue(mac_uvpro.enabled(LocalSource()))
+            self.assertFalse(mac_uvpro.enabled(object()))
+            self.assertFalse(mac_uvpro.enabled(LocalSource(), '/run/radio-control.sock'))
+
+    def test_terminal_backspace_erases_upload_destination(self):
+        from types import SimpleNamespace
+        from radio_manager import RadioManager
+        for key in ('\x7f', '\b'):
+            manager = object.__new__(RadioManager)
+            manager.__dict__.update(
+                page=6, bank=0, index=0, field_groups=[('Bank', [(None, None, None, None)])],
+                field_target='12', state=SimpleNamespace(source=None, read_client=None),
+                bank_name_editor=None,
+            )
+            self.assertTrue(manager.key(key))
+            self.assertEqual(manager.field_target, '1')
+
+
+class UploadLocationGuard(unittest.TestCase):
+    def test_enabled_reporting_channel_is_not_overwritten(self):
+        import json
+        import uvpro_bank
+        layouts = json.loads((Path(__file__).resolve().parents[1] / 'shell/vendor/packet-console/radio-read-layouts.json').read_bytes())
+
+        def pack(layout, values):
+            value = total = 0
+            for name, width, _ in layout:
+                value = (value << width) | values.get(name, 0)
+                total += width
+            return value.to_bytes(total // 8, 'big')
+
+        settings = pack(layouts['Settings'], {'auto_share_loc_ch': 1})
+        beacon = pack(layouts['BSSSettings'], {'should_share_location': 1, 'location_share_interval': 10})
+        status = (0x80000000).to_bytes(4, 'big')
+        sent = []
+
+        def download(*args):
+            if False:
+                yield None
+            return {'channels': 2}
+
+        job = uvpro_bank.upload(
+            {'bank': 0, 'channels': [['N0CALL', 146800000, 146800000, 0, 0, 0, 0]]},
+            'AA:BB', Path('/tmp/backups'), lambda *args: None,
+        )
+        reply = None
+        with unittest.mock.patch.object(uvpro_bank, 'download', download):
+            with self.assertRaisesRegex(ValueError, 'Automatic location reporting uses this channel'):
+                while True:
+                    try:
+                        command, payload, *_ = job.send(reply)
+                    except StopIteration:
+                        break
+                    sent.append(command)
+                    reply = {20: status, 10: settings, 33: beacon, 13: bytes(25)}[command]
+        self.assertNotIn(14, sent)
