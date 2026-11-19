@@ -43,8 +43,6 @@ The visual record begins with the [sidebar desktop](posts/2026-10-05-sidebar-des
 | 9–10 November 2026 | [Keeping GPU work resident and testing at 480 MHz](posts/2026-11-10-gpu-residency-and-480mhz.md) |
 | 10 November 2026 | [Investigating a native ARM Windows CE runtime](posts/2026-11-10-windows-ce-runtime.md) |
 | 11–18 November 2026 | [Getting Pocket running on a second N810](posts/2026-11-17-pocket-on-the-second-n810.md) |
-| 18 November 2026 | [Booting Pocket from a fresh SD installation](posts/2026-11-18-sd-boot.md) |
-| 18 November 2026 | [Downloading six UV-PRO banks from Pocket](posts/2026-11-18-radio-banks.md) |
 
 The guide and reference pages describe reusable procedures and the latest reconciled state. Dated posts preserve the observations available at each checkpoint.
 
