@@ -74,6 +74,24 @@ for the configured card, prepares the selected slot and persistent mounts, and
 switches into that root filesystem before starting services. The kernel keeps
 running throughout; normal SD boot does not use kexec.
 
+### The USB icon and the A/B boot selection
+
+With the N810 connected to the host over USB, the USB icon appears briefly during
+reboot. A host already listening can catch the Nokia bootloader during that
+window. Holding the front Swap key (the Home key, marked with two overlapping
+rectangles on the N810) at power-on keeps the tablet in update mode so the host
+has time to connect.
+
+The current A/B installer expects the tablet to be in update mode when you start
+the flash step. It checks the install receipts and USB target, flashes the shared
+kernel, and requests a reboot. It has no step to arm a USB listener and initiate
+the preceding reboot for you. For this installer, use the held-key procedure.
+
+An ordinary A/B update takes a different path. On reboot the tablet starts its
+existing kernel, then early startup reads the slot selection from the SD card
+and mounts the chosen Debian filesystem. Switching slots needs no host at the
+USB icon and writes nothing to kernel flash.
+
 ## Storage and updates
 
 | Location | Purpose |
