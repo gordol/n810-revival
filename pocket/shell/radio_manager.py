@@ -142,7 +142,7 @@ class RadioManager:
                 from radio_tune_client import BankDownload
                 if self.bank_download and self.bank_download.worker and self.bank_download.worker.is_alive():
                     return True
-                self.bank_download = BankDownload(None, self.state._source_changed)
+                self.bank_download = BankDownload(None, self.state._source_changed,direct_mac=self.state.direct_mac)
                 group = groups[self.bank % len(groups)]
                 old = group.get('name') or ''
                 self.bank_name_editor = group['index'], old, TextInput(old, limit=10)
@@ -164,9 +164,11 @@ class RadioManager:
                 from mac_uvpro import check
                 from radio_tune_client import Tune
                 if self.field_job and self.field_job.worker and self.field_job.worker.is_alive():return True
-                job=Tune(None,self.state._source_changed);self.field_job=job
+                job=Tune(None,self.state._source_changed,direct_mac=self.state.direct_mac);self.field_job=job
                 def probe():
-                    try:job.publish(check())
+                    try:
+                        if not self.state.direct_mac():raise ValueError('Select This device before controlling the Mac radio.')
+                        job.publish(check())
                     except (OSError,ValueError,RuntimeError) as exc:job.publish(str(exc))
                 job.publish('Checking Mac Bluetooth…')
                 job.worker=threading.Thread(target=probe,daemon=True);job.worker.start()
@@ -181,7 +183,7 @@ class RadioManager:
                     if endpoint is None and not direct:self.message='Connect the radio owner in Connections first.'
                     elif int(self.field_target)>63:self.message='Bank index must be between 0 and 63.'
                     else:
-                        self.field_job=BankDownload(endpoint,self.state._source_changed)
+                        self.field_job=BankDownload(endpoint,self.state._source_changed,direct_mac=self.state.direct_mac)
                         self.field_job.start_upload(int(self.field_target),[c[3] for c in channels])
                     self.field_target=None
                 return True
@@ -208,7 +210,7 @@ class RadioManager:
                     endpoint = None if direct else getattr(self.state.read_client,'path',None)
                     if self.bank_download is None or self.bank_download.path != endpoint:
                         from radio_tune_client import BankDownload
-                        self.bank_download=BankDownload(endpoint,self.state._source_changed)
+                        self.bank_download=BankDownload(endpoint,self.state._source_changed,direct_mac=self.state.direct_mac)
                     self.bank_download.start(edit=dict(group=group,field=field,expected=old,value=new))
                     self.setting_editor=None;self.message=''
                 except ValueError as error:self.message=str(error)
@@ -268,7 +270,7 @@ class RadioManager:
             from radio_tune_client import BankDownload
             endpoint = None if direct else getattr(client, 'path', None)
             if self.bank_download is None or self.bank_download.path != endpoint:
-                self.bank_download=BankDownload(endpoint,self.state._source_changed)
+                self.bank_download=BankDownload(endpoint,self.state._source_changed,direct_mac=self.state.direct_mac)
             directory=self.bank_directory()
             selected=directory[self.bank%len(directory)]['index'] if directory and key!='c' else None
             if key=='a':self.bank_download.start_all()

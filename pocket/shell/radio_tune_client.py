@@ -8,8 +8,13 @@ from pathlib import Path
 
 
 class Tune:
-    def __init__(self,path,wakeup=None):
-        self.path=path;self.wakeup=wakeup;self.status='';self.worker=None
+    def __init__(self,path,wakeup=None,direct_mac=False):
+        self.path=path;self.wakeup=wakeup;self.status='';self.worker=None;self._direct_mac=direct_mac
+    def mac_radio_selected(self):
+        selected=self._direct_mac() if callable(self._direct_mac) else self._direct_mac
+        if not selected or self.path is not None:return False
+        from mac_uvpro import enabled
+        return enabled()
     def publish(self,text):
         self.status=text
         if self.wakeup:self.wakeup()
@@ -40,8 +45,8 @@ class Tune:
     def run(self,repeater):
         ident=uuid.uuid4().hex
         try:
-            from mac_uvpro import enabled, tune
-            if enabled() and self.path is None:
+            from mac_uvpro import tune
+            if self.mac_radio_selected():
                 result=tune(repeater)
                 self.publish('Mac Bluetooth · '+('previous selection restored' if result['state']=='secondary_restored' else 'B tuned')+' · readback verified')
                 return
@@ -68,8 +73,8 @@ class BankDownload(Tune):
     def upload(self,index,rows):
         ident=uuid.uuid4().hex
         try:
-            from mac_uvpro import enabled, upload
-            if enabled() and self.path is None:
+            from mac_uvpro import upload
+            if self.mac_radio_selected():
                 result=upload(index,rows)
                 self.publish('Mac Bluetooth · verified %d channels in bank %d' % (result['channels'],index))
                 return
@@ -89,6 +94,7 @@ class BankDownload(Tune):
         def run():
             from mac_uvpro import rename_bank
             try:
+                if not self.mac_radio_selected():raise ValueError('Select This device before controlling the Mac radio.')
                 message = rename_bank(index, expected, name)
                 self.catalog_refresh_pending = True
             except (OSError, ValueError, RuntimeError) as error:
@@ -100,8 +106,7 @@ class BankDownload(Tune):
 
     def start_all(self):
         if self.worker and self.worker.is_alive():return
-        from mac_uvpro import enabled
-        if enabled() and self.path is None:
+        if self.mac_radio_selected():
             self.publish('Connecting to UV-PRO…')
             self.worker = threading.Thread(target=self._mac_all_banks, daemon=False)
             self.worker.start()
@@ -114,6 +119,7 @@ class BankDownload(Tune):
     def _mac_all_banks(self):
         from mac_uvpro import download_all
         try:
+            if not self.mac_radio_selected():raise ValueError('Select This device before controlling the Mac radio.')
             message = download_all(self.publish)
             self.catalog_refresh_pending = True
         except (OSError, ValueError, RuntimeError) as error:
@@ -138,14 +144,14 @@ class BankDownload(Tune):
     def download(self,index,edit):
         identity=uuid.uuid4().hex
         try:
-            from mac_uvpro import enabled, download_bank, edit_setting, check
-            if enabled() and self.path is None and edit is not None:
+            from mac_uvpro import download_bank, edit_setting, check
+            if self.mac_radio_selected() and edit is not None:
                 edit_setting(edit)
                 self.publish('Verified '+edit['field'].replace('_',' ')+' on the radio.')
                 check()
                 self.publish(self.status)
                 return
-            if enabled() and self.path is None and edit is None:
+            if self.mac_radio_selected() and edit is None:
                 result = download_bank(index)
                 self.catalog_refresh_pending = True
                 self.publish('Saved bank %d · %d channels · %d bank names' %

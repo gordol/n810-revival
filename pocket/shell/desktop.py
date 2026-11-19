@@ -1001,8 +1001,12 @@ def main(platform=None,argv=None):
                 bridge=getattr(receive,'bridge',None)
                 if bridge:endpoint=Path(bridge)/'radio-control.sock'
             if radio and radio.direct_mac():endpoint=None
-            if not getattr(map_form,'tuner',None):map_form.tuner=Tune(endpoint,lambda:inbox.notify('form:Station Map'))
+            if not getattr(map_form,'tuner',None):map_form.tuner=Tune(endpoint,lambda:inbox.notify('form:Station Map'),direct_mac=radio.direct_mac if radio else False)
             else:map_form.tuner.path=endpoint
+            if endpoint is None and not (radio and radio.direct_mac()):
+                map_form.dialog=('Radio owner unavailable',['Select “This device” in Connections or attach a radio owner before tuning.'])
+                host.activate('Station Map')
+                return
             selection=entity.payload
             if 'FM (CTCSS listed)' in selection.get('modes',()):
                 selection=dict(selection,modes=['FM narrow' if selection.get('analog_width_as_listed') in (12.5,.0125) else 'FM wide'])
