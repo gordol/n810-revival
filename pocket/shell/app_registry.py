@@ -15,6 +15,7 @@ BUILTINS=(('apps/symbian/registration.py','descriptor'),
           ('apps/surface-renderer/registration.py','descriptor'),
           ('apps/surface-renderer/registration.py','outdoor_descriptor'),
           ('apps/landscape-lab/wildlife_registration.py','descriptor'),
+          ('apps/cells/slide.py','descriptor'),
           ('apps/nokia-touch-lab-v1/registration.py','descriptor'))
 
 

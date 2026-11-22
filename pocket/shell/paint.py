@@ -21,6 +21,7 @@ def ink(r,g,b,background=None):
 # Low RGB channels retain an approximation for any later alpha operation.
 FRAME_INK=1<<49
 FRAME_ROLE_SHIFT=50
+BOLD_RGB=1<<53
 FRAME_TINTED=1<<52
 FRAME_DEFERRED=1<<55
 
@@ -28,6 +29,7 @@ FRAME_DEFERRED=1<<55
 def valid_ink(color,deferred=False):
     if not isinstance(color,int) or color<0:return False
     if color<1<<49:return True
+    if color&BOLD_RGB:return 1<<48 <= (color^BOLD_RGB) < 1<<49
     allowed=(1<<48)-1|(1<<48)|FRAME_INK|(3<<FRAME_ROLE_SHIFT)|FRAME_TINTED|(FRAME_DEFERRED if deferred else 0)
     return bool(color&FRAME_INK and color&(1<<48) and (color>>FRAME_ROLE_SHIFT)&3 in (1,2) and not color&~allowed)
 
@@ -71,7 +73,8 @@ def foreground(color,palette):
     if color&FRAME_INK:return palette[(color>>FRAME_ROLE_SHIFT)&3]
     if color<(1<<24):return palette[color]
     value=(color>>24)&0xffffff if color>=(1<<48) else color
-    return f'38;2;{(value>>16)&255};{(value>>8)&255};{value&255}'
+    weight = '1;' if color&BOLD_RGB else ''
+    return f'{weight}38;2;{(value>>16)&255};{(value>>8)&255};{value&255}'
 
 
 def background(color,fallback):

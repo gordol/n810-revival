@@ -27,6 +27,15 @@ Apple Silicon compute dependencies and verification. `make tui` selects the
 terminal frontend explicitly. Both builds use repository sources and generated
 local outputs, without sibling experiment directories or downloaded map data.
 
+Open **Cells** in Applications to watch immune cells pursue microbes, enclose them
+and divide. Pocket runs the [original Cells simulation](https://github.com/kborer/cells)
+at a fixed simulation step of 1/30 second. The TUI samples the light stained slide in true color and overlays anatomical
+glyphs. Maximize Cells and reduce your terminal font size to give the same field
+more character cells. The GUI draws the same specimen at pixel resolution.
+**Space** pauses or resumes the world and **F** toggles the stain. The footer counts
+completed engulfments and immune-cell divisions. This view starts with seed 810
+and disables the optional rare sightings and microscope events.
+
 ## Source layout
 
 | Path | Contents |

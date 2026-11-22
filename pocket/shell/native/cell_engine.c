@@ -64,11 +64,13 @@ static int emit_glyph(Surface *s,uint32_t ch){
     return append(s,b,n);
 }
 #define CW_FRAME_INK (UINT64_C(1)<<49)
+#define CW_BOLD_RGB (UINT64_C(1)<<53)
 #define CW_FRAME_TINTED (UINT64_C(1)<<52)
 #define CW_FRAME_DEFERRED (UINT64_C(1)<<55)
 #define CW_FRAME_ROLE(c) (((c)>>50)&3)
 static inline int cw_ink_valid(uint64_t color) {
     if(color<(UINT64_C(1)<<49))return 1;
+    if(color&CW_BOLD_RGB){uint64_t plain=color^CW_BOLD_RGB;return plain>=(UINT64_C(1)<<48) && plain<(UINT64_C(1)<<49);}
     uint64_t allowed=((UINT64_C(1)<<48)-1)|(UINT64_C(1)<<48)|CW_FRAME_INK|(UINT64_C(3)<<50)|CW_FRAME_TINTED|CW_FRAME_DEFERRED;
     return (color&CW_FRAME_INK) && (color&(UINT64_C(1)<<48)) && (CW_FRAME_ROLE(color)==1 || CW_FRAME_ROLE(color)==2) && !(color&~allowed);
 }
@@ -176,12 +178,13 @@ int cw_flush_mapped(void *ptr,const Layer *layers,size_t nl,const uint32_t *dirt
                 p=cw_rgb_triplet(p,ink,0);*p++='m';*p=0;
                 escape=rgb;
             }
-            if(!escape && ink>=UINT64_C(0x1000000000000) && ink<UINT64_C(0x2000000000000)){
+            if(!escape && ink>=UINT64_C(0x1000000000000) && (ink&~CW_BOLD_RGB)<UINT64_C(0x2000000000000)){
                 /* State is local to this batch: arbitrary panel writes and
                    styled UI text require a fresh reset and both components.
                    Consecutive plain RGB cells only change differing colours. */
                 char *p=rgb;*p++='\033';*p++='[';
-                if(!last_rgb){*p++='0';*p++=';';}
+                if((ink^last)&CW_BOLD_RGB)last_rgb=0;
+                if(!last_rgb){*p++='0';*p++=';';if(ink&CW_BOLD_RGB){*p++='1';*p++=';';}}
                 int fg=!last_rgb || ((ink^last)&UINT64_C(0xffffff000000));
                 int bg=!last_rgb || ((ink^last)&UINT64_C(0xffffff));
                 if(fg){memcpy(p,"38;2;",5);p+=5;p=cw_rgb_triplet(p,ink,24);}

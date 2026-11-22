@@ -40,8 +40,11 @@ class Platform:
     self.register_pixel_view(View(host,owner));return owner
    registry.entries['doom']=entry._replace(factory=doom_factory)
   for identifier,entry in tuple(registry.entries.items()):
-   def source_owner(host,_factory=entry.factory,_title=entry.title,**options):
+   def source_owner(host,_factory=entry.factory,_title=entry.title,_identifier=identifier,**options):
     owner=_factory(host,**options)
+    if _identifier=='cells':
+     owner.pixel_view=True
+     self.register_pixel_view(owner)
     if callable(getattr(owner,'map_surface',None)):
      owner.set_map_presentation('semantic')
      from map_pixels import View

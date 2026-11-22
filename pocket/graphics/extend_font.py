@@ -27,7 +27,12 @@ def extend(source,destination):
     for ch,index in font.mapping.items():codes[index].append(ord(ch))
     horizontal=bytes(row&0xdb for row in font.glyph('─'))
     vertical=bytes(row if y%6<4 else 0 for y,row in enumerate(font.glyph('│')))
-    for ch,bits in (('┄',horizontal),('┆',vertical)):
+    # Folded mitochondrial membranes and the two phage tail orientations.
+    wave = (0x00,0x00,0x00,0x00,0x32,0x4c,0x00,0x32,0x4c,0x00,0x32,0x4c,0,0,0,0)
+    fork = (0,0,0x10,0x10,0x92,0x54,0x38,0x10,0x10,0x10,0x10,0x10,0x10,0x10,0,0)
+    additions = (('┄',horizontal),('┆',vertical),('≋',bytes(wave)),
+                 ('ᛘ',bytes(fork)),('ᛦ',bytes(reversed(fork))))
+    for ch,bits in additions:
         if ch in font.mapping:continue
         slot=next(i for i,values in enumerate(codes) if not values)
         glyphs[slot]=bits;codes[slot]=[ord(ch)]
