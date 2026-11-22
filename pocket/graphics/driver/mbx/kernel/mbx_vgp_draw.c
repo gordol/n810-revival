@@ -128,14 +128,18 @@ static int validate_shader(const struct mbx_vgp_draw *d,struct mbx_vgp_shader_ca
 }
 int mbx_vgp_draw_encode_patches(const struct mbx_vgp_draw *d,struct mbx_command *c,unsigned capacity,unsigned *written,struct mbx_vgp_shader_cache *cache,struct mbx_vgp_draw_patches *patches)
 {
- unsigned at=0,i,j,k,needed,format,rotate,constant;
+ unsigned at=0,i,j,k,vertex_words,needed,format,rotate,constant;
  if(!d||!c||!written||!d->program||!d->vertices||!d->indices||
     !d->instructions||d->instructions>128||d->uniform_count>83||d->immediate_count>6||
     (d->input_count!=1&&d->input_count!=2&&d->input_count!=3)||!d->vertex_count||d->vertex_count>4096||
     !d->triangle_count||d->triangle_count>256||d->mask_operation>2||d->smooth>1||d->depth_always>1||d->depth_disabled>1||(d->depth_disabled&&d->depth_always)||d->cull_mode>2||d->blend_mode>4||(d->blend_mode==4&&(!d->depth_disabled||d->texture_enabled))||d->texture_enabled>1||d->texture_input>1||d->texture_128>1||d->texture_native32>1||(d->texture_native32&&(!d->texture_enabled||d->texture_128))||(!d->texture_enabled&&d->texture_128)||(d->texture_input&&(!d->texture_enabled||(d->input_count!=2&&d->input_count!=3)))||(d->input_count==3&&(!d->texture_input||!d->texture_modulate))||d->color_input>1||(d->color_input&&(d->input_count!=2||d->texture_input))||d->texture_modulate>1||(d->texture_modulate&&!d->texture_enabled)||
     (d->uniform_count&&!d->uniforms)||(d->immediate_count&&!d->immediates))return -22;
+ /* Attribute payload is fixed for the draw. */
+ vertex_words=4;
+ if(d->input_count==3)vertex_words=12;
+ else if(d->input_count==2)vertex_words=d->texture_input||d->color_input?8:7;
  needed=25+2*d->instructions+(d->uniform_count?1+4*d->uniform_count:0)+
-  (d->immediate_count?1+4*d->immediate_count:0)+(9+3*d->texture_enabled+3*(d->texture_input?(d->input_count==3?12:8):d->input_count==2?(d->color_input?8:7):4))*d->triangle_count;
+  (d->immediate_count?1+4*d->immediate_count:0)+(9+3*d->texture_enabled+3*vertex_words)*d->triangle_count;
  if(capacity<needed||!validate_shader(d,cache,&constant))return -22;
  for(i=0;i<6;++i)if(!finite_word(d->viewport[i]))return -22;
  for(i=0;i<4*d->uniform_count;++i)if(!finite_word(d->uniforms[i]))return -22;
@@ -183,10 +187,14 @@ int mbx_vgp_draw_encode_patches(const struct mbx_vgp_draw *d,struct mbx_command 
    }else{emit(c,&at,d->texture_native32?0xa3319600:(d->texture_128?0xa4405600:0xa3305600));emit(c,&at,0x0e000000|((d->texture_arena?0x201000U+d->texture_linear_offset:d->texture_page?0x88000+4096*(d->texture_page-1):(d->texture_native32?0x8c000:(d->texture_128?0x88000:0x8e000)))>>7));emit(c,&at,d->texture_modulate?(d->texture_native32?0x86084610:0x86086610):(d->texture_native32?0xd6087610:0xd6086610));}
   }
   emit(c,&at,format);emit(c,&at,0);emit(c,&at,0x40000000|(d->cull_mode<<18));emit(c,&at,d->texture_enabled?0x70021004:0x70020004);
-  for(j=0;j<3;++j)for(k=0;k<(d->texture_input?(d->input_count==3?12:8):d->input_count==2?(d->color_input?8:7):4);++k)emit(c,&at,d->vertices[d->indices[i*3+j]*4*d->input_count+k]);
+  for(j=0;j<3;++j){
+   const unsigned *vertex=d->vertices+d->indices[i*3+j]*4*d->input_count;
+   for(k=0;k<vertex_words;++k)emit(c,&at,vertex[k]);
+  }
   while(MBX_VGP_REUSE_STRIPS&&i+1<d->triangle_count&&
         strip_next(d,i+1,(run&1)?b:a,(run&1)?a:b,rotate,&next)){
-   for(k=0;k<(d->texture_input?(d->input_count==3?12:8):d->input_count==2?(d->color_input?8:7):4);++k)emit(c,&at,d->vertices[next*4*d->input_count+k]);
+   const unsigned *vertex=d->vertices+next*4*d->input_count;
+   for(k=0;k<vertex_words;++k)emit(c,&at,vertex[k]);
    a=b;b=next;++run;++i;
   }
   c[at++]=(struct mbx_command){MBX_POLYGON_CONTROL,1};
