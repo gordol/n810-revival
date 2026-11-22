@@ -103,4 +103,25 @@ class NativeTerminalOutputTests(unittest.TestCase):
         self.assertIn('X\x1b[48;2;4;5;6mX\x1b[38;2;171;205;239mX',out)
         self.assertEqual(out.count('\x1b[0;'),1)
 
+    def test_bold_rgb_transitions_reset_and_do_not_leak(self):
+        bold = 1 << 53
+        a, b = ink(0x123456, 0x010203), ink(0x654321, 0x010203)
+        sequence = (a, a | bold, a, a | bold, b | bold, b, a | bold)
+        plane = self.lib.surface(len(sequence), 1); front = self.lib.surface(len(sequence), 1)
+        for i, v in enumerate(sequence): self.lib.set(plane, i, ord('A')+i, v)
+        out, count = self.lib.flush(front, ((plane,0,0),), array('I', range(len(sequence))), (), 0, 0)
+        self.assertEqual(count, len(sequence))
+        cells = rendered(out)
+        for i, v in enumerate(sequence):
+            _, fg, back, is_bold, _, _ = cells[i, 0]
+            self.assertEqual((fg, back, is_bold),
+                             (tuple((v >> s) & 255 for s in (40,32,24)),
+                              tuple((v >> s) & 255 for s in (16,8,0)), bool(v & bold)), i)
+        # A fresh batch after a styled external write must not inherit bold.
+        front = self.lib.surface(2, 1); plane = self.lib.surface(2, 1)
+        self.lib.set(plane, 0, ord('X'), a); self.lib.set(plane, 1, ord('Y'), a | bold)
+        out, _ = self.lib.flush(front, ((plane,0,0),), array('I', range(2)), (), 0, 0)
+        cells = rendered('\x1b[0;1;38;2;9;8;7m!' + out)
+        self.assertFalse(cells[0, 0][3]); self.assertTrue(cells[1, 0][3])
+
 if __name__ == '__main__': unittest.main()

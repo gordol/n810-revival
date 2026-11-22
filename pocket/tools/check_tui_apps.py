@@ -28,15 +28,31 @@ with tempfile.TemporaryDirectory(prefix='pocket-tui-') as folder:
     if n is not None and len(data)>=n:return unpack(data[HEADER:],8192)
  try:
   drain(2)
-  for name in ['Settings','Help','Station Map','Offline Data','Messages','Services','Nets','APRS Walk Logs','CW','N810 Setup','ULS Lookup','Radio Feed','Heard','Connections','Stations','Audio Monitor','Radio Manager','Radio','System','Bluetooth','Symbian','Touch lab','Wildlife','Rainier walk','Surface room']:
+  for name in ['Settings','Help','Station Map','Offline Data','Messages','Services','Nets','APRS Walk Logs','CW','N810 Setup','ULS Lookup','Radio Feed','Heard','Connections','Stations','Audio Monitor','Radio Manager','Radio','System','Bluetooth','Symbian','Touch lab','Wildlife','Cells','Rainier walk','Surface room']:
    activation=req({'activate':name});assert activation.get('ok'),(name,activation)
    drain(.25);result={'ok':'Find:' in '\n'.join(screen.display),'opened':True} if name=='Settings' else req({'command':'app-status','name':name})
    assert result.get('ok') and not result.get('error'),(name,result)
+   if name=='Cells':
+    assert 'Space pause' in '\n'.join(screen.display)
+    os.write(master,b' ');drain(.25)
+    assert 'Space resume' in '\n'.join(screen.display)
+    footer=next(y for y,line in enumerate(screen.display) if 'Space resume' in line)
+    left=screen.display[footer].index('Space resume')
+    right=screen.display[footer].index('│',left)
+    top=next(y+1 for y,line in enumerate(screen.display) if '╭ Cells ' in line)
+    def slide_sample():
+     return tuple(screen.buffer[y][x] for y in range(top,footer)
+                  for x in range(left,right))
+    stained=slide_sample()
+    os.write(master,b'f');drain(.25)
+    assert slide_sample()!=stained
+    os.write(master,b'f');drain(.25)
+    assert slide_sample()==stained
    print(json.dumps({'app':name,'opened':result.get('opened'),'error':result.get('error')}),flush=True)
    os.write(master,b'\x1dX');drain(.2)
    if name!='Settings':assert not req({'command':'app-status','name':name}).get('opened'),name
   assert child.poll() is None
-  print(json.dumps({'result':'PASS','scope':'25 TUI views opened and closed; external services not exercised'}),flush=True)
+  print(json.dumps({'result':'PASS','scope':'26 TUI views opened and closed; external services not exercised'}),flush=True)
  finally:
   if child.poll() is None:
    try:os.write(master,b'\x1dq');drain(.3)

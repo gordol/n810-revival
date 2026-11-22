@@ -14,7 +14,7 @@ def main():
     subprocess.run([sys.executable,str(HERE/'check_map.py'),*(['--allow-software'] if args.allow_software else [])],check=True,timeout=150)
     with tempfile.TemporaryDirectory(prefix='pocket-graphics-check-') as folder:
         folder=Path(folder);actions=folder/'actions.json';report=folder/'report.json';output=folder/'frame.rgb565'
-        actions.write_text(json.dumps([{'menu':True},{'key':'\u001b'},{'launch':'window:Messages'},{'launch':'window:Settings'},{'launch':'terminal:new'},{'app':'surface-room'},{'resize':[123,47]},{'resize':[80,25]}]))
+        actions.write_text(json.dumps([{'menu':True},{'key':'\u001b'},{'launch':'window:Messages'},{'launch':'window:Settings'},{'launch':'terminal:new'},{'app':'cells'},{'app':'surface-room'},{'resize':[123,47]},{'resize':[80,25]}]))
         command=[sys.executable,str(HERE/'run.py'),'--headless','--seconds','4','--state',str(folder/'state'),'--actions',str(actions),'--output',str(output),'--report',str(report),'--effect-backend','cpu','--no-save','--no-animation']
         if args.allow_software:command.append('--allow-software')
         env=dict(os.environ,HOME=str(folder),XDG_STATE_HOME=str(folder/'state'),XDG_CACHE_HOME=str(folder/'cache'),XDG_CONFIG_HOME=str(folder/'config'))
@@ -23,10 +23,12 @@ def main():
         data=json.loads(report.read_text())
         if len(data['apps'])<24 or not data['native'] or data['desktop_ansi'] or data['desktop_pty']:raise AssertionError('Desktop registry/pixel contract failed')
         if not data['menu_opened']:raise AssertionError('Menu was not opened')
-        for name in ('Connections','Messages','Settings','Terminal','Surface room'):
+        for name in ('Connections','Messages','Settings','Terminal','Cells','Surface room'):
             if name not in data['activity']:raise AssertionError('App did not activate: '+name)
         if data['errors']:raise AssertionError('App construction failed')
         if data['desktop_cells']!=[80,25] or output.stat().st_size!=80*8*25*16*2:raise AssertionError('Resize/output dimensions differ')
+        slide=data['pixel_apps']['Cells']
+        if slide['frames']<=0 or slide['cell_layer']:raise AssertionError('Cells did not produce a pixel slide')
         room=data['pixel_apps']['Surface room']
         if room['frames']<=0 or room['cell_layer']:raise AssertionError('Room did not produce direct native pixels')
         if '\x1b[' in result.stdout.decode():raise AssertionError('Desktop emitted terminal escape sequences')

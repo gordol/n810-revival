@@ -15,7 +15,7 @@ class GraphicsBuildInputs(unittest.TestCase):
    converted=Font(target)
    self.assertEqual((converted.width,converted.height),(8,16))
    for char,bits in original.items():self.assertEqual(converted.glyph(char),bits,char)
-   for char in '┄┆':self.assertTrue(any(converted.glyph(char)))
+   for char in '┄┆≋ᛘᛦ':self.assertTrue(any(converted.glyph(char)))
  def test_build_and_launcher_do_not_refer_to_experimental_inputs(self):
   for name in ('build.py','build_nokia.py','gui.py','run.py','generate_room.py'):
    text=(ROOT/'graphics'/name).read_text()
