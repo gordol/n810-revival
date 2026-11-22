@@ -58,3 +58,13 @@ class CellsSimulation(unittest.TestCase):
         app.key('f')
         self.assertNotEqual(stained,app.render_image()[0])
         self.assertEqual(world.time,before)
+
+    def test_close_releases_world_and_slide_caches(self):
+        app = discover().entries['cells'].factory(SimpleNamespace(ascii=False, glyphs=RICH))
+        slide = sys.modules[type(app).__module__]
+        app.layer()
+        self.assertGreater(slide.stain_tile.cache_info().currsize, 0)
+        app.close()
+        self.assertIsNone(app.world)
+        self.assertEqual(slide.stain_tile.cache_info().currsize, 0)
+        self.assertIsNone(app.render_image())

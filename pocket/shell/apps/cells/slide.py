@@ -146,12 +146,13 @@ def raster(width, height, world, fill, sprite):
                     base = row * width + left
                     field[base+first:base+last] = run[first:last]
 
-    def line(x, y, xx, yy, color):
+    def line(x, y, xx, yy, color, keep=None):
         x,y,xx,yy = round(ox+x*scale),round(oy+y*scale),round(ox+xx*scale),round(oy+yy*scale)
         steps = max(1, abs(xx-x), abs(yy-y))
         for n in range(steps + 1):
             px, py = x + (xx-x)*n//steps, y + (yy-y)*n//steps
-            if 0 <= px < width and 0 <= py < height:
+            if 0 <= px < width and 0 <= py < height and (
+                    keep is None or keep((px-ox)/scale, (py-oy)/scale)):
                 field[py*width+px] = color
 
     def microbe(b, captured=False):
@@ -187,6 +188,8 @@ def raster(width, height, world, fill, sprite):
             for i in range(1,13):
                 t = i/12
                 tip = point(-a-t*5,t*math.sin(8*t-world.time*7+b.id))
+                if next(world._obstacles(*tip, 1.1), None) is not None:
+                    break
                 line(*previous,*tip,MICROBE[48])
                 previous = tip
         if b.infection:
@@ -231,12 +234,25 @@ def raster(width, height, world, fill, sprite):
                     span = right-left+1
                     field[row*width+lo:row*width+hi] = array('H', (
                         source[(x-left)*len(source)//span] for x in range(lo,hi)))
+        division = (smooth((cell.elapsed-26)/(DIVISION_TIME-26))
+                    if cell.state is State.DIVIDE else 0)
+        ux, uy = math.cos(cell.division_angle), math.sin(cell.division_angle)
+
+        def inside(wx, wy, cell=cell):
+            dx, dy = wx-cell.x, wy-cell.y
+            return math.hypot(dx,dy) < cell.outline(math.atan2(dy,dx), world.time) - 1.1
+
         for net in cell.organelles:
+            sides, nodes = [], []
+            for x,y in net.nodes:
+                side = 1 if x*ux + y*uy >= 0 else -1
+                sides.append(side)
+                nodes.append((cell.x + (x*(1-.28*division) + side*ux*.62*division)*cell.radius,
+                              cell.y + (y*(1-.28*division) + side*uy*.62*division)*cell.radius))
             for a,b in net.edges:
-                ax,ay = net.nodes[a]
-                bx,by = net.nodes[b]
-                line(cell.x+ax*cell.radius, cell.y+ay*cell.radius,
-                     cell.x+bx*cell.radius, cell.y+by*cell.radius, CYTOPLASM[102])
+                if cell.state is State.DIVIDE and cell.elapsed >= 40 and sides[a] != sides[b]:
+                    continue
+                line(*nodes[a], *nodes[b], CYTOPLASM[102], inside)
         if cell.kind == 'neutrophil':
             for dx,dy in ((-.28,-.12),(0,.12),(.28,-.12)):
                 stamp('nucleus', cell.x+dx*cell.radius, cell.y+dy*cell.radius, cell.radius*.19)
@@ -261,6 +277,8 @@ def raster(width, height, world, fill, sprite):
         for i in range(8):
             a = burst.angle + math.tau*i/8
             d = 2+burst.age*9
+            if next(world._obstacles(burst.x+d*math.cos(a), burst.y+d*math.sin(a), 1.1), None) is not None:
+                continue
             stamp('platelet',burst.x+d*math.cos(a),burst.y+d*math.sin(a),.45)
     return field
 
@@ -377,6 +395,8 @@ class Cells:
         self.frame_key = self.frame = None
 
     def poll_interval(self):
+        if self.closed:
+            return None
         window = self.host.window('Cells')
         if self.playing and self.host.shown(window) and not window.rolled:
             return max(0., self.deadline - time.monotonic())
@@ -426,6 +446,8 @@ class Cells:
         return self.frame,(x+ox+1)*8,(y+oy+1)*16,width,height
 
     def lines(self):
+        if self.closed:
+            return ()
         action = 'pause' if self.playing else 'resume'
         return ('',) * (self.height - 1) + (f'Space {action}   F fill   Engulfed {self.world.engulfed}   Divisions {self.world.divisions}',)
 
@@ -441,7 +463,9 @@ class Cells:
     def close(self):
         self.closed = True
         self.sprite.cache_clear()
-        self.frame = self.frame_key = None
+        for cache in (stain_tile, glyph_cell, block_for, components):
+            cache.cache_clear()
+        self.world = self.frame = self.frame_key = None
 
 
 def descriptor():
