@@ -186,6 +186,10 @@
     "docs/assets/screenshots/mbx-terrain-480mhz-20261110.png": {
       "sha256": "778da628678087401b46e2175cc451c142f33deae86dcb890e10c8585265344f",
       "kind": "media"
+    },
+    "docs/assets/demos/qemu-tile-damage.gif": {
+      "sha256": "8556cb90a5b7a1bbd5a5342f939ebe3f588079734139b38f02d5214f9bb5a80d",
+      "kind": "media"
     }
   }
 }
