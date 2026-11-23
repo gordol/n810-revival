@@ -17,11 +17,11 @@ The host was an x86-64 Intel Xeon Platinum 8573C with host frequency unmanaged. 
 
 This prototype exercises command reuse and tile damage with a model-native command stream. Pocket's encoder also emits a multi-section VGP setup command that this emulator version rejects. The effect of tile damage on Pocket FPS, device energy consumption and end-to-end drag latency remains unmeasured.
 
-## Matched terrain replay
+## Synthetic hill replay
 
-![Rotating Pocket heightfield in the QEMU framebuffer](../../../../docs/assets/demos/qemu-terrain-damage.gif)
+![Rotating synthetic hill in the QEMU framebuffer](../../../../docs/assets/demos/qemu-terrain-damage.gif)
 
-On November 23, 2026, both paths replayed the same 128-triangle mesh from Pocket’s `HeightField.mesh()`, the same four camera updates and the same model-native commands on a 64 × 64 framebuffer. The rotating hill fits inside four central tiles throughout. Full redraw selected all 16 tiles. Damage redraw selected four and preserved the preceding frame outside them. Every paired framebuffer matched byte-for-byte and matched the standalone model in RGB. The GIF enlarges the QEMU pixels 4× and holds each view for 350 ms.
+On November 23, 2026, the benchmark generated one smooth hill on a 9 × 9 grid using a Gaussian function. It used Pocket’s `HeightField.mesh()` helper to triangulate those 81 invented elevations. Both paths replayed the resulting 128 triangles, the same four camera updates and the same model-native commands on a 64 × 64 framebuffer. The rotating hill fits inside four central tiles throughout. Full redraw selected all 16 tiles. Damage redraw selected four and preserved the preceding frame outside them. Every paired framebuffer matched byte-for-byte and matched the standalone model in RGB. The GIF enlarges the QEMU pixels 4× and holds each view for 350 ms.
 
 | Same Xeon Platinum 8573C host, QEMU and harness pinned to logical CPU 2 | Full redraw | Tile damage |
 | --- | ---: | ---: |
@@ -38,6 +38,12 @@ Use the Linux dependencies and pinned upstream revision below. Choose an availab
 ```sh
 taskset -c 2 python3 terrain_damage.py /path/to/revive-n8x0 /path/to/qemu-system-arm /tmp/terrain-run1.csv
 ```
+
+## Pocket’s Tahoma scene
+
+[![Pocket’s recorded daylight Tahoma scene](../../../../docs/assets/demos/terrain-day-poster.png)](../../../../docs/assets/demos/terrain-day.mp4)
+
+This archival laptop recording shows Pocket rendering scenery from USGS elevations with vegetation, sky and lighting. A same-host tile-damage comparison for this scene remains outstanding.
 
 ## Reproduce the QEMU benchmark
 

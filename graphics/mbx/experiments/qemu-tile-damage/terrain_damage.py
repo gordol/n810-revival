@@ -1,4 +1,4 @@
-"""Compare full and damage redraws of the same rotating Pocket mesh in N810 QEMU."""
+"""Compare full and damage redraws of a synthetic Gaussian hill in N810 QEMU."""
 import argparse
 import csv
 import io
