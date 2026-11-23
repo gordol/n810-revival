@@ -22,7 +22,7 @@ def projected_mesh(mesh, angle):
         side = x * math.cos(angle) - z * math.sin(angle)
         depth = x * math.sin(angle) + z * math.cos(angle)
         green = round(70 + 150 * height)
-        color = 0xff000000 | (45 << 16) | (green << 8) | 48
+        color = int.from_bytes(bytes((45, green, 48, 255)), 'little')
         vertices.append((side * .68, depth * .32 + height * .65 - .2,
                          .5 - depth * .20, color))
     return [vertices[i] for triangle in mesh.triangles for i in triangle[:3]]

@@ -25,13 +25,13 @@ On November 23, 2026, the benchmark generated one smooth hill on a 9 × 9 grid u
 
 | Same Xeon Platinum 8573C host, QEMU and harness pinned to logical CPU 2 | Full redraw | Tile damage |
 | --- | ---: | ---: |
-| Median QEMU CPU time for the render command | 3.525 ms | 2.961 ms |
-| Wall time for 32 frame replays | 7.123 s | 7.705 s |
-| Frame replays per wall-clock second | 4.49 | 4.15 |
+| Median QEMU CPU time for the render command | 3.651 ms | 2.927 ms |
+| Wall time for 32 frame replays | 7.511 s | 7.488 s |
+| Frame replays per wall-clock second | 4.26 | 4.27 |
 
-The render command used **16% less CPU time**. The complete test harness replayed **7.6% fewer frames per second** with damage enabled. The wall timer includes QEMU launch and teardown per frame, qtest communication, framebuffer initialization or preservation, command submission and pixel readback. Mesh generation and capture occur before either timer. Both paths use the same QEMU binary with the emulated ARM paused and the host clock frequency unmanaged. Measuring interactive Pocket FPS still requires running the application's native command stream.
+The wall timer includes QEMU launch and teardown per frame, qtest communication, framebuffer initialization or preservation, command submission and pixel readback. Mesh generation and capture occur before either timer. Both paths use the same QEMU binary with the emulated ARM paused and the host clock frequency unmanaged. Measuring interactive Pocket FPS still requires running the application's native command stream.
 
-Each run alternated order over four paired trials per camera update. The two runs produced 4.48 vs 4.18 and 4.50 vs 4.13 frame replays/s respectively. The table pools all 32 pairs. [Raw measurements](terrain-measurements.csv)
+Each run alternated order over four paired trials per camera update. The table pools all 32 pairs. [Raw measurements](terrain-measurements.csv)
 
 Use the Linux dependencies and pinned upstream revision below. Choose an available logical CPU and run the following command twice for two independent sets of 16 pairs, changing the output filename for the second set. Each invocation also writes the corresponding framebuffer GIF beside the CSV.
 
