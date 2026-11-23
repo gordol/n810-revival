@@ -50,7 +50,7 @@ class Context:
         }
         if hasattr(self.lib,'pocket_scene_wildlife'):
             declarations['pocket_scene_wildlife']=([C.c_void_p]+[C.c_int]*4+
-                [C.c_void_p,C.c_void_p,C.c_uint,C.c_void_p,C.c_uint]+[C.c_float]*5+[C.c_int],C.c_int)
+                [C.c_void_p,C.c_void_p,C.c_uint,C.c_void_p,C.c_uint]+[C.c_float]*5+[C.c_int,C.c_uint],C.c_int)
         for name,(args,result) in declarations.items():
             fn=getattr(self.lib,name);fn.argtypes=args;fn.restype=result
         if self.display is None:

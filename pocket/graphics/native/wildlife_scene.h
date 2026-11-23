@@ -5,9 +5,18 @@ static int wildlife_order(const void *a,const void *b){
  return p->depth<q->depth?1:p->depth>q->depth?-1:(p->index>q->index)-(p->index<q->index);
 }
 int pocket_scene_wildlife(void *ptr,int x,int y,int w,int h,const float *a,const float *b,unsigned nv,
-                          const unsigned *faces,unsigned nf,float blend,float yaw,float tilt,float scale,float bob,int flight){
+                          const unsigned *faces,unsigned nf,float blend,float yaw,float tilt,float scale,float bob,int appearance,unsigned pose_key){
+ const int flight=appearance==1;
  struct gpu_scene *s=ptr;
- if(!s||!a||!b||!faces||w<=0||h<=0||!nv||nv>100000||!nf||nf>100000||scene_capacity(s,(size_t)nf*3+6+96))return -1;
+ if(!s||!a||!b||!faces||w<=0||h<=0||!nv||nv>100000||!nf||nf>100000)return -1;
+ SDL_RendererInfo info;
+ if(SDL_GetRendererInfo(s->device,&info))return -1;
+ if(!strcmp(info.name,"opengl")){
+  if(scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
+  return wildlife_gl_draw(&s->wildlife,x,y,w,h,s->width,s->height,a,b,nv,faces,nf,
+                          blend,yaw,tilt,scale,bob,appearance,pose_key);
+ }
+ if(scene_capacity(s,(size_t)nf*3+6+96))return -1;
  float (*p)[4]=malloc(nv*sizeof(*p));
  struct wildlife_face *order=malloc(nf*sizeof(*order));
  if(!p||!order){free(p);free(order);return -1;}
@@ -56,11 +65,4 @@ int pocket_scene_wildlife(void *ptr,int x,int y,int w,int h,const float *a,const
  if(scene_target(s,s->canvas)||Scene_RenderSetClipRect(s->device,&clip))return -1;
  int result=Scene_RenderGeometry(s->device,NULL,v,(int)count,NULL,0);
  return Scene_RenderSetClipRect(s->device,NULL)?-1:result;
-}
-
-int pocket_scene_wildlife_photo(void *ptr,void *target,int x,int y,int width,int height){
- struct gpu_scene *s=ptr;struct scene_texture *image=target;
- if(!s||!image||width<1||height<1||scene_target(s,s->canvas))return -1;
- Scene_Rect dest={x,y,width,height};
- return Scene_RenderCopy(s->device,image->texture,NULL,&dest);
 }

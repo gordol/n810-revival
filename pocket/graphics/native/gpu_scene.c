@@ -8,6 +8,7 @@
 #include "../driver/mbx/common/mbx_window_export.h"
 #else
 #include "scene_backend_sdl.h"
+#include "wildlife_gl.h"
 #endif
 struct scene_texture {Scene_Texture *texture;unsigned width,height;int image_cache,x,y;unsigned replays;};
 struct scene_mark {uint32_t index,glyph;uint64_t ink;};
@@ -24,6 +25,8 @@ struct gpu_scene {
  Scene_RoomRegion room_region;
  int (*room_eye)(float);
  unsigned window_budget;int window_budget_ready;
+#else
+ struct wildlife_gl wildlife;
 #endif
 };
 static Scene_Color scene_rgb(uint32_t v){return (Scene_Color){(v>>16)&255,(v>>8)&255,v&255,255};}
@@ -522,6 +525,9 @@ int pocket_scene_retained_draw(void *ptr,void *target,int x,int y,int width,int 
 }
 void pocket_scene_texture_free(void *ptr){struct scene_texture *image=ptr;if(image){Scene_DestroyTexture(image->texture);free(image);}}
 void pocket_scene_close(void *ptr){struct gpu_scene *s=ptr;if(!s)return;
+#ifndef POCKET_SCENE_GL
+ if(s->wildlife.program){SDL_RenderFlush(s->device);wildlife_gl_close(&s->wildlife);}
+#endif
  if(s->base)Scene_DestroyTexture(s->base);
  if(s->canvas)Scene_DestroyTexture(s->canvas);
  if(s->font)Scene_DestroyTexture(s->font);

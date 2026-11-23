@@ -1,5 +1,4 @@
 """Exercise the graphical Wildlife catalog, touch controls and pose interpolation."""
-import hashlib
 import math
 from pathlib import Path
 import sys
@@ -10,7 +9,7 @@ POCKET = Path(__file__).resolve().parents[1]
 for directory in ('graphics', 'shell', 'shell/apps/landscape-lab'):
     sys.path.insert(0, str(POCKET / directory))
 
-from wildlife_pixels import NAMES, PHOTOS, PixelWildlife, pose, reference_photo
+from wildlife_pixels import FOX_ASSETS, FOX_FRAMES, NAMES, PixelWildlife, pose
 
 
 class WildlifeInspectionTests(unittest.TestCase):
@@ -21,17 +20,14 @@ class WildlifeInspectionTests(unittest.TestCase):
         app.open()
         for species, name in NAMES.items():
             self.assertEqual(app.lines()[0], name)
-            self.assertTrue(app.photo)
-            self.assertTrue(name.isascii())
-            width, height, pixels = reference_photo(species)
-            self.assertEqual(len(pixels), width * height * 2)
-            asset = PHOTOS / (species + '.rgb565.gz')
-            self.assertEqual(hashlib.sha256(asset.read_bytes()).hexdigest(),
-                             app.credits[species]['digest'])
-            self.assertTrue(app.pointer(75, app.height - 1, 100))
-            self.assertFalse(app.photo)
+            self.assertEqual(app.species, species)
             self.assertTrue(app.pointer(30, app.height - 1, 100))
-            self.assertTrue(app.photo)
+            self.assertGreater(app.yaw, 0)
+            self.assertTrue(app.pointer(60, app.height - 1, 100))
+            self.assertLess(app.zoom, 1)
+            for playing in (False, True):
+                self.assertTrue(app.pointer(90, app.height - 1, 100))
+                self.assertEqual(app.playing, playing)
             self.assertTrue(app.pointer(10, app.height - 1, 100))
         self.assertEqual(app.species, 'marmot')
 
@@ -42,7 +38,7 @@ class WildlifeInspectionTests(unittest.TestCase):
                 count = len(points) // 4
                 self.assertGreater(count, 0)
                 self.assertLess(max(max(faces[i::4]) for i in range(3)), count)
-                for phase in (1, 2):
+                for phase in range(1, FOX_FRAMES if species in FOX_ASSETS else 3):
                     other, triangles = pose(species, phase, False)
                     self.assertEqual(faces, triangles)
                     self.assertEqual(len(points), len(other))

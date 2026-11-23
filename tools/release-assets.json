@@ -187,28 +187,12 @@
       "sha256": "778da628678087401b46e2175cc451c142f33deae86dcb890e10c8585265344f",
       "kind": "media"
     },
-    "pocket/graphics/wildlife_photos/marmot.rgb565.gz": {
-      "sha256": "86d418200c39d658b5f17e69bb766ce2120e13c8e54aac6067b6082c413c1d15",
+    "pocket/graphics/red_fox.mesh.gz": {
+      "sha256": "206740a781352a0eef9c036a2011ff3ac651d517c4acb47fbca6bbfdd5664889",
       "kind": "authored-data"
     },
-    "pocket/graphics/wildlife_photos/eagle.rgb565.gz": {
-      "sha256": "290342e47265868be5f6b9cacd842365ddc9c100eecfe4e0d1885cc5d244ede3",
-      "kind": "authored-data"
-    },
-    "pocket/graphics/wildlife_photos/chipmunk.rgb565.gz": {
-      "sha256": "417f17d8c3a2e6d9e9aa2c75f6e9907266554b391ee4b0627127c0e040997079",
-      "kind": "authored-data"
-    },
-    "pocket/graphics/wildlife_photos/squirrel.rgb565.gz": {
-      "sha256": "fac689d58a92efd90186b67c6b56e30997f99a2380831eba3ff5cb5b6befe52d",
-      "kind": "authored-data"
-    },
-    "pocket/graphics/wildlife_photos/pika.rgb565.gz": {
-      "sha256": "e275d76e2cd32d66c9df6f0a1856ff21e115855adeba2f14e42c0227f18dd278",
-      "kind": "authored-data"
-    },
-    "pocket/graphics/wildlife_photos/goat.rgb565.gz": {
-      "sha256": "b076397414a4f98569fe3ea287e3e1dae3513cc30bb04f95b9d97684c42b617d",
+    "pocket/graphics/arctic_fox.mesh.gz": {
+      "sha256": "f1e6c1fff03e337d605873778eb7e2c72b589d7a88acf61980420826c26588cf",
       "kind": "authored-data"
     }
   }
