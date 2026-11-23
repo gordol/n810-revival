@@ -21,12 +21,12 @@ This prototype exercises command reuse and tile damage with a model-native comma
 
 The guest ARM1136 drives MBX from the first frame through the last in one QEMU execution per trial. It submits the draw commands, programs tile regions, kicks the render and checks completion for every frame. Draws share one emulated framebuffer. The first frame redraws the full surface. Subsequent partial draws select the old and new tiles and use the model's flat background to clear surfaces exposed by movement.
 
-The triangle trial plays the eight-position drag 32 times (256 frames). The gears trial plays 36 consecutive 400 × 400 GL feedback frames from one Debian glxgears run. The host records elapsed wall time between two guest signals, after board initialization and before shutdown. Both modes include register submission and render completion. Host-side GL capture, trace preparation and display presentation are outside the measurement. Separate continuous validation passes compare every frame's RGB against the standalone model inside guest RAM. Timed runs do no framebuffer readbacks.
+The triangle trial plays the eight-position drag 32 times (256 frames). The gears trial plays 36 consecutive 400 × 400 GL feedback frames from one Debian glxgears run. The guest calls the ARM semihosting operation `SYS_ELAPSED` immediately before frame submission and after the final completion check. On the pinned Linux QEMU build both calls sample the host monotonic clock. The player verifies a tick frequency of one billion per second, subtracts the two 64-bit counts and emits the duration in nanoseconds. Python reads the completed interval after QEMU exits. Both modes include register submission and render completion. Host-side GL capture, trace preparation and display presentation are outside the measurement. Separate continuous validation passes compare every frame's RGB against the standalone model inside guest RAM. Timed runs do no framebuffer readbacks.
 
 | Continuous replay | Full redraw | Tile damage |
 | --- | ---: | ---: |
-| 64 × 64 triangle drag | 591.54 FPS | 978.91 FPS |
-| 400 × 400 glxgears frames | 5.00 FPS | 5.87 FPS |
+| 64 × 64 triangle drag | 488.43 FPS | 992.44 FPS |
+| 400 × 400 glxgears frames | 4.56 FPS | 5.32 FPS |
 
 The table pools frames divided by elapsed time across four alternating-order pairs on November 23, 2026. Both programs were pinned to logical CPU 2 on the Xeon Platinum 8573C with unmanaged host clocks. QEMU runs the guest player in ARM system emulation. The model uses the same permissive MMU and free-list setup as the isolated probe. [Triangle trials](continuous-triangle.csv) · [Gears trials](continuous-gears.csv)
 
@@ -94,7 +94,7 @@ The earlier 64 × 64 run used the same captures and enlarged each output pixel 3
 
 ### Replay the published workload
 
-The [six-frame inputs](captures/isolated-six/SHA256SUMS) are the exact inputs used for both isolated resolutions. The [36-frame inputs](captures/continuous-36/SHA256SUMS) are the separate sequence used for continuous gears timings. The manifests list the SHA-256 of each original `live-N.float` file in frame order.
+The [six-frame inputs](captures/isolated-six/SHA256SUMS) are the exact inputs used for both isolated resolutions. The [36-frame inputs](captures/continuous-36/SHA256SUMS) are the separate sequence used for continuous gears timings. The six frames produced [the isolated 64 × 64 CSV](spinning-gears.csv) and [the isolated 400 × 400 CSV](spinning-gears-400.csv). The 36 frames produced [the continuous 400 × 400 CSV](continuous-gears.csv). The manifests list the SHA-256 of each original `live-N.float` file in frame order.
 
 Both sets were captured on November 23, 2026 under Xvfb on x86-64 Linux, using a 400 × 400 window, Mesa 25.0.7 llvmpipe (LLVM 19.1.7, 256 bits) and the GL feedback hook. Each file is a little-endian float32 stream of polygon records with window-space XYZ and RGBA values. SHA-256 of the amd64 glxgears executable was `0a286de534b54d48b8ba73798a7b5bfa45717f09e6da0983f4dfca5a1f23c1e4`. SHA-256 of the Debian package was `f692be831b458f442715b73ebefed6b3b2a9275d559bf2c648a628c4c80398a7`. [Debian mesa-utils-bin 8.5.0-1](https://deb.debian.org/debian/pool/main/m/mesa-demos/mesa-utils-bin_8.5.0-1_amd64.deb)
 

@@ -2,12 +2,10 @@
 import argparse
 import csv
 from pathlib import Path
+import re
 import struct
 import subprocess
 import tempfile
-import time
-from threading import Timer
-
 
 from gears_mesh import load_mesh
 from measure import DRAG_CENTERS
@@ -45,23 +43,13 @@ def run_guest(qemu, player, trace, references):
         if path is not None:
             loader = f'loader,file={path},addr={address:#x},force-raw=on'
             args.extend(['-device', loader + (',cpu-num=0' if path == player else '')])
-    begin = end = None
-    with subprocess.Popen(args, stderr=subprocess.PIPE, text=True) as proc:
-        deadline = Timer(120, proc.kill)
-        deadline.start()
-        try:
-            for line in proc.stderr:
-                if line.strip() == 'MBX_BEGIN':
-                    begin = time.perf_counter()
-                elif line.strip() == 'MBX_END':
-                    end = time.perf_counter()
-                elif line.strip() == 'MBX_FAILED':
-                    raise RuntimeError('guest register or framebuffer mismatch')
-            if proc.wait() or begin is None or end is None or begin >= end:
-                raise RuntimeError('guest did not complete the animation')
-        finally:
-            deadline.cancel()
-    return end - begin
+    result = subprocess.run(args, stderr=subprocess.PIPE, text=True, timeout=120, check=True)
+    if 'MBX_FAILED' in result.stderr:
+        raise RuntimeError('guest register, framebuffer or clock check failed')
+    samples = re.findall(r'^MBX_ELAPSED_NS ([0-9a-f]{16})$', result.stderr, re.MULTILINE)
+    if len(samples) != 1 or int(samples[0], 16) == 0:
+        raise RuntimeError('guest did not report a positive elapsed interval: ' + result.stderr[-500:])
+    return int(samples[0], 16) / 1e9
 
 
 def scene_frames(args, work, size):

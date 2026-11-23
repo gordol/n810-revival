@@ -5,6 +5,12 @@
 .arm
 .global _start
 _start:
+    @ Linux QEMU 9.1.3 implements SYS_ELAPSED with host monotonic nanoseconds.
+    mov r0, #0x31               @ SYS_TICKFREQ
+    svc 0x123456
+    ldr r1, =1000000000
+    cmp r0, r1
+    bne failed
     ldr r4, =0x83000000
 next:
     ldmia r4!, {r5-r7}
@@ -21,15 +27,13 @@ control:
     cmp r5, #2                  @ begin: remember frame sequence and repeat count
     moveq r11, r4
     moveq r12, r7
-    adreq r1, begin_msg
-    beq message
+    beq begin_time
     cmp r5, #3                  @ end: repeat without resetting the board
     bne verify
     subs r12, r12, #1
     movne r4, r11
     bne next
-    adr r1, end_msg
-    b message
+    b end_time
 verify:
     cmp r5, #4                  @ validation only: compare visible RGB
     bne finish
@@ -43,8 +47,49 @@ pixel:
     subs r7, r7, #1
     bne pixel
     b next
-message:
-    mov r0, #4                  @ semihost SYS_WRITE0
+@ Writable scratch RAM below the player, trace, and framebuffer references.
+.equ CLOCK_RAM, 0x81f00000
+begin_time:
+    ldr r1, =CLOCK_RAM
+    mov r0, #0x30               @ SYS_ELAPSED, two little-endian words
+    svc 0x123456
+    cmp r0, #0
+    bne failed
+    b next
+end_time:
+    ldr r1, =CLOCK_RAM + 8
+    mov r0, #0x30
+    svc 0x123456
+    cmp r0, #0
+    bne failed
+    ldr r1, =CLOCK_RAM
+    ldmia r1!, {r5,r6,r7,r8}   @ begin low/high, end low/high
+    subs r7, r7, r5
+    sbcs r8, r8, r6
+    bcc failed
+    @ Format the completed 64-bit interval after both samples have been taken.
+    mov r6, r1
+    mov r9, #16
+hex_digit:
+    mov r10, r8, lsr #28
+    cmp r10, #10
+    addlo r10, r10, #'0'
+    addhs r10, r10, #87         @ 'a' - 10
+    strb r10, [r6], #1
+    lsl r8, r8, #4
+    orr r8, r8, r7, lsr #28
+    lsl r7, r7, #4
+    subs r9, r9, #1
+    bne hex_digit
+    mov r10, #10
+    strb r10, [r6], #1
+    mov r10, #0
+    strb r10, [r6]
+    adr r1, duration_msg
+    mov r0, #4
+    svc 0x123456
+    ldr r1, =CLOCK_RAM + 16
+    mov r0, #4
     svc 0x123456
     b next
 failed:
@@ -56,6 +101,5 @@ finish:
     ldr r1, =0x20026
     svc 0x123456
     b .
-begin_msg: .asciz "MBX_BEGIN\n"
-end_msg:   .asciz "MBX_END\n"
+duration_msg: .asciz "MBX_ELAPSED_NS "
 fail_msg:  .asciz "MBX_FAILED\n"
