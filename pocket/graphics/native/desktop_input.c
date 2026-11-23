@@ -12,8 +12,8 @@
 static struct window *input_window;
 static unsigned canvas_width=800,canvas_height=480;
 static int dynamic_canvas;
-void *pocket_window_open(int fd){
- void *window=pocket_base_window_open(fd);
+static void *desktop_open(int fd,int mobile){
+ void *window=pocket_window_create(fd,0,mobile);
  if(window){
   input_window=window;SDL_StopTextInput();
   SDL_SetWindowResizable(input_window->window,SDL_TRUE);
@@ -23,6 +23,8 @@ void *pocket_window_open(int fd){
  }
  return window;
 }
+void *pocket_window_open(int fd){return desktop_open(fd,0);}
+void *pocket_window_open_mobile(int fd){return desktop_open(fd,1);}
 int pocket_window_canvas(void *ptr,unsigned width,unsigned height){
  struct window *w=ptr;if(!w||width<8||height<16||width>4096||height>4096)return -1;
  if(width==canvas_width&&height==canvas_height)return 0;

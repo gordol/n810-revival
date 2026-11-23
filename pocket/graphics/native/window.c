@@ -5,11 +5,14 @@
 #include <SDL.h>
 #include <stdlib.h>
 struct window {SDL_Window *window;SDL_Renderer *renderer;SDL_Texture *texture;};
-static void *pocket_window_create(int fd,int hidden){
+static void *pocket_window_create(int fd,int hidden,int mobile){
  (void)fd;
  if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS))return NULL;
  struct window *w=calloc(1,sizeof(*w));if(!w)return NULL;
- w->window=SDL_CreateWindow("Pocket",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,800,480,(hidden?SDL_WINDOW_HIDDEN:SDL_WINDOW_SHOWN)
+ SDL_Rect bounds={SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,800,480};
+ if(mobile&&SDL_GetDisplayBounds(0,&bounds)){free(w);SDL_Quit();return NULL;}
+ w->window=SDL_CreateWindow("Pocket",bounds.x,bounds.y,bounds.w,bounds.h,(hidden?SDL_WINDOW_HIDDEN:SDL_WINDOW_SHOWN)
+ |(mobile?SDL_WINDOW_FULLSCREEN_DESKTOP:0)
 #ifdef __APPLE__
  |SDL_WINDOW_ALLOW_HIGHDPI
 #endif
@@ -19,8 +22,8 @@ static void *pocket_window_create(int fd,int hidden){
  if(!w->texture){if(w->renderer)SDL_DestroyRenderer(w->renderer);if(w->window)SDL_DestroyWindow(w->window);free(w);SDL_Quit();return NULL;}
  return w;
 }
-void *pocket_window_open(int fd){return pocket_window_create(fd,0);}
-void *pocket_window_open_hidden(int fd){return pocket_window_create(fd,1);}
+void *pocket_window_open(int fd){return pocket_window_create(fd,0,0);}
+void *pocket_window_open_hidden(int fd){return pocket_window_create(fd,1,0);}
 const char *pocket_window_error(void){return SDL_GetError();}
 int pocket_window_present(void *ptr,const void *pixels){
  struct window *w=ptr;

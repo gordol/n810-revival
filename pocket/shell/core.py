@@ -75,7 +75,9 @@ def overlay_rows(lines, width, height, edges, glyphs, style, ascii):
 def window_chrome(name,width,style,ascii,rolled,pinned,maximized,side='right'):
     tl,tr,_,_,horizontal,_=('+','+','+','+','-','|') if ascii else STYLES[style]
     labels=(('roll','v' if rolled else '^'),('pin','*' if pinned else 'p'),('minimize','-' if ascii else '−'),('maximize','=' if maximized else '+'),('close','x'))
-    if width>=19:labels=tuple((action,'['+label+']') for action,label in labels)
+    if side=='mobile':
+        labels=() if name=='Pocket Home' else (('close',' Close '),)
+    elif width>=19:labels=tuple((action,'['+label+']') for action,label in labels)
     if width<9:labels=labels[-min(2,max(0,width-3)):]
     if side=='left':
         order={'close':0,'minimize':1,'maximize':2,'pin':3,'roll':4}
@@ -295,6 +297,7 @@ class Window:
 class Host:
     def __init__(self, width, height, windows, ascii=False, animate=False, move_mode="outline", resize_mode="outline", clock=time.monotonic, wall_clock=time.time, background_async=False):
         self.full_window_apps=set()
+        self.mobile_shell=False
         self.terrain_renderer = None
         self.terrain_loading=False
         self._loading_frame=None;self._loading_frame_key=None;self._loading_wire=None;self._loading_patch=set();self._loading_draw=None
@@ -561,7 +564,7 @@ class Host:
         self.finish(False)
         was_overview=self.overview
         w=self.window(name)
-        if name in self.full_window_apps and name not in self.maximized:self.maximize(name)
+        if (self.mobile_shell or name in self.full_window_apps) and name not in self.maximized:self.maximize(name)
         before=w.rect;mw,mh=self.minimum_sizes.get(name,(0,0))
         w.w=min(self.width,max(w.w,mw));w.h=min(self.work_height,max(w.h,mh))
         w.x=max(0,min(w.x,self.width-w.w));w.y=max(0,min(w.y,self.work_height-w.h))
@@ -632,6 +635,7 @@ class Host:
         self.session_changed('structure')
 
     def control_side(self):
+        if self.mobile_shell:return 'mobile'
         # Cell width is available on every backend; no device-name/font guessing.
         return ('left' if self.width>=160 else 'right') if self.window_controls=='auto' else self.window_controls
 

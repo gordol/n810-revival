@@ -57,3 +57,7 @@ termux:
 
 termux-gui:
 	POCKET_TERMUX=1 POCKET_PHONE_RADIO="$(PHONE_RADIO)" SDL_VIDEODRIVER=x11 $(PYTHON) graphics/gui.py $(if $(strip $(ADDRESS)),--connection-address "$(ADDRESS)") $(if $(strip $(SSH_KEY)),--connection-key "$(SSH_KEY)") $(EXTRA)
+
+.PHONY: mobile
+mobile: override EXTRA += --mobile-shell
+mobile: termux-gui

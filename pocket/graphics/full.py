@@ -13,9 +13,10 @@ DEVELOPMENT = True  # Removed by the release exporter.
 
 class Platform:
  if DEVELOPMENT:history_capacity=128
- def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console",cell_renderer="gpu",diagnostics=False,ui_scale=1):
+ def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console",cell_renderer="gpu",diagnostics=False,ui_scale=1,mobile=False):
   self.diagnostics=DEVELOPMENT and diagnostics
   self.ui_scale=ui_scale
+  self.mobile=mobile
   self.cell_renderer=cell_renderer
   self.require_gpu=require_gpu;self.font_mode=font_mode
   from presentation_text import create
@@ -93,7 +94,8 @@ class Platform:
   self.report['apps']=list(registry.entries);self.report['windows']=[w.name for w in host.windows]
  def resize_window(self,width,height):
   # Keep the minimum desktop usable when the phone window is small.
-  scale=max(1,min(self.ui_scale,width/640,height/400))
+  min_width,min_height=(320,224) if self.mobile else (640,400)
+  scale=max(1,min(self.ui_scale,width/min_width,height/min_height))
   self.resize(int(width/(8*scale)),int(height/(16*scale)))
  def resize(self,cols,rows):
   self.size=(max(40,min(512,cols)),max(14,min(256,rows)));self.renderer.resize(*self.size)

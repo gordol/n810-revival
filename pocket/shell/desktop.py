@@ -137,6 +137,7 @@ def arguments(argv=None,full=False):
     parser.add_argument('--screensaver',action='store_true')
     parser.add_argument('--kitchen-sink',action='store_true')
     parser.add_argument('--arrival-seconds',type=float,help='enable and time the first terrain reveal (0.25 to 12 seconds); --no-animation takes precedence')
+    parser.add_argument('--mobile-shell',action='store_true',help='open Pocket Home with full-window apps and bottom navigation')
     parser.add_argument('--setup',action='store_true',help='open N810 installation-kit preparation')
     parser.add_argument('--app-preview',action='store_true',help='open proposed app layouts using local fixtures')
     parser.add_argument('--legacy-workspace',type=Path,help='JSON declarations for unchanged PTY apps')
@@ -232,7 +233,10 @@ def main(platform=None,argv=None):
     world = World(plans)
     world.apply([Record(1, 'N0CALL', 'APRS observed', 'Listening'), Record(2, 'W7EXAMPLE', 'Offline record', 'Contact unconfirmed')])
     geometry = platform.geometry() if platform else measure(sys.stdout.fileno())
-    panel=Panels(args.panel or 'top',mode=args.panel_mode or ('auto' if workspace else 'bar'))
+    if args.mobile_shell:
+        from mobile_shell import Home, MobilePanels
+        panel=MobilePanels()
+    else:panel=Panels(args.panel or 'top',mode=args.panel_mode or ('auto' if workspace else 'bar'))
     panel.launcher_count=2+len(workspace)
     screen_size=trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)
     ox,oy,width,height=panel.layout(*screen_size)
@@ -259,6 +263,9 @@ def main(platform=None,argv=None):
     if demo_apps is not None:windows.extend(demo_apps.windows(width,height))
     from app_registry import discover as discover_apps,saved_reticulum_selection
     registered_apps=discover_apps()
+    if args.mobile_shell:
+        registered_apps.register(dict(id='pocket-home',title='Pocket Home',
+            factory=lambda host:Home(host,lambda action:launch(action)),preferred_size=(48,30),minimum_size=(24,10)))
     app_state=args.app_state or Path.home()/'.local/state/current-world'
     connections = None
     if args.shell:
@@ -409,6 +416,7 @@ def main(platform=None,argv=None):
         if native_catalog.error:messages_form.notice='Offline';messages_form.diagnostics=str(native_catalog.error)
         elif messages_form.notice=='Offline':messages_form.notice='Receive only'
     host = Host(width,height+panel.overlay_bottom,windows,ascii=args.ascii, animate=not args.no_animation, move_mode=args.move or 'outline', resize_mode=args.resize or 'outline',background_async=not args.background_inline)
+    host.mobile_shell=args.mobile_shell
     if station_enabled and width<=100 and height<=40:host.full_window_apps.add('Station Map')
     host._flux_external_budget=True
     host.pointer_trace=pointer_trace
@@ -1188,6 +1196,7 @@ def main(platform=None,argv=None):
         elif action=='demo-workspace' and demo_apps is not None:demo_apps.open_workspace(host)
         elif action=='overview':host.toggle_overview()
         elif action=='help':show_help()
+    if args.mobile_shell and not (args.setup or args.recovery_report):launch('window:Pocket Home')
     if platform:platform.launch=launch
     presentation=Presentation()
     screensaver_last=None

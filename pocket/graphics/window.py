@@ -3,16 +3,17 @@
 """SDL presentation and input only. No app, terminal, or driver lifecycle."""
 import ctypes as C
 class Window:
- def __init__(self,path,fd=-1):
+ def __init__(self,path,fd=-1,*,mobile=False):
   self.width=800;self.height=480
   self.lib=C.CDLL(str(path))
-  self.lib.pocket_window_open.argtypes=[C.c_int]
-  self.lib.pocket_window_open.restype=C.c_void_p
+  open_window=self.lib.pocket_window_open_mobile if mobile else self.lib.pocket_window_open
+  open_window.argtypes=[C.c_int]
+  open_window.restype=C.c_void_p
   self.lib.pocket_window_error.restype=C.c_char_p
   self.lib.pocket_window_present.argtypes=[C.c_void_p,C.c_void_p]
   self.lib.pocket_window_close.argtypes=[C.c_void_p]
   self.lib.pocket_window_event.argtypes=[C.POINTER(C.c_int)]
-  self.handle=self.lib.pocket_window_open(fd)
+  self.handle=open_window(fd)
   if not self.handle:raise RuntimeError(self.lib.pocket_window_error().decode())
  def present(self,frame):
   if len(frame)!=getattr(self,'width',800)*getattr(self,'height',480)*2:raise ValueError('Expected800x480RGB565')

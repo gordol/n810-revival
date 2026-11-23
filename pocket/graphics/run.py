@@ -96,6 +96,7 @@ class DesktopWindow(Window):
 def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     p.add_argument('--state',type=Path,default=Path.home()/'.local/state/current-world/graphics')
+    p.add_argument('--mobile-shell',action='store_true')
     p.add_argument('--ui-scale',type=int,choices=(1,2,3,4),default=2 if os.environ.get('POCKET_TERMUX')=='1' else 1,help='Scale desktop pixels and pointer targets together')
     p.add_argument('--seconds',type=float)
     if DEVELOPMENT:
@@ -111,9 +112,9 @@ def main():
     p.set_defaults(actions=None,output=None,report=None,resize_check=False)
     args,extra=p.parse_known_args()
     state=args.state;state.mkdir(parents=True,exist_ok=True)
-    window=None if args.headless else DesktopWindow(CONFIG['display_library'])
+    window=None if args.headless else DesktopWindow(CONFIG['display_library'],mobile=args.mobile_shell)
     actions=json.loads(args.actions.read_text()) if args.actions else ()
-    platform=shared.Platform(CONFIG['font'],CONFIG['gpu_library'],window,output=args.output,actions=actions,require_gpu=not args.allow_software,font_mode=args.font_mode,diagnostics=args.report is not None,ui_scale=args.ui_scale)
+    platform=shared.Platform(CONFIG['font'],CONFIG['gpu_library'],window,output=args.output,actions=actions,require_gpu=not args.allow_software,font_mode=args.font_mode,diagnostics=args.report is not None,ui_scale=args.ui_scale,mobile=args.mobile_shell)
     restore_effects=None
     if args.effect_backend=='gpu':
         try:import mlx.core
@@ -141,8 +142,9 @@ def main():
     def stop(*unused):platform.closed=True
     for sig in (signal.SIGTERM,signal.SIGINT):previous[sig]=signal.signal(sig,stop)
     try:
-        platform.run(['--shell','--session',str(state/'desktop.json'),'--app-state',str(state),
+        platform.run(['--shell','--session',str(state/('mobile.json' if args.mobile_shell else 'desktop.json')),'--app-state',str(state),
             '--station-db',str(state/'directory.sqlite3'),'--native',CONFIG['native_library'],
+            *(['--mobile-shell'] if args.mobile_shell else []),
             *([] if os.environ.get('POCKET_TERMUX') == '1' else ['--no-local-services']),*extra])
     finally:
         platform.report.update(renderer=platform.report.get('renderer'),software_allowed=args.allow_software,platform=sys.platform,desktop_pty=False,desktop_ansi=False,desktop_cells=platform.size)

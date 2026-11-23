@@ -252,3 +252,14 @@ host's checkout path. Keep the tablet attached to the machine performing USB
 installation. The Pocket-only phone archive contains the map sender. Building
 or flashing a fresh tablet directly from stock Termux is currently unsupported.
 See the [N810 Setup guide](bootstrap.md).
+
+### Pocket Home on Android
+
+With Termux:X11 and the graphics dependencies installed, run `make mobile`
+from the Pocket directory. Add `PHONE_RADIO=uvpro` to use the paired receiver.
+Pocket Home opens fullscreen with large tiles for the map, stations, messages,
+field notes and offline data. Tap **Home** to leave an app open, **Windows** to
+switch between open apps, or **Apps** for the full catalogue. The grid adapts
+when the display rotates. The mobile layout has its own session file and uses
+the same app data as the graphical desktop. Use `make termux-gui` for the
+windowed layout.

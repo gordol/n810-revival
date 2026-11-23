@@ -30,6 +30,11 @@ Apple Silicon compute dependencies and verification. `make tui` selects the
 terminal frontend explicitly. Both builds use repository sources and generated
 local outputs, without sibling experiment directories or downloaded map data.
 
+On Android with Termux:X11 configured, run `make mobile` to open the
+fullscreen touch launcher. Home, Apps and Windows stay within thumb reach
+while field notes, maps and messaging run in the existing Pocket runtime.
+See the [phone setup instructions](docs/field-companion.md#pocket-home-on-android).
+
 ## Source layout
 
 | Path | Contents |
