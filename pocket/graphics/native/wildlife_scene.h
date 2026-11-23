@@ -57,3 +57,10 @@ int pocket_scene_wildlife(void *ptr,int x,int y,int w,int h,const float *a,const
  int result=Scene_RenderGeometry(s->device,NULL,v,(int)count,NULL,0);
  return Scene_RenderSetClipRect(s->device,NULL)?-1:result;
 }
+
+int pocket_scene_wildlife_photo(void *ptr,void *target,int x,int y,int width,int height){
+ struct gpu_scene *s=ptr;struct scene_texture *image=target;
+ if(!s||!image||width<1||height<1||scene_target(s,s->canvas))return -1;
+ Scene_Rect dest={x,y,width,height};
+ return Scene_RenderCopy(s->device,image->texture,NULL,&dest);
+}

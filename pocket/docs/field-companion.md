@@ -327,7 +327,12 @@ Pocket keeps the prepared grid locally for subsequent offline launches.
 On Android, conversion uses the GIS environment prepared by `make mobile`.
 Tap the center of the walk to move forward, or tap either side to turn.
 
-In the Android graphical shell, **Apps → Wildlife** draws the marmot and
-eagle as shaded triangles at window resolution. Use the bottom controls to
-change animal, turn, zoom or pause. The terminal renderer retains the glyph
-study. Wildlife uses authored meshes and works offline.
+In the Android graphical shell, **Apps → Wildlife** opens with a field
+photograph of a hoary marmot at Mount Rainier. Tap **Animal** to browse
+the bald eagle, Townsend's chipmunk, Douglas squirrel, American pika and
+mountain goat. All six photographs are bundled for offline use. Wildlife
+help includes the photographer, source and license for the current image.
+
+Tap **Model** to inspect the same animal in motion. Use **Turn**, **Zoom**
+and **Pause** to examine its shape and markings, or **Photo** to return to
+the photograph. **Animal** keeps the current viewing mode as you browse.
