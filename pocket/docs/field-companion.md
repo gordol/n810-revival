@@ -288,14 +288,13 @@ and water layers, and derives terrain overviews locally.
 
 ### Select a download area on the world map
 
-Open **Offline Data → Choose area on world map**. Pocket opens the bundled
-Natural Earth overview in your browser. If Android keeps Pocket in front,
-leave the picker open and copy the printed map link from the running Termux
-session into your browser. The same address appears in Pocket. Search for a city or pan and zoom,
-then choose **Draw box** and drag or tap two opposite corners. Choose
-**Use area in Pocket**, switch back to Pocket, and select **Plan** or
-**Download and build this area**. Closing the browser without applying a box
-leaves the form alone. You can also enter coordinates directly.
+Open **Offline Data → Choose area on world map**. Pocket displays the bundled
+Natural Earth overview. Tap **Find**, type a city name and tap a match, or
+tap the map to center it and use **+** and **−** to zoom. Drag to pan.
+Choose **Box** and tap two opposite corners or drag diagonally. Choose
+**Use area** (**Use** on narrow displays) to fill the bounds in Offline Data,
+then choose **Plan** or **Download and build this area**. **Back** discards
+the selection. You can also enter coordinates directly.
 
 The overview works offline. Regional downloads need connectivity. Selections
 over 0.25 square degrees require a matching OSM extract URL. Terrain availability

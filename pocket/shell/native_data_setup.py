@@ -3,7 +3,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import hashlib
 import os
-import queue
 import shutil
 import signal
 import subprocess
@@ -102,7 +101,7 @@ class OfflineData:
             actions.append(('books-back','Back to Offline Data'))
             return [Target(key,title,'action',key) for key,title in actions]
         if self.picker:
-            return [Target('retry','Open browser again','action','retry'),Target('back','Back to Offline Data','action','back')]
+            return [Target('map','Select download area','map')]
         if self.device_only:return [Target('output','Installed reference-data folder','input'),Target('verify','Verify installed maps and elevation','action','verify')]
         return [Target('pick','Choose area on world map','action','pick'),Target('books','Wikivoyage phrasebooks','action','books')]+[Target(k,v,'input') for k,v in [('bbox','Bounds: west south east north'),('url','OSM PBF URL (optional for small areas)'),('output','Local data folder'),('spacing','Elevation spacing, metres')]]+[
             Target('plan','Plan / reuse / estimated size','action','plan'),Target('build','Download and build this area','action','build'),
@@ -136,22 +135,12 @@ class OfflineData:
                     self.error='';self.preview=None
                 except (ValueError,OSError) as error:self.error=str(error)
             return True
-        if self.picker and key=='back':
-            self.picker.close();self.picker=None
-            self.field='pick';self.error='';self.status='Choose an area or enter bounds.'
-            return True
-        if key in ('pick','retry') and not self.device_only and not self.pending:
+        if self.picker:
+            return self.picker_result(self.picker.key(key))
+        if key=='pick' and not self.device_only and not self.pending:
             from area_picker import Picker
-            try:
-                if self.picker is None:
-                    try:bounds=list(map(float,self.bbox.text.split()))
-                    except ValueError:bounds=None
-                    self.picker=Picker(bounds,self.wakeup)
-                self.field='retry'
-                self.error=''
-                self.picker.launch()
-            except (OSError,subprocess.SubprocessError) as error:
-                self.error='Browser did not open.' if self.picker else str(error)
+            try:self.picker=Picker(self.bbox.text);self.error=''
+            except (OSError,ValueError) as error:self.error=str(error)
             return True
         if key not in ('plan','build','verify','push'):return False
         if self.pending:return True
@@ -170,15 +159,6 @@ class OfflineData:
                 self.status='Preview · '+self.preview['region']
             except Exception as error:self.error=str(error)
             self.phrase_job=None;return True
-        if self.picker:
-            try:bounds=self.picker.result.get_nowait()
-            except queue.Empty:pass
-            else:
-                self.bbox.text=' '.join(str(value) for value in bounds)
-                self.bbox.cursor=len(self.bbox.text)
-                self.picker.close();self.picker=None
-                self.status='Area selected. Choose Plan or Download and build.';self.error=''
-                self.field='bbox';self.changed();return True
         if not self.pending or not self.pending.done():return False
         try:self.result=self.pending.result();self.status=self.result[-350:] or 'Completed.'
         except Exception as error:self.error=str(error)[-500:]
@@ -199,21 +179,7 @@ class OfflineData:
                         if row>=self.height-1:return c.lines()
                         c.put(0,row,part);row+=1
             return c.lines()
-        if self.picker:
-            c.put(0,0,'World map · waiting for your selection')
-            for row,target in enumerate(self.navigation_targets(),1):
-                c.put(0,row,'[ '+target.title+' ]')
-                self._hits.append((row,target.key))
-            message=self.error or 'If your browser did not open:'
-            c.put(0,4,message)
-            hint='Open this address in your browser.'
-            if os.environ.get('POCKET_TERMUX')=='1':
-                hint='In Termux, long-press the printed map link, or enter this address in your browser.'
-            rows=textwrap.wrap(hint,self.width)
-            for row,line in enumerate(rows,5):c.put(0,row,line)
-            for offset in range(0,len(self.picker.url),self.width):
-                c.put(0,5+len(rows)+offset//self.width,self.picker.url[offset:offset+self.width])
-            return c.lines()
+        if self.picker:return self.picker.render(self.width,self.height)
         c.put(0,0,'Offline Data · installed maps and elevation' if self.device_only else 'Offline Data · prepare and transfer regional maps and terrain')
         compact=self.height<28
         row=1 if compact else 2
@@ -235,8 +201,21 @@ class OfflineData:
             c.put(0,self.height-2,'FCC download is in ULS Lookup.')
         c.put(0,self.height-1,'Tab fields · Enter action · ? help')
         return c.lines()
+    @property
+    def layer_only(self):return self.picker is not None
+    def layer(self):return self.picker.plane if self.picker else None
+    def picker_result(self,action):
+        if action=='use':
+            self.bbox.text=' '.join(f'{value:.6f}' for value in self.picker.bounds)
+            self.bbox.cursor=len(self.bbox.text)
+            self.status='Area selected. Choose Plan or Download and build.'
+            self.picker=None;self.field='bbox';self.changed()
+        elif action=='back':
+            self.picker=None;self.field='pick'
+        return True
     def spans(self):return tuple(self._spans)
     def pointer(self,column,row,width,button=0,released=False):
+        if self.picker:return self.picker_result(self.picker.pointer(column,row,button,released))
         if button!=0 or released:return False
         selected_row=row
         for row,key in self._hits:
@@ -256,7 +235,7 @@ class OfflineData:
             'Push uses your SSH configuration to sign in as nokia. Enter the prepared folder and tablet hostname. The tablet verifies staged files before installation. Restart Pocket on the tablet after success.',
             'FCC data is an independent optional download in ULS Lookup. A base install remains usable without these datasets.')),)
     def close(self):
-        if self.picker:self.picker.close();self.picker=None
+        self.picker=None
         self.wakeup=None;self.cancelled.set()
         if self.process is not None:
             try:os.killpg(self.process.pid,signal.SIGTERM)
