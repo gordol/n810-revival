@@ -264,9 +264,10 @@ windowed layout.
 
 ### Prepare maps on the phone
 
-From the Pocket directory in Termux, run `make mobile-map-deps` once. This
-installs a Debian GIS environment on the phone using PRoot-Distro. It needs
-internet and local storage. The resulting builder runs on the phone's CPU.
+The first `make mobile` installs the Debian GIS tools through PRoot-Distro
+and needs internet and local storage. Later launches check the installed tools
+locally and can start offline. The builder runs on the phone’s CPU. Map,
+elevation and FCC downloads start when you select them in Pocket.
 
 1. Open **Pocket Home → Offline Data** and enter west, south, east and north
    in decimal degrees. For a small area leave the OSM URL empty. Pocket

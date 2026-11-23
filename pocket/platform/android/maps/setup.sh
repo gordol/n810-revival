@@ -6,10 +6,17 @@ if ! command -v pkg >/dev/null; then
     exit 1
 fi
 command -v proot-distro >/dev/null || pkg install -y proot-distro
+check_builder() {
+    proot-distro login pocket-maps -- /usr/bin/python3 -c 'import osmium, numpy, ssl; assert ssl.create_default_context().get_ca_certs(); from PIL import Image; from shapely import make_valid, from_wkb'
+}
+if check_builder >/dev/null 2>&1; then
+    exit 0
+fi
+echo 'Preparing the on-phone map and terrain builder…'
 if ! proot-distro login pocket-maps -- /bin/true >/dev/null 2>&1; then
     proot-distro install debian:trixie --name pocket-maps
 fi
 proot-distro login pocket-maps -- /usr/bin/apt-get update
 proot-distro login pocket-maps -- /usr/bin/apt-get install -y --no-install-recommends ca-certificates python3-pyosmium python3-shapely python3-pil python3-numpy
-proot-distro login pocket-maps -- /usr/bin/python3 -c 'import osmium, numpy; from PIL import Image; from shapely import make_valid, from_wkb'
+check_builder
 echo 'Map builder ready. Open Offline Data in Pocket.'

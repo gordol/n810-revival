@@ -158,7 +158,7 @@ class OfflineData:
         c.put(0,self.height-(2 if compact else 5),self.error or self.status)
         if not compact:
             if self.device_only:hint='Restart Pocket after installing prepared data.'
-            elif os.environ.get('POCKET_TERMUX')=='1':hint='On-phone builder: make mobile-map-deps in Termux.'
+            elif os.environ.get('POCKET_TERMUX')=='1':hint='make mobile prepares the on-phone builder.'
             else:hint='Build dependencies: make maps-deps. Map transfers use SSH.'
             c.put(0,self.height-3,hint)
             c.put(0,self.height-2,'FCC download is in ULS Lookup.')
@@ -181,7 +181,7 @@ class OfflineData:
             if isinstance(state.get(key),str):getattr(self,key).text=state[key][:1000]
     def help_pages(self):
         return (('Offline Data',('Select a bounding box and an OSM extract covering it. Plan reports reusable inputs and estimated elevation size without downloading. Download and build acquires the extract and USGS fine elevation and derives display levels locally.',
-            'In Termux, run make mobile-map-deps once. On a laptop, use make maps-deps. For small areas leave the extract URL blank to download OSM data for the entered bounds. Large areas can exceed the N810 internal MMC. Keep raw downloads on the laptop; transfer selected runtime maps and elevation only. See pocket/docs/map-data.md.',
+            'In Termux, make mobile prepares the map builder. On a laptop, use make maps-deps. For small areas leave the extract URL blank to download OSM data for the entered bounds. Large areas can exceed the N810 internal MMC. Keep raw downloads on the laptop; transfer selected runtime maps and elevation only. See pocket/docs/map-data.md.',
             'Push uses your SSH configuration to sign in as nokia. Enter the prepared folder and tablet hostname. The tablet verifies staged files before installation. Restart Pocket on the tablet after success.',
             'FCC data is an independent optional download in ULS Lookup. A base install remains usable without these datasets.')),)
     def close(self):

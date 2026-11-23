@@ -55,7 +55,7 @@ symbian-install:
 termux:
 	POCKET_TERMUX=1 POCKET_PHONE_RADIO="$(PHONE_RADIO)" $(PYTHON) shell/launch.py --instance "$(INSTANCE)" --no-native --no-animation $(if $(strip $(ADDRESS)),--connection-address "$(ADDRESS)") $(if $(strip $(SSH_KEY)),--connection-key "$(SSH_KEY)") $(EXTRA)
 
-termux-gui:
+termux-gui mobile:
 	@set -e; \
 	export DISPLAY="$${DISPLAY:-:1}"; \
 	if [ -z "$${VK_DRIVER_FILES:-}$${VK_ICD_FILENAMES:-}$${GALLIUM_DRIVER:-}$${MESA_LOADER_DRIVER_OVERRIDE:-}" ]; then \
@@ -73,7 +73,7 @@ termux-gui:
 
 .PHONY: mobile
 mobile: override EXTRA += --mobile-shell
-mobile: termux-gui
+mobile: mobile-map-deps
 
 .PHONY: mobile-update
 mobile-update:
