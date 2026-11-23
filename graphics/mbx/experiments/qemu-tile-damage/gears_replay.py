@@ -10,7 +10,7 @@ from qtest_device import capture, render
 import array
 import math
 
-def load_mesh(path):
+def load_mesh(path, size):
     words = array.array('f')
     words.frombytes(path.read_bytes())
     vertices = []
@@ -29,24 +29,24 @@ def load_mesh(path):
         for j in range(1,len(polygon)-1):
             tri = [polygon[0],polygon[j],polygon[j+1]]
             vertices.extend(tri)
-            xs = [32 + 32*v[0] for v in tri]
-            ys = [32 - 32*v[1] for v in tri]
+            xs = [size/2 * (1+v[0]) for v in tri]
+            ys = [size/2 * (1-v[1]) for v in tri]
             # Conservative box with a pixel margin for subpixel rounding.
-            for tx in range(max(0,math.floor((min(xs)-1)/16)),min(3,math.floor((max(xs)+1)/16))+1):
-                for ty in range(max(0,math.floor((min(ys)-1)/16)),min(3,math.floor((max(ys)+1)/16))+1):
+            for tx in range(max(0,math.floor((min(xs)-1)/16)),min(size//16-1,math.floor((max(xs)+1)/16))+1):
+                for ty in range(max(0,math.floor((min(ys)-1)/16)),min(size//16-1,math.floor((max(ys)+1)/16))+1):
                     tiles.add((tx,ty))
     return vertices,tiles
 
-def measure(repo, qemu, folder, work):
+def measure(repo, qemu, folder, work, size):
     rows = []
     frames = []
     prior = None
     prior_tiles = set()
     for step in range(6):
-        vertices, tiles = load_mesh(folder / f'live-{step+1}.float')
-        trace, reference = capture(repo, work, (32, 32), vertices, scale=32)
+        vertices, tiles = load_mesh(folder / f'live-{step+1}.float', size)
+        trace, reference = capture(repo, work, (size//2, size//2), vertices, scale=size//2, size=size)
         if prior is None:
-            full, prior, _ = render(qemu, trace)
+            full, prior, _ = render(qemu, trace, size=size)
             assert full == reference
             damage = full
         else:
@@ -56,19 +56,20 @@ def measure(repo, qemu, folder, work):
                 for mode in modes:
                     start = time.perf_counter()
                     if mode == 'full':
-                        full, full_pixels, kick = render(qemu, trace)
+                        full, full_pixels, kick = render(qemu, trace, size=size)
                     else:
-                        damage, damage_pixels, kick = render(qemu, trace, prior, selected)
+                        damage, damage_pixels, kick = render(qemu, trace, prior, selected, size=size)
                     rows.append((step, trial, mode, len(selected), kick, time.perf_counter()-start))
                 assert full_pixels == damage_pixels and full_pixels != prior
                 assert full == damage == reference
             prior = full_pixels
         prior_tiles = tiles
-        image = Image.new('RGB', (400, 220), '#14171c')
+        panel = 192 if size == 64 else size
+        image = Image.new('RGB', (2*(panel+8), panel+28), '#14171c')
         for i, (title, pixels) in enumerate((('Full redraw', full), ('Tile damage', damage))):
             with Image.open(io.BytesIO(pixels)) as src:
-                image.paste(src.resize((192, 192), Image.Resampling.NEAREST), (4+i*200, 24))
-            ImageDraw.Draw(image).text((5+i*200, 5), title, fill='white')
+                image.paste(src.resize((panel, panel), Image.Resampling.NEAREST), (4+i*(panel+8), 24))
+            ImageDraw.Draw(image).text((5+i*(panel+8), 5), title, fill='white')
         frames.append(image)
     with (folder/'spinning-gears.csv').open('w', newline='') as output:
         writer = csv.writer(output, lineterminator='\n')
@@ -82,6 +83,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Replay six glxgears feedback frames in N810 QEMU.')
     for name in ('repo', 'qemu', 'folder'):
         parser.add_argument(name, type=Path)
+    parser.add_argument('--size', type=int, choices=(64, 400), default=400)
     args = parser.parse_args()
     with tempfile.TemporaryDirectory() as work:
-        measure(args.repo.resolve(), args.qemu.resolve(), args.folder.resolve(), Path(work))
+        measure(args.repo.resolve(), args.qemu.resolve(), args.folder.resolve(), Path(work), args.size)

@@ -4,7 +4,7 @@ import ctypes
 import time
 
 
-def capture(repo, directory, viewport, terrain=None, scale=8):
+def capture(repo, directory, viewport, terrain=None, scale=8, size=64):
     mbx = repo / 'mbx'
     source = (mbx/'tools/mbxtri.c').read_text()
     # Emit CPU writes only. The GPU's memory writes must come from QEMU.
@@ -18,6 +18,8 @@ def capture(repo, directory, viewport, terrain=None, scale=8):
         ('for (i = 0; i < 8; i++)', 'for(i=0;i<PT_OFF/4096;i++) printf("m %x %x\\n",RAM_BASE+PT_OFF+4*i,((uint32_t *)(ram+PT_OFF))[i]);\n\tfor (i = 0; i < 8; i++)'),
         ('((uint32_t *)(ram + surf))[i] = TRI_CLEAR;', 'c_wr32(NULL,surf+4*i,TRI_CLEAR);'),
     ]
+    if size == 400:
+        replacements.append(('mbx_contract_freelist(&IO, 0x70000', 'mbx_contract_freelist(&IO, CTX + 0x10000u'))
     header = (mbx/'tools/tri_frame.h').read_text()
     x,y = viewport
     old = 'tri_taf(&s, TRI_W / 2.0f); tri_taf(&s, TRI_W / 2.0f);'
@@ -46,13 +48,18 @@ def capture(repo, directory, viewport, terrain=None, scale=8):
     src.write_text(source)
     subprocess.run(['make','-s','-C',mbx,'libmbxemu.a'],check=True)
     exe = directory/'capture'
-    subprocess.run(['cc','-O2','-I',mbx/'tools',src,mbx/'libmbxemu.a','-lm','-o',exe],check=True)
+    subprocess.run(['cc','-O2',f'-DTRI_W={size}',f'-DTRI_H={size}','-I',mbx/'tools',src,mbx/'libmbxemu.a','-lm','-o',exe],check=True)
     expected = directory/'expected.ppm'
     commands = subprocess.check_output([exe,'-a','0','-o',expected],text=True)
     return commands, expected.read_bytes()
 
 
-def render(qemu,commands,prior=None,dirty_tiles=None):
+def render(qemu,commands,prior=None,dirty_tiles=None, size=64):
+    surface_base = 0x80010000
+    surface_end = surface_base + size * size * 4
+    region_start = (surface_end + 0xffff) & ~0xffff
+    padded_tiles = ((size // 16 + 3) // 4) * 4
+    region_end = region_start + padded_tiles**2 * 8
     proc = subprocess.Popen([qemu,'-M','n810','-S','-display','none','-serial','none',
                              '-monitor','none','-qtest','stdio','-qtest-log','/dev/null'],
                             stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True)
@@ -79,11 +86,11 @@ def render(qemu,commands,prior=None,dirty_tiles=None):
         for line in commands.splitlines():
             op, addr, value = line.split()
             addr, value = int(addr,16), int(value,16)
-            if op == 'm' and prior is not None and 0x80010000 <= addr < 0x80014000:
-                pixel = (addr-0x80010000)//4
-                if (pixel%64//16, pixel//64//16) not in dirty_tiles:
+            if op == 'm' and prior is not None and surface_base <= addr < surface_end:
+                pixel = (addr-surface_base)//4
+                if (pixel%size//16, pixel//size//16) not in dirty_tiles:
                     value = int.from_bytes(prior[4*pixel:4*pixel+4],'little')
-            if op == 'm' and dirty_tiles is not None and 0x80020000 <= addr < 0x80020080 and addr%8==0 and value&(1<<30):
+            if op == 'm' and dirty_tiles is not None and region_start <= addr < region_end and addr%8==0 and value&(1<<30):
                 if (value&255,(value>>8)&255) not in dirty_tiles:
                     value |= 1<<25
             if op == 'm':
@@ -104,9 +111,10 @@ def render(qemu,commands,prior=None,dirty_tiles=None):
                     if addr == 0x50000680:
                         kick_us = (time.clock_gettime_ns(clock_id.value)-before)/1000
         flush()
-        surface = bytes.fromhex(send('read 0x80010000 16384')[0][2:])
+        surface = b''.join(bytes.fromhex(send(f'read {addr:#x} {min(16384,surface_end-addr)}')[0][2:])
+                           for addr in range(surface_base, surface_end, 16384))
         rgb = b''.join(surface[i:i+3][::-1] for i in range(0,len(surface),4))
-        return b'P6\n64 64\n255\n'+rgb, surface, kick_us
+        return f'P6\n{size} {size}\n255\n'.encode()+rgb, surface, kick_us
     finally:
         proc.terminate()
         proc.wait(timeout=10)

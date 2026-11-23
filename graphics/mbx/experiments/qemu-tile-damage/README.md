@@ -59,16 +59,19 @@ Use revive-n8x0 commit `7629d71ca775283248a48729fa6cca18ceb01520` for both the s
 
 ## Spinning glxgears
 
-![Full and tile-damage replays of the same six rotating glxgears frames](../../../../docs/assets/demos/qemu-spinning-gears.gif)
+![Spinning glxgears, 400 × 400 pixels per side](../../../../docs/assets/demos/qemu-spinning-gears-400.gif)
 
-On November 23 we ran Debian's glxgears (mesa-utils-bin 8.5.0-1, amd64) at 400 × 400 under Xvfb with Mesa llvmpipe. OpenGL feedback recorded six successive frames of transformed geometry and lit vertex colors. QEMU replayed the same polygons from each capture on a 64 × 64 MBX surface. The left side redraws all 16 tiles. The right side preserves the preceding frame outside the union of old and new projected triangle bounds, expanded one pixel for rounding. This selected 13 tiles for each move. The GIF enlarges the QEMU pixels and holds each frame for 400 ms.
+Debian glxgears (mesa-utils-bin 8.5.0-1, amd64) ran at 400 × 400 under Xvfb with Mesa llvmpipe. OpenGL feedback recorded six successive frames of transformed geometry and lit vertex colors. QEMU’s N810 MBX model rasterized each capture at the same 400 × 400 resolution. The GIF displays each view at one image pixel per framebuffer pixel and holds each frame for 400 ms.
 
-| Same host, same gear orientations | Full redraw | Tile damage |
+| 400 × 400 QEMU replay | Full redraw | Tile damage |
 | --- | ---: | ---: |
-| Median QEMU CPU time per render command | 10.354 ms | 9.944 ms |
-| Complete frame replays per wall-clock second | 3.58 | 3.63 |
+| Selected visible tiles | 625 | 267–272 |
+| Median QEMU CPU time per render command | 176.71 ms | 151.57 ms |
+| Complete frame replays per wall-clock second | 1.73 | 1.67 |
 
-All 40 paired comparisons matched across all 4,096 pixels, and each frame's RGB matched the standalone MBX model. Two runs each covered five transitions with four alternating-order trials. Host and harness were pinned to logical CPU 2 on an Intel Xeon Platinum 8573C with unmanaged clocks. Replay wall time includes QEMU startup and shutdown for every frame, qtest submission and readback. Geometry capture and damage selection precede the timers. This tests raster redraw on real spinning geometry. Interactive glxgears and physical display FPS remain unmeasured here. [All samples](spinning-gears.csv)
+All 20 matched pairs produced identical 160,000-pixel framebuffers. Each RGB frame also matched the standalone MBX model. Damage covered the union of old and new projected triangle bounds, expanded by one pixel for rounding. Five transitions each ran four alternating-order trials on November 23 on a Xeon Platinum 8573C pinned to logical CPU 2 with unmanaged clocks. Wall time includes fresh QEMU startup, framebuffer preparation, command transfer, readback and shutdown. Interactive application FPS on the tablet remains unmeasured. [400 × 400 samples](spinning-gears-400.csv)
+
+The earlier 64 × 64 run used the same captures and enlarged each output pixel 3×. Add `--size 64` to reproduce it. [Earlier GIF](../../../../docs/assets/demos/qemu-spinning-gears.gif) · [64 × 64 samples](spinning-gears.csv)
 
 Use the pinned emulator and dependencies above. In an empty working directory with a GLX display, compile the capture hook against desktop GL headers, run glxgears, and replay the six feedback files written in that directory. Capture timing determines the angles. Replay uses the same files for both paths.
 

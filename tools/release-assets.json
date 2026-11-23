@@ -198,6 +198,10 @@
     "docs/assets/demos/qemu-spinning-gears.gif": {
       "sha256": "1978cdf42a964770e74ee64e2f7f3face7d0845437fd0f6bd418f864f35ce73b",
       "kind": "media"
+    },
+    "docs/assets/demos/qemu-spinning-gears-400.gif": {
+      "sha256": "43e5b99f4339ad840b670c63016c69b4f974faa40f36ff456879dc1c5c298945",
+      "kind": "media"
     }
   }
 }
