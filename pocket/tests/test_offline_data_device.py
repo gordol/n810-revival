@@ -25,6 +25,22 @@ class DeviceDataTests(unittest.TestCase):
    with patch.object(m,'POCKET',root):
     form=m.OfflineData();keys=[t.key for t in form.navigation_targets()]
     self.assertIn('plan',keys);self.assertIn('build',keys);self.assertNotIn('verify',keys)
+ def test_picker_launch_failure_keeps_link_and_offers_retry_or_back(self):
+  from native_navigation import native_pointer
+  form=m.OfflineData();form.width,form.height=40,12
+  with patch('area_picker.Picker') as factory:
+   picker=factory.return_value
+   picker.url='http://127.0.0.1:12345/test/'
+   picker.launch.side_effect=FileNotFoundError()
+   row=next(i for i,line in enumerate(form.lines()) if 'Choose area on world map' in line)
+   self.assertTrue(native_pointer(form,5,row,40))
+   self.assertIn(picker.url,' '.join(form.lines()))
+   self.assertTrue(native_pointer(form,5,1,40))
+   factory.assert_called_once()
+   self.assertEqual(picker.launch.call_count,2)
+   self.assertTrue(native_pointer(form,5,2,40))
+   picker.close.assert_called_once()
+   self.assertIsNone(form.picker)
  def test_phone_build_uses_local_guest_for_every_stage(self):
   import os
   with tempfile.TemporaryDirectory() as d, patch.dict(os.environ,POCKET_TERMUX='1'), patch('shutil.which',return_value='proot-distro'), patch('subprocess.Popen') as spawn:

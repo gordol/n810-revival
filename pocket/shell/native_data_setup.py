@@ -8,6 +8,7 @@ import shutil
 import signal
 import subprocess
 import threading
+import textwrap
 import sys
 from app_widgets import Canvas, TextInput
 
@@ -93,6 +94,8 @@ class OfflineData:
         if self._session_callback:self._session_callback()
     def navigation_targets(self):
         from native_navigation import Target
+        if self.picker:
+            return [Target('retry','Open browser again','action','retry'),Target('back','Back to Offline Data','action','back')]
         if self.device_only:return [Target('output','Installed reference-data folder','input'),Target('verify','Verify installed maps and elevation','action','verify')]
         return [Target('pick','Choose area on world map','action','pick')]+[Target(k,v,'input') for k,v in [('bbox','Bounds: west south east north'),('url','OSM PBF URL (optional for small areas)'),('output','Local data folder'),('spacing','Elevation spacing, metres')]]+[
             Target('plan','Plan / reuse / estimated size','action','plan'),Target('build','Download and build this area','action','build'),
@@ -104,18 +107,22 @@ class OfflineData:
         if nav:self.field=nav.target
     def navigation_accept_input(self):return True
     def key(self,key):
-        if key=='pick' and not self.device_only and not self.pending:
+        if self.picker and key=='back':
+            self.picker.close();self.picker=None
+            self.field='pick';self.error='';self.status='Choose an area or enter bounds.'
+            return True
+        if key in ('pick','retry') and not self.device_only and not self.pending:
             from area_picker import Picker
             try:
-                try:bounds=list(map(float,self.bbox.text.split()))
-                except ValueError:bounds=None
-                if self.picker:self.picker.close()
-                self.picker=Picker(bounds,self.wakeup)
+                if self.picker is None:
+                    try:bounds=list(map(float,self.bbox.text.split()))
+                    except ValueError:bounds=None
+                    self.picker=Picker(bounds,self.wakeup)
+                self.field='retry'
+                self.error=''
                 self.picker.launch()
-                self.error='';self.status='Choose an area in your browser, then return here.'
             except (OSError,subprocess.SubprocessError) as error:
-                if self.picker:self.picker.close();self.picker=None
-                self.error=str(error)
+                self.error='Browser did not open.' if self.picker else str(error)
             return True
         if key not in ('plan','build','verify','push'):return False
         if self.pending:return True
@@ -136,13 +143,28 @@ class OfflineData:
                 self.bbox.cursor=len(self.bbox.text)
                 self.picker.close();self.picker=None
                 self.status='Area selected. Choose Plan or Download and build.';self.error=''
-                self.changed();return True
+                self.field='bbox';self.changed();return True
         if not self.pending or not self.pending.done():return False
         try:self.result=self.pending.result();self.status=self.result[-350:] or 'Completed.'
         except Exception as error:self.error=str(error)[-500:]
         self.pending=None;return True
     def lines(self):
         c=Canvas(self.width,self.height);self._hits=[];self._spans=[]
+        if self.picker:
+            c.put(0,0,'World map · waiting for your selection')
+            for row,target in enumerate(self.navigation_targets(),1):
+                c.put(0,row,'[ '+target.title+' ]')
+                self._hits.append((row,target.key))
+            message=self.error or 'If your browser did not open:'
+            c.put(0,4,message)
+            hint='Open this address in your browser.'
+            if os.environ.get('POCKET_TERMUX')=='1':
+                hint='In Termux, long-press the printed map link, or enter this address in your browser.'
+            rows=textwrap.wrap(hint,self.width)
+            for row,line in enumerate(rows,5):c.put(0,row,line)
+            for offset in range(0,len(self.picker.url),self.width):
+                c.put(0,5+len(rows)+offset//self.width,self.picker.url[offset:offset+self.width])
+            return c.lines()
         c.put(0,0,'Offline Data · installed maps and elevation' if self.device_only else 'Offline Data · prepare and transfer regional maps and terrain')
         compact=self.height<25
         row=1 if compact else 2

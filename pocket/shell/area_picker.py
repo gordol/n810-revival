@@ -8,6 +8,7 @@ from pathlib import Path
 import queue
 import secrets
 import subprocess
+import sys
 import threading
 import webbrowser
 
@@ -75,7 +76,8 @@ class Picker:
 
     def launch(self):
         if os.environ.get('POCKET_TERMUX')=='1':
-            subprocess.run(['termux-open-url',self.url],check=True,timeout=8)
+            print('Pocket world map:', self.url, file=sys.stderr, flush=True)
+            subprocess.run(['termux-open-url',self.url],check=True,timeout=3)
         elif not webbrowser.open(self.url):
             raise OSError('Could not open your browser')
 
