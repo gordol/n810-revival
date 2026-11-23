@@ -17,27 +17,27 @@ The host was an x86-64 Intel Xeon Platinum 8573C with host frequency unmanaged. 
 
 This prototype exercises command reuse and tile damage with a model-native command stream. Pocket's encoder also emits a multi-section VGP setup command that this emulator version rejects. The effect of tile damage on Pocket FPS, device energy consumption and end-to-end drag latency remains unmeasured.
 
-## Pocket terrain
+## Matched terrain replay
 
-[![Pocket terrain clip, daylight](../../../../docs/assets/demos/terrain-day-poster.png)](../../../../docs/assets/demos/terrain-day.mp4)
+![Rotating Pocket heightfield in the QEMU framebuffer](../../../../docs/assets/demos/qemu-terrain-damage.gif)
 
-The eight-second laptop recording shows Pocket constructing its Tahoma scene from real elevation data. The offline benchmark uses a generated hill so it runs without downloading the Tahoma dataset.
+On November 23, 2026, both paths replayed the same 128-triangle mesh from Pocket’s `HeightField.mesh()`, the same four camera updates and the same model-native commands on a 64 × 64 framebuffer. The rotating hill fits inside four central tiles throughout. Full redraw selected all 16 tiles. Damage redraw selected four and preserved the preceding frame outside them. Every paired framebuffer matched byte-for-byte and matched the standalone model in RGB. The GIF enlarges the QEMU pixels 4× and holds each view for 350 ms.
 
-On November 23, 2026, Pocket’s terminal renderer produced **12.18 FPS** (median of five runs) on the Intel Xeon Platinum 8573C host with unmanaged clocks and Python 3.12.14. Each fresh process warmed one 80 × 24 cell frame, then advanced scene time by 120 seconds for each of 24 frames with a fixed camera. The measured wall time includes lighting updates, cell composition and ANSI generation. All 24 frames changed cells in every run. Startup, terminal transport and display are outside the timer.
-
-| Run | Seconds for 24 frames | Frames/s |
+| Same Xeon Platinum 8573C host, QEMU and harness pinned to logical CPU 2 | Full redraw | Tile damage |
 | --- | ---: | ---: |
-| 1 | 1.768 | 13.57 |
-| 2 | 1.970 | 12.18 |
-| 3 | 2.079 | 11.55 |
-| 4 | 1.993 | 12.04 |
-| 5 | 1.814 | 13.23 |
+| Median QEMU CPU time for the render command | 3.525 ms | 2.961 ms |
+| Wall time for 32 frame replays | 7.123 s | 7.705 s |
+| Frame replays per wall-clock second | 4.49 | 4.15 |
 
-Run `python3 pocket_terrain.py` from this directory. This exercises Pocket’s host CPU path independently of the QEMU tile selection experiment.
+The render command used **16% less CPU time**. The complete test harness replayed **7.6% fewer frames per second** with damage enabled. The wall timer includes QEMU launch and teardown per frame, qtest communication, framebuffer initialization or preservation, command submission and pixel readback. Mesh generation and capture occur before either timer. Both paths use the same QEMU binary with the emulated ARM paused and the host clock frequency unmanaged. Measuring interactive Pocket FPS still requires running the application's native command stream.
 
-![N810 framebuffer showing the rotating terrain and its FPS counter](../../../../docs/assets/screenshots/mbx-terrain-480mhz-20261110.png)
+Each run alternated order over four paired trials per camera update. The two runs produced 4.48 vs 4.18 and 4.50 vs 4.13 frame replays/s respectively. The table pools all 32 pairs. [Raw measurements](terrain-measurements.csv)
 
-The November 10 physical N810 test ran a separate 512-triangle rotating heightfield at 400 × 400. It averaged **60.964 completed renders/s** on the 330 MHz kernel and **71.668** on the 480 MHz kernel with the divider fix. The latter sample ran for 33.53 s and recorded about 25.77 display-transfer interrupts/s. The overlay shows one interval within that sample. [Hardware measurements and conditions](../../../../docs/posts/2026-11-10-gpu-residency-and-480mhz.md)
+Use the Linux dependencies and pinned upstream revision below. Choose an available logical CPU and run the following command twice for two independent sets of 16 pairs, changing the output filename for the second set. Each invocation also writes the corresponding framebuffer GIF beside the CSV.
+
+```sh
+taskset -c 2 python3 terrain_damage.py /path/to/revive-n8x0 /path/to/qemu-system-arm /tmp/terrain-run1.csv
+```
 
 ## Reproduce the QEMU benchmark
 

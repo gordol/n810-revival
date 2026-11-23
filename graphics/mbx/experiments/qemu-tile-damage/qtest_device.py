@@ -4,7 +4,7 @@ import ctypes
 import time
 
 
-def capture(repo, directory, viewport):
+def capture(repo, directory, viewport, terrain=None, scale=8):
     mbx = repo / 'mbx'
     source = (mbx/'tools/mbxtri.c').read_text()
     # Emit CPU writes only. The GPU's memory writes must come from QEMU.
@@ -22,10 +22,21 @@ def capture(repo, directory, viewport):
     x,y = viewport
     old = 'tri_taf(&s, TRI_W / 2.0f); tri_taf(&s, TRI_W / 2.0f);'
     assert header.count(old)==1
-    header = header.replace(old,f'tri_taf(&s, 8); tri_taf(&s, {x});')
+    header = header.replace(old,f'tri_taf(&s, {scale}); tri_taf(&s, {x});')
     old = 'tri_taf(&s, TRI_H / 2.0f); tri_taf(&s, -TRI_H / 2.0f);'
     assert header.count(old)==1
-    (directory/'tri_frame.h').write_text(header.replace(old,f'tri_taf(&s, {y}); tri_taf(&s, -8);'))
+    (directory/'tri_frame.h').write_text(header.replace(old,f'tri_taf(&s, {y}); tri_taf(&s, -{scale});'))
+    if terrain is not None:
+        # Replace only the example's three vertex payloads, keeping its TA setup.
+        begin = source.index('uint32_t stream[128]')
+        source = source[:begin] + source[begin:].replace('stream[128]', f'stream[{128 + len(terrain)*4}]', 1)
+        path = directory/'tri_frame.h'
+        header = path.read_text()
+        begin = header.index('for (i = 0; i < 3; i++) {', header.index('/* a triangle list, no culling */'))
+        end = header.index('tri_put(&s, CH_CTL, 1)', begin)
+        payload = ''.join(f'tri_taf(&s, {vx});tri_taf(&s, {vy});tri_taf(&s, {vz});tri_ta(&s, {color}u);\n'
+                          for vx, vy, vz, color in terrain)
+        path.write_text(header[:begin] + payload + header[end:])
     for old,new in replacements:
         if source.count(old) != 1:
             raise ValueError('Unsupported mbxtri version at ' + old)

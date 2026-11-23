@@ -190,6 +190,10 @@
     "docs/assets/demos/qemu-tile-damage.gif": {
       "sha256": "8556cb90a5b7a1bbd5a5342f939ebe3f588079734139b38f02d5214f9bb5a80d",
       "kind": "media"
+    },
+    "docs/assets/demos/qemu-terrain-damage.gif": {
+      "sha256": "34dfdf51f79a5c7d2dfcb8da81fb5839e5d588614b43af6f42b764ee0703d70c",
+      "kind": "media"
     }
   }
 }
