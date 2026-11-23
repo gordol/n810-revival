@@ -19,6 +19,21 @@ general revision check in the linked 6.18 patch. Association, command/reply hand
 matter independently. The comparison project reports timeout occurrences on its
 own N810; frequency on ours is unknown. [Original revision check and rationale](https://github.com/thehumanweb/revive-n8x0/blob/7629d71ca775283248a48729fa6cca18ceb01520/kernel/patches/6.18/0039-spi-omap2-mcspi-no-fifo-before-rev2.patch).
 
+**Automatic console refresh.** The N810 panel retains its last image. With one
+display, the default refresh rate, no fbdev user files or VMAs, and no active
+video overlays, skip the panel sync and transfer until fbcon draws or the
+one-second refresh deadline expires. Fill, copy, glyph and cursor drawing,
+mode/pan changes, last user release, and starting auto mode request a refresh.
+An update failure requests a retry. The delayed worker still checks at its
+normal cadence so keyboard echo and console scrolling can reach the next
+update. A kernel writer bypassing the framebuffer callbacks can take about a
+second to appear. The fallback also picks up display configuration changes.
+Any fbdev user open keeps continuous updates active, including a read-only
+monitor. An mmap holds its file reference after close. Video overlays,
+multiple displays or a positive explicit `auto_update_freq` also retain
+continuous updates. Manual Pocket presentations follow their existing path.
+State costs three 32-bit words per fbdev device and no shadow framebuffer.
+
 **Display policy publication.** The display daemon sampled every five seconds
 and atomically replaced its status even across identical samples, including
 while blank. It also wrote effective brightness on every active sample. Publish
@@ -32,7 +47,7 @@ the daemon. Status mtime now reflects publication. [Display daemon](../scripts/n
 
 | Path | Source evidence and implication for this tablet |
 | --- | --- |
-| Console display refresh | The builder supplies `omap2fb.auto_update=y`. In auto mode the fbdev worker synchronizes the display, requests the **entire resolution**, then requeues after HZ/20 by default. On an 800×480 RGB565 screen each full image is 768,000 bytes. The delay starts after the work, so 20 is a nominal scheduling rate. Blanking stops the worker. Pocket's native bootstrap explicitly selects manual update and restores the old mode at exit. Check the live mode before attributing activity to this worker. Dropping auto refresh globally would require another way to present ordinary fbcon writes. [Linux worker](https://github.com/gregkh/linux/blob/700e62ea909a70b9f72692d8b7a192ac7ebde0aa/drivers/video/fbdev/omap2/omapfb/omapfb-main.c#L1654-L1684) · [Pocket ownership](../../pocket/platform/n810/bootstrap_desktop.py) |
+| Console display refresh | The builder supplies `omap2fb.auto_update=y`. Before this patch the auto-mode fbdev worker synchronizes the display, requests the **entire resolution**, then requeues after HZ/20 by default. On an 800×480 RGB565 screen each full image is 768,000 bytes. The delay starts after the work, so 20 is a nominal scheduling rate. Blanking stops the worker. Pocket's native bootstrap explicitly selects manual update and restores the old mode at exit. Check the live mode before attributing activity to this worker. Dropping auto refresh globally would require another way to present ordinary fbcon writes. [Linux worker](https://github.com/gregkh/linux/blob/700e62ea909a70b9f72692d8b7a192ac7ebde0aa/drivers/video/fbdev/omap2/omapfb/omapfb-main.c#L1654-L1684) · [Pocket ownership](../../pocket/platform/n810/bootstrap_desktop.py) |
 | Wireless worker | Both trees move reply processing off mac80211's ordered queue to avoid configuration stalls. Ours uses a system work item and theirs a dedicated ordered queue. A second backport would need evidence of contention. The optional per-TX delay and dummy RX flush in our source default to zero/off. [Their worker patch](https://github.com/thehumanweb/revive-n8x0/blob/7629d71ca775283248a48729fa6cca18ceb01520/kernel/patches/6.18/0041-p54spi-own-workqueue.patch) |
 | Battery sensing | The Tahvo monitor checks once a second. An ordinary unplugged pass makes one charger-presence ADC read plus five battery-voltage and five temperature reads. Most userspace battery properties return cached values. Separate presence detection from settled discharge telemetry only after establishing how much stale data the low-battery shutdown policy can tolerate. Keep fresh checks before enabling charging and retain active charge monitoring, thresholds and fault recovery. Their kernel starts with charge PWM off and exposes the hardware to Maemo BME; its userspace sampling cost is unknown. [Our charger](n810-5.15.224.patch#L9235-L9295) · [Their charger interface](https://github.com/thehumanweb/revive-n8x0/blob/7629d71ca775283248a48729fa6cca18ceb01520/kernel/patches/6.18/0006-retu-maemo-charger-off-and-user-interface.patch) |
 | ADC error propagation | The Retu ADC helper masks its result with 0x3ff before returning it and ignores the channel-select write result. A negative bus error can become a plausible sample. Before caching readings for longer, exercise failed channel selection, failed reads, and Vilma restoration against a bus fixture. This has implications for battery-policy correctness independently of CPU cost. [ADC implementation](n810-5.15.224.patch#L6473-L6500) |
@@ -52,7 +67,7 @@ the daemon. Status mtime now reflects publication. [Display daemon](../scripts/n
 ## Host verification
 
 The Linux archive matched the builder's pinned SHA-256. All overlays applied
-with zero fuzz, all 14 repository input digests and 62 final source digests
+with zero fuzz, all 14 repository input digests and 64 final source digests
 matched, and the updated McSPI driver compiled to an ARM EABI5 object using
 GCC 12.2.0 and binutils 2.40.
 
@@ -69,3 +84,15 @@ ARM object build reports 9,202 to 8,514 bytes of text (688 bytes smaller).
 Data and BSS remain 148 and 16 bytes. DWARF reports a 56-byte controller
 structure in both builds. These figures describe the McSPI object and its
 layout; compressed boot image size and tablet power were not measured.
+
+The complete omapfb directory cross-compiled for ARM with the N810 config.
+The [host worker test](test_console_refresh.py) calls the patched callbacks
+and worker with synthetic jiffies and a counting panel. In 20 idle checks at
+HZ=100 the original worker submitted 20 full-screen updates and the patched worker submitted one in the first second.
+Drawing coalesced, failed updates retried, and continuous updates ran with a
+userspace open, enabled video overlay, multiple displays or explicit rate.
+Run `python3 platform/kernel/test_console_refresh.py /path/to/patched/linux`.
+On a tablet also check cursor blink, scrolling, a mapped writer after closing
+its fd, video playback, manual/auto switching, and immediate unblank repaint.
+Use an external observation or RFBI counters for idle tests: a monitor holding
+the framebuffer device open deliberately selects continuous updates.
