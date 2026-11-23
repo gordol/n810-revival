@@ -30,7 +30,7 @@ The triangle trial plays the eight-position drag 32 times (256 frames). The gear
 
 The table pools frames divided by elapsed time across four alternating-order pairs on November 23, 2026. Both programs were pinned to logical CPU 2 on the Xeon Platinum 8573C with unmanaged host clocks. QEMU runs the guest player in ARM system emulation. The model uses the same permissive MMU and free-list setup as the isolated probe. [Triangle trials](continuous-triangle.csv) · [Gears trials](continuous-gears.csv)
 
-For the triangle, create an empty output directory and use the same assembler and pinned QEMU build as for gears. For gears, use the capture and replay commands under “Spinning glxgears” below. Each writes `animation.csv` to its output directory.
+For the triangle, create an empty output directory and use the same assembler and pinned QEMU build as for gears. For gears, use the capture and replay commands under “Spinning glxgears” below. The triangle writes `continuous-triangle-64.csv`; the gears replay writes `continuous-gears-400.csv` at the default resolution.
 
 ```sh
 taskset -c 2 python3 animation.py /path/to/revive-n8x0 /path/to/qemu-system-arm /path/to/output --scene triangle
@@ -92,11 +92,35 @@ All 20 matched pairs produced identical 160,000-pixel framebuffers. Each RGB fra
 
 The earlier 64 × 64 run used the same captures and enlarged each output pixel 3×. Use `--isolated --size 64` to reproduce it. [Earlier GIF](../../../../docs/assets/demos/qemu-spinning-gears.gif) · [64 × 64 samples](spinning-gears.csv)
 
-For continuous replay, install GNU assembler and objcopy for ARM (`binutils-arm-linux-gnueabi` on Debian) along with the dependencies above. In an empty working directory with a GLX display, compile the capture hook against desktop GL headers, run glxgears, and replay the feedback files written in that directory. Capture timing determines the angles. For the 36-frame animation below, capture into an empty directory and run both modes against those same files. For the historical six-frame GIF and per-frame timing probe, omit `GEARS_CAPTURE_FRAMES` and pass `--isolated` to the replay script. Use separate output directories.
+### Replay the published workload
+
+The [six-frame inputs](captures/isolated-six/SHA256SUMS) are the exact inputs used for both isolated resolutions. The [36-frame inputs](captures/continuous-36/SHA256SUMS) are the separate sequence used for continuous gears timings. The manifests list the SHA-256 of each original `live-N.float` file in frame order.
+
+Both sets were captured on November 23, 2026 under Xvfb on x86-64 Linux, using a 400 × 400 window, Mesa 25.0.7 llvmpipe (LLVM 19.1.7, 256 bits) and the GL feedback hook. Each file is a little-endian float32 stream of polygon records with window-space XYZ and RGBA values. SHA-256 of the amd64 glxgears executable was `0a286de534b54d48b8ba73798a7b5bfa45717f09e6da0983f4dfca5a1f23c1e4`. SHA-256 of the Debian package was `f692be831b458f442715b73ebefed6b3b2a9275d559bf2c648a628c4c80398a7`. [Debian mesa-utils-bin 8.5.0-1](https://deb.debian.org/debian/pool/main/m/mesa-demos/mesa-utils-bin_8.5.0-1_amd64.deb)
+
+From this experiment directory, copy each measured input set into its own working directory and verify the copied files. Use the pinned emulator and dependencies above. Continuous replay also uses GNU assembler and objcopy for ARM (`binutils-arm-linux-gnueabi` on Debian).
 
 ```sh
-exp=/path/to/n810-revival/graphics/mbx/experiments/qemu-tile-damage
+exp=$PWD
+work=$(mktemp -d)
+cp -R "$exp/captures/isolated-six" "$exp/captures/continuous-36" "$work/"
+(cd "$work/isolated-six" && sha256sum -c SHA256SUMS)
+(cd "$work/continuous-36" && sha256sum -c SHA256SUMS)
+upstream=/path/to/revive-n8x0
+qemu=/path/to/qemu-system-arm
+for size in 64 400; do
+    taskset -c 2 python3 "$exp/gears_replay.py" "$upstream" "$qemu" "$work/isolated-six" --isolated --size "$size"
+done
+taskset -c 2 python3 "$exp/gears_replay.py" "$upstream" "$qemu" "$work/continuous-36"
+```
+
+The isolated runs write `spinning-gears-64.csv`, `spinning-gears-64.gif`, `spinning-gears-400.csv` and `spinning-gears-400.gif` beside the same six inputs. Continuous runs include the scene and size in the CSV filename. Host load can still change the timings.
+
+### Capture a new sequence
+
+To generate a new workload, run the hook in an empty directory with a GLX display. Rotation angles depend on the timing of that execution. Omit `GEARS_CAPTURE_FRAMES` for a fresh six-frame capture.
+
+```sh
 cc -shared -fPIC "$exp/gears-feedback.c" -o feedback.so -ldl
 GEARS_CAPTURE_FRAMES=36 LIBGL_ALWAYS_SOFTWARE=1 LD_PRELOAD="$PWD/feedback.so" glxgears -geometry 400x400
-taskset -c 2 python3 "$exp/gears_replay.py" /path/to/revive-n8x0 /path/to/qemu-system-arm "$PWD"
 ```

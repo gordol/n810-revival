@@ -132,7 +132,7 @@ def measure(args, work):
                 run_guest(args.qemu, player, path, refs)
             else:
                 traces[mode] = path
-    with (args.folder/'animation.csv').open('w', newline='') as output:
+    with (args.folder/f'continuous-{args.scene}-{size}.csv').open('w', newline='') as output:
         writer = csv.writer(output, lineterminator='\n')
         writer.writerow(('pair', 'mode', 'frames', 'wall_seconds', 'fps'))
         count = len(streams['full'])*repeats

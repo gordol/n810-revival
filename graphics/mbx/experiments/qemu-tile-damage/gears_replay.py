@@ -43,11 +43,11 @@ def measure(repo, qemu, folder, work, size):
                 image.paste(src.resize((panel, panel), Image.Resampling.NEAREST), (4+i*(panel+8), 24))
             ImageDraw.Draw(image).text((5+i*(panel+8), 5), title, fill='white')
         frames.append(image)
-    with (folder/'spinning-gears.csv').open('w', newline='') as output:
+    with (folder/f'spinning-gears-{size}.csv').open('w', newline='') as output:
         writer = csv.writer(output, lineterminator='\n')
         writer.writerow(('step', 'trial', 'mode', 'selected_damage_tiles', 'kick_us', 'replay_seconds'))
         writer.writerows(rows)
-    frames[0].save(folder/'spinning-gears.gif', save_all=True, append_images=frames[1:],
+    frames[0].save(folder/f'spinning-gears-{size}.gif', save_all=True, append_images=frames[1:],
                    duration=400, loop=0)
 
 
