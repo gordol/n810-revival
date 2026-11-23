@@ -91,3 +91,48 @@ timestamps and provenance. A phone companion could use Garmin's supported
 export or device APIs when available for the watch and account, then hand that
 asset to Pocket. Keep device permissions, pairing credentials and model
 downloads on the device that owns those services.
+
+## Run Pocket locally in Termux
+
+Install Termux using a supported distribution listed in the
+[Termux installation guide](https://github.com/termux/termux-app#installation).
+In Termux, install the prerequisites:
+
+```sh
+pkg install python make
+```
+
+Place this version of Pocket inside your Termux home directory. Android shared
+storage is useful for exchanging packs and logs. Keep the working tree, SQLite
+journal and session files in Termux private storage. From the directory
+containing Pocket's Makefile, run:
+
+```sh
+python tools/fieldpack.py build examples/field-companion/region.json "$HOME/valley.pack"
+python tools/fieldpack.py install "$HOME/valley.pack"
+make termux PYTHON=python
+```
+
+This launches Pocket's terminal desktop with portable rendering and local
+services detached. Open Field Guide, Phrasebook and Field Log from Applications.
+For a first field check, save a note, exit with Ctrl-] then q, enable airplane
+mode, reopen Pocket, and read the note. The sample guide build runs on the
+phone. Generating GIS data has a separate toolchain and resource budget.
+The launch profile has been exercised on a Linux terminal; physical Android
+acceptance is pending.
+
+### Phone notifications on a Garmin watch
+
+For a first display test, enable Termux notifications in Android and allow
+the corresponding application in Garmin Connect's smart notification settings.
+Install the Termux:API companion from the same distribution as Termux, then
+install the client with `pkg install termux-api`. Use a synthetic message:
+
+```sh
+termux-notification --id pocket-radio-test --title 'Pocket radio test' --content 'Simulated receiver disconnected'
+```
+
+If it appears on the phone first and then the watch, the notification path
+works for that combination. Check notification permissions, the watch's
+activity mode and Do Not Disturb if delivery differs while hiking. Live radio
+alerts still need an Android notification producer fed by Pocket's radio owner.

@@ -49,3 +49,8 @@ symbian:
 .PHONY: symbian-install
 symbian-install:
 	$(PYTHON) shell/symbian_install.py "$(PACKAGE)"
+
+# Use the portable terminal renderer on Android; extra options follow the defaults.
+.PHONY: termux
+termux:
+	$(PYTHON) shell/launch.py --instance "$(INSTANCE)" --no-native --no-local-services --no-animation $(EXTRA)
