@@ -34,8 +34,9 @@ def capture(repo, directory, viewport, terrain=None, scale=8):
         header = path.read_text()
         begin = header.index('for (i = 0; i < 3; i++) {', header.index('/* a triangle list, no culling */'))
         end = header.index('tri_put(&s, CH_CTL, 1)', begin)
-        payload = ''.join(f'tri_taf(&s, {vx});tri_taf(&s, {vy});tri_taf(&s, {vz});tri_ta(&s, {color}u);\n'
-                          for vx, vy, vz, color in terrain)
+        rows = ','.join('{%s,%s,%s,%su}' % vertex for vertex in terrain)
+        payload = ('static const struct {float x,y,z;uint32_t color;} vtx[]={' + rows +
+                   '}; for(unsigned j=0;j<sizeof(vtx)/sizeof(*vtx);j++){ tri_taf(&s,vtx[j].x);tri_taf(&s,vtx[j].y);tri_taf(&s,vtx[j].z);tri_ta(&s,vtx[j].color); }\n')
         path.write_text(header[:begin] + payload + header[end:])
     for old,new in replacements:
         if source.count(old) != 1:

@@ -194,6 +194,10 @@
     "docs/assets/demos/qemu-terrain-damage.gif": {
       "sha256": "34dfdf51f79a5c7d2dfcb8da81fb5839e5d588614b43af6f42b764ee0703d70c",
       "kind": "media"
+    },
+    "docs/assets/demos/qemu-spinning-gears.gif": {
+      "sha256": "1978cdf42a964770e74ee64e2f7f3face7d0845437fd0f6bd418f864f35ce73b",
+      "kind": "media"
     }
   }
 }

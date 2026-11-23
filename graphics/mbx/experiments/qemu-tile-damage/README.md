@@ -56,3 +56,25 @@ python3 measure.py /path/to/revive-n8x0 /path/to/qemu-system-arm /tmp/n810-tile-
 ```
 
 Use revive-n8x0 commit `7629d71ca775283248a48729fa6cca18ceb01520` for both the source argument and the QEMU build. The test instruments the upstream triangle example in a temporary directory, builds the host model in the supplied checkout, and writes the GIF and CSV under the output directory.
+
+## Spinning glxgears
+
+![Full and tile-damage replays of the same six rotating glxgears frames](../../../../docs/assets/demos/qemu-spinning-gears.gif)
+
+On November 23 we ran Debian's glxgears (mesa-utils-bin 8.5.0-1, amd64) at 400 × 400 under Xvfb with Mesa llvmpipe. OpenGL feedback recorded six successive frames of transformed geometry and lit vertex colors. QEMU replayed the same polygons from each capture on a 64 × 64 MBX surface. The left side redraws all 16 tiles. The right side preserves the preceding frame outside the union of old and new projected triangle bounds, expanded one pixel for rounding. This selected 13 tiles for each move. The GIF enlarges the QEMU pixels and holds each frame for 400 ms.
+
+| Same host, same gear orientations | Full redraw | Tile damage |
+| --- | ---: | ---: |
+| Median QEMU CPU time per render command | 10.354 ms | 9.944 ms |
+| Complete frame replays per wall-clock second | 3.58 | 3.63 |
+
+All 40 paired comparisons matched across all 4,096 pixels, and each frame's RGB matched the standalone MBX model. Two runs each covered five transitions with four alternating-order trials. Host and harness were pinned to logical CPU 2 on an Intel Xeon Platinum 8573C with unmanaged clocks. Replay wall time includes QEMU startup and shutdown for every frame, qtest submission and readback. Geometry capture and damage selection precede the timers. This tests raster redraw on real spinning geometry. Interactive glxgears and physical display FPS remain unmeasured here. [All samples](spinning-gears.csv)
+
+Use the pinned emulator and dependencies above. In an empty working directory with a GLX display, compile the capture hook against desktop GL headers, run glxgears, and replay the six feedback files written in that directory. Capture timing determines the angles. Replay uses the same files for both paths.
+
+```sh
+exp=/path/to/n810-revival/graphics/mbx/experiments/qemu-tile-damage
+cc -shared -fPIC "$exp/gears-feedback.c" -o feedback.so -ldl
+LIBGL_ALWAYS_SOFTWARE=1 LD_PRELOAD="$PWD/feedback.so" glxgears -geometry 400x400
+taskset -c 2 python3 "$exp/gears_replay.py" /path/to/revive-n8x0 /path/to/qemu-system-arm "$PWD"
+```
