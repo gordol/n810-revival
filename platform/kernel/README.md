@@ -106,3 +106,6 @@ optional PM debug output and verbose BUG descriptions to retain the NOLO size
 budget. `--resume` revalidates the archive, locked inputs and maintained source
 files before repeating configuration, compilation and packaging in an existing
 build directory.
+
+The [idle efficiency review](idle-efficiency.md) records the McSPI revision
+backport, display policy changes, and the matched N810 validation workload.
