@@ -1,0 +1,5 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Choose map area · Pocket</title><link rel="stylesheet" href="picker.css">
+<main><header><h1>Choose map area</h1><input type="search" id="search" placeholder="Find a city" aria-label="Find a city"><select id="places" aria-label="Matching cities" hidden></select></header>
+<section><canvas id="map" aria-label="World map for selecting an offline area"></canvas>
+<aside><button id="plus" aria-label="Zoom in">+</button><button id="minus" aria-label="Zoom out">−</button><button id="world">World</button></aside><small>Natural Earth · 1:50m overview</small></section>
+<footer><div id="info" role="status">Loading offline overview…</div><nav><button id="draw" disabled>Draw box</button><button id="use" disabled>Use area in Pocket</button></nav></footer></main><script src="picker.js"></script></html>
