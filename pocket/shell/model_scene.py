@@ -1,6 +1,6 @@
 """Render the small real-elevation geometry model through the cell compositor."""
 from functools import lru_cache
-from data_paths import data_root
+from data_paths import rainier_root
 import json
 import math
 from dataclasses import replace
@@ -13,7 +13,7 @@ from landscape_detail import Nature,details,resolve
 @lru_cache(maxsize=2)
 def tahoma(stride=2):
     import array,sys,zlib
-    directory=data_root()
+    directory=rainier_root()
     data=json.loads(directory.joinpath('tahoma-3dep.json').read_text())
     raw=array.array('h');raw.frombytes(zlib.decompress(directory.joinpath('tahoma-3dep.i16.zlib').read_bytes()))
     if sys.byteorder!='little':raw.byteswap()

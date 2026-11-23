@@ -9,6 +9,16 @@ def data_root():
     if checkout.is_dir():return checkout
     return Path('/usr/share/pocket/data')
 
+def rainier_cache():
+    return Path(os.environ.get('XDG_DATA_HOME') or Path.home()/'.local/share')/'pocket/rainier-walk'
+
+def rainier_root():
+    root=data_root()
+    for directory in (root,rainier_cache()):
+        if all((directory/name).is_file() for name in ('tahoma-3dep.json','tahoma-3dep.i16.zlib')):
+            return directory
+    return root
+
 def map_directory(fallback):
     """One generated map directory for native and terminal readers."""
     current=data_root()/'maps'

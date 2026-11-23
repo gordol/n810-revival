@@ -318,3 +318,16 @@ To carry a language to the N810, copy its
 `~/.local/state/current-world/field-companion/phrasebooks/wikivoyage-*.pack`
 file and use **Phrasebook → Import pack** on the tablet. The default state
 directory follows `XDG_STATE_HOME` when set.
+
+### Rainier walk and Wildlife
+
+Open **Apps → Rainier walk**. On first use, tap **Download Rainier terrain**
+(or press **D**) to fetch the USGS 3DEP elevation grid for this scene.
+Pocket keeps the prepared grid locally for subsequent offline launches.
+On Android, conversion uses the GIS environment prepared by `make mobile`.
+Tap the center of the walk to move forward, or tap either side to turn.
+
+In the Android graphical shell, **Apps → Wildlife** draws the marmot and
+eagle as shaded triangles at window resolution. Use the bottom controls to
+change animal, turn, zoom or pause. The terminal renderer retains the glyph
+study. Wildlife uses authored meshes and works offline.

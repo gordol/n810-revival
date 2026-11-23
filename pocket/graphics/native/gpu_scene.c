@@ -656,3 +656,7 @@ int pocket_scene_dma_stats(void *ptr,uint64_t out[2]){
 #endif
  return 0;
 }
+
+#ifndef POCKET_SCENE_GL
+#include "wildlife_scene.h"
+#endif

@@ -48,6 +48,9 @@ class Context:
             'pocket_scene_texture_free':([C.c_void_p],None),
             'pocket_scene_close':([C.c_void_p],None),
         }
+        if hasattr(self.lib,'pocket_scene_wildlife'):
+            declarations['pocket_scene_wildlife']=([C.c_void_p]+[C.c_int]*4+
+                [C.c_void_p,C.c_void_p,C.c_uint,C.c_void_p,C.c_uint]+[C.c_float]*5+[C.c_int],C.c_int)
         for name,(args,result) in declarations.items():
             fn=getattr(self.lib,name);fn.argtypes=args;fn.restype=result
         if self.display is None:
@@ -178,6 +181,7 @@ class Context:
         A missing sink keeps the established image path. A failed admitted
         command propagates; it must never silently rasterize through the CPU.
         """
+        if callable(getattr(app,'draw_wildlife',None)):return app.draw_wildlife(self)
         if callable(getattr(app,'render_retained',None)):return self.retained_scene(app)
         draw=self.lib.pocket_scene_room if self.native_room else None
         producer=getattr(app,'render_scene',None)

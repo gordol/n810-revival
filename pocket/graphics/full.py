@@ -34,6 +34,12 @@ class Platform:
    from room_pixels import PixelRoom
    room=PixelRoom(host,Path(self.library).resolve().parent/'room-pixels.so');self.register_pixel_view(room);return room
   entry=registry.entries['surface-room'];registry.entries['surface-room']=entry._replace(factory=room_factory)
+  if 'wildlife' in registry.entries and (self.display is None or hasattr(self.display.lib,'pocket_scene_wildlife')):
+   def wildlife_factory(host,**options):
+    sys.path.insert(0,str(HERE.parent/'shell/apps/landscape-lab'))
+    from wildlife_pixels import PixelWildlife
+    view=PixelWildlife(host);self.register_pixel_view(view);return view
+   entry=registry.entries['wildlife'];registry.entries['wildlife']=entry._replace(factory=wildlife_factory)
   if 'doom' in registry.entries:
    entry=registry.entries['doom'];factory=entry.factory
    def doom_factory(host,**options):

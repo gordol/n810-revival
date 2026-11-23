@@ -4,7 +4,7 @@ from functools import lru_cache
 import hashlib
 import json
 import math
-from data_paths import data_root
+from data_paths import data_root, rainier_root
 import sys
 import zlib
 from path_profile import profile,EARTH_M
@@ -12,7 +12,7 @@ from path_profile import profile,EARTH_M
 
 @lru_cache(maxsize=1)
 def grid():
-    directory=data_root()
+    directory=rainier_root()
     metadata=json.loads((directory/'tahoma-3dep.json').read_text())
     raw=(directory/'tahoma-3dep.i16.zlib').read_bytes()
     if len(raw)>1024*1024 or hashlib.sha256(raw).hexdigest()!=metadata['sha256']:
