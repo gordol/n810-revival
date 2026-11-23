@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Pocket field note</title>
+<style>
+* {box-sizing:border-box}
+body {font:1rem/1.5 "Source Sans 3",system-ui,sans-serif;max-width:34rem;margin:auto;padding:1rem}
+h1 {font-size:1.65rem}
+label,button {display:block;margin:1.1rem 0 .3rem}
+input,textarea,select,button {font:inherit;padding:.6rem;border:1px solid #87968c;border-radius:.3rem}
+input,textarea,select {width:100%}
+button {background:#18593d;color:white;padding:.65rem 1rem}
+</style>
+<h1>Field note</h1>
+<form>
+<label for="region">Region ID from your Pocket pack</label>
+<input id="region" required pattern="[a-z0-9][a-z0-9\-]{0,63}" maxlength="64" placeholder="sample-valley">
+<label for="kind">Entry type</label>
+<select id="kind"><option value="note">Note</option><option value="transcript">Transcript</option><option value="translation">Translation</option></select>
+<label for="body">Observation</label>
+<textarea id="body" rows="6" maxlength="4096" required></textarea>
+<button>Save observation file</button>
+<output aria-live="polite"></output>
+</form>
+<script>
+const form = document.querySelector('form');
+const status = document.querySelector('output');
+let previous, download;
+form.addEventListener('submit', event => {
+  event.preventDefault();
+  const region = form.elements.region.value;
+  const kind = form.elements.kind.value;
+  const body = form.elements.body.value.replace(/\r\n/g, '\n').trim();
+  if (!body) { status.value = 'Enter an observation.'; return; }
+  const content = JSON.stringify([region, kind, body]);
+  if (previous !== content) {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 15) | 64;
+    bytes[8] = (bytes[8] & 63) | 128;
+    const hex = Array.from(bytes, n => n.toString(16).padStart(2,'0')).join('');
+    const id = [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');
+    const note = {id, region, time:new Date().toISOString(), source:'Phone field notebook', kind, body};
+    if (download) URL.revokeObjectURL(download.href);
+    download = document.createElement('a');
+    download.href = URL.createObjectURL(new Blob([JSON.stringify({format:'pocket.field-log/1',notes:[note]})], {type:'application/json'}));
+    download.download = 'field-note-' + id + '.json';
+    previous = content;
+  }
+  download.click();
+  status.value = 'Transfer the downloaded file to Pocket and choose Import log in Field Log.';
+});
+</script>
+</html>

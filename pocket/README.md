@@ -18,6 +18,9 @@ locally; it does not contact a Nokia or activate a radio by opening. Use
 remote host. **Ctrl-]**, then **q**, quits. See [navigation](docs/navigation.md)
 and [connections](docs/connections.md).
 
+Use the [field companion guide](docs/field-companion.md) to prepare a regional
+reference pack, look up offline phrases and exchange private field observations.
+
 ## Graphical frontend
 
 `make gui` runs the same desktop and apps through the native SDL2/OpenGL

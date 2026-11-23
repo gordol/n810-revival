@@ -11,6 +11,9 @@ import stat
 import sys
 
 BUILTINS=(('apps/symbian/registration.py','descriptor'),
+          ('field_registration.py','guide'),
+          ('field_registration.py','phrases'),
+          ('field_registration.py','log'),
           ('apps/doom-app/registration.py','descriptor'),
           ('apps/surface-renderer/registration.py','descriptor'),
           ('apps/surface-renderer/registration.py','outdoor_descriptor'),

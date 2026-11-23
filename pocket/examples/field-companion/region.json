@@ -1,0 +1,10 @@
+{
+  "format": "pocket.field-pack/1",
+  "id": "sample-valley",
+  "region": "Sample Valley (fictional)",
+  "cards": [
+    {"id":"shelter","kind":"guide","title":"Shelter notebook","file":"shelter.txt","source":"Pocket fictional field exercise","terms":"Authored example for this project"},
+    {"id":"food","kind":"guide","title":"Food and local rules","file":"food.txt","source":"Pocket fictional field exercise","terms":"Authored example for this project"},
+    {"id":"water-es","kind":"phrase","title":"Water · English / Spanish","file":"water.txt","source":"Pocket example phrase","terms":"Authored example for this project"}
+  ]
+}
