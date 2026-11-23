@@ -196,3 +196,7 @@ n810-check-ab:
 	python3 platform/bootstrap/ab_media.py --kit "$(AB_KIT)"
 n810-write-ab:
 	python3 platform/bootstrap/ab_media.py --kit "$(AB_KIT)" --disk "$(N810_DISK)" $(if $(filter 1,$(N810_ERASE)),--erase)
+
+.PHONY: mobile
+mobile:
+	$(MAKE) -C pocket mobile

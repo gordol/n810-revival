@@ -182,16 +182,14 @@ install its command and graphics build dependencies in Termux:
 ```sh
 pkg install x11-repo
 pkg install termux-x11-nightly clang make python pkg-config sdl2 mesa mesa-dev mesa-vulkan-icd-freedreno vulkan-tools
-termux-x11 :1 &
-export DISPLAY=:1
 export MESA_LOADER_DRIVER_OVERRIDE=zink
 export GALLIUM_DRIVER=zink
-export VK_DRIVER_FILES="$(find "$PREFIX/share/vulkan/icd.d" -name 'freedreno_icd.*.json' -print -quit)"
+export VK_DRIVER_FILES="$(find "$PREFIX/share/vulkan/icd.d" -name 'freedreno_icd*.json' -print -quit)"
 vulkaninfo --summary
 make termux-gui PHONE_RADIO=uvpro EXTRA="--report $HOME/pocket-gpu.json"
 ```
 
-Open the Termux:X11 activity to see the desktop. Verify that `vulkaninfo`
+The launcher reuses the current display or starts Termux:X11 on the local display (default `:1`). Open the Termux:X11 activity to see the desktop. Run `make mobile` from the repository root or the `pocket` directory for the touch shell. Verify that `vulkaninfo`
 lists the Adreno device. After Pocket exits, check the `cell_renderer` field
 in the report for the Turnip/Adreno renderer. The graphical launcher checks for
 software GL unless you explicitly pass `--allow-software`. The desktop
