@@ -327,7 +327,9 @@ Pocket keeps the prepared grid locally for subsequent offline launches.
 On Android, conversion uses the GIS environment prepared by `make mobile`.
 In the mobile OpenGL view you start southeast of the summit. The mountain and
 ridges use the downloaded elevations. The conifers, ground cover, animals and
-stone remains are illustrative 3D scenery.
+stone remains are illustrative 3D scenery. Look for a marmot near your feet,
+a red fox walking around the meadow and a bald eagle circling above it. The
+walk shares these models, the goat, chipmunk, squirrel and pika with Wildlife.
 
 Touch the view and drag up to walk forward or down to back up. Drag sideways
 to steer, or diagonally to walk and turn together. Hold off-center to keep

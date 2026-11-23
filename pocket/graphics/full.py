@@ -40,6 +40,7 @@ class Platform:
     ctx=self.gpu_context
     if getattr(ctx,'backend',None)!='opengl' or not hasattr(ctx.lib,'pocket_scene_rainier'):
      return original_rainier(host,**options)
+    sys.path.insert(0,str(HERE.parent/'shell/apps/landscape-lab'))
     from rainier_pixels import RainierView, EAST, SOUTH
     import math
     view=RainierView(host);owner=original_rainier(host,pixel_scene=view,**options)

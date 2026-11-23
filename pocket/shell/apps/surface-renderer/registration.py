@@ -50,7 +50,7 @@ def create_outdoors(host,*,pixel_scene=None,**options):
                 if self.pixel_scene.world is None:return .1
                 moving=any(self.drag_axes) or self.held_motion.held
                 changed=self.pixel_scene.camera!=(self.x,self.z,self.yaw,self.pitch)
-                return 1/35 if moving or changed else None
+                return 1/35 if moving or changed else 1/20
             return .2 if self.download_job and self._active() else None
 
         def poll(self,force=False):

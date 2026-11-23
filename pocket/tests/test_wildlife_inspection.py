@@ -1,4 +1,5 @@
 """Exercise the graphical Wildlife catalog, touch controls and pose interpolation."""
+from array import array
 import math
 from pathlib import Path
 import sys
@@ -30,6 +31,25 @@ class WildlifeInspectionTests(unittest.TestCase):
                 self.assertEqual(app.playing, playing)
             self.assertTrue(app.pointer(10, app.height - 1, 100))
         self.assertEqual(app.species, 'marmot')
+
+    def test_rainier_uses_regional_wildlife_meshes(self):
+        from rainier_pixels import ENCOUNTERS, append_animals
+
+        self.assertEqual({entry[0] for entry in ENCOUNTERS}, set(NAMES) - {'arctic_fox'})
+        vertices = array('f')
+        indices, spans = append_animals(vertices)
+        for (species, _, _, scale), (first, stride, frames, offset, count) in zip(ENCOUNTERS, spans):
+            with self.subTest(species=species):
+                for frame in range(frames):
+                    points, faces = pose(species, frame, False)
+                    self.assertEqual(count, len(faces) // 4 * 3)
+                    for triangle in (0, len(faces) // 8, len(faces) // 4 - 1):
+                        vertex, _, _, color = faces[4 * triangle:4 * triangle + 4]
+                        x, y, z, light = points[4 * vertex:4 * vertex + 4]
+                        start = 7 * (first + frame * stride + indices[offset + 3 * triangle])
+                        rgb = [((color >> shift) & 255) * light / 255 for shift in (16, 8, 0)]
+                        for actual, expected in zip(vertices[start:start + 6], (x * scale, y * scale, z * scale, *rgb)):
+                            self.assertAlmostEqual(actual, expected, places=6)
 
     def test_pose_interpolation(self):
         for species in NAMES:

@@ -27,7 +27,7 @@ struct gpu_scene {
  unsigned window_budget;int window_budget_ready;
 #else
  struct wildlife_gl wildlife;
- GLuint rainier_buffer,rainier_depth,rainier_program;unsigned rainier_w,rainier_h;
+ GLuint rainier_buffer,rainier_indices,rainier_depth,rainier_program;unsigned rainier_w,rainier_h;
 #endif
 };
 static Scene_Color scene_rgb(uint32_t v){return (Scene_Color){(v>>16)&255,(v>>8)&255,v&255,255};}
@@ -530,8 +530,8 @@ void pocket_scene_rainier_release(void *ptr){
  struct gpu_scene *s=ptr;
  if(!s||!s->rainier_program)return;
  SDL_RenderFlush(s->device);
- glDeleteProgram(s->rainier_program);glDeleteBuffers(1,&s->rainier_buffer);glDeleteRenderbuffers(1,&s->rainier_depth);
- s->rainier_program=s->rainier_buffer=s->rainier_depth=0;
+ glDeleteProgram(s->rainier_program);glDeleteBuffers(1,&s->rainier_buffer);glDeleteBuffers(1,&s->rainier_indices);glDeleteRenderbuffers(1,&s->rainier_depth);
+ s->rainier_program=s->rainier_buffer=s->rainier_indices=s->rainier_depth=0;
  s->rainier_w=s->rainier_h=0;
 }
 #endif

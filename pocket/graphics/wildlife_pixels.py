@@ -1,42 +1,8 @@
 """Pixel presentation of the existing wildlife meshes on the SDL scene backend."""
-from array import array
-from functools import lru_cache
 import math
 
-from geometry import Vec
 from wildlife_app import Wildlife
-from marmot_art import ellipsoid
-from geometry import merge
-from wildlife_models import FOX_ASSETS, FOX_FRAMES, NAMES, mammal, raptor
-
-@lru_cache(maxsize=FOX_FRAMES+3)
-def pose(species,index,obstacle):
-    model=raptor(index) if species=='eagle' else mammal(species,index)
-    if obstacle:
-        model=merge((model,ellipsoid(Vec(.13,.055,-.19) if species!='eagle' else Vec(-.45,-.95,-1.1),
-                                     (.1,.065,.07) if species!='eagle' else (.22,.55,.12),'rock','rock')))
-    # Smooth the rounded anatomy by accumulating adjacent triangle normals once
-    # per pose. Per-material colours remain independent at triangle boundaries.
-    normals=[[0.,0.,0.] for _ in model.vertices]
-    for a,b,c,_,_ in model.triangles:
-        p,q,r=(model.vertices[i] for i in (a,b,c))
-        u,v,w=q.x-p.x,q.y-p.y,q.z-p.z
-        i,j,k=r.x-p.x,r.y-p.y,r.z-p.z
-        nx,ny,nz=v*k-w*j,w*i-u*k,u*j-v*i
-        for vertex in (a,b,c):
-            n=normals[vertex];n[0]+=nx;n[1]+=ny;n[2]+=nz
-    points=array('f')
-    for p,(nx,ny,nz) in zip(model.vertices,normals):
-        length=math.sqrt(nx*nx+ny*ny+nz*nz)
-        # Light the animal from above and in front of the inspection camera.
-        diffuse=(-.35*nx+.78*ny-.51*nz)/length if length else 0
-        points.extend((*p,.75+.24*diffuse))
-    faces=array('I')
-    for a,b,c,material,owner in model.triangles:
-        color=material if isinstance(material,int) else 0x868477
-        faces.extend((a,b,c,color))
-    return points,faces
-
+from wildlife_models import FOX_ASSETS, FOX_FRAMES, NAMES, pose
 
 class PixelWildlife(Wildlife):
     def __init__(self,host):
