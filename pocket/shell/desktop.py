@@ -264,9 +264,15 @@ def main(platform=None,argv=None):
     if args.shell:
         from connections import Connections
         from native_connections import descriptor as connections_descriptor
+        connection_runtime = app_state/'connections'
+        if os.environ.get('POCKET_TERMUX') == '1':
+            # OpenSSH also appends a temporary suffix when creating a control socket.
+            import hashlib
+            tag = hashlib.sha256(os.fsencode(app_state.resolve())).hexdigest()[:8]
+            connection_runtime = Path(tempfile.gettempdir())/('pk-' + tag)
         connections = Connections(args.station_db or app_state/'directory.sqlite3',
                                   Path(__file__).resolve().parent/'vendor/packet-console',
-                                  app_state/'connections')
+                                  connection_runtime)
         connections.suggested_address = args.connection_address
         connections.ssh_key = args.connection_key
         registered_apps.providers['connections'] = connections
@@ -555,7 +561,11 @@ def main(platform=None,argv=None):
         controller_available=lambda:local_bluetooth_source() is not None,
         hardware=lambda:((radio.payload.get('live') or {}).get('data') or {}).get('bluetooth_controller') if radio else None)
     bluetooth_control=None if connections is not None else getattr(feed_source,'control',None)
-    host.app_forms['Bluetooth']=Bluetooth(bluetooth_state,local_receive=args.device_radio)
+    phone_settings = None
+    if os.environ.get('POCKET_TERMUX') == '1':
+        from termux_services import bluetooth_settings
+        phone_settings = bluetooth_settings
+    host.app_forms['Bluetooth']=Bluetooth(bluetooth_state,local_receive=args.device_radio,phone_settings=phone_settings)
     if DEVELOPMENT:
         def create_render_debug(host):
             from draw_metrics import RenderDebug

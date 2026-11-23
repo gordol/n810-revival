@@ -60,7 +60,7 @@ class Navigation:
             actions=getattr(f,'actions',())
             if isinstance(actions,(tuple,list)):result += [Target('action:'+key,label,'action',key) for key,label in actions]
             return result
-        if name=='Bluetooth':return [Target('action:'+key,label,'action',key) for key,label in (('1','Bluetooth on'),('0','Bluetooth off'),('r','Receive start'),('s','Receive stop'),('d','Disconnect radio'))]+[Target('content','Connected devices','details')]
+        if name=='Bluetooth':return ([Target('action:p','Phone Bluetooth settings','action','p')] if f.phone_settings else [])+[Target('action:'+key,label,'action',key) for key,label in (('1','Bluetooth on'),('0','Bluetooth off'),('r','Receive start'),('s','Receive stop'),('d','Disconnect radio'))]+[Target('content','Connected devices','details')]
         if name=='System':return result+[Target('content','System details','details')]+([Target('action:c','Connections','action','c')] if f.open_connections else [])+([Target('action:p','Review connection profiles','action','p')] if f.page==1 and f.links.current['profiles'] else [])
         if name=='LastHeard':return [Target('content','Station details','details'),Target('action:l','Last heard','action','l'),Target('action:s','Selected station','action','s')]
         if name=='RenderDebug':return [Target('content','Render measurements','details')]+[Target('action:'+key,label,'action',key) for key,label in (('s','Shadows'),('o','Opacity'),('n','Disable effects'),('r','Restore'))]
@@ -109,7 +109,7 @@ class Navigation:
         elif name=='SettingsManager' and f.category is None:f.search_focus=key=='filter'
         elif name=='Stations' and key!='filter':f.focus=int(key=='details')
         elif name=='RadioManager' and f.page in (3,4) and key in ('memory','fields','bank'):f.fields=key=='fields'
-        elif name=='Bluetooth' and key.startswith('action:'):f.focus=('1','0','r','s','d').index(key[7:])
+        elif name=='Bluetooth' and key.startswith('action:') and key!='action:p':f.focus=('1','0','r','s','d').index(key[7:])
         elif name=='MapView':f.focus=int(key=='packets')
         elif name=='ChatView':f.focus=('threads','history','draft').index(key)
         if name=='RadioManager' and f.page==0 and key.startswith('action:'):self.scroll=0

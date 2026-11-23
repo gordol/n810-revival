@@ -1,5 +1,6 @@
 """Compose local radio facts with existing receive-only feed sockets."""
 import json
+import os
 import importlib.util
 import sys
 import time
@@ -36,11 +37,20 @@ class DeviceSource:
             path=root/'vendor/packet-console/web-console/read-state.py'
             spec=importlib.util.spec_from_file_location('device_local_status',path)
             module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-            self.collector=module.host_status
+            if os.environ.get('POCKET_TERMUX') == '1':
+                from termux_services import PhoneStatus
+                self.collector = PhoneStatus(module.system_snapshot)
+                self.shared_telemetry = None
+            else:
+                self.collector=module.host_status
         from console_source import Source
         root=Path(__file__).resolve().parent
         sources=Path(sources) if sources else root/'vendor/packet-console'
-        self.receive=Source(feed,snapshots,directory=directory or self.aprs/'directory.sqlite3',sources=sources)
+        receiver = Source
+        if os.environ.get('POCKET_TERMUX') == '1' and os.environ.get('POCKET_PHONE_RADIO') == 'uvpro':
+            from termux_radio import PhoneFeed
+            receiver = PhoneFeed
+        self.receive=receiver(feed,snapshots,directory=directory or self.aprs/'directory.sqlite3',sources=sources)
         self.receive.bind_wakeup(self._receive_changed)
 
     def request_bluetooth_power(self,action):

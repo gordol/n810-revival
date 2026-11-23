@@ -14,6 +14,9 @@ import tempfile
 def select(build=True):
     root=Path(__file__).resolve().parent/'native'
     identity={'system':platform.system(),'machine':platform.machine(),'python_tag':sys.implementation.cache_tag,'build_policy':5,'abi':'CPython limited API 3.11','sources':{}}
+    if hasattr(sys, 'getandroidapilevel') or sys.platform == 'android' or (
+            os.environ.get('POCKET_TERMUX') == '1' and os.environ.get('ANDROID_ROOT')):
+        identity['android_libpython'] = sysconfig.get_config_var('LDVERSION') or sysconfig.get_config_var('VERSION')
     result={'mode':'auto','identity':identity,'library':None,'reason':None,'built':False}
     if sys.implementation.name!='cpython' or sys.version_info<(3,11):result['reason']='native requires CPython 3.11+';return result
     try:identity['sources']={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'cell_module.c',root/'cell_engine.c',root/'window_host.c',root/'scene_host.c',root/'blend_host.c',root/'input_pump.c')}
@@ -35,6 +38,9 @@ def select(build=True):
         fd,tmp=tempfile.mkstemp(prefix='.cell-',suffix='.so',dir=directory);os.close(fd)
     except OSError as error:result['reason']='native build storage unavailable: '+str(error);return result
     command=[compiler,'-O3','-std=c99','-Wall','-Wextra','-Werror','-fPIC','-shared','-pthread','-ffp-contract=off','-fno-fast-math','-fno-builtin-sin','-fno-builtin-cos','-I'+include,str(root/'cell_module.c'),'-o',tmp]
+    if 'android_libpython' in identity:
+        # Bionic resolves extension imports against explicitly linked libraries.
+        command += ['-L'+sysconfig.get_config_var('LIBDIR'), '-lpython'+identity['android_libpython'], '-lm']
     if identity['system']=='Darwin':command+=['-arch',identity['machine'],'-undefined','dynamic_lookup']
     try:
         done=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=30)

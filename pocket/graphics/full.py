@@ -88,6 +88,7 @@ class Platform:
   self.gpu_context=create(self)
   host.render_context=self.gpu_context
   self.report['renderer']=self.gpu_context.renderer_description
+  self.report['cell_renderer']=self.renderer.renderer_name
   self.report['apps']=list(registry.entries);self.report['windows']=[w.name for w in host.windows]
  def resize(self,cols,rows):
   self.size=(max(40,min(512,cols)),max(14,min(256,rows)));self.renderer.resize(*self.size)

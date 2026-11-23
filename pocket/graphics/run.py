@@ -142,7 +142,7 @@ def main():
     try:
         platform.run(['--shell','--session',str(state/'desktop.json'),'--app-state',str(state),
             '--station-db',str(state/'directory.sqlite3'),'--native',CONFIG['native_library'],
-            '--no-local-services',*extra])
+            *([] if os.environ.get('POCKET_TERMUX') == '1' else ['--no-local-services']),*extra])
     finally:
         platform.report.update(renderer=platform.report.get('renderer'),software_allowed=args.allow_software,platform=sys.platform,desktop_pty=False,desktop_ansi=False,desktop_cells=platform.size)
         platform.close()

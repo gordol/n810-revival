@@ -91,7 +91,8 @@ class State:
 
 
 class Bluetooth:
-    def __init__(self, state, local_receive=False):
+    def __init__(self, state, local_receive=False, phone_settings=None):
+        self.phone_settings = phone_settings
         self.state = state
         self.local_receive = local_receive
         self.receive_choices = []
@@ -184,6 +185,13 @@ class Bluetooth:
             elif len(key)==1 and (key.isascii() and key.isalnum() or key=='-'):
                 self.station = (self.station + key.upper())[:9]
             return True
+        if key == 'p' and self.phone_settings:
+            try:
+                self.phone_settings()
+                self.state.message = 'Requested Android Bluetooth settings'
+            except OSError as error:
+                self.state.message = clean(error)
+            return True
         if self.local_receive and not self.state.read()['online'] and (key=='r' or key in ('\r','\n') and ACTIONS[self.focus]=='receive_start'):
             return self.start_receive()
         if key in ('\t', 'backtab', 'left', 'right'):
@@ -245,6 +253,10 @@ class Bluetooth:
                     role = 'inset'
                 self._spans.append((top + y, x, length, role))
 
+        if self.phone_settings:
+            label = '[P Phone Bluetooth settings]'
+            self.hits.append((0, len(rows), len(label), 'p'))
+            rows.append(label)
         toolbar((('1', 'On'), ('0', 'Off')))
         rows += ['Off disconnects Bluetooth keyboards too.', '', 'Connected devices']
         devices = result['devices']

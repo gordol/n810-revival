@@ -12,8 +12,14 @@ def main():
     OUT.mkdir(parents=True,exist_ok=True)
     cc=shlex.split(os.environ.get('CC','cc'))
     if not shutil.which(cc[0]):raise SystemExit('A C compiler is required (set CC if necessary).')
-    if not shutil.which('sdl2-config'):raise SystemExit('SDL2 development files are required: install SDL2, then retry (see graphics/README.md).')
-    sdl=shlex.split(subprocess.check_output(['sdl2-config','--cflags','--libs'],text=True))
+    if shutil.which('sdl2-config'):
+        sdl = shlex.split(subprocess.check_output(['sdl2-config','--cflags','--libs'],text=True))
+        sdl_version = subprocess.check_output(['sdl2-config','--version'],text=True).strip()
+    elif shutil.which('pkg-config'):
+        sdl = shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','sdl2'],text=True))
+        sdl_version = subprocess.check_output(['pkg-config','--modversion','sdl2'],text=True).strip()
+    else:
+        raise SystemExit('Install SDL2 development files with sdl2-config or pkg-config.')
     mac=sys.platform=='darwin'
     gl=['-framework','OpenGL'] if mac else ['-lGL']
     flags=['-O2','-std=c99','-Wall','-Wextra','-Werror','-shared','-fPIC']+(['-Wno-deprecated-declarations'] if mac else [])
@@ -24,7 +30,7 @@ def main():
     if not native['library']:raise SystemExit(native['reason'])
     sources=[p for p in HERE.rglob('*') if p.suffix in ('.c','.h','.m','.py')]
     sources.extend([POCKET/'shell/font_preview.py',POCKET/'shell/apps/surface-renderer/room.py',POCKET/'shell/vendor/fonts/choices/console-8x16.psf'])
-    identity={'version':1,'platform':platform.system(),'machine':platform.machine(),'python':sys.implementation.cache_tag,'compiler':cc,'compiler_version':subprocess.check_output([*cc,'--version'],text=True).splitlines()[0],'sdl':sdl,'sdl_version':subprocess.check_output(['sdl2-config','--version'],text=True).strip(),'native':native['identity'],'inputs':{str(p.relative_to(POCKET)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}}
+    identity={'version':1,'platform':platform.system(),'machine':platform.machine(),'python':sys.implementation.cache_tag,'compiler':cc,'compiler_version':subprocess.check_output([*cc,'--version'],text=True).splitlines()[0],'sdl':sdl,'sdl_version':sdl_version,'native':native['identity'],'inputs':{str(p.relative_to(POCKET)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}}
     stamp=OUT/'BUILD.json';config_path=OUT/'frontend.json'
     outputs=['reference.so','renderer.so','window.so','room-pixels.so','console-font.psf','frontend.json','room_mesh.h','test-desktop-input','test-desktop-borders']+(['_gpueffects.abi3.so','console-font.glyphs','console-font.smooth'] if mac else [])
     if stamp.exists() and json.loads(stamp.read_text())==identity and all((OUT/n).is_file() for n in outputs):

@@ -51,6 +51,9 @@ symbian-install:
 	$(PYTHON) shell/symbian_install.py "$(PACKAGE)"
 
 # Use the portable terminal renderer on Android; extra options follow the defaults.
-.PHONY: termux
+.PHONY: termux termux-gui
 termux:
-	$(PYTHON) shell/launch.py --instance "$(INSTANCE)" --no-native --no-local-services --no-animation $(EXTRA)
+	POCKET_TERMUX=1 POCKET_PHONE_RADIO="$(PHONE_RADIO)" $(PYTHON) shell/launch.py --instance "$(INSTANCE)" --no-native --no-animation $(if $(strip $(ADDRESS)),--connection-address "$(ADDRESS)") $(if $(strip $(SSH_KEY)),--connection-key "$(SSH_KEY)") $(EXTRA)
+
+termux-gui:
+	POCKET_TERMUX=1 POCKET_PHONE_RADIO="$(PHONE_RADIO)" SDL_VIDEODRIVER=x11 $(PYTHON) graphics/gui.py $(if $(strip $(ADDRESS)),--connection-address "$(ADDRESS)") $(if $(strip $(SSH_KEY)),--connection-key "$(SSH_KEY)") $(EXTRA)

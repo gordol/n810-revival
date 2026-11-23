@@ -82,7 +82,7 @@ displays the most recent 100 observations for the active region.
 | --- | --- |
 | Regional content | The build manifest and the transferred MessagePack map carry `format = pocket.field-pack/1`, `id`, `region`, and `cards`. Building replaces each card's local `file` with its `body`. Activation validates the entire pack and replaces the active file atomically. Limits are 256 cards, 16,000 characters per body and one MiB per transfer. |
 | Private observations | A UTF-8 JSON object carries `format = pocket.field-log/1` and a `notes` array. Each note has a UUID `id`, region ID, offset-aware ISO timestamp `time`, producer label `source`, `kind` (note, transcript or translation), and `body`. A batch imports in one SQLite transaction. Identical UUID and content are safe to retry. Conflicting content rolls back the batch. A source label identifies what the producer claimed. |
-| Device transport | The apps consume local files. An SD card, USB file transfer or a phone share action can carry the same bytes. This version includes an offline phone capture page. Live authenticated pairing, speech models and direct watch access are future adapters. |
+| Device transport | The apps consume local files. An SD card, USB file transfer or a phone share action can carry the same bytes. This version includes an offline phone capture page. The optional Android UV-PRO adapter below handles live Bluetooth reception. Speech models and direct watch access are future adapters. |
 
 Larger maps, terrain and guides such as ZIM archives belong in their existing
 readers. A future pack revision can reference those assets by size and digest.
@@ -114,12 +114,86 @@ make termux PYTHON=python
 ```
 
 This launches Pocket's terminal desktop with portable rendering and local
-services detached. Open Field Guide, Phrasebook and Field Log from Applications.
+service discovery. Use `EXTRA=--no-local-services` for detached startup. Open Field Guide, Phrasebook and Field Log from Applications.
 For a first field check, save a note, exit with Ctrl-] then q, enable airplane
 mode, reopen Pocket, and read the note. The sample guide build runs on the
 phone. Generating GIS data has a separate toolchain and resource budget.
 The launch profile has been exercised on a Linux terminal; physical Android
 acceptance is pending.
+
+### Fairphone battery and standalone UV-PRO reception
+
+Install the Termux:API Android companion from the same distribution as Termux,
+then run `pkg install termux-api`. Check `termux-battery-status` once.
+Pocket's **System** window and battery tray use its charge level and status.
+**Bluetooth** shows the Android controller setting when readable. Press P or
+tap **Phone Bluetooth settings** to manage pairing in Android.
+
+For direct reception, use Android 11 or later. Install the accompanying
+`Pocket-UVPRO.apk` on the phone. This development APK is signed with a local
+test key. The Fairphone owns the live Bluetooth Classic serial connection.
+A radio paired with two devices may already have an active serial client.
+Disconnect that client before selecting the radio on the phone. The existing
+pairing can stay in place.
+
+From the Pocket directory, run:
+
+```sh
+make termux PHONE_RADIO=uvpro
+```
+
+Allow **Nearby devices** when prompted. Select the paired UV-PRO in the Android
+picker and switch back to Termux. Pocket's **Radio Feed** and **Stations** consume
+incoming packet records. Reception uses the radio's existing settings. A quiet
+channel can have an open serial connection and zero received packets.
+
+The Android foreground service copies received serial bytes to Pocket over
+loopback. Pocket chooses a new port and token for each connection, decodes KISS
+and UV-PRO vendor frames, and updates the local station directory. No internet
+or N810 is needed after setup. The adapter supports reception. Channel changes,
+bank downloads, audio and push-to-talk require additional protocol support.
+
+Use **Connections → Disconnect** or quit Pocket to release the radio.
+The receiver notification also has a Stop action when Android displays app
+notifications. After a disconnect, select **This device** to choose the radio
+again. To use the N810 as the radio owner instead, install OpenSSH in Termux,
+configure the existing SSH key and verified host, and use **Connections →
+Connect SSH**. Choose that session without `PHONE_RADIO=uvpro` to skip the
+local radio picker.
+
+To build the APK on a laptop, install JDK 17 or 21, zip, Android SDK Platform 35
+and Build Tools 35.0.0. Set `ANDROID_HOME` and run
+`sh platform/android/uvpro/build.sh` from `pocket/`. The script verifies the
+APK signature and keeps the development signing key outside the source tree.
+Use the same private key for an in-place update of your own APK.
+
+### Fairphone 4 graphical desktop
+
+The Fairphone 4 uses an Adreno 619. Pocket’s graphical frontend needs desktop
+OpenGL 2.1. The Termux:X11 route uses Mesa Zink to run OpenGL over Vulkan and
+Turnip to drive the Adreno. Install the matching Android Termux:X11 companion
+from the [Termux:X11 project](https://github.com/termux/termux-x11), then
+install its command and graphics build dependencies in Termux:
+
+```sh
+pkg install x11-repo
+pkg install termux-x11-nightly clang make python pkg-config sdl2 mesa mesa-dev mesa-vulkan-icd-freedreno vulkan-tools
+termux-x11 :1 &
+export DISPLAY=:1
+export MESA_LOADER_DRIVER_OVERRIDE=zink
+export GALLIUM_DRIVER=zink
+export VK_DRIVER_FILES="$(find "$PREFIX/share/vulkan/icd.d" -name 'freedreno_icd.*.json' -print -quit)"
+vulkaninfo --summary
+make termux-gui PHONE_RADIO=uvpro EXTRA="--report $HOME/pocket-gpu.json"
+```
+
+Open the Termux:X11 activity to see the desktop. Verify that `vulkaninfo`
+lists the Adreno device. After Pocket exits, check the `cell_renderer` field
+in the report for the Turnip/Adreno renderer. The graphical launcher checks for
+software GL unless you explicitly pass `--allow-software`. The desktop
+compositor uses OpenGL; availability of individual compute effects depends on
+their backend. Software GL on Linux exercises the window and rendering pipeline.
+Physical Fairphone acceleration and radio reception still need device evidence.
 
 ### Phone notifications on a Garmin watch
 

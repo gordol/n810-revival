@@ -244,10 +244,16 @@ class Connections:
 
     @property
     def feed_control(self):
+        source = getattr(self.source, 'receive', self.source)
+        if hasattr(type(source), 'feed_control'):
+            return source.feed_control
         return self.control.snapshot if self.control else None
 
     @property
     def feed_control_online(self):
+        source = getattr(self.source, 'receive', self.source)
+        if hasattr(type(source), 'feed_control_online'):
+            return source.feed_control_online
         return bool(self.control and self.control.online)
 
     @property
