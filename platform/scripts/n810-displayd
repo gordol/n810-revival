@@ -146,7 +146,18 @@ max=$(cat "$backlight/max_brightness")
 case "$max" in ''|*[!0-9]*) echo 'Invalid LCD maximum brightness.' >&2; exit 1;; esac
 test "$max" -ge 1 || { echo 'Invalid LCD maximum brightness.' >&2; exit 1; }
 last_applied=
+last_status=
 sunlight_off=0
+
+publish_status()
+{
+	if test "$1" = "${last_status:-}" && test -f "$run_dir/status"; then
+		return
+	fi
+	printf '%s\n' "$1" > "$run_dir/.status.$$"
+	mv "$run_dir/.status.$$" "$run_dir/status"
+	last_status=$1
+}
 
 while :; do
 	{ read_value "$fb/blank"; fb_blank=$value; }
@@ -154,18 +165,14 @@ while :; do
 	test ! -r "$backlight/bl_power" || { read_value "$backlight/bl_power"; bl_power=$value; }
 	if { test -n "$fb_blank" && test "$fb_blank" != 0; } ||
 	   test "$bl_power" != 0 || test -e "$screen_run/blanked"; then
-		status_tmp=$run_dir/.status.$$
-		printf 'state=blank framebuffer=%s backlight_power=%s\n' "$fb_blank" "$bl_power" > "$status_tmp"
-		mv "$status_tmp" "$run_dir/status"
+		publish_status "state=blank framebuffer=$fb_blank backlight_power=$bl_power"
 		sleep "$interval"
 		continue
 	fi
 
 	read_integer "$backlight/brightness" -1; current=$value
 	if test "$current" -lt 0 || test "$current" -gt "$max"; then
-		status_tmp=$run_dir/.status.$$
-		printf 'state=sensor-fault source=backlight brightness=%s\n' "$current" > "$status_tmp"
-		mv "$status_tmp" "$run_dir/status"
+		publish_status "state=sensor-fault source=backlight brightness=$current"
 		sleep "$interval"
 		continue
 	fi
@@ -220,11 +227,8 @@ while :; do
 	if test "$manual" -gt 0; then desired=$((manual * idle_percent / 100)); percent=$idle_percent; fi
 	if test "$percent" -gt 0 && test "$desired" -lt 1; then desired=1; fi
 	if test "$current" != "$desired"; then echo "$desired" > "$backlight/brightness"; fi
-	printf '%s\n' "$desired" > "$effective"
+	if test "$known_effective" != "$desired"; then printf '%s\n' "$desired" > "$effective"; fi
 	last_applied=$desired
-	status_tmp=$run_dir/.status.$$
-	printf 'state=active lux=%s upper=%s percent=%s brightness=%s capacity=%s online=%s sunlight_off=%s\n' \
-		"$lux" "$upper" "$percent" "$desired" "$capacity" "$online" "$sunlight_off" > "$status_tmp"
-	mv "$status_tmp" "$run_dir/status"
+	publish_status "state=active lux=$lux upper=$upper percent=$percent brightness=$desired capacity=$capacity online=$online sunlight_off=$sunlight_off"
 	sleep "$interval"
 done

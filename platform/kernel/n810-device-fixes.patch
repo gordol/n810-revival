@@ -53,3 +53,89 @@
  			ti,hwmods = "mcbsp2";
  			dmas = <&sdma 33>,
  			       <&sdma 34>;
+diff --git a/drivers/spi/spi-omap2-mcspi.c b/drivers/spi/spi-omap2-mcspi.c
+--- a/drivers/spi/spi-omap2-mcspi.c
++++ b/drivers/spi/spi-omap2-mcspi.c
+@@ -126,6 +126,7 @@
+ 	struct device		*dev;
+ 	struct omap2_mcspi_regs ctx;
+ 	int			fifo_depth;
++	bool			no_fifo;
+ 	bool			slave_aborted;
+ 	unsigned int		pin_dir:1;
+ 	size_t			max_xfer_len;
+@@ -302,7 +303,7 @@
+ 	mcspi = spi_master_get_devdata(master);
+ 
+ 	chconf = mcspi_cached_chconf0(spi);
+-	if (enable) {
++	if (enable && !mcspi->no_fifo) {
+ 		bytes_per_word = mcspi_bytes_per_word(cs->word_len);
+ 		if (t->len % bytes_per_word != 0)
+ 			goto disable_fifo;
+@@ -350,24 +351,6 @@
+ 	unsigned long timeout;
+ 
+ 	timeout = jiffies + msecs_to_jiffies(1000);
+-	while (!(readl_relaxed(reg) & bit)) {
+-		if (time_after(jiffies, timeout)) {
+-			if (!(readl_relaxed(reg) & bit))
+-				return -ETIMEDOUT;
+-			else
+-				return 0;
+-		}
+-		cpu_relax();
+-	}
+-	return 0;
+-}
+-
+-// FIXME: this is only here to 'gracefully ignore' EOW and TXFFE timeouts on N810!
+-static int mcspi_wait_for_reg_bit_ms(void __iomem *reg, unsigned long bit, int ms)
+-{
+-	unsigned long timeout;
+-
+-	timeout = jiffies + msecs_to_jiffies(ms);
+ 	while (!(readl_relaxed(reg) & bit)) {
+ 		if (time_after(jiffies, timeout)) {
+ 			if (!(readl_relaxed(reg) & bit))
+@@ -671,11 +654,9 @@
+ 		if (mcspi->fifo_depth > 0) {
+ 			irqstat_reg = mcspi->base + OMAP2_MCSPI_IRQSTATUS;
+ 
+-			// FIXME: this should wait standard 1s and there should be no timeout!
+-			// however, by ignoring a very short timeout the wifi works at ~50k/s
+-			if (mcspi_wait_for_reg_bit_ms(irqstat_reg,
+-						OMAP2_MCSPI_IRQSTATUS_EOW, 10) < 0)
+-				dev_dbg(&spi->dev, "EOW timed out\n");
++			if (mcspi_wait_for_reg_bit(irqstat_reg,
++						OMAP2_MCSPI_IRQSTATUS_EOW) < 0)
++				dev_err(&spi->dev, "EOW timed out\n");
+ 
+ 			mcspi_write_reg(mcspi->master, OMAP2_MCSPI_IRQSTATUS,
+ 					OMAP2_MCSPI_IRQSTATUS_EOW);
+@@ -685,12 +666,10 @@
+ 		if (rx == NULL) {
+ 			chstat_reg = cs->base + OMAP2_MCSPI_CHSTAT0;
+ 			if (mcspi->fifo_depth > 0) {
+-				// FIXME: this should wait standard 1s and there should be no timeout!
+-				// however, by ignoring a very short timeout the wifi works at ~50k/s
+-				wait_res = mcspi_wait_for_reg_bit_ms(chstat_reg,
+-						OMAP2_MCSPI_CHSTAT_TXFFE, 10);
++				wait_res = mcspi_wait_for_reg_bit(chstat_reg,
++						OMAP2_MCSPI_CHSTAT_TXFFE);
+ 				if (wait_res < 0)
+-					dev_dbg(&spi->dev, "TXFFE timed out\n");
++					dev_err(&spi->dev, "TXFFE timed out\n");
+ 			} else {
+ 				wait_res = mcspi_wait_for_reg_bit(chstat_reg,
+ 						OMAP2_MCSPI_CHSTAT_TXS);
+@@ -1346,6 +1325,9 @@
+ 		return ret;
+ 	}
+ 
++	/* McSPI 1.x on OMAP2420 has DMA but lacks the transfer FIFO. */
++	mcspi->no_fifo = ((mcspi_read_reg(master, OMAP2_MCSPI_REVISION) >> 4) & 0xf) < 2;
++
+ 	mcspi_write_reg(master, OMAP2_MCSPI_WAKEUPENABLE,
+ 			OMAP2_MCSPI_WAKEUPENABLE_WKEN);
+ 	ctx->wakeupenable = OMAP2_MCSPI_WAKEUPENABLE_WKEN;

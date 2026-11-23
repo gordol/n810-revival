@@ -2,5 +2,6 @@
   "arch/arm/boot/dts/omap2420.dtsi": "d65bbd383fa5c47c4017383b86290140a2e2eeb697c9c21a97160c8dcaeb4179",
   "arch/arm/mach-omap2/clkt2xxx_virt_prcm_set.c": "23f947a21ee8468bf94120a862394e2a5831cfb700de5b9a4620fe4f6aaaf9fa",
   "drivers/leds/leds-lp55xx-common.c": "dd2eb887367e8be9e0870e288eec05c16d7935966e96fae92e5a8b162e5dee66",
+  "drivers/spi/spi-omap2-mcspi.c": "2c00bb688d87c665c4e1c66cded6f425321b704af2713b56c8c92e0e8a4a133d",
   "sound/soc/ti/n810.c": "5c848cd35f33fe6605c9b78899a3b0cd51135bcbc83a094e92cf3f6256f05a47"
 }
