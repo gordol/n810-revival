@@ -87,6 +87,7 @@ class OfflineData:
             from data_paths import data_root
             self.output=TextInput(str(data_root()),limit=1000)
         self.status='Install prepared data from the laptop, then verify it here.' if self.device_only else 'Select your area. Plan makes no network requests.';self.result='';self.error=''
+        self.phrase_page=False;self.preview=None;self.phrase_job=None
         self.picker=None;self.pending=None;self.pool=None;self.cancelled=threading.Event();self.process=None;self.wakeup=None;self._session_callback=None;self._hits=[];self._spans=[]
     def bind_wakeup(self,callback):self.wakeup=callback
     def bind_session(self,callback):self._session_callback=callback
@@ -94,10 +95,16 @@ class OfflineData:
         if self._session_callback:self._session_callback()
     def navigation_targets(self):
         from native_navigation import Target
+        if self.phrase_page:
+            from wikivoyage import LANGUAGES
+            actions=[('lang-'+lang,lang) for lang in LANGUAGES]
+            if self.preview:actions.append(('save-book','Save for offline use'))
+            actions.append(('books-back','Back to Offline Data'))
+            return [Target(key,title,'action',key) for key,title in actions]
         if self.picker:
             return [Target('retry','Open browser again','action','retry'),Target('back','Back to Offline Data','action','back')]
         if self.device_only:return [Target('output','Installed reference-data folder','input'),Target('verify','Verify installed maps and elevation','action','verify')]
-        return [Target('pick','Choose area on world map','action','pick')]+[Target(k,v,'input') for k,v in [('bbox','Bounds: west south east north'),('url','OSM PBF URL (optional for small areas)'),('output','Local data folder'),('spacing','Elevation spacing, metres')]]+[
+        return [Target('pick','Choose area on world map','action','pick'),Target('books','Wikivoyage phrasebooks','action','books')]+[Target(k,v,'input') for k,v in [('bbox','Bounds: west south east north'),('url','OSM PBF URL (optional for small areas)'),('output','Local data folder'),('spacing','Elevation spacing, metres')]]+[
             Target('plan','Plan / reuse / estimated size','action','plan'),Target('build','Download and build this area','action','build'),
             Target('host','N810 SSH hostname or alias','input'),Target('push','Push prepared maps to N810','action','push')]
     def navigation_focus(self):return self.field
@@ -107,6 +114,28 @@ class OfflineData:
         if nav:self.field=nav.target
     def navigation_accept_input(self):return True
     def key(self,key):
+        if key=='books' and not self.pending:
+            self.phrase_page=True;self.preview=None;self.field='lang-Spanish'
+            self.status='Choose a language to download a preview.';self.error=''
+            return True
+        if self.phrase_page:
+            from wikivoyage import download, save
+            if key=='books-back':
+                if self.phrase_job:self.phrase_job.cancel()
+                self.phrase_job=None;self.phrase_page=False;self.preview=None;self.field='books'
+                self.error='';self.status='Select your area.'
+            elif key.startswith('lang-') and not self.phrase_job:
+                if self.pool is None:self.pool=ThreadPoolExecutor(max_workers=1)
+                self.preview=None;self.error='';self.status='Downloading '+key[5:]+'…'
+                self.phrase_job=self.pool.submit(download,key[5:])
+                if self.wakeup:self.phrase_job.add_done_callback(lambda _:self.wakeup() if self.wakeup else None)
+            elif key=='save-book' and self.preview:
+                try:
+                    save(self.preview)
+                    self.status='Saved. Open Phrasebook or choose Reload.'
+                    self.error='';self.preview=None
+                except (ValueError,OSError) as error:self.error=str(error)
+            return True
         if self.picker and key=='back':
             self.picker.close();self.picker=None
             self.field='pick';self.error='';self.status='Choose an area or enter bounds.'
@@ -135,6 +164,12 @@ class OfflineData:
         if self.wakeup:self.pending.add_done_callback(lambda _:self.wakeup() if self.wakeup else None)
         return True
     def poll(self):
+        if self.phrase_job and self.phrase_job.done():
+            try:
+                self.preview=self.phrase_job.result()
+                self.status='Preview · '+self.preview['region']
+            except Exception as error:self.error=str(error)
+            self.phrase_job=None;return True
         if self.picker:
             try:bounds=self.picker.result.get_nowait()
             except queue.Empty:pass
@@ -150,6 +185,20 @@ class OfflineData:
         self.pending=None;return True
     def lines(self):
         c=Canvas(self.width,self.height);self._hits=[];self._spans=[]
+        if self.phrase_page:
+            c.put(0,0,'Wikivoyage phrasebooks')
+            row=1
+            for target in self.navigation_targets():
+                c.put(0,row,'[ '+target.title+' ]')
+                self._hits.append((row,target.key));row+=1
+            for line in textwrap.wrap(self.error or self.status,self.width):
+                c.put(0,row,line);row+=1
+            if self.preview:
+                for line in self.preview['cards'][0]['body'].splitlines():
+                    for part in textwrap.wrap(line,self.width):
+                        if row>=self.height-1:return c.lines()
+                        c.put(0,row,part);row+=1
+            return c.lines()
         if self.picker:
             c.put(0,0,'World map · waiting for your selection')
             for row,target in enumerate(self.navigation_targets(),1):
@@ -166,7 +215,7 @@ class OfflineData:
                 c.put(0,5+len(rows)+offset//self.width,self.picker.url[offset:offset+self.width])
             return c.lines()
         c.put(0,0,'Offline Data · installed maps and elevation' if self.device_only else 'Offline Data · prepare and transfer regional maps and terrain')
-        compact=self.height<25
+        compact=self.height<28
         row=1 if compact else 2
         for target in self.navigation_targets():
             value=self.navigation_input(target.key)

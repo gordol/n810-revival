@@ -66,6 +66,11 @@ class FieldView(DocumentView):
                     rows = field.Journal(self.root).recent(region['id'])
                 else:
                     rows = [card for card in region['cards'] if card['kind'] == self.kind]
+                if self.kind == 'phrase':
+                    for path in sorted((self.root/'phrasebooks').glob('*.pack')):
+                        book = field.check_pack(field.read_file(path))
+                        if not region or book['id'] != region['id']:
+                            rows.extend(book['cards'])
                 self.region, self.records = region, rows
             self.query = value if action == 'search' else self.query
             rows = [SimpleNamespace(**row) for row in self.records
@@ -81,6 +86,7 @@ class FieldView(DocumentView):
                 self.entry = TextInput(value, limit=1024)
 
     def subtitle(self):
+        if self.kind == 'phrase' and self.records and not self.region:return 'Downloaded phrasebooks'
         return self.region['region'] if self.region else 'I: import a regional pack'
 
     def row_label(self, row):
