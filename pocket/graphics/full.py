@@ -34,6 +34,18 @@ class Platform:
    from room_pixels import PixelRoom
    room=PixelRoom(host,Path(self.library).resolve().parent/'room-pixels.so');self.register_pixel_view(room);return room
   entry=registry.entries['surface-room'];registry.entries['surface-room']=entry._replace(factory=room_factory)
+  if self.mobile and 'rainier-walk' in registry.entries:
+   entry=registry.entries['rainier-walk'];original_rainier=entry.factory
+   def rainier_factory(host,**options):
+    ctx=self.gpu_context
+    if getattr(ctx,'backend',None)!='opengl' or not hasattr(ctx.lib,'pocket_scene_rainier'):
+     return original_rainier(host,**options)
+    from rainier_pixels import RainierView, EAST, SOUTH
+    import math
+    view=RainierView(host);owner=original_rainier(host,pixel_scene=view,**options)
+    owner.yaw=math.atan2(-EAST,SOUTH);owner.pitch=-.12
+    self.register_pixel_view(view);return owner
+   registry.entries['rainier-walk']=entry._replace(factory=rainier_factory)
   if 'wildlife' in registry.entries and (self.display is None or hasattr(self.display.lib,'pocket_scene_wildlife')):
    def wildlife_factory(host,**options):
     sys.path.insert(0,str(HERE.parent/'shell/apps/landscape-lab'))

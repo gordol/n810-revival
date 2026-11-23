@@ -48,8 +48,49 @@ class ViewpointTests(unittest.TestCase):
      fetch.assert_called_once_with()
      self.assertFalse(app.needs_grid)
      self.assertTrue(app.pointer(20,4,40))
+     self.assertEqual(app.z,0)
+     self.assertTrue(app.pointer(20,4,40,released=True))
      self.assertGreater(app.z,0)
     finally:app.close()
+ def test_drag_steers_continuously_and_releases_outside(self):
+  from types import SimpleNamespace
+  path=ROOT/'shell/apps/surface-renderer/registration.py'
+  spec=importlib.util.spec_from_file_location('rainier_drag_test',path)
+  registration=importlib.util.module_from_spec(spec);spec.loader.exec_module(registration)
+  host=Host(50,20,[Window('Rainier walk',0,0,44,18),Window('Scenery',0,0,44,18)])
+  host.activate('Rainier walk')
+  now=[1.]
+  view=SimpleNamespace(poll=lambda owner:None,close=lambda:None)
+  app=registration.create_outdoors(host,clock=lambda:now[0],pixel_scene=view)
+  app.needs_grid=False
+  try:
+   app.pointer(18,9,42)
+   app.pointer(27,3,42,32)
+   now[0]+=.1;app.poll()
+   self.assertGreater(app.z,0);self.assertGreater(app.yaw,0)
+   app.pointer(18,9,42,32);stopped=(app.x,app.z,app.yaw)
+   now[0]+=.1;app.poll()
+   self.assertEqual((app.x,app.z,app.yaw),stopped)
+   app.pointer(-8,22,42,32);now[0]+=.1;app.poll()
+   self.assertLess(app.z,stopped[1])
+   app.pointer(-8,22,42,released=True)
+   self.assertFalse(app.pointer_captured)
+   stopped=(app.x,app.z,app.yaw);now[0]+=1;app.poll()
+   self.assertEqual((app.x,app.z,app.yaw),stopped)
+   app.pointer(20,9,42);app.pointer(20,3,42,32)
+   host.activate('Scenery');app.on_focus()
+   self.assertFalse(app.pointer_captured)
+  finally:app.close()
+
+ def test_walk_height_matches_drawn_triangle(self):
+  sys.path.insert(0,str(ROOT/'graphics'))
+  from rainier_pixels import surface
+  from geometry import HeightField,Vec
+  field=HeightField(2,2,Vec(0,0,0),1,1,(0,10,20,60))
+  self.assertEqual(surface(field,.25,.25),7.5)
+  self.assertEqual(surface(field,.75,.75),37.5)
+  self.assertEqual(surface(field,.5,.5),15)
+
  def test_overview_exposes_the_original_saved_cameras(self):
   from scenery import PRESETS,presets
   self.assertEqual(PRESETS,('original','wide','elevated','valley'))

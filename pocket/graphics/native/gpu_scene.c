@@ -27,6 +27,7 @@ struct gpu_scene {
  unsigned window_budget;int window_budget_ready;
 #else
  struct wildlife_gl wildlife;
+ GLuint rainier_buffer,rainier_depth,rainier_program;unsigned rainier_w,rainier_h;
 #endif
 };
 static Scene_Color scene_rgb(uint32_t v){return (Scene_Color){(v>>16)&255,(v>>8)&255,v&255,255};}
@@ -524,8 +525,19 @@ int pocket_scene_retained_draw(void *ptr,void *target,int x,int y,int width,int 
  return result;
 }
 void pocket_scene_texture_free(void *ptr){struct scene_texture *image=ptr;if(image){Scene_DestroyTexture(image->texture);free(image);}}
+#ifndef POCKET_SCENE_GL
+void pocket_scene_rainier_release(void *ptr){
+ struct gpu_scene *s=ptr;
+ if(!s||!s->rainier_program)return;
+ SDL_RenderFlush(s->device);
+ glDeleteProgram(s->rainier_program);glDeleteBuffers(1,&s->rainier_buffer);glDeleteRenderbuffers(1,&s->rainier_depth);
+ s->rainier_program=s->rainier_buffer=s->rainier_depth=0;
+ s->rainier_w=s->rainier_h=0;
+}
+#endif
 void pocket_scene_close(void *ptr){struct gpu_scene *s=ptr;if(!s)return;
 #ifndef POCKET_SCENE_GL
+ pocket_scene_rainier_release(s);
  if(s->wildlife.program){SDL_RenderFlush(s->device);wildlife_gl_close(&s->wildlife);}
 #endif
  if(s->base)Scene_DestroyTexture(s->base);
@@ -665,4 +677,5 @@ int pocket_scene_dma_stats(void *ptr,uint64_t out[2]){
 
 #ifndef POCKET_SCENE_GL
 #include "wildlife_scene.h"
+#include "rainier_scene.h"
 #endif

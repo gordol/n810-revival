@@ -1,0 +1,83 @@
+/* Static world-space terrain and vegetation. Use the SDL OpenGL canvas
+ * directly, preserving the renderer state used by subsequent UI drawing. */
+static GLuint rainier_program(void){
+ const char *vs="#version 120\n"
+  "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
+  "void main(){pos=gl_Vertex.xyz;tint=gl_Color;vec4 eye=gl_ModelViewMatrix*gl_Vertex;"
+  "distanceToEye=length(eye.xyz);gl_Position=gl_ProjectionMatrix*eye;}";
+ const char *fs="#version 120\n"
+  "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
+  "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
+  "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
+  "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
+  "void main(){vec3 col=tint.rgb;if(tint.a>.5){vec2 p=pos.xz;"
+  "float broad=noise(p*.015);float detail=(noise(p*.64)-.5)*(1.-smoothstep(80.,600.,distanceToEye));"
+  "col*=.80+.40*broad+.30*detail;col+=vec3(.032,.024,-.013)*broad;}"
+  "float haze=1.-exp(-distanceToEye*.000029);gl_FragColor=vec4(mix(col,vec3(.56,.70,.80),haze),1.);}";
+ GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return 0;
+ GLuint frag=wildlife_shader(GL_FRAGMENT_SHADER,fs);if(!frag){glDeleteShader(vert);return 0;}
+ GLuint program=glCreateProgram();glAttachShader(program,vert);glAttachShader(program,frag);
+ glLinkProgram(program);glDeleteShader(frag);glDeleteShader(vert);
+ GLint ok;glGetProgramiv(program,GL_LINK_STATUS,&ok);
+ if(!ok){SDL_SetError("Rainier terrain shader link failed");glDeleteProgram(program);return 0;}
+ return program;
+}
+
+int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
+                         float east,float eye,float north,float yaw,float pitch){
+ struct gpu_scene *s=ptr;
+ if(!s||w<1||h<1||count<3||count>2000000||(!vertices&&!s->rainier_buffer))
+  return SDL_SetError("Invalid Rainier scene");
+ if(scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
+ if(!s->rainier_program){s->rainier_program=rainier_program();if(!s->rainier_program)return -1;}
+ GLint previous_program,previous_buffer,previous_depth;
+ glGetIntegerv(GL_CURRENT_PROGRAM,&previous_program);
+ glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&previous_buffer);
+ glGetIntegerv(GL_RENDERBUFFER_BINDING,&previous_depth);
+ glPushAttrib(GL_ALL_ATTRIB_BITS);glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
+ if(!s->rainier_buffer)glGenBuffers(1,&s->rainier_buffer);
+ glBindBuffer(GL_ARRAY_BUFFER,s->rainier_buffer);
+ if(vertices)glBufferData(GL_ARRAY_BUFFER,(size_t)count*7*sizeof(float),vertices,GL_STATIC_DRAW);
+ if(!s->rainier_depth)glGenRenderbuffers(1,&s->rainier_depth);
+ glBindRenderbuffer(GL_RENDERBUFFER,s->rainier_depth);
+ if(s->rainier_w!=s->width||s->rainier_h!=s->height){
+  glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT24,s->width,s->height);
+  s->rainier_w=s->width;s->rainier_h=s->height;
+ }
+ glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,s->rainier_depth);
+ int result=0;
+ if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE){
+  result=SDL_SetError("Rainier depth buffer unavailable");goto done;
+ }
+ glUseProgram(0);glDisable(GL_TEXTURE_2D);glDisable(GL_LIGHTING);glDisable(GL_BLEND);
+ glDisable(GL_CULL_FACE);glEnable(GL_DEPTH_TEST);glDepthMask(GL_TRUE);glDepthFunc(GL_LEQUAL);
+ glViewport(x,y,w,h);glEnable(GL_SCISSOR_TEST);glScissor(x,y,w,h);
+ const GLfloat sky[]={.54f,.69f,.79f,1.f};
+ glClearColor(sky[0],sky[1],sky[2],1);glClearDepth(1.);glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+ glDisable(GL_DEPTH_TEST);glDisable(GL_FOG);
+ glMatrixMode(GL_PROJECTION);glPushMatrix();glLoadIdentity();
+ glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
+ glBegin(GL_TRIANGLE_STRIP);
+ glColor3f(.34f,.54f,.72f);glVertex2f(-1,-1);glVertex2f(1,-1);
+ glColor3f(.76f,.84f,.87f);glVertex2f(-1,1);glVertex2f(1,1);glEnd();
+ glPopMatrix();glMatrixMode(GL_PROJECTION);glPopMatrix();
+ glEnable(GL_DEPTH_TEST);glUseProgram(s->rainier_program);
+ glMatrixMode(GL_PROJECTION);glPushMatrix();glLoadIdentity();
+ /* 58 degree vertical FOV; target texture row zero is the upper screen row. */
+ double half=.2*.5543,wide=half*w/h;
+ glFrustum(-wide,wide,half,-half,.2,85000.);
+ glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
+ glScalef(1,1,-1);glRotatef(-pitch*57.29578f,1,0,0);glRotatef(-yaw*57.29578f,0,1,0);
+ glTranslatef(-east,-eye,-north);
+ glEnableClientState(GL_VERTEX_ARRAY);glEnableClientState(GL_COLOR_ARRAY);
+ glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+ glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);
+ glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
+ glDrawArrays(GL_TRIANGLES,0,(GLsizei)count);
+ glPopMatrix();glMatrixMode(GL_PROJECTION);glPopMatrix();
+done:
+ glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,0);
+ glUseProgram(previous_program);glBindRenderbuffer(GL_RENDERBUFFER,previous_depth);
+ glPopClientAttrib();glBindBuffer(GL_ARRAY_BUFFER,previous_buffer);glPopAttrib();
+ return result;
+}

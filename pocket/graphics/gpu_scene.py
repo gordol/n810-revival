@@ -181,6 +181,7 @@ class Context:
         A missing sink keeps the established image path. A failed admitted
         command propagates; it must never silently rasterize through the CPU.
         """
+        if callable(getattr(app,'draw_rainier',None)):return app.draw_rainier(self)
         if callable(getattr(app,'draw_wildlife',None)):return app.draw_wildlife(self)
         if callable(getattr(app,'render_retained',None)):return self.retained_scene(app)
         draw=self.lib.pocket_scene_room if self.native_room else None
