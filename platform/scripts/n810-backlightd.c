@@ -252,19 +252,16 @@ int main(int argc, char **argv)
 	pollfd[1].events = POLLIN;
 	pollfd[2].fd = virtual_fd;
 	pollfd[2].events = POLLIN;
-	if (open) {
+	if (open)
 		activity = milliseconds();
-		active_brightness = power_adjusted_brightness(&config);
-		next_sample = activity + (long long)config.sample_seconds * 1000;
-		set_light(active_brightness, &last);
-	} else {
-		set_light(0, &last);
-	}
 
 	bool was_locked = false;
 	while (running) {
 		bool locked = access(LOCK_PATH, F_OK) == 0;
-		if (was_locked && !locked) activity = milliseconds();
+		if (was_locked && !locked) {
+			activity = milliseconds();
+			next_sample = 0;
+		}
 		was_locked = locked;
 		long long now = milliseconds();
 		long long hold_end = activity + (long long)config.hold_seconds * 1000;
@@ -303,7 +300,7 @@ int main(int argc, char **argv)
 			timeout = remaining < 250 ? (int)remaining : 250;
 		} else if (illuminated) {
 			set_light(floor, &last);
-		} else if (open) {
+		} else {
 			set_light(0, &last);
 		}
 		if (illuminated && config.idle_seconds &&
@@ -334,13 +331,9 @@ int main(int argc, char **argv)
 				if (events[i].type != EV_SW || events[i].code != SW_KEYPAD_SLIDE)
 					continue;
 				open = events[i].value != 0;
-				if (open && !locked) {
+				if (open) {
 					activity = milliseconds();
-					active_brightness = power_adjusted_brightness(&config);
-					next_sample = activity + (long long)config.sample_seconds * 1000;
-					set_light(active_brightness, &last);
-				} else {
-					set_light(0, &last);
+					next_sample = 0;
 				}
 			}
 		}
@@ -353,12 +346,10 @@ int main(int argc, char **argv)
 			if (!(pollfd[source].revents & POLLIN))
 				continue;
 			bytes = read(pollfd[source].fd, events, sizeof(events));
-			for (ssize_t i = 0; open && !locked && i < bytes / (ssize_t)sizeof(events[0]); i++) {
+			for (ssize_t i = 0; open && i < bytes / (ssize_t)sizeof(events[0]); i++) {
 				if (events[i].type == EV_KEY && events[i].value == 1) {
 					activity = milliseconds();
-					active_brightness = power_adjusted_brightness(&config);
-					next_sample = activity + (long long)config.sample_seconds * 1000;
-					set_light(active_brightness, &last);
+					next_sample = 0;
 					break;
 				}
 			}

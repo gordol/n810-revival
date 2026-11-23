@@ -39,12 +39,14 @@ int mock_ioctl(int fd, unsigned long request, ...) {
     return -1;
 }
 '''
+    # Preserve every sysfs write so a brief flash cannot pass as steady darkness.
+    source = source.replace('fopen(LED_PATH, "w")', 'fopen(LED_PATH, "a")')
     source += wrapper
     source = source.replace('#include <sys/ioctl.h>',
                             '#include <sys/ioctl.h>\nint mock_ioctl(int, unsigned long, ...);\n#define ioctl mock_ioctl')
     (root / 'daemon.c').write_text(source)
     (root / 'config').write_text('keyboard_hold_seconds=1\nkeyboard_fade_seconds=1\nkeyboard_idle_seconds=4\n')
-    for name, value in [('lux', 20), ('capacity', 90), ('online', 1), ('brightness', 0)]:
+    for name, value in [('lux', 20), ('capacity', 90), ('online', 1)]:
         (root / name).write_text(str(value))
     subprocess.run(['gcc', '-Wall', '-Wextra', '-Werror', str(root / 'daemon.c'), '-o', str(root / 'daemon')], check=True)
     fds = []
@@ -56,12 +58,16 @@ int mock_ioctl(int fd, unsigned long request, ...) {
         return fd
     physical = device(0)
     switch = device(2)
+    brightness = root / 'brightness'
+    brightness.touch()
+    locked = root / 'locked'
+    locked.touch()
     daemon = subprocess.Popen([str(root / 'daemon')])
     def wait_light(lit, seconds=5):
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
-            text = (root / 'brightness').read_text().strip()
-            if text and (int(text) > 0) == lit:
+            samples = brightness.read_text().splitlines()
+            if samples and (int(samples[-1]) > 0) == lit:
                 return
             assert daemon.poll() is None, 'daemon exited'
             time.sleep(0.05)
@@ -69,9 +75,12 @@ int mock_ioctl(int fd, unsigned long request, ...) {
     def event(fd, type_, code, value):
         os.write(fd, struct.pack('@llHHi', 0, 0, type_, code, value))
     try:
+        wait_light(False)
+        assert brightness.read_text().splitlines() == ['0'], 'locked startup flashed keyboard'
+        locked.unlink()
         wait_light(True)
         time.sleep(2.3)
-        assert int((root / 'brightness').read_text()) == 56, 'idle floor lost'
+        assert int(brightness.read_text().splitlines()[-1]) == 56, 'idle floor lost'
         wait_light(False)
         virtual = device(3)  # Remapper starts after lamp daemon.
         time.sleep(2.2)
@@ -79,17 +88,24 @@ int mock_ioctl(int fd, unsigned long request, ...) {
         wait_light(True)
         wait_light(False)
         print('PASS: late virtual keyboard wakes lamp and fades')
-        (root/'locked').touch();event(virtual,1,30,1)
-        wait_light(False)
-        event(switch,5,10,1);time.sleep(.3)
-        assert int((root/'brightness').read_text())==0, 'locked slide lit keyboard'
-        (root/'locked').unlink();wait_light(True)
-        print('PASS: lock keeps lamp off; unlock restores open keyboard')
+        for online in (1, 0):
+            (root / 'online').write_text(str(online))
+            locked.touch()
+            start = len(brightness.read_text().splitlines())
+            event(virtual, 1, 30, 1)
+            event(switch, 5, 10, 1)
+            time.sleep(0.3)
+            assert all(int(value) == 0 for value in brightness.read_text().splitlines()[start:]), (
+                'input during lock flashed keyboard')
+            locked.unlink()
+            wait_light(True)
+            wait_light(False)
+        print('PASS: locked startup and input stay dark; unlock wakes on charger and battery')
         event(switch, 5, 10, 0)
         time.sleep(0.1)
         event(virtual, 1, 30, 1)
         time.sleep(0.2)
-        assert int((root / 'brightness').read_text()) == 0
+        assert int(brightness.read_text().splitlines()[-1]) == 0
         event(switch, 5, 10, 1)
         wait_light(True)
         wait_light(False)
