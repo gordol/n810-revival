@@ -11,10 +11,11 @@ which paths execute. Hardware CPU, power and throughput deltas are pending.
 2 introduced the FIFO. The old local workaround spun on missing EOW and TXFFE
 flags using two nominal 10 ms timeouts. At HZ=100, the strict jiffies comparison
 can take roughly 10–20 ms per expired wait. TX-only FIFO transfers can encounter
-both. The new device overlay reads the controller revision with runtime PM held,
-keeps FIFO depth zero before revision 2, and uses the existing non-FIFO DMA
-path. Newer controllers use the upstream 5.15 FIFO completion handling again.
-Association, command/reply handling, calibration and firmware inputs still
+both. Both the [N810](https://github.com/gregkh/linux/blob/700e62ea909a70b9f72692d8b7a192ac7ebde0aa/arch/arm/boot/dts/omap2420-n810.dts) and [N810 WiMAX](https://github.com/gregkh/linux/blob/700e62ea909a70b9f72692d8b7a192ac7ebde0aa/arch/arm/boot/dts/omap2420-n810-wimax.dts)
+identify as OMAP2420. This board-specific overlay uses non-FIFO DMA directly
+on both controllers. It removes FIFO setup, per-transfer FIFO depth tests and
+the probe-time revision read. A build targeting newer SoCs should use the
+general revision check in the linked 6.18 patch. Association, command/reply handling, calibration and firmware inputs still
 matter independently. The comparison project reports timeout occurrences on its
 own N810; frequency on ours is unknown. [Original revision check and rationale](https://github.com/thehumanweb/revive-n8x0/blob/7629d71ca775283248a48729fa6cca18ceb01520/kernel/patches/6.18/0039-spi-omap2-mcspi-no-fifo-before-rev2.patch).
 
@@ -62,3 +63,9 @@ publications. Device CPU utilization and battery savings require the physical
 comparison above. The [regression test](../scripts/test-n810-displayd-publication.py)
 also exercises active, blank, sensor-fault and recovered states, stable
 brightness, and recreation of a deleted status file.
+
+Compared with the earlier runtime revision check in this draft, the same
+ARM object build reports 9,202 to 8,514 bytes of text (688 bytes smaller).
+Data and BSS remain 148 and 16 bytes. DWARF reports a 56-byte controller
+structure in both builds. These figures describe the McSPI object and its
+layout; compressed boot image size and tablet power were not measured.

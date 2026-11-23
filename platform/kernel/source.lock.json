@@ -33,8 +33,8 @@
     "source-files.json": "719b0ee883cc850a5acdb53d630cb406257308bc1287fd303c0a223fd5d5dfa2",
     "n810-480mhz.patch": "832fa3a9805262d7f435935767ff368ea7d3b603c0ef77ea51e65233f517f59b",
     "cpu-source-files.json": "e89ffcd8641c7c9a6b1c2472ed6a0739a580ddae34383ca03672f6769db6996e",
-    "n810-device-fixes.patch": "b866ff09fd79940c77e6335846f92c1ce434031efbed1e53052e6a937b5c94f1",
-    "device-source-files.json": "c5e2beb0ec3c364224eec759473fa90dfede2f2889dd10990c1d55be64a38308"
+    "n810-device-fixes.patch": "6bf4ea76c97ea37308a91fe9986e332a1e4e66bd55fa2967832f0eec42cc15b4",
+    "device-source-files.json": "a4edf2be8ed179b31e93c9561b18c44416e847ddbc52b1b1dfec76a616c560b0"
   },
   "toolchain": {
     "gcc_version": "12.2.0",

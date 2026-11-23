@@ -56,24 +56,108 @@
 diff --git a/drivers/spi/spi-omap2-mcspi.c b/drivers/spi/spi-omap2-mcspi.c
 --- a/drivers/spi/spi-omap2-mcspi.c
 +++ b/drivers/spi/spi-omap2-mcspi.c
-@@ -126,6 +126,7 @@
+@@ -31,8 +31,6 @@
+ 
+ #define OMAP2_MCSPI_MAX_FREQ		48000000
+ #define OMAP2_MCSPI_MAX_DIVIDER		4096
+-#define OMAP2_MCSPI_MAX_FIFODEPTH	64
+-#define OMAP2_MCSPI_MAX_FIFOWCNT	0xFFFF
+ #define SPI_AUTOSUSPEND_TIMEOUT		2000
+ 
+ #define OMAP2_MCSPI_REVISION		0x00
+@@ -42,7 +40,6 @@
+ #define OMAP2_MCSPI_WAKEUPENABLE	0x20
+ #define OMAP2_MCSPI_SYST		0x24
+ #define OMAP2_MCSPI_MODULCTRL		0x28
+-#define OMAP2_MCSPI_XFERLEVEL		0x7c
+ 
+ /* per-channel banks, 0x14 bytes each, first is: */
+ #define OMAP2_MCSPI_CHCONF0		0x2c
+@@ -73,14 +70,11 @@
+ #define OMAP2_MCSPI_CHCONF_IS		BIT(18)
+ #define OMAP2_MCSPI_CHCONF_TURBO	BIT(19)
+ #define OMAP2_MCSPI_CHCONF_FORCE	BIT(20)
+-#define OMAP2_MCSPI_CHCONF_FFET		BIT(27)
+-#define OMAP2_MCSPI_CHCONF_FFER		BIT(28)
+ #define OMAP2_MCSPI_CHCONF_CLKG		BIT(29)
+ 
+ #define OMAP2_MCSPI_CHSTAT_RXS		BIT(0)
+ #define OMAP2_MCSPI_CHSTAT_TXS		BIT(1)
+ #define OMAP2_MCSPI_CHSTAT_EOT		BIT(2)
+-#define OMAP2_MCSPI_CHSTAT_TXFFE	BIT(3)
+ 
+ #define OMAP2_MCSPI_CHCTRL_EN		BIT(0)
+ #define OMAP2_MCSPI_CHCTRL_EXTCLK_MASK	(0xff << 8)
+@@ -125,7 +119,6 @@
+ 	struct omap2_mcspi_dma	*dma_channels;
  	struct device		*dev;
  	struct omap2_mcspi_regs ctx;
- 	int			fifo_depth;
-+	bool			no_fifo;
+-	int			fifo_depth;
  	bool			slave_aborted;
  	unsigned int		pin_dir:1;
  	size_t			max_xfer_len;
-@@ -302,7 +303,7 @@
- 	mcspi = spi_master_get_devdata(master);
+@@ -289,85 +282,11 @@
+ 	ctx->modulctrl = l;
+ }
  
- 	chconf = mcspi_cached_chconf0(spi);
+-static void omap2_mcspi_set_fifo(const struct spi_device *spi,
+-				struct spi_transfer *t, int enable)
+-{
+-	struct spi_master *master = spi->master;
+-	struct omap2_mcspi_cs *cs = spi->controller_state;
+-	struct omap2_mcspi *mcspi;
+-	unsigned int wcnt;
+-	int max_fifo_depth, bytes_per_word;
+-	u32 chconf, xferlevel;
+-
+-	mcspi = spi_master_get_devdata(master);
+-
+-	chconf = mcspi_cached_chconf0(spi);
 -	if (enable) {
-+	if (enable && !mcspi->no_fifo) {
- 		bytes_per_word = mcspi_bytes_per_word(cs->word_len);
- 		if (t->len % bytes_per_word != 0)
- 			goto disable_fifo;
-@@ -350,24 +351,6 @@
+-		bytes_per_word = mcspi_bytes_per_word(cs->word_len);
+-		if (t->len % bytes_per_word != 0)
+-			goto disable_fifo;
+-
+-		if (t->rx_buf != NULL && t->tx_buf != NULL)
+-			max_fifo_depth = OMAP2_MCSPI_MAX_FIFODEPTH / 2;
+-		else
+-			max_fifo_depth = OMAP2_MCSPI_MAX_FIFODEPTH;
+-
+-		wcnt = t->len / bytes_per_word;
+-		if (wcnt > OMAP2_MCSPI_MAX_FIFOWCNT)
+-			goto disable_fifo;
+-
+-		xferlevel = wcnt << 16;
+-		if (t->rx_buf != NULL) {
+-			chconf |= OMAP2_MCSPI_CHCONF_FFER;
+-			xferlevel |= (bytes_per_word - 1) << 8;
+-		}
+-
+-		if (t->tx_buf != NULL) {
+-			chconf |= OMAP2_MCSPI_CHCONF_FFET;
+-			xferlevel |= bytes_per_word - 1;
+-		}
+-
+-		mcspi_write_reg(master, OMAP2_MCSPI_XFERLEVEL, xferlevel);
+-		mcspi_write_chconf0(spi, chconf);
+-		mcspi->fifo_depth = max_fifo_depth;
+-
+-		return;
+-	}
+-
+-disable_fifo:
+-	if (t->rx_buf != NULL)
+-		chconf &= ~OMAP2_MCSPI_CHCONF_FFER;
+-
+-	if (t->tx_buf != NULL)
+-		chconf &= ~OMAP2_MCSPI_CHCONF_FFET;
+-
+-	mcspi_write_chconf0(spi, chconf);
+-	mcspi->fifo_depth = 0;
+-}
+-
+ static int mcspi_wait_for_reg_bit(void __iomem *reg, unsigned long bit)
+ {
  	unsigned long timeout;
  
  	timeout = jiffies + msecs_to_jiffies(1000);
@@ -98,44 +182,149 @@ diff --git a/drivers/spi/spi-omap2-mcspi.c b/drivers/spi/spi-omap2-mcspi.c
  	while (!(readl_relaxed(reg) & bit)) {
  		if (time_after(jiffies, timeout)) {
  			if (!(readl_relaxed(reg) & bit))
-@@ -671,11 +654,9 @@
- 		if (mcspi->fifo_depth > 0) {
- 			irqstat_reg = mcspi->base + OMAP2_MCSPI_IRQSTATUS;
+@@ -453,9 +372,9 @@
+ {
+ 	struct omap2_mcspi	*mcspi;
+ 	struct omap2_mcspi_dma  *mcspi_dma;
+-	unsigned int		count, transfer_reduction = 0;
++	unsigned int		count, transfer_reduction;
+ 	struct scatterlist	*sg_out[2];
+-	int			nb_sizes = 0, out_mapped_nents[2], ret, x;
++	int			out_mapped_nents[2], ret, x;
+ 	size_t			sizes[2];
+ 	u32			l;
+ 	int			elements = 0;
+@@ -473,8 +392,7 @@
+ 	 *  it mentions reducing DMA transfer length by one element in master
+ 	 *  normal mode.
+ 	 */
+-	if (mcspi->fifo_depth == 0)
+-		transfer_reduction = es;
++	transfer_reduction = es;
  
+ 	word_len = cs->word_len;
+ 	l = mcspi_cached_chconf0(spi);
+@@ -493,24 +411,14 @@
+ 	 *  Reduce DMA transfer length by one more if McSPI is
+ 	 *  configured in turbo mode.
+ 	 */
+-	if ((l & OMAP2_MCSPI_CHCONF_TURBO) && mcspi->fifo_depth == 0)
++	if (l & OMAP2_MCSPI_CHCONF_TURBO)
+ 		transfer_reduction += es;
+ 
+-	if (transfer_reduction) {
+-		/* Split sgl into two. The second sgl won't be used. */
+-		sizes[0] = count - transfer_reduction;
+-		sizes[1] = transfer_reduction;
+-		nb_sizes = 2;
+-	} else {
+-		/*
+-		 * Don't bother splitting the sgl. This essentially
+-		 * clones the original sgl.
+-		 */
+-		sizes[0] = count;
+-		nb_sizes = 1;
+-	}
+-
+-	ret = sg_split(xfer->rx_sg.sgl, xfer->rx_sg.nents, 0, nb_sizes,
++	/* The last one or two words are read from RX0 after DMA. */
++	sizes[0] = count - transfer_reduction;
++	sizes[1] = transfer_reduction;
++
++	ret = sg_split(xfer->rx_sg.sgl, xfer->rx_sg.nents, 0, ARRAY_SIZE(sizes),
+ 		       sizes, sg_out, out_mapped_nents, GFP_KERNEL);
+ 
+ 	if (ret < 0) {
+@@ -539,11 +447,8 @@
+ 		return 0;
+ 	}
+ 
+-	for (x = 0; x < nb_sizes; x++)
++	for (x = 0; x < ARRAY_SIZE(sg_out); x++)
+ 		kfree(sg_out[x]);
+-
+-	if (mcspi->fifo_depth > 0)
+-		return count;
+ 
+ 	/*
+ 	 *  Due to the DMA transfer length reduction the missing bytes must
+@@ -606,7 +511,6 @@
+ 	enum dma_slave_buswidth width;
+ 	unsigned es;
+ 	void __iomem		*chstat_reg;
+-	void __iomem            *irqstat_reg;
+ 	int			wait_res;
+ 
+ 	mcspi = spi_master_get_devdata(spi->master);
+@@ -668,35 +572,13 @@
+ 				return 0;
+ 		}
+ 
+-		if (mcspi->fifo_depth > 0) {
+-			irqstat_reg = mcspi->base + OMAP2_MCSPI_IRQSTATUS;
+-
 -			// FIXME: this should wait standard 1s and there should be no timeout!
 -			// however, by ignoring a very short timeout the wifi works at ~50k/s
 -			if (mcspi_wait_for_reg_bit_ms(irqstat_reg,
 -						OMAP2_MCSPI_IRQSTATUS_EOW, 10) < 0)
 -				dev_dbg(&spi->dev, "EOW timed out\n");
-+			if (mcspi_wait_for_reg_bit(irqstat_reg,
-+						OMAP2_MCSPI_IRQSTATUS_EOW) < 0)
-+				dev_err(&spi->dev, "EOW timed out\n");
- 
- 			mcspi_write_reg(mcspi->master, OMAP2_MCSPI_IRQSTATUS,
- 					OMAP2_MCSPI_IRQSTATUS_EOW);
-@@ -685,12 +666,10 @@
+-
+-			mcspi_write_reg(mcspi->master, OMAP2_MCSPI_IRQSTATUS,
+-					OMAP2_MCSPI_IRQSTATUS_EOW);
+-		}
+-
+ 		/* for TX_ONLY mode, be sure all words have shifted out */
  		if (rx == NULL) {
  			chstat_reg = cs->base + OMAP2_MCSPI_CHSTAT0;
- 			if (mcspi->fifo_depth > 0) {
+-			if (mcspi->fifo_depth > 0) {
 -				// FIXME: this should wait standard 1s and there should be no timeout!
 -				// however, by ignoring a very short timeout the wifi works at ~50k/s
 -				wait_res = mcspi_wait_for_reg_bit_ms(chstat_reg,
 -						OMAP2_MCSPI_CHSTAT_TXFFE, 10);
-+				wait_res = mcspi_wait_for_reg_bit(chstat_reg,
-+						OMAP2_MCSPI_CHSTAT_TXFFE);
- 				if (wait_res < 0)
+-				if (wait_res < 0)
 -					dev_dbg(&spi->dev, "TXFFE timed out\n");
-+					dev_err(&spi->dev, "TXFFE timed out\n");
- 			} else {
- 				wait_res = mcspi_wait_for_reg_bit(chstat_reg,
- 						OMAP2_MCSPI_CHSTAT_TXS);
-@@ -1346,6 +1325,9 @@
- 		return ret;
- 	}
+-			} else {
+-				wait_res = mcspi_wait_for_reg_bit(chstat_reg,
+-						OMAP2_MCSPI_CHSTAT_TXS);
+-				if (wait_res < 0)
+-					dev_err(&spi->dev, "TXS timed out\n");
+-			}
++			wait_res = mcspi_wait_for_reg_bit(chstat_reg,
++					OMAP2_MCSPI_CHSTAT_TXS);
++			if (wait_res < 0)
++				dev_err(&spi->dev, "TXS timed out\n");
+ 			if (wait_res >= 0 &&
+ 				(mcspi_wait_for_reg_bit(chstat_reg,
+ 					OMAP2_MCSPI_CHSTAT_EOT) < 0))
+@@ -1218,11 +1100,6 @@
+ 	if (t->len) {
+ 		unsigned	count;
  
-+	/* McSPI 1.x on OMAP2420 has DMA but lacks the transfer FIFO. */
-+	mcspi->no_fifo = ((mcspi_read_reg(master, OMAP2_MCSPI_REVISION) >> 4) & 0xf) < 2;
-+
- 	mcspi_write_reg(master, OMAP2_MCSPI_WAKEUPENABLE,
- 			OMAP2_MCSPI_WAKEUPENABLE_WKEN);
- 	ctx->wakeupenable = OMAP2_MCSPI_WAKEUPENABLE_WKEN;
+-		if ((mcspi_dma->dma_rx && mcspi_dma->dma_tx) &&
+-		    master->cur_msg_mapped &&
+-		    master->can_dma(master, spi, t))
+-			omap2_mcspi_set_fifo(spi, t, 1);
+-
+ 		omap2_mcspi_set_enable(spi, 1);
+ 
+ 		/* RX_ONLY mode needs dummy data in TX reg */
+@@ -1245,9 +1122,6 @@
+ 
+ 	omap2_mcspi_set_enable(spi, 0);
+ 
+-	if (mcspi->fifo_depth > 0)
+-		omap2_mcspi_set_fifo(spi, t, 0);
+-
+ out:
+ 	/* Restore defaults if they were overriden */
+ 	if (par_override) {
+@@ -1267,9 +1141,6 @@
+ 
+ 	if (spi->cs_gpiod)
+ 		omap2_mcspi_set_cs(spi, !(spi->mode & SPI_CS_HIGH));
+-
+-	if (mcspi->fifo_depth > 0 && t)
+-		omap2_mcspi_set_fifo(spi, t, 0);
+ 
+ 	return status;
+ }
