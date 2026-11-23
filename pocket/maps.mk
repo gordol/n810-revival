@@ -26,3 +26,7 @@ maps-elevation:
 # Offline derivation: never downloads a second coarse DEM or local crop.
 maps-terrain:
 	$(PYTHON) tools/maps.py terrain $(MAP_ARGS) --spacing-m $(MAP_SPACING) --workers $(MAP_WORKERS)
+
+.PHONY: mobile-map-deps
+mobile-map-deps:
+	sh platform/android/maps/setup.sh

@@ -6,7 +6,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
 import native_data_setup as m
 class DeviceDataTests(unittest.TestCase):
  def test_installed_app_offers_verification_instead_of_unavailable_build_tools(self):
-  with tempfile.TemporaryDirectory() as d,patch.object(m,'REPOSITORY',Path(d)),patch.dict('os.environ',{'POCKET_DATA_ROOT':d}):
+  with tempfile.TemporaryDirectory() as d,patch.object(m,'POCKET',Path(d)),patch.dict('os.environ',{'POCKET_DATA_ROOT':d}):
    form=m.OfflineData()
    self.assertEqual([t.key for t in form.navigation_targets()],['output','verify'])
    self.assertEqual(form.output.text,d)
@@ -21,8 +21,31 @@ class DeviceDataTests(unittest.TestCase):
   self.assertTrue(events);self.assertTrue(events[-1][form.field].endswith('7'))
  def test_source_checkout_keeps_build_actions(self):
   with tempfile.TemporaryDirectory() as d:
-   root=Path(d);(root/'pocket/tools').mkdir(parents=True);(root/'pocket/tools/maps.py').touch()
-   with patch.object(m,'REPOSITORY',root):
+   root=Path(d);(root/'tools').mkdir(parents=True);(root/'tools/maps.py').touch()
+   with patch.object(m,'POCKET',root):
     form=m.OfflineData();keys=[t.key for t in form.navigation_targets()]
     self.assertIn('plan',keys);self.assertIn('build',keys);self.assertNotIn('verify',keys)
+ def test_phone_build_uses_local_guest_for_every_stage(self):
+  import os
+  with tempfile.TemporaryDirectory() as d, patch.dict(os.environ,POCKET_TERMUX='1'), patch('shutil.which',return_value='proot-distro'), patch('subprocess.Popen') as spawn:
+   output=Path(d)/'offline maps'
+   spawn.return_value.communicate.return_value=('ok','')
+   spawn.return_value.returncode=0
+   m.prepare('build','1 1 1.01 1.01','',str(output),'30')
+   commands=[call.args[0] for call in spawn.call_args_list]
+   self.assertEqual([cmd[-1] for cmd in commands[:-1]],['configure','download','build','elevation'])
+   self.assertEqual(commands[-1][-1],'--plan')
+   for cmd in commands[:-1]:
+    self.assertEqual(cmd[:3],['proot-distro','login','pocket-maps'])
+    self.assertIn(str(output),cmd[:cmd.index('--')])
+    self.assertTrue(cmd[cmd.index('--source')+1].endswith('.osm'))
+    self.assertEqual(cmd[cmd.index('--url')+1],'https://api.openstreetmap.org/api/0.6/map?bbox=1.0,1.0,1.01,1.01')
+ def test_phone_plan_needs_no_guest_or_network(self):
+  import os
+  with tempfile.TemporaryDirectory() as d,patch.dict(os.environ,POCKET_TERMUX='1'),patch('shutil.which',return_value=None):
+   output=Path(d)/'area'
+   self.assertIn('estimated_raw_bytes',m.prepare('plan','1 1 1.01 1.01','',str(output),'30'))
+   self.assertFalse(output.exists())
+   with self.assertRaisesRegex(ValueError,'mobile-map-deps'):
+    m.prepare('build','1 1 1.01 1.01','',str(output),'30')
 if __name__=='__main__':unittest.main()

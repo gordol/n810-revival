@@ -28,6 +28,17 @@ class MapBuildTests(unittest.TestCase):
                 maps.main(['plan','--output',str(output)])
             self.assertEqual(json.loads((output/'map-area.json').read_text())['bbox'],[1,1,1.0064,1.0064])
 
+    def test_cached_geofabrik_extract_still_fetches_its_missing_boundary(self):
+        import io
+        with tempfile.TemporaryDirectory() as folder:
+            source=Path(folder)/'region.osm.pbf'
+            source.write_bytes(b'cached fixture')
+            with patch('urllib.request.urlopen',return_value=io.BytesIO(b'fictional boundary')) as fetch:
+                maps.main(['download','--source',str(source),'--output',folder,
+                           '--url','https://download.geofabrik.de/example-latest.osm.pbf'])
+            self.assertEqual(fetch.call_args.args[0].full_url,'https://download.geofabrik.de/example.poly')
+            self.assertEqual(source.with_suffix('.poly').read_bytes(),b'fictional boundary')
+
     @unittest.skipUnless(HAS_GIS,'OSM build integration needs the maps build-host dependencies')
     def test_fresh_osm_build_and_cached_elevation_feed_the_real_renderer_without_mirrors(self):
         fixture=fixtures.PipelineTests();fixture.setUp()
@@ -50,7 +61,7 @@ class MapBuildTests(unittest.TestCase):
             maps.main(['download',*options])
             maps.main(['build',*options])
             maps.main(['terrain',*options])
-            with patch.object(maps,'run',side_effect=AssertionError('Unchanged inputs rebuilt')),patch.object(maps,'build_views',side_effect=AssertionError('Duplicate build')):
+            with patch.object(maps,'import_region',side_effect=AssertionError('Unchanged inputs rebuilt')),patch.object(maps,'build_views',side_effect=AssertionError('Duplicate build')):
                 maps.main(['build',*options])
         self.assertTrue((fixture.data/'maps/walk-layers.n8w').is_file())
         self.assertFalse(list(fixture.data.rglob('terrain-next.n8t')))

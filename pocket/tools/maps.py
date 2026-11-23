@@ -9,9 +9,7 @@ import json
 import marshal
 from pathlib import Path
 import shutil
-import subprocess
 import struct
-import sys
 import urllib.request
 import urllib.parse
 import zlib
@@ -46,8 +44,12 @@ def download(url, destination):
         temporary.unlink(missing_ok=True)
 
 
-def run(script, *args):
-    subprocess.run([sys.executable, str(script), *map(str, args)], check=True)
+def import_region(*args):
+    if __package__:
+        from .import_osm_region import main as run_import
+    else:
+        from import_osm_region import main as run_import
+    run_import(list(map(str,args)))
 
 
 def index_roads(roads,tile_size):
@@ -153,10 +155,10 @@ def main(argv=None):
         print('Saved map area; no data downloaded.')
         return
     if args.action=='download':
-        if source.is_file():print('Using existing input: '+str(source));return
+        if source.is_file() and not url:print('Using existing input: '+str(source));return
         if not url:parser.error('Set --url for the chosen OSM extract; no region is downloaded implicitly')
         download(url,source)
-        if url.startswith('https://download.geofabrik.de/') and url.endswith('.osm.pbf'):download(url[:-8]+'.poly',source.with_suffix('.poly'))
+        if url.startswith('https://download.geofabrik.de/') and url.endswith('.osm.pbf'):download(url.removesuffix('.osm.pbf').removesuffix('-latest')+'.poly',source.with_suffix('.poly'))
         return
     if args.action in ('terrain','elevation','plan'):
         try:terrain(args.output,bbox,spacing=args.spacing_m,workers=args.workers,offline=args.action=='terrain',plan_only=args.action=='plan')
@@ -172,7 +174,7 @@ def main(argv=None):
         print('Map inputs and builders unchanged; using existing geography and terminal views.')
         return
     extra=['--coverage-file',coverage] if coverage.is_file() else []
-    run(TOOLS/'import_osm_region.py',source,'--bbox',*bbox,'--output',args.output,*extra)
+    import_region(source,'--bbox',*bbox,'--output',args.output,*extra)
     build_views(args.output,maps,bbox)
     write_json(receipt,identity)
     print('Built shared geography and terminal views. Elevation: maps elevation; no resource mirrors created.')

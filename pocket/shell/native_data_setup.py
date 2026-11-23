@@ -3,13 +3,14 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import hashlib
 import os
+import shutil
 import signal
 import subprocess
 import threading
 import sys
 from app_widgets import Canvas, TextInput
 
-REPOSITORY = Path(__file__).resolve().parents[2]
+POCKET = Path(__file__).resolve().parents[1]
 
 
 def prepare(action, bbox, url, output, spacing, cancelled=None, process_changed=None, host=""):
@@ -21,7 +22,7 @@ def prepare(action, bbox, url, output, spacing, cancelled=None, process_changed=
         if result.returncode:raise ValueError((result.stderr or result.stdout)[-500:])
         return 'Reference data verified: '+result.stdout.strip()
     if action=='push':
-        commands=[[sys.executable,str(REPOSITORY/'pocket/tools/push_reference_data.py'),str(Path(output).expanduser()),host]]
+        commands=[[sys.executable,str(POCKET/'tools/push_reference_data.py'),str(Path(output).expanduser()),host]]
     else:
         if action not in ('plan','build'):raise ValueError('Choose Plan or Download and build')
         coordinates=[float(value) for value in bbox.split()]
@@ -30,35 +31,56 @@ def prepare(action, bbox, url, output, spacing, cancelled=None, process_changed=
             raise ValueError('Enter west south east north bounds')
         spacing=float(spacing)
         if not isfinite(spacing) or spacing<1:raise ValueError('Elevation spacing must be at least one metre')
+        suffix='.osm' if url.endswith('.osm') else '.osm.pbf'
+        if not url.strip():
+            west,south,east,north=coordinates
+            if (east-west)*(north-south)>0.25:
+                raise ValueError('For an area over 0.25 square degrees, enter a matching OSM PBF extract URL')
+            url='https://api.openstreetmap.org/api/0.6/map?bbox='+','.join(map(str,coordinates))
+            suffix='.osm'
         if not url.startswith('https://') or any(ord(c)<32 for c in url):raise ValueError('Enter an HTTPS URL for a matching OSM PBF extract')
-        directory=Path(output).expanduser().absolute()
+        directory=Path(output).expanduser().resolve()
         if directory==Path('/') or directory.is_relative_to('/dev'):raise ValueError('Choose a local data folder')
-        script=REPOSITORY/'pocket/tools/maps.py'
-        if not script.is_file():raise ValueError('Build regional data on the laptop checkout, then transfer prepared outputs')
-        base=[sys.executable,str(script),'--bbox',*map(str,coordinates),'--url',url,
-              '--source',str(directory/'downloads'/('region-'+hashlib.sha256(url.encode()).hexdigest()[:16]+'.osm.pbf')),'--output',str(directory),
-              '--spacing-m',str(spacing)]
+        script=POCKET/'tools/maps.py'
+        if not script.is_file():raise ValueError('Map preparation requires the Pocket source package with tools/maps.py')
+        interpreter=[sys.executable]
+        if action=='build' and os.environ.get('POCKET_TERMUX')=='1':
+            if not shutil.which('proot-distro'):
+                raise ValueError('Run make mobile-map-deps once in Termux to install the on-phone GIS tools')
+            directory.mkdir(parents=True,exist_ok=True)
+            # Keep file names identical on both sides so saved selections and receipts work in Termux.
+            mounts=[POCKET] if directory.is_relative_to(POCKET) else [POCKET,directory]
+            interpreter=['proot-distro','login','pocket-maps']
+            for mount in mounts:
+                interpreter.extend(['--bind',str(mount)])
+            interpreter.extend(['--','/usr/bin/python3'])
+        base=[*interpreter,str(script),'--bbox',*map(str,coordinates),'--url',url,
+              '--source',str(directory/'downloads'/('region-'+hashlib.sha256(url.encode()).hexdigest()[:16]+suffix)),'--output',str(directory),
+              '--spacing-m',str(spacing),'--workers','1' if os.environ.get('POCKET_TERMUX')=='1' else '2']
         commands=[[*base,step] for step in (('plan',) if action=='plan' else ('configure','download','build','elevation'))]
+        if action=='build':
+            commands.append([sys.executable,str(POCKET/'tools/install_reference_data.py'),'--source',str(directory),'--plan'])
     outputs=[]
     for command in commands:
         if cancelled is not None and cancelled.is_set():raise InterruptedError('Preparation cancelled; completed inputs remain reusable')
-        process=subprocess.Popen(command,cwd=REPOSITORY/'pocket',stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
+        process=subprocess.Popen(command,cwd=POCKET,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
         if process_changed:process_changed(process)
         if cancelled is not None and cancelled.is_set():os.killpg(process.pid,signal.SIGTERM)
         stdout,stderr=process.communicate()
         if process_changed:process_changed(None)
         if process.returncode:raise RuntimeError((stderr or stdout)[-1500:] or 'Preparation cancelled')
         outputs.append(stdout[-2500:])
+    if action=='build':return 'Built offline maps and terrain in '+str(directory)
     return '\n'.join(outputs)[-5000:]
 
 
 class OfflineData:
     navigation_help_keys=('?','help')
     def __init__(self):
-        self.device_only=not (REPOSITORY/'pocket/tools/maps.py').is_file()
+        self.device_only=not (POCKET/'tools/maps.py').is_file()
         self.width=86;self.height=28;self.field='output' if self.device_only else 'bbox'
         self.host=TextInput('',limit=253);self.bbox=TextInput('',limit=100);self.url=TextInput('',limit=500)
-        self.output=TextInput(str(REPOSITORY/'pocket/data'),limit=1000);self.spacing=TextInput('15',limit=8)
+        self.output=TextInput(os.environ.get('POCKET_DATA_ROOT') or str(POCKET/'data'),limit=1000);self.spacing=TextInput('15',limit=8)
         if self.device_only:
             from data_paths import data_root
             self.output=TextInput(str(data_root()),limit=1000)
@@ -71,7 +93,7 @@ class OfflineData:
     def navigation_targets(self):
         from native_navigation import Target
         if self.device_only:return [Target('output','Installed reference-data folder','input'),Target('verify','Verify installed maps and elevation','action','verify')]
-        return [Target(k,v,'input') for k,v in [('bbox','Bounds: west south east north'),('url','OSM PBF extract HTTPS URL'),('output','Local data folder'),('spacing','Elevation spacing, metres')]]+[
+        return [Target(k,v,'input') for k,v in [('bbox','Bounds: west south east north'),('url','OSM PBF URL (optional for small areas)'),('output','Local data folder'),('spacing','Elevation spacing, metres')]]+[
             Target('plan','Plan / reuse / estimated size','action','plan'),Target('build','Download and build this area','action','build'),
             Target('host','N810 SSH hostname or alias','input'),Target('push','Push prepared maps to N810','action','push')]
     def navigation_focus(self):return self.field
@@ -99,19 +121,24 @@ class OfflineData:
     def lines(self):
         c=Canvas(self.width,self.height);self._hits=[];self._spans=[]
         c.put(0,0,'Offline Data · installed maps and elevation' if self.device_only else 'Offline Data · prepare and transfer regional maps and terrain')
-        row=2
+        compact=self.height<25
+        row=1 if compact else 2
         for target in self.navigation_targets():
             value=self.navigation_input(target.key)
             if value is not None:
                 c.put(0,row,target.title);row+=1
                 text,roles=value.presentation(self.width,focused=self.field==target.key)
                 c.put(0,row,text);self._hits.append((row,target.key))
-                self._spans.extend((row,x,n,role) for x,n,role in roles);row+=2
+                self._spans.extend((row,x,n,role) for x,n,role in roles);row+=1 if compact else 2
             else:
                 c.put(0,row,'[ '+target.title+' ]');self._hits.append((row,target.key));row+=1
-        c.put(0,self.height-5,self.error or self.status)
-        c.put(0,self.height-3,'Use n810-install-reference-data on prepared data; restart Pocket after installing.' if self.device_only else 'Build dependencies: make maps-deps. Map transfers use SSH.')
-        c.put(0,self.height-2,'FCC download is in ULS Lookup.')
+        c.put(0,self.height-(2 if compact else 5),self.error or self.status)
+        if not compact:
+            if self.device_only:hint='Restart Pocket after installing prepared data.'
+            elif os.environ.get('POCKET_TERMUX')=='1':hint='On-phone builder: make mobile-map-deps in Termux.'
+            else:hint='Build dependencies: make maps-deps. Map transfers use SSH.'
+            c.put(0,self.height-3,hint)
+            c.put(0,self.height-2,'FCC download is in ULS Lookup.')
         c.put(0,self.height-1,'Tab fields · Enter action · ? help')
         return c.lines()
     def spans(self):return tuple(self._spans)
@@ -131,7 +158,7 @@ class OfflineData:
             if isinstance(state.get(key),str):getattr(self,key).text=state[key][:1000]
     def help_pages(self):
         return (('Offline Data',('Select a bounding box and an OSM extract covering it. Plan reports reusable inputs and estimated elevation size without downloading. Download and build acquires the extract and USGS fine elevation and derives display levels locally.',
-            'Prepare dependencies once with make maps-deps in the laptop pocket checkout. Large areas can exceed the N810 internal MMC. Keep raw downloads on the laptop; transfer selected runtime maps and elevation only. See pocket/docs/map-data.md.',
+            'In Termux, run make mobile-map-deps once. On a laptop, use make maps-deps. For small areas leave the extract URL blank to download OSM data for the entered bounds. Large areas can exceed the N810 internal MMC. Keep raw downloads on the laptop; transfer selected runtime maps and elevation only. See pocket/docs/map-data.md.',
             'Push uses your SSH configuration to sign in as nokia. Enter the prepared folder and tablet hostname. The tablet verifies staged files before installation. Restart Pocket on the tablet after success.',
             'FCC data is an independent optional download in ULS Lookup. A base install remains usable without these datasets.')),)
     def close(self):

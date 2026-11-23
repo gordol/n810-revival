@@ -116,8 +116,7 @@ make termux PYTHON=python
 This launches Pocket's terminal desktop with portable rendering and local
 service discovery. Use `EXTRA=--no-local-services` for detached startup. Open Field Guide, Phrasebook and Field Log from Applications.
 For a first field check, save a note, exit with Ctrl-] then q, enable airplane
-mode, reopen Pocket, and read the note. The sample guide build runs on the
-phone. Generating GIS data has a separate toolchain and resource budget.
+mode, reopen Pocket, and read the note. The phone can also [prepare geographic maps and terrain](#prepare-maps-on-the-phone).
 The launch profile has been exercised on a Linux terminal; physical Android
 acceptance is pending.
 
@@ -263,3 +262,26 @@ switch between open apps, or **Apps** for the full catalogue. The grid adapts
 when the display rotates. The mobile layout has its own session file and uses
 the same app data as the graphical desktop. Use `make termux-gui` for the
 windowed layout.
+
+### Prepare maps on the phone
+
+From the Pocket directory in Termux, run `make mobile-map-deps` once. This
+installs a Debian GIS environment on the phone using PRoot-Distro. It needs
+internet and local storage. The resulting builder runs on the phone's CPU.
+
+1. Open **Pocket Home → Offline Data** and enter west, south, east and north
+   in decimal degrees. For a small area leave the OSM URL empty. Pocket
+   requests that bounding box from OpenStreetMap. Larger or densely mapped
+   areas may need a matching regional PBF extract URL.
+2. Keep the default local folder to use the result in Pocket. Choose **Plan**
+   for the estimated elevation raster size. Choose **Download and build this
+   area** and keep the app open until it reports the output folder.
+3. Reopen Pocket and use **Station Map** offline. **Push prepared maps to
+   N810** is optional.
+
+The current importer requires a complete coastline crossing the selected area
+and the terrain source is USGS 3DEP. For a first build, choose a small coastal
+area within USGS coverage. A tested example near Newport, Oregon uses bounds
+`-124.074 44.619 -124.064 44.629` and 30-metre spacing. The phone caches
+source downloads, builds the map
+and water layers, and derives terrain overviews locally.

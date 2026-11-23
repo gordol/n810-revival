@@ -10,7 +10,12 @@ from shapely.geometry import Polygon,LineString,box,mapping,shape
 from shapely.ops import unary_union,polygonize_full
 from shapely.strtree import STRtree
 from shapely import from_wkb,make_valid
-from build_hydrography import build
+if __package__:
+ from .build_hydrography import build
+ from .tile_map_geography import build as tile_geography
+else:
+ from build_hydrography import build
+ from tile_map_geography import build as tile_geography
 
 class Region(osmium.SimpleHandler):
  def __init__(self,bbox):
@@ -42,8 +47,8 @@ class Region(osmium.SimpleHandler):
   if not g.is_valid:g=make_valid(g)
   self.water.append(dict(type='Feature',id='a'+str(a.id),geometry=mapping(g),properties=dict(WB_CART_FTR_CD=421,WB_GNIS_NM=t.get('name'))))
 
-def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('source',type=Path);p.add_argument('--bbox',nargs=4,type=float,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--coverage-file',type=Path);a=p.parse_args();region=Region(a.bbox)
+def main(argv=None):
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('source',type=Path);p.add_argument('--bbox',nargs=4,type=float,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--coverage-file',type=Path);a=p.parse_args(argv);region=Region(a.bbox)
  if a.coverage_file:
   rings=[];points=[]
   for line in a.coverage_file.read_text().splitlines()[1:]:
@@ -63,14 +68,15 @@ def main():
   (land if (y[0]-x[0])*(pt.y-x[1])-(y[1]-x[1])*(pt.x-x[0])>0 else sea).append(face)
  if not land or not sea:raise ValueError('Cannot establish both land and marine water; previous map retained')
  features=region.water+[dict(type='Feature',geometry=mapping(g),properties=dict(WB_CART_FTR_CD=116,WB_GNIS_NM=None)) for g in sea]
- stamp=datetime.datetime.now(datetime.timezone.utc).isoformat();digest=hashlib.sha256(a.source.read_bytes()).hexdigest();a.output.mkdir(parents=True,exist_ok=True)
+ stamp=datetime.datetime.now(datetime.timezone.utc).isoformat()
+ with a.source.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
+ a.output.mkdir(parents=True,exist_ok=True)
  source=a.output/'osm-water-source.geojson.gz';source.write_bytes(gzip.compress(json.dumps(dict(features=features,coverage=a.bbox,coverage_geometry=mapping(boundary),complete=True,feature_count=len(features),source_url='https://www.openstreetmap.org/copyright',downloaded=stamp,defines_land=True,source_sha256=digest),separators=(',',':')).encode()))
  build(source,a.output/'hydrography')
  # Keep official forest inventory in the same road layer without discarding OSM.
  prior=a.output/'map-geography.json.gz'
  if prior.exists():region.roads.extend(r for r in json.load(gzip.open(prior,'rt'))['roads'] if r.get('kind')=='forest' and 'status' in r)
  payload=dict(version=2,coverage=a.bbox,roads=region.roads,streams=region.streams,labels=region.labels,water=[],source_sha256=digest,downloaded=stamp,attribution='OpenStreetMap contributors; US Forest Service',license_url='https://www.openstreetmap.org/copyright')
- from tile_map_geography import build as tile_geography
  target=a.output/'regional-geography-source.json.gz';temporary=target.with_suffix('.tmp');temporary.write_bytes(gzip.compress(json.dumps(payload,separators=(',',':')).encode()));temporary.replace(target)
  tile_geography(target,a.output/'geography')
  print(dict(land_faces=len(land),sea_faces=len(sea),topology='complete',geography_bytes=target.stat().st_size),flush=True)
