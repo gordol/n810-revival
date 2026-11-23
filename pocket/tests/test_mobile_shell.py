@@ -32,3 +32,22 @@ class MobileTests(unittest.TestCase):
                 self.assertEqual(panel.pointer(0,0,y,False),'launch:window:Pocket Home')
                 self.assertEqual(panel.pointer(0,width//2,y,False),'key:,')
                 self.assertEqual(panel.pointer(0,width-1,y,False),'key:d')
+
+    def test_termux_input_control(self):
+        from unittest.mock import patch
+        from mobile_shell import TouchInput
+        panel = MobilePanels(phone_input=True)
+        panel.layout(40,24)
+        panel.render({})
+        self.assertEqual(panel.pointer(0,39,23,False),'launch:window:Touch input')
+        form = TouchInput()
+        form.lines()
+        with patch('mobile_shell.subprocess.run') as run:
+            for y, mode in ((3,'Simulated touchscreen'), (5,'Trackpad')):
+                self.assertTrue(form.pointer(4,y,40))
+                self.assertEqual(run.call_args.args[0], ['termux-x11-preference','touchMode='+mode])
+                self.assertFalse(form.pointer(4,y,40,released=True))
+            run.side_effect = FileNotFoundError()
+            form.key('up')
+            form.key('\r')
+            self.assertIn('Could not switch',form.message)

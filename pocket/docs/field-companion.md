@@ -298,3 +298,8 @@ leaves the form alone. You can also enter coordinates directly.
 The overview works offline. Regional downloads need connectivity. Selections
 over 0.25 square degrees require a matching OSM extract URL. Terrain availability
 depends on USGS coverage, and the current map importer requires coastline data.
+
+On the Termux mobile shell, open **Input** on the bottom bar. Choose
+**Touchscreen** to tap an item at its position or **Trackpad** to move the
+cursor and click at its position. The choice updates the running Termux:X11
+activity and applies to other X11 apps on that display too.

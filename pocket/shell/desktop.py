@@ -234,8 +234,9 @@ def main(platform=None,argv=None):
     world.apply([Record(1, 'N0CALL', 'APRS observed', 'Listening'), Record(2, 'W7EXAMPLE', 'Offline record', 'Contact unconfirmed')])
     geometry = platform.geometry() if platform else measure(sys.stdout.fileno())
     if args.mobile_shell:
-        from mobile_shell import Home, MobilePanels
-        panel=MobilePanels()
+        from mobile_shell import Home, MobilePanels, TouchInput
+        phone_input=os.environ.get("POCKET_TERMUX")=="1"
+        panel=MobilePanels(phone_input)
     else:panel=Panels(args.panel or 'top',mode=args.panel_mode or ('auto' if workspace else 'bar'))
     panel.launcher_count=2+len(workspace)
     screen_size=trial.viewport(geometry.columns,geometry.rows) if DEVELOPMENT and (trial) else (geometry.columns,geometry.rows)
@@ -264,6 +265,9 @@ def main(platform=None,argv=None):
     from app_registry import discover as discover_apps,saved_reticulum_selection
     registered_apps=discover_apps()
     if args.mobile_shell:
+        if phone_input:
+            registered_apps.register(dict(id='phone-input',title='Touch input',
+                factory=lambda host:TouchInput(),preferred_size=(48,16),minimum_size=(24,10)))
         registered_apps.register(dict(id='pocket-home',title='Pocket Home',
             factory=lambda host:Home(host,lambda action:launch(action)),preferred_size=(48,30),minimum_size=(24,10)))
     app_state=args.app_state or Path.home()/'.local/state/current-world'

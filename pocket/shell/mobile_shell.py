@@ -1,4 +1,7 @@
 """Pocket's phone home screen and bottom navigation."""
+import subprocess
+from textwrap import wrap
+
 from app_widgets import Canvas
 from panel import Panels
 
@@ -7,8 +10,10 @@ class MobilePanels(Panels):
     """Reserve the bottom strip for navigation, including in maximized apps."""
     buttons = (('Home', 'launch:window:Pocket Home'), ('Apps', 'key:,'), ('Windows', 'key:d'))
 
-    def __init__(self):
+    def __init__(self, phone_input=False):
         super().__init__('bottom')
+        if phone_input:
+            self.buttons += (('Input', 'launch:window:Touch input'),)
 
     def layout(self, columns, rows):
         height = min(3, max(1, rows - 12))
@@ -118,3 +123,52 @@ class Home:
                 self.launch('window:' + name)
                 return True
         return False
+
+class TouchInput:
+    """Choose how the Termux:X11 activity maps finger gestures to X events."""
+    navigation_form = None
+    modes = ('Simulated touchscreen', 'Trackpad')
+    labels = ('Touchscreen · tap where you touch', 'Trackpad · move the cursor')
+
+    def __init__(self):
+        self.width, self.height = 44, 15
+        self.selected = 0
+        self.message = 'Choose how taps work in Termux:X11.'
+
+    def apply(self):
+        mode = self.modes[self.selected]
+        try:
+            subprocess.run(['termux-x11-preference', 'touchMode='+mode],
+                           capture_output=True, check=True, timeout=2)
+        except (OSError, subprocess.SubprocessError):
+            self.message = 'Could not switch. Open Termux:X11 Preferences → Touchscreen input mode.'
+        else:
+            self.message = 'Termux:X11 input set to '+mode+'.'
+        return True
+
+    def lines(self):
+        canvas = Canvas(self.width, self.height)
+        for index, label in enumerate(self.labels):
+            row = 1+index*3
+            canvas.put(1, row+1, ('› ' if index == self.selected else '  ')+label)
+            for y in range(row, row+3):
+                canvas.role(0, y, self.width, 'selected' if index == self.selected else 'control')
+        for i, line in enumerate(wrap(self.message, max(1,self.width-2))):
+            canvas.put(1, 8+i, line)
+        self.styles = canvas.spans
+        return canvas.lines()
+
+    def spans(self):
+        return getattr(self, 'styles', ())
+
+    def pointer(self, column, row, width, button=0, released=False):
+        if button or released or not 1 <= row < 7:
+            return False
+        self.selected = (row-1)//3
+        return self.apply()
+
+    def key(self, key):
+        if key in ('up','down','\t','backtab'):
+            self.selected = 1-self.selected
+            return True
+        return self.apply() if key in ('\r','\n') else False
