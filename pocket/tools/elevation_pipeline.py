@@ -48,7 +48,7 @@ def spacing(metadata):
                abs(metadata['longitude_step'])*111320*math.cos(math.radians((extent(metadata)[1]+extent(metadata)[3])/2)))
 
 
-def plan(bbox, output, metres=15, downloads=None):
+def plan(bbox, output, metres=15, downloads=None, *, summary_only=False):
     bbox=validate_bbox(bbox)
     if not math.isfinite(metres) or metres<1:raise ValueError('Elevation spacing must be at least one metre')
     remaining=[bbox];cached=[]
@@ -74,23 +74,27 @@ def plan(bbox, output, metres=15, downloads=None):
                 remaining=[part for r in remaining for part in subtract(r,box)]
             if not remaining:break
     requests=[]
+    count=raw_bytes=0
     for area in remaining:
         # Bound each export to <=4096 pixels per axis, retaining one shared grid.
         max_y=metres*4096/111320
         closest=0 if area[1]<=0<=area[3] else min(abs(area[1]),abs(area[3]))
         max_x=max_y/max(.01,math.cos(math.radians(closest)))
         cols=max(1,math.ceil((area[2]-area[0])/max_x));rows=max(1,math.ceil((area[3]-area[1])/max_y))
+        height=max(2,min(4096,math.ceil((area[3]-area[1])/rows*111320/metres)))
+        count+=cols*rows
         for row in range(rows):
+            s=area[1]+(area[3]-area[1])*row/rows;n=area[1]+(area[3]-area[1])*(row+1)/rows
+            width=max(2,min(4096,math.ceil((area[2]-area[0])/cols*111320*math.cos(math.radians((s+n)/2))/metres)))
+            raw_bytes+=width*height*4*cols
+            if summary_only:continue
             for col in range(cols):
                 w=area[0]+(area[2]-area[0])*col/cols;e=area[0]+(area[2]-area[0])*(col+1)/cols
-                s=area[1]+(area[3]-area[1])*row/rows;n=area[1]+(area[3]-area[1])*(row+1)/rows
-                width=max(2,math.ceil((e-w)*111320*math.cos(math.radians((s+n)/2))/metres))
-                height=max(2,math.ceil((n-s)*111320/metres))
                 request=dict(bbox=[w,s,e,n],width=min(4096,width),height=min(4096,height))
                 request['id']=hashlib.sha256(json.dumps(request,sort_keys=True).encode()).hexdigest()[:24]
                 requests.append(request)
     return dict(bbox=list(bbox),spacing_m=metres,cached=cached,raw=cached_raw,requests=requests,
-                estimated_raw_bytes=sum(r['width']*r['height']*4 for r in requests))
+                request_count=count,estimated_raw_bytes=raw_bytes)
 
 
 def acquire(request, downloads, output, *, offline=False):
@@ -133,8 +137,8 @@ def prepare_source(image,record,output,identity):
 
 def run(bbox, output, downloads, *, metres=15, workers=2, offline=False, plan_only=False):
     output=Path(output);downloads=Path(downloads)
-    selected=plan(bbox,output,metres,downloads)
-    report=dict(bbox=selected['bbox'],spacing_m=metres,cached_packs=len(selected['cached']),cached_raw_exports=len(selected['raw']),downloads=len(selected['requests']),estimated_raw_bytes=selected['estimated_raw_bytes'])
+    selected=plan(bbox,output,metres,downloads,summary_only=plan_only)
+    report=dict(bbox=selected['bbox'],spacing_m=metres,cached_packs=len(selected['cached']),cached_raw_exports=len(selected['raw']),downloads=selected['request_count'],estimated_raw_bytes=selected['estimated_raw_bytes'])
     if plan_only:return report
     if not 1<=workers<=16:raise ValueError('Use between one and sixteen workers')
     if offline and any(not (downloads/r['id']/'raw.tif').is_file() or not (downloads/r['id']/'export.json').is_file() for r in selected['requests']):

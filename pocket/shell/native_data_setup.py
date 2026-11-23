@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import hashlib
+import json
 import os
 import shutil
 import signal
@@ -33,10 +34,12 @@ def prepare(action, bbox, url, output, spacing, cancelled=None, process_changed=
         spacing=float(spacing)
         if not isfinite(spacing) or spacing<1:raise ValueError('Elevation spacing must be at least one metre')
         suffix='.osm' if url.endswith('.osm') else '.osm.pbf'
+        needs_extract=False
         if not url.strip():
             west,south,east,north=coordinates
             if (east-west)*(north-south)>0.25:
-                raise ValueError('For an area over 0.25 square degrees, enter a matching OSM PBF extract URL')
+                needs_extract=True
+                if action=='build':raise ValueError('For an area over 0.25 square degrees, enter a matching OSM PBF extract URL')
             url='https://api.openstreetmap.org/api/0.6/map?bbox='+','.join(map(str,coordinates))
             suffix='.osm'
         if not url.startswith('https://') or any(ord(c)<32 for c in url):raise ValueError('Enter an HTTPS URL for a matching OSM PBF extract')
@@ -55,8 +58,9 @@ def prepare(action, bbox, url, output, spacing, cancelled=None, process_changed=
             for mount in mounts:
                 interpreter.extend(['--bind',str(mount)])
             interpreter.extend(['--','/usr/bin/python3'])
+        source=directory/'downloads'/('region-'+hashlib.sha256(url.encode()).hexdigest()[:16]+suffix)
         base=[*interpreter,str(script),'--bbox',*map(str,coordinates),'--url',url,
-              '--source',str(directory/'downloads'/('region-'+hashlib.sha256(url.encode()).hexdigest()[:16]+suffix)),'--output',str(directory),
+              '--source',str(source),'--output',str(directory),
               '--spacing-m',str(spacing),'--workers','1' if os.environ.get('POCKET_TERMUX')=='1' else '2']
         commands=[[*base,step] for step in (('plan',) if action=='plan' else ('configure','download','build','elevation'))]
         if action=='build':
@@ -70,6 +74,12 @@ def prepare(action, bbox, url, output, spacing, cancelled=None, process_changed=
         stdout,stderr=process.communicate()
         if process_changed:process_changed(None)
         if process.returncode:raise RuntimeError((stderr or stdout)[-1500:] or 'Preparation cancelled')
+        if action=='plan':
+            report=json.loads(stdout)
+            report['osm_status']=('Enter a matching OSM PBF URL before building.' if needs_extract else
+                                  'Reuse local OSM extract.' if source.is_file() else 'Download OSM extract.')
+            report['needs_extract']=needs_extract
+            return json.dumps(report)
         outputs.append(stdout[-2500:])
     if action=='build':return 'Built offline maps and terrain in '+str(directory)
     return '\n'.join(outputs)[-5000:]
@@ -86,6 +96,7 @@ class OfflineData:
             from data_paths import data_root
             self.output=TextInput(str(data_root()),limit=1000)
         self.status='Install prepared data from the laptop, then verify it here.' if self.device_only else 'Select your area. Plan makes no network requests.';self.result='';self.error=''
+        self.plan_page=False;self.plan_report=None
         self.phrase_page=False;self.preview=None;self.phrase_job=None
         self.picker=None;self.pending=None;self.pool=None;self.cancelled=threading.Event();self.process=None;self.wakeup=None;self._session_callback=None;self._hits=[];self._spans=[]
     def bind_wakeup(self,callback):self.wakeup=callback
@@ -94,6 +105,11 @@ class OfflineData:
         if self._session_callback:self._session_callback()
     def navigation_targets(self):
         from native_navigation import Target
+        if self.plan_page:
+            actions=[Target('edit-area','Back to area','action','edit-area')]
+            if self.plan_report and not self.plan_report['needs_extract']:
+                actions.append(Target('build','Download and build','action','build'))
+            return actions
         if self.phrase_page:
             from wikivoyage import LANGUAGES
             actions=[('lang-'+lang,lang) for lang in LANGUAGES]
@@ -103,8 +119,8 @@ class OfflineData:
         if self.picker:
             return [Target('map','Select download area','map')]
         if self.device_only:return [Target('output','Installed reference-data folder','input'),Target('verify','Verify installed maps and elevation','action','verify')]
-        return [Target('pick','Choose area on world map','action','pick'),Target('books','Wikivoyage phrasebooks','action','books')]+[Target(k,v,'input') for k,v in [('bbox','Bounds: west south east north'),('url','OSM PBF URL (optional for small areas)'),('output','Local data folder'),('spacing','Elevation spacing, metres')]]+[
-            Target('plan','Plan / reuse / estimated size','action','plan'),Target('build','Download and build this area','action','build'),
+        return [Target('pick','Choose area on world map','action','pick'),Target('plan','Plan / reuse / estimated size','action','plan'),Target('books','Wikivoyage phrasebooks','action','books')]+[Target(k,v,'input') for k,v in [('bbox','Bounds: west south east north'),('url','OSM PBF URL (optional for small areas)'),('output','Local data folder'),('spacing','Elevation spacing, metres')]]+[
+            Target('build','Download and build this area','action','build'),
             Target('host','N810 SSH hostname or alias','input'),Target('push','Push prepared maps to N810','action','push')]
     def navigation_focus(self):return self.field
     def navigation_input(self,key):return getattr(self,key,None) if key in ('bbox','url','output','spacing','host') else None
@@ -113,6 +129,11 @@ class OfflineData:
         if nav:self.field=nav.target
     def navigation_accept_input(self):return True
     def key(self,key):
+        if self.plan_page:
+            if key=='edit-area' and not self.pending:
+                self.plan_page=False;self.field='plan';return True
+            if key!='build' or not self.plan_report or self.plan_report['needs_extract']:return True
+            self.plan_page=False
         if key=='books' and not self.pending:
             self.phrase_page=True;self.preview=None;self.field='lang-Spanish'
             self.status='Choose a language to download a preview.';self.error=''
@@ -148,6 +169,8 @@ class OfflineData:
         self.error=''
         self.status={'verify':'Verifying installed reference data…','push':'Sending maps to the N810…',
                      'plan':'Planning…','build':'Downloading and building. Keep this app open.'}[key]
+        if key=='plan':
+            self.plan_page=True;self.plan_report=None;self.field='edit-area'
         self.cancelled.clear()
         self.pending=self.pool.submit(prepare,key,self.bbox.text,self.url.text,self.output.text,self.spacing.text,self.cancelled,lambda process:setattr(self,'process',process),self.host.text)
         if self.wakeup:self.pending.add_done_callback(lambda _:self.wakeup() if self.wakeup else None)
@@ -160,11 +183,37 @@ class OfflineData:
             except Exception as error:self.error=str(error)
             self.phrase_job=None;return True
         if not self.pending or not self.pending.done():return False
-        try:self.result=self.pending.result();self.status=self.result[-350:] or 'Completed.'
+        try:
+            self.result=self.pending.result()
+            if self.plan_page:
+                self.plan_report=json.loads(self.result)
+                self.status='Plan ready.'
+            else:self.status=self.result[-350:] or 'Completed.'
         except Exception as error:self.error=str(error)[-500:]
         self.pending=None;return True
     def lines(self):
         c=Canvas(self.width,self.height);self._hits=[];self._spans=[]
+        if self.plan_page:
+            c.put(0,0,'Map and terrain plan')
+            row=1
+            for target in self.navigation_targets():
+                c.put(0,row,'[ '+target.title+' ]');self._hits.append((row,target.key));row+=1
+            report=self.plan_report
+            details=[self.error or self.status]
+            if report:
+                size=report['estimated_raw_bytes']
+                unit='B'
+                for unit in ('B','KiB','MiB','GiB','TiB','PiB'):
+                    if size<1024 or unit=='PiB':break
+                    size/=1024
+                details=[f'New raw elevation: {size:.1f} {unit}',
+                         f"Elevation downloads: {report['downloads']}",
+                         f"Reuse: {report['cached_packs']} terrain packs, {report['cached_raw_exports']} raw exports",
+                         report['osm_status'],f"Grid spacing: {report['spacing_m']:g} m"]
+            for detail in details:
+                for line in textwrap.wrap(detail,self.width):
+                    c.put(0,row,line);row+=1
+            return c.lines()
         if self.phrase_page:
             c.put(0,0,'Wikivoyage phrasebooks')
             row=1

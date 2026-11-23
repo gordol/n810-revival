@@ -51,6 +51,25 @@ class DeviceDataTests(unittest.TestCase):
    self.assertIn('estimated_raw_bytes',m.prepare('plan',bounds,'',directory,'30'))
   form.key('pick');form.lines();tap(37,0)
   self.assertEqual(form.bbox.text,bounds)
+ def test_plan_tap_shows_estimate_or_actionable_error_in_short_window(self):
+  from native_navigation import native_pointer
+  form=m.OfflineData();self.addCleanup(form.close)
+  form.width,form.height=40,12
+  with tempfile.TemporaryDirectory() as directory:
+   form.output.text=directory
+   for bounds,expected in (('', 'Enter west south east north bounds'),('1 1 2 2','matching OSM PBF'),('1 1 1.01 1.01','Download and build')):
+    form.bbox.text=bounds
+    row=next(i for i,line in enumerate(form.lines()) if 'Plan / reuse' in line)
+    self.assertTrue(native_pointer(form,3,row,40))
+    from concurrent.futures import wait
+    wait([form.pending],timeout=5)
+    self.assertTrue(form.poll())
+    lines=form.lines()
+    self.assertIn(expected,' '.join(lines))
+    if bounds:self.assertIn('New raw elevation',' '.join(lines))
+    native_pointer(form,3,1,40)
+    self.assertFalse(form.plan_page)
+   self.assertEqual(list(Path(directory).iterdir()),[])
  def test_phone_build_uses_local_guest_for_every_stage(self):
   import os
   with tempfile.TemporaryDirectory() as d, patch.dict(os.environ,POCKET_TERMUX='1'), patch('shutil.which',return_value='proot-distro'), patch('subprocess.Popen') as spawn:
