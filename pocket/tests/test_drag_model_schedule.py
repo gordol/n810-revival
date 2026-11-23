@@ -143,7 +143,12 @@ class PtyTests(unittest.TestCase):
     while time.monotonic()<end:
      pump();rows=records()
      if predicate(rows):return rows
-     if child.poll() is not None:break
+     if child.poll() is not None:
+      # Exit can occur after the predicate's poll. Check the final state
+      # and any last fixture records before reporting a missing event.
+      rows=records()
+      if predicate(rows):return rows
+      break
     raise AssertionError((label,child.poll(),records()[-12:],b''.join(chunks)[-1000:]))
    def pointer(button,x,y,release=False):os.write(read,f'\x1b[<{button};{x};{y}{"m" if release else "M"}'.encode())
    try:
