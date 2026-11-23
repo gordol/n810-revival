@@ -4,7 +4,7 @@ import ctypes
 import time
 
 
-def capture(repo, directory, viewport, terrain=None, scale=8, size=64):
+def capture(repo, directory, viewport, terrain=None, scale=8, size=64, flat_background=False):
     mbx = repo / 'mbx'
     source = (mbx/'tools/mbxtri.c').read_text()
     # Emit CPU writes only. The GPU's memory writes must come from QEMU.
@@ -50,7 +50,8 @@ def capture(repo, directory, viewport, terrain=None, scale=8, size=64):
     exe = directory/'capture'
     subprocess.run(['cc','-O2',f'-DTRI_W={size}',f'-DTRI_H={size}','-I',mbx/'tools',src,mbx/'libmbxemu.a','-lm','-o',exe],check=True)
     expected = directory/'expected.ppm'
-    commands = subprocess.check_output([exe,'-a','0','-o',expected],text=True)
+    background = ['-f', '0xff202020'] if flat_background else []
+    commands = subprocess.check_output([exe,'-a','0',*background,'-o',expected],text=True)
     return commands, expected.read_bytes()
 
 

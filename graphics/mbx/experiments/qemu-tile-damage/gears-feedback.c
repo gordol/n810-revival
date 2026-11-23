@@ -8,6 +8,11 @@ typedef void Display; typedef unsigned long GLXDrawable;
 static GLfloat buf[100000];
 void glXSwapBuffers(Display *display, GLXDrawable draw) {
     static int index;
+    static int frames = 6;
+    if (!index && getenv("GEARS_CAPTURE_FRAMES")) {
+        frames = atoi(getenv("GEARS_CAPTURE_FRAMES"));
+        if (frames < 2 || frames > 48) _exit(4);
+    }
     if (index) {
         GLint n=glRenderMode(GL_RENDER);
         if (n<=0) _exit(2);
@@ -17,7 +22,7 @@ void glXSwapBuffers(Display *display, GLXDrawable draw) {
         if (!file || fwrite(buf,sizeof(float),n,file) != (size_t)n) _exit(3);
         fclose(file);
     }
-    if (++index==7) _exit(0);
+    if (++index==frames+1) _exit(0);
     void (*swap)(Display *,GLXDrawable)=dlsym(RTLD_NEXT,"glXSwapBuffers");
     swap(display,draw);
     usleep(50000);

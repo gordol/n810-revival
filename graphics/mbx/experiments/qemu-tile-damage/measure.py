@@ -30,13 +30,15 @@ def demo_frame(ppm, dirty):
     return frame
 
 
+DRAG_CENTERS = [(8,8), (12,8), (16,12), (20,16), (28,24), (44,40), (56,56), (8,8)]
+
+
 def measure(repo, qemu, out):
-    centers = [(8,8), (12,8), (16,12), (20,16), (28,24), (44,40), (56,56), (8,8)]
     previous = None
     animation = []
     rows = []
     with tempfile.TemporaryDirectory() as directory:
-        for frame, (x,y) in enumerate(centers):
+        for frame, (x,y) in enumerate(DRAG_CENTERS):
             trace, reference = capture(repo, Path(directory), (x,y))
             lines = trace.splitlines()
             header = lines.index('w 50008000 53')

@@ -4,9 +4,9 @@ A 64 × 64 synthetic surface contains a triangle in a moving 16 × 16 viewport. 
 
 ![Moving triangle and selected tiles](../../../../docs/assets/demos/qemu-tile-damage.gif)
 
-November 22, 2026. The left panel shows pixels read from the emulated framebuffer, enlarged 3×. The right panel outlines selected 16 × 16 tiles. The GIF holds each position for 450 ms for inspection.
+November 22, 2026. The left panel shows pixels read from the emulated framebuffer, enlarged 3×. The right panel outlines selected 16 × 16 tiles. The GIF holds each position for 450 ms for inspection. Continuous animation timings are reported below.
 
-| QEMU render-kick timing | Median CPU time |
+| Isolated QEMU render-kick timing | Median CPU time |
 | --- | ---: |
 | Full redraw | 1.330 ms |
 | Partial redraw, 2–5 of 16 tiles selected | 0.516 ms |
@@ -16,6 +16,25 @@ The ratio of medians is **2.58×** (61% less QEMU process CPU time). Each of sev
 The host was an x86-64 Intel Xeon Platinum 8573C with host frequency unmanaged. The benchmark launches a fresh N810 board for each render, holds the emulated ARM CPU paused, preloads prior pixels outside the selected tiles and initializes the selected tiles to the background. It times the single render-kick MMIO write using QEMU's process CPU clock. Board setup, background initialization, region selection, command preparation, panel transfers, and LCD timing are outside the measurement. The pinned example uses the model's permissive MMU and free-list setup.
 
 This prototype exercises command reuse and tile damage with a model-native command stream. Pocket's encoder also emits a multi-section VGP setup command that this emulator version rejects. The effect of tile damage on Pocket FPS, device energy consumption and end-to-end drag latency remains unmeasured.
+
+## Continuous animation throughput
+
+The guest ARM1136 drives MBX from the first frame through the last in one QEMU execution per trial. It submits the draw commands, programs tile regions, kicks the render and checks completion for every frame. Draws share one emulated framebuffer. The first frame redraws the full surface. Subsequent partial draws select the old and new tiles and use the model's flat background to clear surfaces exposed by movement.
+
+The triangle trial plays the eight-position drag 32 times (256 frames). The gears trial plays 36 consecutive 400 × 400 GL feedback frames from one Debian glxgears run. The host records elapsed wall time between two guest signals, after board initialization and before shutdown. Both modes include register submission and render completion. Host-side GL capture, trace preparation and display presentation are outside the measurement. Separate continuous validation passes compare every frame's RGB against the standalone model inside guest RAM. Timed runs do no framebuffer readbacks.
+
+| Continuous replay | Full redraw | Tile damage |
+| --- | ---: | ---: |
+| 64 × 64 triangle drag | 591.54 FPS | 978.91 FPS |
+| 400 × 400 glxgears frames | 5.00 FPS | 5.87 FPS |
+
+The table pools frames divided by elapsed time across four alternating-order pairs on November 23, 2026. Both programs were pinned to logical CPU 2 on the Xeon Platinum 8573C with unmanaged host clocks. QEMU runs the guest player in ARM system emulation. The model uses the same permissive MMU and free-list setup as the isolated probe. [Triangle trials](continuous-triangle.csv) · [Gears trials](continuous-gears.csv)
+
+For the triangle, create an empty output directory and use the same assembler and pinned QEMU build as for gears. For gears, use the capture and replay commands under “Spinning glxgears” below. Each writes `animation.csv` to its output directory.
+
+```sh
+taskset -c 2 python3 animation.py /path/to/revive-n8x0 /path/to/qemu-system-arm /path/to/output --scene triangle
+```
 
 ## Synthetic hill replay
 
@@ -71,13 +90,13 @@ Debian glxgears (mesa-utils-bin 8.5.0-1, amd64) ran at 400 × 400 under Xvfb wit
 
 All 20 matched pairs produced identical 160,000-pixel framebuffers. Each RGB frame also matched the standalone MBX model. Damage covered the union of old and new projected triangle bounds, expanded by one pixel for rounding. Five transitions each ran four alternating-order trials on November 23 on a Xeon Platinum 8573C pinned to logical CPU 2 with unmanaged clocks. Wall time includes fresh QEMU startup, framebuffer preparation, command transfer, readback and shutdown. Interactive application FPS on the tablet remains unmeasured. [400 × 400 samples](spinning-gears-400.csv)
 
-The earlier 64 × 64 run used the same captures and enlarged each output pixel 3×. Add `--size 64` to reproduce it. [Earlier GIF](../../../../docs/assets/demos/qemu-spinning-gears.gif) · [64 × 64 samples](spinning-gears.csv)
+The earlier 64 × 64 run used the same captures and enlarged each output pixel 3×. Use `--isolated --size 64` to reproduce it. [Earlier GIF](../../../../docs/assets/demos/qemu-spinning-gears.gif) · [64 × 64 samples](spinning-gears.csv)
 
-Use the pinned emulator and dependencies above. In an empty working directory with a GLX display, compile the capture hook against desktop GL headers, run glxgears, and replay the six feedback files written in that directory. Capture timing determines the angles. Replay uses the same files for both paths.
+For continuous replay, install GNU assembler and objcopy for ARM (`binutils-arm-linux-gnueabi` on Debian) along with the dependencies above. In an empty working directory with a GLX display, compile the capture hook against desktop GL headers, run glxgears, and replay the feedback files written in that directory. Capture timing determines the angles. For the 36-frame animation below, capture into an empty directory and run both modes against those same files. For the historical six-frame GIF and per-frame timing probe, omit `GEARS_CAPTURE_FRAMES` and pass `--isolated` to the replay script. Use separate output directories.
 
 ```sh
 exp=/path/to/n810-revival/graphics/mbx/experiments/qemu-tile-damage
 cc -shared -fPIC "$exp/gears-feedback.c" -o feedback.so -ldl
-LIBGL_ALWAYS_SOFTWARE=1 LD_PRELOAD="$PWD/feedback.so" glxgears -geometry 400x400
+GEARS_CAPTURE_FRAMES=36 LIBGL_ALWAYS_SOFTWARE=1 LD_PRELOAD="$PWD/feedback.so" glxgears -geometry 400x400
 taskset -c 2 python3 "$exp/gears_replay.py" /path/to/revive-n8x0 /path/to/qemu-system-arm "$PWD"
 ```
