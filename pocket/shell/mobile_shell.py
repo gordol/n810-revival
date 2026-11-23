@@ -127,7 +127,7 @@ class Home:
 class TouchInput:
     """Choose how the Termux:X11 activity maps finger gestures to X events."""
     navigation_form = None
-    modes = ('Simulated touchscreen', 'Trackpad')
+    modes = ('Direct touch', 'Trackpad')
     labels = ('Touchscreen · tap where you touch', 'Trackpad · move the cursor')
 
     def __init__(self):
@@ -138,8 +138,14 @@ class TouchInput:
     def apply(self):
         mode = self.modes[self.selected]
         try:
-            subprocess.run(['termux-x11-preference', 'touchMode='+mode],
-                           capture_output=True, check=True, timeout=2)
+            options = dict(stdin=subprocess.DEVNULL, capture_output=True, text=True, check=True, timeout=7)
+            subprocess.run(['termux-x11-preference', 'touchMode:'+mode], **options)
+            listed = subprocess.run(['termux-x11-preference','list'], **options).stdout
+            reported = next((line.split('=',1)[1].strip().strip('"') for line in listed.splitlines()
+                             if line.partition('=')[0].strip().strip('"')=='touchMode'), None)
+            if reported not in (mode, ('3','1')[self.selected]):
+                self.message = 'Could not verify switch. Termux:X11 reports '+(reported or 'unknown mode')+'.'
+                return True
         except (OSError, subprocess.SubprocessError):
             self.message = 'Could not switch. Open Termux:X11 Preferences → Touchscreen input mode.'
         else:

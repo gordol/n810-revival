@@ -3,6 +3,7 @@
 #define CHECK(value) do { if(!(value)){fprintf(stderr,"Input check failed at line %d\n",__LINE__);if(w)pocket_window_close(w);return 1;} } while(0)
 #include <stdio.h>
 void *pocket_window_open(int);
+void *pocket_window_open_mobile(int);
 int pocket_window_close(void *);
 int pocket_window_event(int[6]);
 int pocket_window_capture(void *,int);
@@ -23,5 +24,13 @@ int main(void){
  SDL_SetWindowSize(*(SDL_Window**)w,1000,800);SDL_Delay(50);while(pocket_window_event(out)){}
  int x=500,y=400;pocket_window_coordinates(w,&x,&y);CHECK(abs(x-400)<=1&&abs(y-240)<=1);
  CHECK(pocket_window_capture(w,0)==0);pocket_window_close(w);
+ w=pocket_window_open_mobile(-1);CHECK(w);while(pocket_window_event(out)){}
+ SDL_zero(e);e.type=SDL_FINGERDOWN;e.tfinger.x=.75f;e.tfinger.y=.25f;e.tfinger.fingerId=7;
+ CHECK(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1);
+ CHECK(pocket_window_event(out)&&out[0]==2&&out[1]==600&&out[2]==120&&!out[4]);
+ e.type=SDL_FINGERUP;CHECK(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1);
+ int released=0;for(unsigned i=0;i<100;i++){if(pocket_window_event(out)&&out[0]==2&&out[4]){released=1;break;}SDL_Delay(2);}
+ CHECK(released);
+ pocket_window_close(w);
  puts("Native SDL text-input, shift, wheel, captured mouse and focus-loss checks pass.");return 0;
 }

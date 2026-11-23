@@ -12,7 +12,12 @@
 static struct window *input_window;
 static unsigned canvas_width=800,canvas_height=480;
 static int dynamic_canvas;
+static int mobile_input, touching;
+static SDL_FingerID primary_finger;
+
 static void *desktop_open(int fd,int mobile){
+ mobile_input=mobile;touching=0;
+ if(mobile)SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS,"0");
  void *window=pocket_window_create(fd,0,mobile);
  if(window){
   input_window=window;SDL_StopTextInput();
@@ -69,7 +74,7 @@ int pocket_window_event(int out[6]){
   if(e.type==SDL_QUIT){out[0]=1;return 1;}
   if(e.type==SDL_WINDOWEVENT){
    if(e.window.event==SDL_WINDOWEVENT_FOCUS_GAINED)SDL_StopTextInput();
-   if(e.window.event==SDL_WINDOWEVENT_FOCUS_LOST){SDL_SetRelativeMouseMode(SDL_FALSE);out[0]=6;return 1;}
+   if(e.window.event==SDL_WINDOWEVENT_FOCUS_LOST){touching=0;SDL_SetRelativeMouseMode(SDL_FALSE);out[0]=6;return 1;}
    if(e.window.event==SDL_WINDOWEVENT_SIZE_CHANGED&&dynamic_canvas){out[0]=8;out[1]=e.window.data1;out[2]=e.window.data2;return 1;}
    if(e.window.event==SDL_WINDOWEVENT_SIZE_CHANGED||e.window.event==SDL_WINDOWEVENT_EXPOSED){out[0]=4;return 1;}
   }
@@ -90,6 +95,22 @@ int pocket_window_event(int out[6]){
    if(!delta)continue;
    int up=delta>0;if(e.wheel.direction==SDL_MOUSEWHEEL_FLIPPED)up=!up;
    out[3]=up?64:65;return 1;
+  }
+  if(mobile_input&&(e.type==SDL_FINGERDOWN||e.type==SDL_FINGERMOTION||e.type==SDL_FINGERUP)){
+   if(e.type==SDL_FINGERDOWN){
+    if(touching)continue;
+    touching=1;primary_finger=e.tfinger.fingerId;SDL_ShowCursor(SDL_DISABLE);
+   }else if(!touching||e.tfinger.fingerId!=primary_finger)continue;
+   out[0]=2;out[1]=(int)(e.tfinger.x*canvas_width);out[2]=(int)(e.tfinger.y*canvas_height);
+   out[3]=e.type==SDL_FINGERMOTION?32:0;out[4]=e.type==SDL_FINGERUP;
+   if(out[4])touching=0;
+   return 1;
+  }
+  if(mobile_input&&(e.type==SDL_MOUSEMOTION||e.type==SDL_MOUSEBUTTONDOWN||e.type==SDL_MOUSEBUTTONUP)){
+   Uint32 which=e.type==SDL_MOUSEMOTION?e.motion.which:e.button.which;
+   if(which==SDL_TOUCH_MOUSEID)continue;
+   if(e.type==SDL_MOUSEBUTTONDOWN)touching=0;
+   SDL_ShowCursor(SDL_ENABLE);
   }
   if(e.type==SDL_MOUSEMOTION&&SDL_GetRelativeMouseMode()){
    out[0]=5;out[1]=e.motion.xrel;out[2]=e.motion.yrel;return 1;

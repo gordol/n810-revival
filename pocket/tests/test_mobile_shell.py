@@ -43,10 +43,14 @@ class MobileTests(unittest.TestCase):
         form = TouchInput()
         form.lines()
         with patch('mobile_shell.subprocess.run') as run:
-            for y, mode in ((3,'Simulated touchscreen'), (5,'Trackpad')):
+            for y, mode in ((3,'Direct touch'), (5,'Trackpad')):
+                run.return_value.stdout='"touchMode"="'+mode+'"'
                 self.assertTrue(form.pointer(4,y,40))
-                self.assertEqual(run.call_args.args[0], ['termux-x11-preference','touchMode='+mode])
+                self.assertEqual(run.call_args_list[-2].args[0], ['termux-x11-preference','touchMode:'+mode])
                 self.assertFalse(form.pointer(4,y,40,released=True))
+            run.return_value.stdout='usage'
+            form.apply()
+            self.assertIn('Could not verify',form.message)
             run.side_effect = FileNotFoundError()
             form.key('up')
             form.key('\r')
