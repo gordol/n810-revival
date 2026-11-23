@@ -167,6 +167,11 @@ and Build Tools 35.0.0. Set `ANDROID_HOME` and run
 APK signature and keeps the development signing key outside the source tree.
 Use the same private key for an in-place update of your own APK.
 
+For MeshCore messaging, pair a MeshCore BLE companion in Android settings and
+select `android-ble://paired` in the local owner's configuration. Messages can
+then open a separate BLE link while Stations uses the UV-PRO. See the
+[MeshCore owner setup](messaging.md).
+
 ### Fairphone 4 graphical desktop
 
 The Fairphone 4 uses an Adreno 619. Pocket’s graphical frontend needs desktop
@@ -210,3 +215,40 @@ If it appears on the phone first and then the watch, the notification path
 works for that combination. Check notification permissions, the watch's
 activity mode and Do Not Disturb if delivery differs while hiking. Live radio
 alerts still need an Android notification producer fed by Pocket's radio owner.
+
+### Send maps from the phone to a running N810
+
+In Termux install OpenSSH with `pkg install openssh`. Configure an SSH host
+alias for the tablet and check that `ssh nokia@n810` accepts your key. In
+**Offline Data**, enter the local folder containing the prepared map views,
+geography, hydrography and selected elevation catalogue. Enter the tablet's
+hostname or SSH alias and tap **Push prepared maps to N810**. You can also run
+the same transfer from the Pocket directory:
+
+```sh
+python tools/push_reference_data.py "$HOME/region" n810
+```
+
+The tablet needs the revival image's `n810-install-reference-data` tool and
+space for the staged dataset plus any new or changed installed files. The
+receiver checks the staged file hashes, installs under
+`~nokia/.local/share/pocket` and verifies the result. Restart Pocket on the
+tablet to reopen its map files. If installation reports an error, correct it
+and rerun the transfer. Raw GIS downloads and field logs stay on the sender.
+
+The Termux:X11 pixel frontend defaults to double-size desktop pixels. Select
+direct touch in Termux:X11 to tap controls at their displayed positions. For a
+larger landscape layout try `make termux-gui EXTRA=--ui-scale=3`.
+
+### Building and installing the N810 system
+
+Open **N810 Setup** with `make -C pocket setup` in a full repository checkout
+on a build host. A complete kit builds the pinned ARM kernel, matching modules
+and Debian root filesystem together. It requires Docker with a Linux engine and
+ARM execution support. From Termux you can SSH into that host and run the
+terminal setup there, for example
+`ssh -t builder 'make -C ~/n810-revival/pocket setup'` if that is the build
+host's checkout path. Keep the tablet attached to the machine performing USB
+installation. The Pocket-only phone archive contains the map sender. Building
+or flashing a fresh tablet directly from stock Termux is currently unsupported.
+See the [N810 Setup guide](bootstrap.md).

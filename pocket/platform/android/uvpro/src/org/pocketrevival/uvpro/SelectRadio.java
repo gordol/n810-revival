@@ -46,13 +46,14 @@ public final class SelectRadio extends Activity {
             BluetoothDevice device = devices.get(i);
             names[i] = device.getName() + " · " + device.getAddress();
         }
+        boolean meshcore = getIntent().getBooleanExtra("meshcore", false);
         AlertDialog.Builder dialog = new AlertDialog.Builder(this)
-            .setTitle("Receive in Pocket from a paired radio")
+            .setTitle(meshcore ? "Connect a paired MeshCore companion" : "Receive in Pocket from a paired radio")
             .setNegativeButton("Cancel", (d, w) -> finish())
             .setOnCancelListener(d -> finish());
-        if (devices.isEmpty()) dialog.setMessage("Pair the UV-PRO in Android Bluetooth settings first.");
+        if (devices.isEmpty()) dialog.setMessage("Pair the radio in Android Bluetooth settings first.");
         else dialog.setItems(names, (d, i) -> {
-            Intent intent = new Intent(this, ReceiveService.class)
+            Intent intent = new Intent(this, meshcore ? MeshService.class : ReceiveService.class)
                 .putExtra("address", devices.get(i).getAddress())
                 .putExtra("port", port).putExtra("token", token);
             startForegroundService(intent);

@@ -36,6 +36,21 @@ def parse_bridge_status(line):
 
 
 async def create_serial_client(port, baudrate=115200, bridge_status_callback=None, **options):
+    if port == 'android-ble://paired':
+        from meshcore import MeshCore
+        sys.path.insert(0,str(Path(__file__).resolve().parents[4]))
+        from vendor.apps.domains.meshcore.android_ble import AndroidBLE
+        connection = AndroidBLE()
+        client = MeshCore(connection, **options)
+        try:
+            if await client.connect() is not None:
+                return client
+        except BaseException:
+            await client.disconnect()
+            raise
+        await client.disconnect()
+        return None
+
     attachment=None
     connection=None
     status=bridge_status()

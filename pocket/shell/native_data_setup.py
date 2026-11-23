@@ -12,7 +12,7 @@ from app_widgets import Canvas, TextInput
 REPOSITORY = Path(__file__).resolve().parents[2]
 
 
-def prepare(action, bbox, url, output, spacing, cancelled=None, process_changed=None):
+def prepare(action, bbox, url, output, spacing, cancelled=None, process_changed=None, host=""):
     if action=='verify':
         tool=Path('/usr/local/bin/n810-install-reference-data')
         if not tool.is_file():tool=Path(__file__).resolve().parents[1]/'tools/install_reference_data.py'
@@ -20,26 +20,29 @@ def prepare(action, bbox, url, output, spacing, cancelled=None, process_changed=
         result=subprocess.run([sys.executable,str(tool),'--verify',str(Path(output).expanduser())],capture_output=True,text=True)
         if result.returncode:raise ValueError((result.stderr or result.stdout)[-500:])
         return 'Reference data verified: '+result.stdout.strip()
-    if action not in ('plan','build'):raise ValueError('Choose Plan or Download and build')
-    coordinates=[float(value) for value in bbox.split()]
-    from math import isfinite
-    if len(coordinates)!=4 or not all(isfinite(v) for v in coordinates) or not -180<=coordinates[0]<coordinates[2]<=180 or not -90<coordinates[1]<coordinates[3]<90:
-        raise ValueError('Enter west south east north bounds')
-    spacing=float(spacing)
-    if not isfinite(spacing) or spacing<1:raise ValueError('Elevation spacing must be at least one metre')
-    if not url.startswith('https://') or any(ord(c)<32 for c in url):raise ValueError('Enter an HTTPS URL for a matching OSM PBF extract')
-    directory=Path(output).expanduser().absolute()
-    if directory==Path('/') or directory.is_relative_to('/dev'):raise ValueError('Choose a local data folder')
-    script=REPOSITORY/'pocket/tools/maps.py'
-    if not script.is_file():raise ValueError('Build regional data on the laptop checkout, then transfer prepared outputs')
-    base=[sys.executable,str(script),'--bbox',*map(str,coordinates),'--url',url,
-          '--source',str(directory/'downloads'/('region-'+hashlib.sha256(url.encode()).hexdigest()[:16]+'.osm.pbf')),'--output',str(directory),
-          '--spacing-m',str(spacing)]
-    # Argument vectors bypass Make/shell interpolation of user-provided URLs.
+    if action=='push':
+        commands=[[sys.executable,str(REPOSITORY/'pocket/tools/push_reference_data.py'),str(Path(output).expanduser()),host]]
+    else:
+        if action not in ('plan','build'):raise ValueError('Choose Plan or Download and build')
+        coordinates=[float(value) for value in bbox.split()]
+        from math import isfinite
+        if len(coordinates)!=4 or not all(isfinite(v) for v in coordinates) or not -180<=coordinates[0]<coordinates[2]<=180 or not -90<coordinates[1]<coordinates[3]<90:
+            raise ValueError('Enter west south east north bounds')
+        spacing=float(spacing)
+        if not isfinite(spacing) or spacing<1:raise ValueError('Elevation spacing must be at least one metre')
+        if not url.startswith('https://') or any(ord(c)<32 for c in url):raise ValueError('Enter an HTTPS URL for a matching OSM PBF extract')
+        directory=Path(output).expanduser().absolute()
+        if directory==Path('/') or directory.is_relative_to('/dev'):raise ValueError('Choose a local data folder')
+        script=REPOSITORY/'pocket/tools/maps.py'
+        if not script.is_file():raise ValueError('Build regional data on the laptop checkout, then transfer prepared outputs')
+        base=[sys.executable,str(script),'--bbox',*map(str,coordinates),'--url',url,
+              '--source',str(directory/'downloads'/('region-'+hashlib.sha256(url.encode()).hexdigest()[:16]+'.osm.pbf')),'--output',str(directory),
+              '--spacing-m',str(spacing)]
+        commands=[[*base,step] for step in (('plan',) if action=='plan' else ('configure','download','build','elevation'))]
     outputs=[]
-    for command in (('plan',) if action=='plan' else ('configure','download','build','elevation')):
+    for command in commands:
         if cancelled is not None and cancelled.is_set():raise InterruptedError('Preparation cancelled; completed inputs remain reusable')
-        process=subprocess.Popen([*base,command],cwd=REPOSITORY/'pocket',stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
+        process=subprocess.Popen(command,cwd=REPOSITORY/'pocket',stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
         if process_changed:process_changed(process)
         if cancelled is not None and cancelled.is_set():os.killpg(process.pid,signal.SIGTERM)
         stdout,stderr=process.communicate()
@@ -54,7 +57,7 @@ class OfflineData:
     def __init__(self):
         self.device_only=not (REPOSITORY/'pocket/tools/maps.py').is_file()
         self.width=86;self.height=28;self.field='output' if self.device_only else 'bbox'
-        self.bbox=TextInput('',limit=100);self.url=TextInput('',limit=500)
+        self.host=TextInput('',limit=253);self.bbox=TextInput('',limit=100);self.url=TextInput('',limit=500)
         self.output=TextInput(str(REPOSITORY/'pocket/data'),limit=1000);self.spacing=TextInput('15',limit=8)
         if self.device_only:
             from data_paths import data_root
@@ -69,20 +72,23 @@ class OfflineData:
         from native_navigation import Target
         if self.device_only:return [Target('output','Installed reference-data folder','input'),Target('verify','Verify installed maps and elevation','action','verify')]
         return [Target(k,v,'input') for k,v in [('bbox','Bounds: west south east north'),('url','OSM PBF extract HTTPS URL'),('output','Local data folder'),('spacing','Elevation spacing, metres')]]+[
-            Target('plan','Plan / reuse / estimated size','action','plan'),Target('build','Download and build this area','action','build')]
+            Target('plan','Plan / reuse / estimated size','action','plan'),Target('build','Download and build this area','action','build'),
+            Target('host','N810 SSH hostname or alias','input'),Target('push','Push prepared maps to N810','action','push')]
     def navigation_focus(self):return self.field
-    def navigation_input(self,key):return getattr(self,key,None) if key in ('bbox','url','output','spacing') else None
+    def navigation_input(self,key):return getattr(self,key,None) if key in ('bbox','url','output','spacing','host') else None
     def navigation_changed(self):
         nav=self.__dict__.get('_navigation')
         if nav:self.field=nav.target
     def navigation_accept_input(self):return True
     def key(self,key):
-        if key not in ('plan','build','verify'):return False
+        if key not in ('plan','build','verify','push'):return False
         if self.pending:return True
         if self.pool is None:self.pool=ThreadPoolExecutor(max_workers=1)
-        self.error='';self.status='Verifying installed reference data…' if key=='verify' else 'Planning…' if key=='plan' else 'Downloading and building; this can take time. Keep this app open.'
+        self.error=''
+        self.status={'verify':'Verifying installed reference data…','push':'Sending maps to the N810…',
+                     'plan':'Planning…','build':'Downloading and building. Keep this app open.'}[key]
         self.cancelled.clear()
-        self.pending=self.pool.submit(prepare,key,self.bbox.text,self.url.text,self.output.text,self.spacing.text,self.cancelled,lambda process:setattr(self,'process',process))
+        self.pending=self.pool.submit(prepare,key,self.bbox.text,self.url.text,self.output.text,self.spacing.text,self.cancelled,lambda process:setattr(self,'process',process),self.host.text)
         if self.wakeup:self.pending.add_done_callback(lambda _:self.wakeup() if self.wakeup else None)
         return True
     def poll(self):
@@ -92,7 +98,7 @@ class OfflineData:
         self.pending=None;return True
     def lines(self):
         c=Canvas(self.width,self.height);self._hits=[];self._spans=[]
-        c.put(0,0,'Offline Data · installed maps and elevation' if self.device_only else 'Offline Data · prepare regional maps and terrain on your laptop')
+        c.put(0,0,'Offline Data · installed maps and elevation' if self.device_only else 'Offline Data · prepare and transfer regional maps and terrain')
         row=2
         for target in self.navigation_targets():
             value=self.navigation_input(target.key)
@@ -104,8 +110,8 @@ class OfflineData:
             else:
                 c.put(0,row,'[ '+target.title+' ]');self._hits.append((row,target.key));row+=1
         c.put(0,self.height-5,self.error or self.status)
-        c.put(0,self.height-3,'Use n810-install-reference-data on prepared data; restart Pocket after installing.' if self.device_only else 'Prerequisite: make maps-deps in the laptop pocket checkout.')
-        c.put(0,self.height-2,'Transfer prepared data separately; FCC download is in ULS Lookup.')
+        c.put(0,self.height-3,'Use n810-install-reference-data on prepared data; restart Pocket after installing.' if self.device_only else 'Build dependencies: make maps-deps. Map transfers use SSH.')
+        c.put(0,self.height-2,'FCC download is in ULS Lookup.')
         c.put(0,self.height-1,'Tab fields · Enter action · ? help')
         return c.lines()
     def spans(self):return tuple(self._spans)
@@ -119,13 +125,14 @@ class OfflineData:
                 if nav:nav.target=key
                 return True if self.navigation_input(key) is not None else self.key(key)
         return False
-    def session_state(self):return {key:getattr(self,key).text for key in ('bbox','url','output','spacing')}
+    def session_state(self):return {key:getattr(self,key).text for key in ('bbox','url','output','spacing','host')}
     def restore_session(self,state):
-        for key in ('bbox','url','output','spacing'):
+        for key in ('bbox','url','output','spacing','host'):
             if isinstance(state.get(key),str):getattr(self,key).text=state[key][:1000]
     def help_pages(self):
         return (('Offline Data',('Select a bounding box and an OSM extract covering it. Plan reports reusable inputs and estimated elevation size without downloading. Download and build acquires the extract and USGS fine elevation and derives display levels locally.',
             'Prepare dependencies once with make maps-deps in the laptop pocket checkout. Large areas can exceed the N810 internal MMC. Keep raw downloads on the laptop; transfer selected runtime maps and elevation only. See pocket/docs/map-data.md.',
+            'Push uses your SSH configuration to sign in as nokia. Enter the prepared folder and tablet hostname. The tablet verifies staged files before installation. Restart Pocket on the tablet after success.',
             'FCC data is an independent optional download in ULS Lookup. A base install remains usable without these datasets.')),)
     def close(self):
         self.wakeup=None;self.cancelled.set()

@@ -96,6 +96,7 @@ class DesktopWindow(Window):
 def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     p.add_argument('--state',type=Path,default=Path.home()/'.local/state/current-world/graphics')
+    p.add_argument('--ui-scale',type=int,choices=(1,2,3,4),default=2 if os.environ.get('POCKET_TERMUX')=='1' else 1,help='Scale desktop pixels and pointer targets together')
     p.add_argument('--seconds',type=float)
     if DEVELOPMENT:
         p.add_argument('--actions',type=Path)
@@ -112,7 +113,7 @@ def main():
     state=args.state;state.mkdir(parents=True,exist_ok=True)
     window=None if args.headless else DesktopWindow(CONFIG['display_library'])
     actions=json.loads(args.actions.read_text()) if args.actions else ()
-    platform=shared.Platform(CONFIG['font'],CONFIG['gpu_library'],window,output=args.output,actions=actions,require_gpu=not args.allow_software,font_mode=args.font_mode,diagnostics=args.report is not None)
+    platform=shared.Platform(CONFIG['font'],CONFIG['gpu_library'],window,output=args.output,actions=actions,require_gpu=not args.allow_software,font_mode=args.font_mode,diagnostics=args.report is not None,ui_scale=args.ui_scale)
     restore_effects=None
     if args.effect_backend=='gpu':
         try:import mlx.core

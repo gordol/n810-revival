@@ -515,11 +515,14 @@ image builder. Finish these steps after the base installation:
    See [map data](map-data.md) for the CLI and storage details. Legacy Map Library
    resources are separate compatibility inputs, not the regional acquisition
    path.
-8. Transfer prepared runtime data into `/usr/share/pocket/data` on the new
-   tablet, or set `POCKET_DATA_ROOT` for its launcher. Keep raw OSM/GeoTIFF
-   downloads on the laptop. Include the selected `elevation.json` catalogue and
-   its referenced fine/overview packs. The internal MMC is only 2 GB, so select
-   a small area or wait for SD storage before copying large collections.
+8. On a running revival tablet with the reference-data installer, use
+   **Offline Data → Push prepared maps to N810** on the laptop or phone.
+   Enter the prepared folder and an SSH hostname configured for the `nokia`
+   account. The receiver verifies the staged maps and installs them into
+   `/home/nokia/.local/share/pocket`, used by the A/B image launcher. Other
+   launchers can select this directory with `POCKET_DATA_ROOT`. Restart Pocket
+   on the tablet after transfer. Allow room for staging and installation when
+   choosing an area for the 2 GB internal MMC.
 9. In **ULS Lookup**, explicitly choose **Download/update FCC data** if desired.
    The base image does not download the national database or regional map data.
    Confirm storage first. **Connections** reports owner and radio status;

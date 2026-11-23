@@ -60,8 +60,16 @@ Press **d** to disconnect.
 The serial companion connection is cleartext and requires a physically trusted
 peripheral. To use an owner on another computer, forward its Unix socket through
 SSH and select that local socket. This adapter provides MeshCore messaging; it
-does not carry arbitrary Pocket services over MeshCore. Native BLE pairing is
-not implemented. Reticulum service transport remains a separate adapter.
+does not carry arbitrary Pocket services over MeshCore. On Android 11 or later, the Pocket radio APK can connect directly to a bonded
+MeshCore BLE companion. Install the same pinned owner runtime in Termux and set
+`port = "android-ble://paired"` in the local owner configuration above. Use
+Android settings to pair the companion first. Connect in Messages and choose
+the companion in Android's picker. The phone subscribes to Nordic UART
+notifications and writes one companion packet per acknowledged GATT write.
+Use **Disconnect** in Messages or the Android notification to release it.
+The UV-PRO provides a separate Bluetooth Classic APRS receive link for Stations.
+The BLE adapter has been built against Android SDK 35. Physical radio
+acceptance is pending.
 
 ## Troubleshooting
 

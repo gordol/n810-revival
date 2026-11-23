@@ -13,8 +13,9 @@ DEVELOPMENT = True  # Removed by the release exporter.
 
 class Platform:
  if DEVELOPMENT:history_capacity=128
- def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console",cell_renderer="gpu",diagnostics=False):
+ def __init__(self,font,library,display=None,*,frames=0,output=None,actions=(),require_gpu=True,font_mode="console",cell_renderer="gpu",diagnostics=False,ui_scale=1):
   self.diagnostics=DEVELOPMENT and diagnostics
+  self.ui_scale=ui_scale
   self.cell_renderer=cell_renderer
   self.require_gpu=require_gpu;self.font_mode=font_mode
   from presentation_text import create
@@ -83,13 +84,17 @@ class Platform:
   self.renderer=Renderer(host,self.font,self.library,require_gpu=self.require_gpu,font_mode=self.font_mode,cell_renderer=self.cell_renderer)
   if self.renderer.size!=self.size:self.renderer.resize(*self.size)
   if self.display and hasattr(self.display,'dynamic'):
-   self.display.dynamic(True);width,height=self.display.size();self.resize(width//8,height//16)
+   self.display.dynamic(True);width,height=self.display.size();self.resize_window(width,height)
   from display_context import create
   self.gpu_context=create(self)
   host.render_context=self.gpu_context
   self.report['renderer']=self.gpu_context.renderer_description
   self.report['cell_renderer']=self.renderer.renderer_name
   self.report['apps']=list(registry.entries);self.report['windows']=[w.name for w in host.windows]
+ def resize_window(self,width,height):
+  # Keep the minimum desktop usable when the phone window is small.
+  scale=max(1,min(self.ui_scale,width/640,height/400))
+  self.resize(int(width/(8*scale)),int(height/(16*scale)))
  def resize(self,cols,rows):
   self.size=(max(40,min(512,cols)),max(14,min(256,rows)));self.renderer.resize(*self.size)
   if self.display and hasattr(self.display,"set_canvas"):self.display.set_canvas(self.size[0]*8,self.size[1]*16)
@@ -116,7 +121,8 @@ class Platform:
     elif kind=='focus':result.append(('focus',event['focused']))
     elif kind=='key':result.append(('terminal_key',event['key'],'release' if event.get('released') else 'press',0))
     elif kind=='resize':
-     self.resize(event.get('columns',event.get('width',800)//8),event.get('rows',event.get('height',480)//16))
+     if 'columns' in event:self.resize(event['columns'],event['rows'])
+     else:self.resize_window(event['width'],event['height'])
     elif kind=='redraw':self.host.invalidate((0,0,self.host.width,self.host.height));self.dirty=True
   return result
  def compose_model(self):

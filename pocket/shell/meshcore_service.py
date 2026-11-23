@@ -49,9 +49,10 @@ def validate_selection(data):
     required={'state','interpreter','station','port','trusted_peripheral'}
     if not required<=set(data) or set(data)-required-{'baudrate'}:raise ValueError('Invalid MeshCore owner configuration')
     hub=isinstance(data['port'],str) and bool(re.fullmatch(r'htit://(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}/(?:[1-9]|[12][0-9]|30)/(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}/[01]',data['port']))
-    for key in ('state','interpreter') if hub else ('state','interpreter','port'):
+    bridge = hub or data['port']=='android-ble://paired'
+    for key in ('state','interpreter') if bridge else ('state','interpreter','port'):
         if not isinstance(data[key],str) or not Path(data[key]).is_absolute() or not data[key].isprintable():raise ValueError('MeshCore '+key+' must be an absolute path')
-    if (not hub and not data['port'].startswith('/dev/')) or type(data['trusted_peripheral']) is not bool:raise ValueError('Choose an explicit serial peripheral and trust policy')
+    if (not bridge and not data['port'].startswith('/dev/')) or type(data['trusted_peripheral']) is not bool:raise ValueError('Choose an explicit serial peripheral and trust policy')
     if not isinstance(data['station'],str) or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,80}',data['station']):raise ValueError('Invalid station identity')
     speed=data.get('baudrate',115200)
     if type(speed) is not int or not 300<=speed<=4000000:raise ValueError('Invalid serial speed')

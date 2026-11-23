@@ -83,7 +83,7 @@ class MeshOwner(_station.Owner):
                    revision=self.revision,local_identity=self.local_identity,capabilities=self.capabilities(),peers=peers,channels=self.channels,
                    peers_total=len(self.peers),peers_offset=self.peer_offset,peers_page_size=32,
                    messages=list(self.messages),last_job=self.last_job,error=self.error,connection_state=self.phase,
-                   device_link_security='trusted peripheral; serial is not encrypted')
+                   device_link_security=('Android bonded BLE peripheral' if self.port=='android-ble://paired' else 'trusted peripheral; serial is not encrypted'))
         while True:
             try:return state,encode(state)
             except ValueError:
@@ -118,7 +118,7 @@ class MeshOwner(_station.Owner):
                 if len(self.pins)>=64:raise ValueError('Verified contact limit reached')
                 self.pins.append(peer);self.save();self.revision+=1
             return dict(version=1,verified=True)
-        if action=='connect' and not self.trusted_peripheral:raise ValueError('MeshCore serial is cleartext to the attached radio; explicitly configure trusted_peripheral for a physically trusted device')
+        if action=='connect' and not self.trusted_peripheral:raise ValueError('MeshCore requires a trusted radio; explicitly configure trusted_peripheral for the selected device')
         if action in ('send','send_channel'):
             text=payload.get('text')
             if not isinstance(text,str) or not 1<=len(text.encode())<=160 or not text.isprintable():raise ValueError('Message must contain 1–160 printable UTF-8 bytes')
