@@ -31,17 +31,13 @@ class RiverExplorationTests(unittest.TestCase):
         for aspect in (.52,1.9):
             for pitch in (-.48,.39):
                 grab=ViewGrab(.22,.64,aspect,2.9,pitch)
-                grab.point=tuple(c*26 for c in grab.direction)
-                for eye in ((0,0,0),(1.2,.4,2.)):
-                    grab.cursor=(.58,.46)
-                    yaw,new_pitch=grab.aim(eye,aspect,2.9)
-                    ray=screen_ray(*grab.cursor,aspect,yaw,new_pitch)
-                    to_point=[p-e for p,e in zip(grab.point,eye)]
-                    for a,b in zip(ray,to_point):
-                        self.assertAlmostEqual(a/math.hypot(*ray),b/math.hypot(*to_point),places=9)
-                grab.point=None
+                grab.cursor=(.58,.46)
+                yaw,new_pitch=grab.aim(aspect,2.9)
+                ray=screen_ray(*grab.cursor,aspect,yaw,new_pitch)
+                for a,b in zip(ray,grab.direction):
+                    self.assertAlmostEqual(a/math.hypot(*ray),b/math.hypot(*grab.direction),places=9)
                 grab.cursor=grab.start
-                yaw,new_pitch=grab.aim((0,0,0),aspect,2.9)
+                yaw,new_pitch=grab.aim(aspect,2.9)
                 self.assertAlmostEqual(yaw,2.9)
                 self.assertAlmostEqual(new_pitch,pitch)
 

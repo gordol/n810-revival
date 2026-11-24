@@ -328,10 +328,11 @@ bush loses its fruit. From the starting clearing the four stops trace roughly
 140 metres through the woods on the same riverbank. Tap the compass again to find the next bush. After three, tap to
 bring the berries to the story fox. A heart means the fox has eaten. Tap
 again to play another round. Each feeding adds a heart for this session.
-Touch a spot on the hillside and drag. That spot follows your finger as you
-look around, even while you walk toward the ring.
+Drag the view to look around. While walking to a waypoint or following the
+berry guide, your steps carry on as you look to either side.
 A new tap on the ground sets the next destination. Tap **Walk** for continuous walking while you look,
-and **Stop** to stand still. You can also look around on a guided walk.
+and **Stop** to stand still. In Tap to walk mode, looking around keeps your
+walking heading. Stop, face a new direction and tap Walk to head that way. You can also look around on a guided walk.
 The river is audible through the woods and grows louder as you approach the bank. Each berry has its own chime. Listen for occasional caws, hoots, whistles and chips from nearby wildlife. The game synthesizes these calls and fades them with distance. Tap
 **Mute** for quiet play. There is
 no countdown. The fox is a game character. At Mount Rainier, watch wild

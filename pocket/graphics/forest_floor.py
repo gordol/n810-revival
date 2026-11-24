@@ -98,3 +98,39 @@ def spruce_sprays(x,y,z,h,t,angle,needles,face,rng):
                 edge=Vec(bx-width*v+reach*.15*u,by-reach*.12,bz+width*u+reach*.15*v)
                 mid=Vec(bx,by+.03*reach,bz)
                 face(mid,tip,edge,tuple(c*(.80+.19*f) for c in needles))
+
+
+def trail_cover(stops,height,wet,face):
+    """Low-cost beds of grass and fern fronds along both sides of the walk."""
+    import random
+    rng=random.Random(4815)
+    for (x,z),(ex,ez) in zip(stops,stops[1:]):
+        length=math.hypot(ex-x,ez-z)
+        u,v=(ex-x)/length,(ez-z)/length
+        for _ in range(round(length*1.8)):
+            t=rng.uniform(0,length)
+            offset=rng.choice((-1,1))*rng.uniform(1.5,10.)
+            cx,cz=x+t*u-offset*v,z+t*v+offset*u
+            fern_bed=rng.random()<.30
+            size=rng.uniform(.24,.64) if fern_bed else rng.uniform(.16,.40)
+            green=rng.randrange(88,130)
+            for _ in range(rng.randint(4,11)):
+                px,pz=cx+rng.gauss(0,1.1),cz+rng.gauss(0,1.1)
+                if wet(px,pz):continue
+                y=height(px,pz)-.025
+                base=Vec(px,y,pz)
+                for _ in range(rng.randint(3,6)):
+                    angle=rng.uniform(0,math.tau)
+                    dx,dz=math.cos(angle),math.sin(angle)
+                    h=size*rng.uniform(.65,1.2)
+                    reach=h*(1.1 if fern_bed else .52)
+                    mid=Vec(px+.5*reach*dx,y+h*.76,pz+.5*reach*dz)
+                    tip=Vec(px+reach*dx,y+h*(.6 if fern_bed else 1.),pz+reach*dz)
+                    width=h*(.16 if fern_bed else .067)
+                    edge=Vec(mid.x-width*dz,mid.y-.04*h,mid.z+width*dx)
+                    face(base,edge,mid,(green*.74,green,51))
+                    face(edge,tip,mid,(green*.82,green+8,56))
+                    if fern_bed:
+                        for side in (-1,1):
+                            leaf=Vec(mid.x-side*dz*width*1.7,mid.y,mid.z+side*dx*width*1.7)
+                            face(base,leaf,mid,(57,green-6,62))

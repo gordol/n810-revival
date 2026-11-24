@@ -87,12 +87,20 @@ class ViewpointTests(unittest.TestCase):
    app.pointer(32,7,42);app.pointer(9,7,42,32);app.pointer(9,7,42,released=True)
    self.assertEqual(pages,[1])
    view.notebook=None
+   view.cruise=True;view.cruise_heading=None
+   heading=app.yaw
    for start in (5,30):
+    view.frame_camera=((app.x,1.25,app.z,app.yaw,app.pitch),1.4)
     app.world_touch(1,start,5,42,15,0,False)
     yaw,pitch=app.yaw,app.pitch
     app.world_touch(1,start+3,7,42,15,32,False)
+    angles=app.yaw,app.pitch
+    app.x+=3.;app.z+=7.
     app.world_touch(1,start+3,7,42,15,0,True)
+    self.assertEqual((app.yaw,app.pitch),angles)
+    self.assertEqual(view.cruise_heading,heading)
     self.assertLess(app.yaw,yaw);self.assertLess(app.pitch,pitch)
+   view.frame_camera=None
    self.assertTrue(view.trail.free_look)
    self.assertEqual(view.destination,(0.,20.))
    self.assertEqual(taps,[(9,8)])

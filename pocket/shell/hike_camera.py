@@ -17,12 +17,9 @@ class ViewGrab:
         self.start=(u,v)
         self.cursor=None
         self.direction=screen_ray(u,v,aspect,yaw,pitch)
-        self.point=None
 
-    def aim(self,eye,aspect,yaw):
+    def aim(self,aspect,yaw):
         dx,dy,dz=self.direction
-        if self.point is not None:
-            dx,dy,dz=(p-e for p,e in zip(self.point,eye))
         length=hypot(dx,dy,dz)
         if length<1e-6:return None
         u,v=self.cursor

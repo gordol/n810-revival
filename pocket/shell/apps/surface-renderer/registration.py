@@ -99,14 +99,11 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             aspect=width*8/(height*16)
             camera=getattr(scene,'frame_camera',None)
             if camera:
-                (ex,ey,ez,yaw,pitch),_=camera
-                self.grab_eye=(ex,ey,ez)
+                yaw,pitch=camera[0][3:]
             else:
                 yaw,pitch=self.yaw,self.pitch
-                self.grab_eye=(self.x,0.,self.z)
             zoom=getattr(scene,'zoom',1.)
             self.grab=ViewGrab(.5+(x/width-.5)/zoom,.5+(y/height-.5)/zoom,aspect,yaw,pitch)
-            self.grab_aspect=aspect
 
         def drag_view(self,x,y,width,height):
             if not self.grab:return
@@ -116,17 +113,11 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                 # Keep the alternate layout's camera-steering direction.
                 u,v=2*self.grab.start[0]-u,2*self.grab.start[1]-v
             scene=self.pixel_scene
-            if self.controls==WAYPOINT and self.grab.cursor is None and getattr(scene,'frame_camera',None):
-                self.grab.point=scene.grab_point(self.grab_eye,self.grab.direction)
+            if self.controls==WAYPOINT and getattr(scene,'cruise',False) and scene.cruise_heading is None:
+                scene.cruise_heading=self.yaw
             self.grab.cursor=(u,v)
-            self.grab_aspect=width*8/(height*16)
             scene.trail.free_look=True
-            self.update_grab()
-
-        def update_grab(self):
-            if not self.grab or self.grab.cursor is None:return
-            eye=self.pixel_scene.eye_position(self.x,self.z) if self.grab.point is not None else self.grab_eye
-            angles=self.grab.aim(eye,self.grab_aspect,self.yaw)
+            angles=self.grab.aim(width*8/(height*16),self.yaw)
             if angles:self.yaw,self.pitch=angles
 
         def world_touch(self,slot,x,y,width,height,button,released):

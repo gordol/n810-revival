@@ -109,10 +109,10 @@ def regional_stand(field,base_y,cx,cz,surface,lookout):
                     cone(x+lean_x*rise,ground+h*level,z+lean_z*rise,h*width,h*min(.33,1-level),
                          tone,angle+rng.uniform(-1,1),8,True)
                 shade_tree(canopy,x-cx,z-cz,h)
-            elif rng.random()<.64:
-                for _ in range(7):
-                    px=x+rng.uniform(-1.8,1.8)
-                    pz=z+rng.uniform(-1.8,1.8)
+            if rng.random()<.82:
+                for _ in range(10):
+                    px=x+rng.uniform(-3.1,3.1)
+                    pz=z+rng.uniform(-3.1,3.1)
                     ground=surface(field,px,pz)-base_y
                     h=rng.uniform(.18,.54)
                     for _ in range(5):

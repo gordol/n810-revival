@@ -11,7 +11,7 @@ from geometry import Vec, cross, sub, unit
 import fremont_lookout as lookout
 from river_camp import CAMP, OVERLOOK, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
-from forest_floor import blade, broadleaf_clump, fern, snag, spruce_sprays
+from forest_floor import blade, broadleaf_clump, fern, snag, spruce_sprays, trail_cover
 from rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from rainier_hike import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from river_party import PartyMenu
@@ -264,6 +264,7 @@ def build_world(high=True,plant_sites=None,regional=False):
     for i,(x,z) in enumerate(BUSHES):
         blueberry_patch(x,z,height,face,rng,.08+i*.05,high)
 
+    trail_cover(route,height,lambda x,z:wet(x,z,segments,.5),face)
     grass_rng=random.Random(8451)
     fern_count=0
     for i,(x,z,size,color) in enumerate(understory(random.Random(927),route)):
@@ -330,6 +331,7 @@ class RainierView:
         self.travel_error=''
         self.trail=BerryTrail()
         self.cruise=False
+        self.cruise_heading=None
         self.sound=True
         self.notebook=None
         self.lens=self.binoculars=False
@@ -408,6 +410,7 @@ class RainierView:
         if x<width//6:
             self.destination=None
             self.cruise=not self.cruise
+            self.cruise_heading=None
             self.trail.guiding=False
         elif self.regional and x>=width*3//4:
             self.cruise=False
@@ -643,7 +646,7 @@ class RainierView:
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
         if self.destination is not None:self.destination=walk_to(owner,self.destination,dt,face_path=not self.trail.free_look,speed=3.2*self.pace)
-        if self.cruise:owner._translate(1.,0.,dt*2.5)
+        if self.cruise:owner._translate(1.,0.,dt*2.5,self.cruise_heading)
         for plant,px,pz in (() if self.regional else self.plant_sites):
             if plant not in self.found_plants and (owner.x-px)**2+(owner.z-pz)**2<=2.5**2:
                 from river_notebook import record_plant
@@ -667,7 +670,6 @@ class RainierView:
         self.last_tick=now
         west,east,south,north=bounds(self.world[0])
         owner.x=max(west,min(east,owner.x));owner.z=max(south,min(north,owner.z))
-        owner.update_grab()
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)
         age=owner.clock()-owner.started-owner.paused_total
         if self.camera!=camera or age-self.age>=1/20:
@@ -684,27 +686,6 @@ class RainierView:
                 step=min(14,int((z-cz+7.4)/.3)+1)
                 ground=bottom+(base+lookout.DECK-bottom)*step/14
         return x,ground-origin.y+1.25,z
-
-    def grab_point(self,eye,direction):
-        # Find terrain under the press, including slopes across the river.
-        field,origin=self.world[:2]
-        west,east,south,north=bounds(field)
-        x,y,z=eye
-        dx,dy,dz=direction
-        near=0.
-        while near<100000:
-            far=near+max(.4,min(field.dx*.5,field.dz*.5,near*.025))
-            px,pz=x+far*dx,z+far*dz
-            if not (west<=px<=east and south<=pz<=north):break
-            if y+far*dy<=surface(field,px+origin.x,pz+origin.z)-origin.y:
-                for _ in range(12):
-                    mid=(near+far)/2
-                    if y+mid*dy>surface(field,x+mid*dx+origin.x,z+mid*dz+origin.z)-origin.y:near=mid
-                    else:far=mid
-                return x+far*dx,y+far*dy,z+far*dz
-            if dy>0 and y+far*dy>9000:break
-            near=far
-        return None
 
     def draw_rainier(self,ctx):
         self.pixel_dirty=False
