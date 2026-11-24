@@ -333,6 +333,12 @@ berry guide, your steps carry on as you look to either side.
 A new tap on the ground sets the next destination. Tap **Walk** for continuous walking while you look,
 and **Stop** to stand still. In Tap to walk mode, looking around keeps your
 walking heading. Stop, face a new direction and tap Walk to head that way. You can also look around on a guided walk.
+Tap **Map** below **Guidebook** for a north-up map centered on your position.
+The gold marker points in the direction you face. **Valley** shows the whole river
+reach and both mapped hiking trails. Tap a spot, then **Zoom in** to inspect it
+or **Walk here** to set a direct walking waypoint. **Back** closes the map.
+The valley map works offline.
+
 Choose **Hike → Fish at trout pool** for a bank-side view of several rainbow trout.
 Tap **Cast fly** and watch the gold fly drift until a trout rises. Tap **Reel in!**,
 then **Release trout**. If it gets away, **Cast again**. Look down to see fish and

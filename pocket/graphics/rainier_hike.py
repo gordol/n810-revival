@@ -125,23 +125,25 @@ class ReliefMap:
         return (w-rw)//2,20+(h-48-rh)//2,rw,rh
 
     def draw(self,ctx,rect):
-        import ctypes as C
         from river_overlay import Ink
         field=self.view.world[0]
         ink=Ink(ctx,rect)
         w,h=rect[2:]
         ink.fill((0,0,w/8,h/16),0x22352EFF)
         x,y,rw,rh=self.frame(w,h)
-        # The source grid has angular cells. Present the overview in metres.
-        draw=ctx.lib.pocket_scene_river_map
-        draw.argtypes=[C.c_void_p]+[C.c_int]*6+[C.c_void_p]
-        ctx.check(draw(ctx.handle,rect[0]+x,rect[1]+y,rw,rh,field.nx,field.nz,self.rgb if self.upload else None))
-        self.upload=False
+        self.draw_image(ctx,rect,x,y,rw,rh,field.nx,field.nz)
         west,east,south,north=bounds(field)
         px,pz=self.view.camera[:2]
         ink.fill(((x+(px-west)/(east-west)*(rw-1)-2)/8,(y+(north-pz)/(north-south)*(rh-1)-2)/16,.625,.3125),0xFFB52DFF)
         ink.label(0,0,'Tap terrain to start here'[:w//8],0xFFF4CF)
         ink.button((0,h/16-1.5,w//8,1.5),'Back')
+
+    def draw_image(self,ctx,rect,x,y,rw,rh,nx,nz):
+        import ctypes as C
+        draw=ctx.lib.pocket_scene_river_map
+        draw.argtypes=[C.c_void_p]+[C.c_int]*6+[C.c_void_p]
+        ctx.check(draw(ctx.handle,rect[0]+x,rect[1]+y,rw,rh,nx,nz,self.rgb if self.upload else None))
+        self.upload=False
 
     def tap_xy(self,x,y):
         window=self.view.host.window(self.view.name)

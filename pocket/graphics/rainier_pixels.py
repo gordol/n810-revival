@@ -16,6 +16,7 @@ from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, broadleaf_clump, fern, snag, spruce_sprays, trail_cover
 from rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from rainier_hike import HikeMenu, ReliefMap, bounds, region_field, summit_start
+from valley_map import ValleyMap
 from river_party import PartyMenu
 from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
 from river_notebook import DiscoveryBook
@@ -636,6 +637,11 @@ class RainierView:
                 self.photo_hint='Camp is ready'
                 self.hint_until=self.age+2.
             elif action in ('deck','ground'):self.visit_lookout(deck=action=='deck')
+            elif action=='map':
+                self.notebook=ValleyMap(self)
+                self.destination=None
+                self.cruise=self.trail.guiding=False
+                self.album_loaded=None
             elif action=='book':
                 self.destination=None
                 self.cruise=self.trail.guiding=False

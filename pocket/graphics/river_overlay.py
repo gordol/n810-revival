@@ -20,6 +20,7 @@ def tools(width,height,lens,binoculars=False,zoom=1.,regional=False):
     buttons.append(('binoculars','Lower' if binoculars else 'Binoculars',(1,y,w,2)))
     if optics:
         buttons.append(('zoom',f'Zoom {zoom:.1f}x',(width-w-1,y,w,2)))
+    if not regional and not optics:buttons.append(('map','Map',(width-w-1,y,w,2)))
     if lens:buttons.append(('shutter','Take photo',((width-w)//2,height-3,w,3)))
     return buttons
 

@@ -99,3 +99,27 @@ class HikeTests(TestCase):
             x,z=view.map_position
             self.assertAlmostEqual((x-west)/(east-west),.25)
             self.assertAlmostEqual((z-south)/(north-south),.75)
+
+    def test_valley_map_layers_zoom_and_walking_waypoint(self):
+        from valley_map import ValleyMap,RIVER,TRAIL_COLORS,SIZE
+        from river_walk import site
+        for cols,rows in ((45,40),(92,20)):
+            window=SimpleNamespace(w=cols,h=rows)
+            view=SimpleNamespace(world=(site()[0],),camera=(0.,0.,0.,0.),name='Walk',destination=None,
+                trail=SimpleNamespace(free_look=True),host=SimpleNamespace(window=lambda _:window))
+            overview=ValleyMap(view)
+            self.assertEqual(overview.normalized(0,0),(.5,.5))
+            self.assertTrue(overview.tap_xy(1,rows-4))
+            self.assertFalse(overview.local)
+            self.assertEqual(len(overview.rgb),SIZE*SIZE*3)
+            for color in (RIVER,*TRAIL_COLORS.values()):self.assertIn(bytes(color),overview.rgb)
+            left,top,w,h=overview.frame((cols-2)*8,(rows-3)*16)
+            overview.tap_xy((left+.67*w)/8-.5,(top+.28*h)/16-.5)
+            target=overview.selected
+            self.assertGreater(min(target),0)
+            self.assertIsNone(view.destination)
+            overview.tap_xy(1,rows-4)
+            self.assertEqual(overview.normalized(*target),(.5,.5))
+            self.assertFalse(overview.tap_xy(cols//2,rows-4))
+            self.assertEqual(view.destination,target)
+            self.assertFalse(view.trail.free_look)
