@@ -28,6 +28,8 @@ struct gpu_scene {
 #else
  struct wildlife_gl wildlife;
  SDL_AudioDeviceID river_audio;int river_audio_failed,river_cue,river_note;unsigned river_seed;float river_low;
+ struct river_bounds {float x,y,z,r;} *river_blocks;
+ GLuint rainier_shadow,rainier_bloom,rainier_color;int bloom_w,bloom_h,rainier_bloom_failed;
  GLuint rainier_buffer,rainier_indices,rainier_depth,rainier_program;unsigned rainier_w,rainier_h;
 #endif
 };
@@ -534,6 +536,9 @@ void pocket_scene_rainier_release(void *ptr){
  pocket_scene_river_sound(s,0,0,0);s->river_audio_failed=0;
  if(!s->rainier_program)return;
  SDL_RenderFlush(s->device);
+ free(s->river_blocks);s->river_blocks=NULL;
+ glDeleteTextures(1,&s->rainier_shadow);glDeleteTextures(1,&s->rainier_color);glDeleteProgram(s->rainier_bloom);
+ s->rainier_color=s->rainier_shadow=s->rainier_bloom=0;s->bloom_w=s->bloom_h=s->rainier_bloom_failed=0;
  glDeleteProgram(s->rainier_program);glDeleteBuffers(1,&s->rainier_buffer);glDeleteBuffers(1,&s->rainier_indices);glDeleteRenderbuffers(1,&s->rainier_depth);
  s->rainier_program=s->rainier_buffer=s->rainier_indices=s->rainier_depth=0;
  s->rainier_w=s->rainier_h=0;

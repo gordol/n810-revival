@@ -99,7 +99,7 @@ def river_mesh(segments,height,face):
             previous=row
 
 
-def blueberry_patch(x,z,height,face,rng,material):
+def blueberry_patch(x,z,height,face,rng,material,high=True):
     for _ in range(20):
         a=rng.random()*math.tau
         r=rng.uniform(.15,.68)
@@ -115,16 +115,27 @@ def blueberry_patch(x,z,height,face,rng,material):
             blade(stalk,angle,rng.uniform(.09,.16),rng.uniform(.029,.051),
                   rng.uniform(.008,.045),(55+4*k,111+4*k,54),face,serrated=True)
         # Plump blue clusters with a dark calyx, enlarged for a small screen.
-        for offset in (0.,.105):
-            bx=cx+offset;by=y+.07-offset*.5
+        for offset in (0.,.059):
+            bx=cx+offset;by=y+.045-offset*.35
+            face(branch,Vec(cx+.012,y+.015,cz+.007),Vec(bx,by,cz),(108,106,66))
             rings=[]
-            for lat in (-1.5,-.65,.15,.88,1.5):
-                rings.append([Vec(bx+.077*math.cos(lat)*math.cos(i*math.tau/9),
-                                  by+.068*math.sin(lat),cz+.077*math.cos(lat)*math.sin(i*math.tau/9))
-                              for i in range(9)])
+            sides=24 if high else 9
+            bands=12 if high else 4
+            for k in range(bands+1):
+                lat=-math.pi/2+math.pi*k/bands
+                rings.append([Vec(bx+.041*math.cos(lat)*math.cos(i*math.tau/sides),
+                                  by+.038*math.sin(lat),cz+.041*math.cos(lat)*math.sin(i*math.tau/sides))
+                              for i in range(sides)])
             for band,(lo,hi) in enumerate(zip(rings,rings[1:])):
-                color=((57,69,128),(71,92,165),(94,119,191),(94,109,167))[band]
+                color=((57,69,128),(71,92,165),(94,119,191),(94,109,167))[band*4//bands]
                 for i,p in enumerate(lo):
-                    j=(i+1)%9
-                    face(p,hi[i],lo[j],color,material)
-                    face(lo[j],hi[i],hi[j],color,material)
+                    j=(i+1)%sides
+                    if band:face(p,hi[i],lo[j],color,material)
+                    if band+1<bands:face(lo[j],hi[i],hi[j],color,material)
+            if high:
+                crown=Vec(bx,by+.0388,cz)
+                for j in range(5):
+                    a=j*math.tau/5
+                    face(crown,Vec(bx+.013*math.cos(a),by+.038,cz+.013*math.sin(a)),
+                         Vec(bx+.006*math.cos(a+.7),by+.039,cz+.006*math.sin(a+.7)),
+                         (52,65,108),material)

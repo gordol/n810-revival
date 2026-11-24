@@ -364,3 +364,17 @@ Washington rules and emergency updates for the specific water.
 - [Washington fish identification definitions](https://app.leg.wa.gov/wac/default.aspx?cite=220-300-160)
 - [Field investigation of Slippery Falls and Ohanapecosh fish passage, sections 2.5 and 4.2](https://www.morageology.com/pubs/356.pdf)
 - [CDC guidance on Giardia and drinking water](https://www.cdc.gov/giardia/prevention/index.html)
+
+Rainier Walk selects graphics detail automatically. High detail adds denser
+berry clusters and nearby wildlife meshes, bark and ground texture, forest and
+animal shadows, and a soft glow around bright highlights. Auto starts with a
+smaller mesh on devices reporting less than 3 GiB of RAM. On a sustained
+slowdown it drops bloom, fine shading and extra foliage for the session.
+The elevation grid, berry hunt, wildlife encounters and touch controls work
+in both modes. To choose a mode when launching Pocket from the checkout:
+
+```sh
+POCKET_RIVER_QUALITY=high make mobile
+```
+
+Use `low` for the lighter build, or run `make mobile` with no override for auto.

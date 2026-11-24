@@ -6,7 +6,8 @@ import math
 import random
 
 from geometry import Vec, cross, sub, unit
-from forest_floor import fern, snag, spruce_sprays
+from river_detail import RiverQuality, shade_tree
+from forest_floor import blade, fern, snag, spruce_sprays
 from rainier_habitat import forest_sites
 from river_notebook import RiverNotebook
 from pnw_species import REGIONAL, group
@@ -58,19 +59,20 @@ PERCHES={'owl','tufted owl','crested','climber','woodpecker','kingfisher','tit',
 class AnimalDraw(C.Structure):
     _fields_=[('first',C.c_uint),('second',C.c_uint),('index',C.c_uint),
               ('count',C.c_uint),('stride',C.c_uint),('blend',C.c_float),('x',C.c_float),
-              ('y',C.c_float),('z',C.c_float),('heading',C.c_float)]
+              ('y',C.c_float),('z',C.c_float),('heading',C.c_float),('shadow',C.c_float),('slope_x',C.c_float),('slope_z',C.c_float)]
 
 
-def append_animals(vertices):
+def append_animals(vertices,high=False):
     """Store each (vertex, material) once per pose, sharing indices across poses."""
     from wildlife_models import FOX_ASSETS, FOX_FRAMES, pose
     indices=array('I')
     spans=[]
-    for species,_,_,scale in ENCOUNTERS:
+    for species,x,z,scale in ENCOUNTERS:
+        low_mesh=species in REGIONAL and not (high and math.hypot(x,z)<30)
         frames=FOX_FRAMES if species in FOX_ASSETS else 3
         first=len(vertices)//7
         offset=len(indices)
-        _,faces=pose(species,0,False,species in REGIONAL)
+        _,faces=pose(species,0,False,low_mesh)
         palette={}
         for i in range(0,len(faces),4):
             a,b,c,color=faces[i:i+4]
@@ -78,7 +80,7 @@ def append_animals(vertices):
                 key=(j,color)
                 indices.append(palette.setdefault(key,len(palette)))
         for frame in range(frames):
-            points,_=pose(species,frame,False,species in REGIONAL)
+            points,_=pose(species,frame,False,low_mesh)
             for j,color in palette:
                 x,y,z,light=points[j*4:j*4+4]
                 vertices.extend((x*scale,y*scale,z*scale,((color>>16)&255)*light/255,
@@ -126,18 +128,24 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.)):
         frame=int(phase);blend=phase-frame
         if species!='fox':blend=blend*blend*(3-2*blend)
         y=surface(field,origin.x+x,origin.z+z)-origin.y+altitude
+        shadow=0. if altitude>.05 or distance>38 else ENCOUNTERS[i][3]
+        slope_x=surface(field,origin.x+x+1,origin.z+z)-origin.y-y if shadow else 0.
+        slope_z=surface(field,origin.x+x,origin.z+z+1)-origin.y-y if shadow else 0.
         draw=AnimalDraw(first+frame*stride,first+((frame+1)%frames)*stride,
-                               index,count,stride,blend,x,y,z,heading)
+                               index,count,stride,blend,x,y,z,heading,shadow,slope_x,slope_z)
         draws.append((distance,draw))
     draws.sort(key=lambda item:item[0])
     visible=[draw for _,draw in draws[:48]]
     return (AnimalDraw*len(visible))(*visible)
 
 
-def build_world():
+def build_world(high=True):
     field,segments=site()
     origin=Vec(0,surface(field,0,0),0)
     triangles=array('f')
+    detail=array('f')
+    target=triangles
+    shadows=bytearray(512*512) if high else None
 
     def vertex(p,color,ground=0.):
         return (p.x-origin.x,p.y-origin.y,p.z-origin.z,*(max(0,min(255,c))/255 for c in color),ground)
@@ -146,7 +154,7 @@ def build_world():
         n=unit(cross(sub(b,a),sub(c,a)))
         light=.74+.26*(n.y*.78-n.x*.52-n.z*.35)
         rgb=tuple(v*light for v in color)
-        for p in (a,b,c):triangles.extend(vertex(p,rgb,material))
+        for p in (a,b,c):target.extend(vertex(p,rgb,material))
 
     mesh=field.mesh()
     colors=[]
@@ -169,21 +177,22 @@ def build_world():
 
     rng=random.Random(3918)
     def pine(x,z,h,near):
+        nonlocal target
         y=surface(field,x,z)-.14
         def ring(height,radius,angle,count):
             return [Vec(x+math.cos(angle+i*math.tau/count)*radius,y+height,
                         z+math.sin(angle+i*math.tau/count)*radius) for i in range(count)]
-        sides=5 if near else 3
+        sides=(12 if high else 5) if near else 3
         bottom=ring(0,h*.023,0,sides);top=ring(h*.88,h*.009,0,sides)
         for i in range(sides):
             j=(i+1)%sides
-            face(bottom[i],top[i],bottom[j],(86,69,50))
-            face(bottom[j],top[i],top[j],(86,69,50))
+            face(bottom[i],top[i],bottom[j],(106,85,66),.48)
+            face(bottom[j],top[i],top[j],(106,85,66),.48)
         shade=rng.uniform(.82,1.13)
         layers=rng.choice((5,7)) if near else 3
         needles=rng.choice(((37,75,58),(52,91,66),(64,98,76),(48,82,76)))
         breadth=rng.uniform(.8,1.24)
-        tips=12 if near else 5
+        tips=(20 if high else 10) if near else 5
         for layer in range(layers):
             t=layer/layers;angle=rng.random()*math.tau
             apex=Vec(x,y+h*(.50+.50*t),z)
@@ -191,24 +200,31 @@ def build_world():
             for i,p in enumerate(crown):
                 spread=rng.uniform(.60,.80) if i%2 else rng.uniform(1,1.18)
                 crown[i]=Vec(x+(p.x-x)*spread,p.y+h*(.034 if i%2 else -.025),z+(p.z-z)*spread)
-            if math.hypot(x,z)<55:spruce_sprays(x,y,z,h,t,angle,needles,face)
+            if high and math.hypot(x,z)<55:
+                target=detail
+                spruce_sprays(x,y,z,h,t,angle,needles,face)
+                target=triangles
             for i,p in enumerate(crown):
                 face(apex,p,crown[(i+1)%tips],tuple(v*shade*(.78+.23*t) for v in needles))
-    for dx,dz,h,near in forest_sites(rng):
+    for dx,dz,h,near in forest_sites(random.Random(3918)):
         if wet(dx,dz,segments,2):continue
+        if high:shade_tree(shadows,dx,dz,h)
         pine(origin.x+dx,origin.z+dz,h,near)
     def height(x,z):return surface(field,x,z)
     river_mesh(segments,height,face)
     for key,x,z,_ in ENCOUNTERS:
         if key in REGIONAL and REGIONAL[key].form in PERCHES:snag(x,height(x,z),z,1.6,face)
     for i,(x,z) in enumerate(BUSHES):
-        blueberry_patch(x,z,height,face,rng,.08+i*.05)
+        blueberry_patch(x,z,height,face,rng,.08+i*.05,high)
 
-    for _ in range(38):
+    target=detail
+    for _ in range(38 if high else 0):
         dx,dz=rng.uniform(-15,15),rng.uniform(-15,35)
         if wet(dx,dz,segments,1) or abs(dx)<2:continue
         fern(dx,dz,height(dx,dz),rng.uniform(.45,.85),face,rng)
 
+    target=triangles
+    grass_rng=random.Random(8451)
     # Low plants and stones give the walker close-range parallax.
     for i in range(1100):
         angle=rng.random()*math.tau;radius=48*math.sqrt(rng.random())
@@ -217,22 +233,39 @@ def build_world():
         y=surface(field,x,z)
         height=rng.uniform(.13,.48)
         if i%9==0:
-            foot=[Vec(x+height*math.cos(t),y-.025,z+.7*height*math.sin(t)) for t in range(6)]
-            for j in range(6):face(foot[j],Vec(x-.08*height,y+height*.50,z),foot[(j+1)%6],(115,112,95))
+            sides=11 if high else 6
+            outline=[(height*math.cos(t*math.tau/sides),.7*height*math.sin(t*math.tau/sides)) for t in range(sides)]
+            foot=[Vec(x+dx,y-.05,z+dz) for dx,dz in outline]
+            ridge=[Vec(x+dx*.79,y+height*(.23+.07*math.sin(j*2.1)),z+dz*.79) for j,(dx,dz) in enumerate(outline)]
+            top=Vec(x-.13*height,y+height*.42,z+.07*height)
+            for j,p in enumerate(ridge):
+                k=(j+1)%sides
+                for tri in ((p,top,ridge[k]),(foot[j],p,foot[k]),(p,ridge[k],foot[k])):
+                    face(*tri,(122,118,103))
+        elif high and radius<19:
+            target=detail
+            for j in range(6):
+                a=grass_rng.random()*math.tau
+                blade(Vec(x,y,z),a,height*.56,height*.043,height*(.48+.45*grass_rng.random()),(99,123,65),face)
+            target=triangles
         else:
             for j in range(4):
                 t=angle+j*1.57;dx,dz=math.cos(t)*.07,math.sin(t)*.07
                 face(Vec(x-dz,y,z+dx),Vec(x+dx*2,y+height*rng.uniform(.65,1),z+dz*2),
                      Vec(x+dz,y,z-dx),(90+i%21,106+i%18,62))
+    base_count=len(triangles)//7
+    triangles.extend(detail)
+    del detail
     terrain_count=len(triangles)//7
-    indices,spans=append_animals(triangles)
-    return field,origin,triangles,terrain_count,indices,spans
+    indices,spans=append_animals(triangles,high)
+    return field,origin,triangles,terrain_count,indices,spans,base_count,shadows
 
 
 class RainierView:
     name='Rainier walk'
     def __init__(self,host):
         self.host=host
+        self.quality=RiverQuality()
         self.trail=BerryTrail()
         self.cruise=False
         self.sound=True
@@ -302,9 +335,13 @@ class RainierView:
         if self.world is None:
             if self.job is None:
                 self.pool=ThreadPoolExecutor(max_workers=1)
-                self.job=self.pool.submit(build_world)
+                self.job=self.pool.submit(build_world,self.quality.high)
             if not self.job.done():return
             try:self.world=self.job.result()
+            except MemoryError:
+                if self.quality.auto and self.quality.high:self.quality.high=False
+                else:self.error="Not enough memory for the river scene."
+                return
             except Exception as error:self.error=str(error);return
             finally:self.pool.shutdown(wait=False);self.pool=self.job=None
         now=owner.clock()
@@ -326,7 +363,9 @@ class RainierView:
     def draw_rainier(self,ctx):
         self.pixel_dirty=False
         if self.world is None or self.camera is None or self.notebook:return ()
-        field,origin,data,terrain_count,indices,spans=self.world
+        field,origin,data,terrain_count,indices,spans,base_count,shadows=self.world
+        self.quality.frame(self.age)
+        high=self.quality.high
         x,z,yaw,pitch=self.camera
         eye=surface(field,x+origin.x,z+origin.z)-origin.y+1.25
         wx,wy,w,h=self.host.bounds(self.host.window(self.name))
@@ -340,16 +379,22 @@ class RainierView:
         draw=ctx.lib.pocket_scene_rainier
         commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z))
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int]
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p]
         target_x,target_z=self.trail.target(x,z)
         direction=math.atan2(target_x-x,target_z-z)-yaw
         mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
         if self.upload:self.counts=len(data)//7,len(indices)
-        ctx.check(draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count,
+        result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
-                       x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed))
+                       x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None)
         self.context=ctx
-        if self.upload:self.world=field,origin,None,terrain_count,None,spans
+        if result==-2 and high and self.quality.auto:
+            self.release()
+            self.quality.high=False
+            return ()
+        ctx.check(result)
+        if self.upload:self.world=field,origin,None,terrain_count,None,spans,base_count,None
         self.upload=False
         self.pixel_jobs+=1;self.pixel_frames+=1
         return rect
