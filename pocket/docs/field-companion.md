@@ -405,6 +405,11 @@ Washington rules and emergency updates for the specific water.
 - [Field investigation of Slippery Falls and Ohanapecosh fish passage, sections 2.5 and 4.2](https://www.morageology.com/pubs/356.pdf)
 - [CDC guidance on Giardia and drinking water](https://www.cdc.gov/giardia/prevention/index.html)
 
+Rainier Walk prepares the valley on the first visit and saves the generated
+terrain, plants and wildlife meshes under `$XDG_CACHE_HOME/pocket/rainier-walk`
+(default `~/.cache/pocket/rainier-walk`). Later visits reuse the scene. Each
+graphics detail level has its own cache, refreshed when its inputs change.
+
 Rainier Walk selects graphics detail automatically. High detail adds denser
 berry clusters and nearby wildlife meshes, bark and ground texture, nearby
 animal shadows, and a soft glow around bright highlights. Auto starts with a

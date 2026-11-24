@@ -200,8 +200,8 @@ def build_world(high=True,plant_sites=None,regional=False):
     def face(a,b,c,color,material=0.):
         n=unit(cross(sub(b,a),sub(c,a)))
         light=.74+.26*(n.y*.78-n.x*.52-n.z*.35)
-        rgb=tuple(v*light for v in color)
-        for p in (a,b,c):target.extend(vertex(p,rgb,material))
+        rgb=tuple(max(0,min(255,v*light))/255 for v in color)
+        for p in (a,b,c):target.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z,*rgb,material))
 
     mesh=field.mesh()
     colors=[]
@@ -691,7 +691,8 @@ class RainierView:
         if self.world is None:
             if self.job is None:
                 self.pool=ThreadPoolExecutor(max_workers=1)
-                self.job=self.pool.submit(build_world,self.quality.high,self.plant_sites)
+                from river_scene_cache import valley_world
+                self.job=self.pool.submit(valley_world,self.quality.high,self.plant_sites)
             if not self.job.done():return
             try:self.world=self.job.result()
             except MemoryError:

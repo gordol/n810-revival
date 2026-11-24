@@ -35,6 +35,31 @@ class RiverDetailTests(unittest.TestCase):
                 count=len(spans)
             del vertices
 
+    def test_cached_valley_restores_game_inputs_and_rebuilds_bad_or_old_cache(self):
+        import tempfile
+        from array import array
+        from river_scene_cache import valley_world
+        plants=[('blueberry',1.,2.)]
+        sample=(None,None,array('f',[0.]*42),3,array('I',[0,0,0]),[(3,1,3,0,3)],3,bytearray(1024**2))
+        def generate(high,sites):
+            sites[:]=plants
+            return sample
+        with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,XDG_CACHE_HOME=tmp),patch(
+            'rainier_pixels.ENCOUNTERS',[None]),patch('rainier_pixels.build_world',side_effect=generate) as build:
+            with patch('river_scene_cache.source_key',return_value='first'):
+                valley_world(True,[])
+                restored=[]
+                world=valley_world(True,restored)
+                self.assertEqual(world[2:5],sample[2:5])
+                self.assertEqual(world[6:],sample[6:])
+                self.assertEqual(restored,plants)
+                build.assert_called_once()
+                next(Path(tmp).rglob('*.zip')).write_bytes(b'interrupted')
+                valley_world(True,[])
+            with patch('river_scene_cache.source_key',return_value='new'):
+                valley_world(True,[])
+            self.assertEqual(build.call_count,3)
+
     def test_binoculars_prioritize_in_frame_wildlife_beyond_walking_range(self):
         from geometry import Vec
         from rainier_pixels import encounters

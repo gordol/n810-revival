@@ -28,13 +28,17 @@ def main():
     from native_runtime import select
     native=select(build=True)
     if not native['library']:raise SystemExit(native['reason'])
-    sources=[p for p in HERE.rglob('*') if p.suffix in ('.c','.h','.m','.py')]
+    sources=[p for p in HERE.rglob('*') if p.suffix in ('.c','.h','.m') and not p.name.startswith('test_desktop_')]
+    sources.extend(HERE/name for name in ('build.py','generate_room.py','extend_font.py','cells.py'))
+    sources.extend(POCKET/'shell'/name for name in ('geometry.py','vegetation.py','landscape_detail.py','lighting.py','vendor/fonts/choices/catalog.json'))
+    if mac:sources.extend(p for p in (POCKET/'shell').rglob('*.py') if 'vendor' not in p.relative_to(POCKET/'shell').parts)
     sources.extend([POCKET/'shell/font_preview.py',POCKET/'shell/apps/surface-renderer/room.py',POCKET/'shell/vendor/fonts/choices/console-8x16.psf'])
     identity={'version':1,'platform':platform.system(),'machine':platform.machine(),'python':sys.implementation.cache_tag,'compiler':cc,'compiler_version':subprocess.check_output([*cc,'--version'],text=True).splitlines()[0],'sdl':sdl,'sdl_version':sdl_version,'native':native['identity'],'inputs':{str(p.relative_to(POCKET)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}}
     stamp=OUT/'BUILD.json';config_path=OUT/'frontend.json'
-    outputs=['reference.so','renderer.so','window.so','room-pixels.so','console-font.psf','frontend.json','room_mesh.h','test-desktop-input','test-desktop-borders']+(['_gpueffects.abi3.so','console-font.glyphs','console-font.smooth'] if mac else [])
+    outputs=['reference.so','renderer.so','window.so','room-pixels.so','console-font.psf','frontend.json','room_mesh.h']+(['_gpueffects.abi3.so','console-font.glyphs','console-font.smooth'] if mac else [])
     if stamp.exists() and json.loads(stamp.read_text())==identity and all((OUT/n).is_file() for n in outputs):
-        print('Graphical frontend is up to date.');return
+        print('Graphical frontend is up to date.')
+        return cc,sdl
     subprocess.run([sys.executable,str(HERE/'generate_room.py'),str(OUT)],check=True)
     from extend_font import extend,Font
     font_path=OUT/'console-font.psf';extend(POCKET/'shell/vendor/fonts/choices/console-8x16.psf',font_path)
@@ -45,8 +49,6 @@ def main():
     (OUT/'renderer.c').write_text(combined)
     subprocess.run([*cc,*flags,'-DPOCKET_DESKTOP_GL','-DPOCKET_NATIVE_GAME','-I'+str(HERE/'native'),'-I'+str(OUT),str(OUT/'renderer.c'),*sdl,*gl,'-lm','-o',str(OUT/'renderer.so')],check=True)
     subprocess.run([*cc,*flags,'-I'+str(HERE/'native'),str(HERE/'native/desktop_input.c'),*([str(HERE/'native/native_text.m'),'-framework','CoreText','-framework','CoreGraphics','-framework','CoreFoundation'] if mac else []),*sdl,*gl,'-lm','-o',str(OUT/'window.so')],check=True)
-    for name in ('input','borders'):
-        subprocess.run([*cc,'-O2','-std=c99','-Wall','-Wextra','-Werror',str(HERE/f'native/test_desktop_{name}.c'),str(OUT/'window.so'),*sdl,'-o',str(OUT/f'test-desktop-{name}')],check=True)
     room=OUT/'room-pixels.so'
     if room.is_symlink():room.unlink()
     elif room.exists():room.unlink()
@@ -70,4 +72,23 @@ def main():
     config_path.write_text(json.dumps(config,indent=2)+'\n');stamp.write_text(json.dumps(identity,sort_keys=True,indent=2)+'\n')
     print('Built graphical frontend from repository source; no device access.')
 
-if __name__=='__main__':main()
+    return cc,sdl
+
+
+def build_checks(cc,sdl):
+    stamp=OUT/'desktop-checks.sha256'
+    inputs=[OUT/'BUILD.json',*(HERE/f'native/test_desktop_{name}.c' for name in ('input','borders'))]
+    key=hashlib.sha256(b''.join(path.read_bytes() for path in inputs)).hexdigest()
+    if stamp.is_file() and stamp.read_text()==key and all((OUT/f'test-desktop-{n}').is_file() for n in ('input','borders')):return
+    for name in ('input','borders'):
+        subprocess.run([*cc,'-O2','-std=c99','-Wall','-Wextra','-Werror',str(HERE/f'native/test_desktop_{name}.c'),str(OUT/'window.so'),*sdl,'-o',str(OUT/f'test-desktop-{name}')],check=True)
+    stamp.write_text(key)
+
+
+if __name__=='__main__':
+    import argparse
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--runtime-only',action='store_true')
+    args=parser.parse_args()
+    cc,sdl=main()
+    if not args.runtime_only:build_checks(cc,sdl)
