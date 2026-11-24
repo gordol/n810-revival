@@ -47,7 +47,7 @@ def campsite(height,face):
     ellipsoid(face,x,y+1.99,z-.17,.17,.14,.09,(112,88,65),.59)
 
 
-def river_stones(channel,face):
+def river_stones(channel,face,height):
     rng=random.Random(4821)
     for r in channel.rows[4::13]:
         for _ in range(3):
@@ -56,3 +56,13 @@ def river_stones(channel,face):
             scale=rng.uniform(.24,.88)
             gray=rng.randrange(68,115)
             ellipsoid(face,x,r.stage-.14,z,scale,.44*scale,.72*scale,(gray,gray+4,gray+1))
+    from river_channel import TROUT_POOL
+    cx,cz=TROUT_POOL
+    for _ in range(52):
+        x,z=cx+rng.uniform(-5,5),cz+rng.uniform(-8,8)
+        level=channel.water_height(x,z)
+        ground=height(x,z)
+        if level is None or level-ground<.25:continue
+        r=rng.uniform(.08,.31)
+        grey=rng.randrange(86,158)
+        ellipsoid(face,x,ground,z,r,r*.48,r*.73,(grey,grey-3,grey-10))

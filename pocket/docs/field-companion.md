@@ -333,6 +333,12 @@ berry guide, your steps carry on as you look to either side.
 A new tap on the ground sets the next destination. Tap **Walk** for continuous walking while you look,
 and **Stop** to stand still. In Tap to walk mode, looking around keeps your
 walking heading. Stop, face a new direction and tap Walk to head that way. You can also look around on a guided walk.
+Choose **Hike → Camp & sky → Visit trout pool** to watch a rainbow trout from
+the bank. Look down through clear water to see fish and stones. At a shallow angle,
+ripples break up reflections of the sky and the near-bank conifers. On clear spring and summer days
+the trout occasionally rises through a hatch and leaves rings on the surface.
+The pool is an illustrative feature of the mapped reach.
+
 The river is audible through the woods and grows louder as you approach the bank. Each berry has its own chime. Listen for occasional caws, hoots, whistles and chips from nearby wildlife. The game synthesizes these calls and fades them with distance. Tap
 **Mute** for quiet play. There is
 no countdown. The fox is a game character. At Mount Rainier, watch wild

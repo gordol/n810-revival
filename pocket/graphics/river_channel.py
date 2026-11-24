@@ -6,6 +6,9 @@ from typing import NamedTuple
 from geometry import Vec
 
 
+TROUT_POOL=(15.,8.)
+
+
 class Section(NamedTuple):
     x:float
     z:float
@@ -127,7 +130,10 @@ class RiverChannel:
                     if d<6*hypot(r.nx,r.nz)+hypot(field.dx,field.dz)+1.6:
                         ceiling[k]=min(ceiling.get(k,r.stage),r.stage-.06)
         for k,(d,y) in nearest.items():
-            depth=.12+.65*max(0.,1.-d/6.)
+            px=field.origin.x+(k%field.nx)*field.dx
+            pz=field.origin.z+(k//field.nx)*field.dz
+            hollow=max(0.,1.-hypot((px-TROUT_POOL[0])/13.,(pz-TROUT_POOL[1])/19.))
+            depth=.12+.65*max(0.,1.-d/6.)+1.25*hollow*hollow
             blend=min(1.,(outer-d)/(outer-inner))
             values[k]=min(values[k]+blend*(y-depth-values[k]),ceiling.get(k,float('inf')))
         return replace(field,values=tuple(values))

@@ -19,6 +19,10 @@ class RiverDetailTests(unittest.TestCase):
             _,_,vertices,terrain,indices,spans,base,mask=build_world(high)
             self.assertLessEqual(len(vertices)//7,2_000_000)
             self.assertLessEqual(len(indices),2_000_000)
+            from river_walk import channel
+            water_count=6*(len(channel().rows)-1)
+            self.assertTrue(all(abs(value-.35)<1e-6 for value in vertices[6:7*water_count:7]))
+            self.assertNotAlmostEqual(vertices[7*water_count+6],.35)
             self.assertEqual(terrain%3,0)
             self.assertEqual(base%3,0)
             if high:

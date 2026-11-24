@@ -10,6 +10,7 @@ import zlib
 
 from geometry import Vec, cross, sub, unit
 import fremont_lookout as lookout
+from river_channel import TROUT_POOL
 from river_camp import CAMP, OVERLOOK, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, broadleaf_clump, fern, snag, spruce_sprays, trail_cover
@@ -46,7 +47,7 @@ def valley_floor():
 # Illustrative encounters around the starting meadow (east, north, model scale).
 ENCOUNTERS=(('marmot',-95.,153.,.78),('eagle',1.,17.,1.),
             ('chipmunk',BUSHES[1][0]+1.,BUSHES[1][1]-.6,.30),('squirrel',BUSHES[0][0]+1.,BUSHES[0][1]-.7,.45),
-            ('pika',-82.,126.,.38),('goat',-117.,187.,1.45),('fox',*FOX,.86),('bear',40.,28.,1.4),('trout',15.,8.,.65))
+            ('pika',-82.,126.,.38),('goat',-117.,187.,1.45),('fox',*FOX,.86),('bear',40.,28.,1.4),('trout',*TROUT_POOL,.65))
 
 
 def regional_encounters():
@@ -108,7 +109,13 @@ def append_animals(vertices,high=False):
     return indices,spans
 
 
-def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,optics=None):
+def trout_rise(age,hatch):
+    # A short surface take once per feeding interval.
+    phase=age%17.
+    return math.sin(math.pi*phase/1.6)**2 if hatch and phase<1.6 else 0.
+
+
+def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,optics=None,hatch=False):
     draws=[]
     for i,((species,x,z,_),(first,stride,frames,index,count)) in enumerate(zip(ENCOUNTERS,spans)):
         distance=math.hypot(x-observer[0],z-observer[1])
@@ -133,7 +140,7 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
             z+=1.6*math.sin(age*.8)
             x+=.3*math.cos(age*.8)
             heading=-90 if math.cos(age*.8)>0 else 90
-            altitude=.17+.32*max(0.,math.sin(age*2.1))**5
+            altitude=0.
         if species in REGIONAL:
             spec=REGIONAL[species]
             kind=group(spec.form)
@@ -144,7 +151,6 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
                 heading=math.degrees(math.atan2(.6*math.sin(age*.38),1.8*math.cos(age*.38)))
                 altitude=.04+.04*math.cos(age*2.)
             if spec.form in PERCHES:altitude=1.6
-            if kind=='Fish':altitude=.16+.22*max(0.,math.sin(age+i))**8
             if spec.form in ('butterfly','swallowtail','bee','dragonfly','moth','bat','hummer'):
                 altitude=.68+.18*math.sin(age*2+i)
                 x+=.55*math.cos(age+i);z+=.35*math.sin(age+i)
@@ -154,7 +160,13 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
         level=None
         if species=='trout' or (species in REGIONAL and group(REGIONAL[species].form)=='Fish'):
             level=channel().water_height(x,z)
-        y=(surface(field,origin.x+x,origin.z+z) if level is None else level-.14)-origin.y+altitude
+            if level is None:continue
+        bed=surface(field,origin.x+x,origin.z+z)
+        if level is None:y=bed-origin.y+altitude
+        else:
+            hold=max(bed+.025,level-.53)
+            rise=trout_rise(age,hatch) if species=='trout' else 0.
+            y=hold+(level+.20-hold)*rise-origin.y
         shadow=0. if altitude>.05 or distance>38 else ENCOUNTERS[i][3]
         slope_x=surface(field,origin.x+x+1,origin.z+z)-origin.y-y if shadow else 0.
         slope_z=surface(field,origin.x+x,origin.z+z+1)-origin.y-y if shadow else 0.
@@ -201,7 +213,10 @@ def build_world(high=True,plant_sites=None,regional=False):
             sx=(field.values[iz*field.nx+bx]-field.values[iz*field.nx+ax])/((bx-ax)*field.dx)
             sz=(field.values[bz*field.nx+ix]-field.values[az*field.nx+ix])/((bz-az)*field.dz)
             n=unit(Vec(-sx,1,-sz))
-            rgb=ground_color(mesh.vertices[k],n)
+            point=mesh.vertices[k]
+            rgb=ground_color(point,n)
+            if not regional and channel().water_height(point.x,point.z) is not None:
+                rgb=(104,103,86)
             light=.55+.45*max(0,n.y*.75-n.x*.51-n.z*.42)
             material=1.
             colors.append(vertex(mesh.vertices[k],tuple(c*light for c in rgb),material))
@@ -283,12 +298,13 @@ def build_world(high=True,plant_sites=None,regional=False):
         shade_tree(shadows,dx,dz,h,texel=2)
         pine(origin.x+dx,origin.z+dz,h,near)
     def height(x,z):return surface(field,x,z)
+    water=array('f')
     def water_vertex(p,side,station):
         # The water shader takes cross-stream and downstream metres from RG.
-        target.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z,(side+6)/12,station/4096,0.,.35))
+        water.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z,(side+6)/12,station/4096,0.,.35))
     channel().mesh(height,face,water_vertex)
     campsite(height,face)
-    river_stones(channel(),face)
+    river_stones(channel(),face,height)
     bank_sign(height,face)
     for key,x,z,_ in ENCOUNTERS:
         if key in REGIONAL and REGIONAL[key].form in PERCHES:snag(x,height(x,z),z,1.6,face)
@@ -332,6 +348,7 @@ def build_world(high=True,plant_sites=None,regional=False):
                 t=grass_rng.uniform(0,math.tau);dx,dz=math.cos(t)*size*.28,math.sin(t)*size*.28
                 face(Vec(x-dz,y,z+dx),Vec(x+dx*2,y+size*rng.uniform(.65,1),z+dz*2),
                      Vec(x+dz,y,z-dx),color)
+    triangles[:0]=water
     base_count=len(triangles)//7
     triangles.extend(detail)
     del detail
@@ -518,7 +535,8 @@ class RainierView:
         if self.binoculars:return True
         if self.lens:
             if self.review_key and self.age<self.hint_until:return True
-            self.shutter=sighting(camera,u,v,aspect,self.subjects,ground,zoom=self.zoom)
+            self.shutter=sighting(camera,u,v,aspect,self.subjects,
+                lambda px,pz:surface(field,px+origin.x,pz+origin.z)-origin.y,zoom=self.zoom)
             if not self.shutter:
                 self.photo_hint='Look closer';self.hint_until=self.age+1.2
         else:
@@ -579,11 +597,13 @@ class RainierView:
         if self.pool:self.pool.shutdown(wait=False,cancel_futures=True)
         self.world=self.job=self.pool=None
 
-    def move_to_view(self,camp=False):
+    def move_to_view(self,camp=False,pool=False):
         field=self.world[0]
         x,z,tx,tz=(CAMP[0]+3.,CAMP[1]-7.,*CAMP) if camp else OVERLOOK
+        if pool:x,z,tx,tz=8.,8.,*TROUT_POOL
+        aim_y=channel().water_height(tx,tz)-.3 if pool else surface(field,tx,tz)
         yaw=math.atan2(tx-x,tz-z)
-        pitch=math.atan2(surface(field,x,z)+1.25-surface(field,tx,tz),math.hypot(tx-x,tz-z))
+        pitch=math.atan2(self.walk_height(x,z)+1.25-aim_y,math.hypot(tx-x,tz-z))
         self.trip_pose=(x,z,yaw,pitch)
         self.destination=self.review_key=None
         self.lens=self.binoculars=self.cruise=self.trail.guiding=False
@@ -778,7 +798,9 @@ class RainierView:
         self.subjects=[]
         self.frame_camera=((x,eye,z,yaw,pitch),rect[2]/rect[3])
         optics=(*self.frame_camera,self.zoom) if self.binoculars or self.lens else None
-        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics)
+        daylight=(1.,.43,.04,.52+.48*math.cos(self.age*math.tau/720))[self.time_mode]
+        hatch=self.weather==0 and self.season in (0,3) and daylight>.35
+        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics,hatch)
         voices=nearby_calls(self.subjects,x,eye,z)
         voice=0
         if self.sound and self.age>=self.next_call and voices:
@@ -791,7 +813,7 @@ class RainierView:
         sound(ctx.handle,self.sound and not self.regional,self.cue,river_gain(x,z,site()[1]),voice,gain)
         self.cue=0
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint]
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint,C.c_uint]
         target_x,target_z=self.trail.target(x,z)
         direction=math.atan2(target_x-x,target_z-z)-yaw
         mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
@@ -834,7 +856,6 @@ class RainierView:
             focal=max(focal,min(12.,horizontal*min(1.,rect[2]/rect[3])/(size*2.8)))
             break
         photo_index=next((i for i,p in enumerate(self.subjects) if p[0]==self.shutter),-1)
-        daylight=(1.,.43,.04,.52+.48*math.cos(self.age*math.tau/720))[self.time_mode]
         sun_angle=(.64,-.82,.64,.64-self.age*math.tau/720)[self.time_mode]
         center=(0,0)
         stand_ptr=None
@@ -852,7 +873,7 @@ class RainierView:
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, (1+int(self.story)) if self.tent and not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, (1+int(self.story)) if self.tent and not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1))
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()

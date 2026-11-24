@@ -35,7 +35,7 @@ class HikeMenu:
         self.trip=False
 
     def trip_spacing(self):
-        return 2 if self.view.host.window(self.view.name).h>=21 else 1
+        return 2 if self.view.host.window(self.view.name).h>=23 else 1
 
     def lines(self,width):
         v=self.view
@@ -46,6 +46,7 @@ class HikeMenu:
                                     'Bigfoot story   '+('On' if v.story else 'Off')]
             if not v.party:rows.append('Visit Mt Fremont lookout')
             rows.append('Light   '+('Day','Dusk','Night','12-minute cycle')[v.time_mode])
+            if not v.regional:rows.append('Visit trout pool')
             rows.append('Back')
             if self.trip_spacing()==2:return tuple(line for row in rows for line in ('',row))
             return tuple(rows)
@@ -74,7 +75,8 @@ class HikeMenu:
                 self.trip=False
                 v.start_region(lookout_arrival=True)
             elif y==(3 if v.regional else 6)+int(not v.party):v.time_mode=(v.time_mode+1)%4
-            elif y==(4 if v.regional else 7)+int(not v.party):self.trip=False
+            elif not v.regional and y==7+int(not v.party):v.move_to_view(pool=True);return False
+            elif y==(4 if v.regional else 8)+int(not v.party):self.trip=False
             return True
         if v.travel_job:return True
         if y==8:self.trip=True;return True

@@ -116,6 +116,21 @@ class RiverTrailTests(unittest.TestCase):
         self.assertEqual(owner.yaw,1.5)
         self.assertEqual(len(trail.picked),1)
 
+    def test_trout_holds_above_pool_bed_and_rises_during_hatch(self):
+        from unittest.mock import patch
+        from geometry import Vec
+        from river_channel import TROUT_POOL
+        from rainier_pixels import encounters,surface,valley_floor
+        from river_walk import channel
+        bed,_=valley_floor()
+        with patch('rainier_pixels.ENCOUNTERS',(('trout',*TROUT_POOL,.65),)):
+            for age,hatch,above in ((5,True,False),(.8,True,True),(.8,False,False),(2,True,False)):
+                fish=encounters(bed,Vec(0,0,0),[(0,1,3,0,3)],age,hatch=hatch)[0]
+                stage=channel().water_height(fish.x,fish.z)
+                self.assertGreater(fish.y,surface(bed,fish.x,fish.z))
+                if above:self.assertGreater(fish.y,stage)
+                else:self.assertLess(fish.y+.39*.65,stage)
+
     def test_river_stones_round(self):
         from river_notebook import CARDS,RiverNotebook
         book=RiverNotebook()

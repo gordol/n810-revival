@@ -13,11 +13,12 @@ static GLuint rainier_program(void){
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
   "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
-  "uniform vec2 shadeCenter;uniform vec2 shadowStep;uniform int regional;uniform int skyPass;uniform vec4 skyCamera;uniform float daylight;uniform float overcast;"
+  "uniform vec3 waterEye;uniform vec2 shadeCenter;uniform vec2 shadowStep;uniform int regional;uniform int skyPass;uniform vec4 skyCamera;uniform float daylight;uniform float overcast;"
   "vec3 horizon(){return mix(vec3(.095,.13,.20),mix(vec3(.87,.58,.43),vec3(.68,.80,.86),smoothstep(.35,.9,daylight)),daylight);}"
-  "vec3 skyColor(){vec2 uv=vec2(pos.x*skyCamera.z,-pos.y)*skyCamera.w;"
+  "vec3 skyDirection(){vec2 uv=vec2(pos.x*skyCamera.z,-pos.y)*skyCamera.w;"
   "float cp=cos(skyCamera.y),sp=sin(skyCamera.y);float f=cp+uv.y*sp;"
-  "vec3 dir=normalize(vec3(uv.x*cos(skyCamera.x)+f*sin(skyCamera.x),uv.y*cp-sp,f*cos(skyCamera.x)-uv.x*sin(skyCamera.x)));"
+  "return normalize(vec3(uv.x*cos(skyCamera.x)+f*sin(skyCamera.x),uv.y*cp-sp,f*cos(skyCamera.x)-uv.x*sin(skyCamera.x)));}"
+  "vec3 skyColor(vec3 dir){"
   "float alt=max(0.,dir.y);vec3 col=mix(horizon(),mix(vec3(.012,.023,.064),vec3(.24,.48,.73),daylight),smoothstep(0.,.65,alt));"
   "vec2 dome=dir.xz/(1.+dir.y+.001);vec2 star=dome*300.;float seed=hash(floor(star));"
   "float light=1.-smoothstep(.04,.33,length(fract(star)-.5));"
@@ -26,7 +27,15 @@ static GLuint rainier_program(void){
   "float n=.57*noise(p)+.30*noise(2.1*p)+.13*noise(4.4*p);"
   "float cloud=smoothstep(.52-.15*overcast,.78-.12*overcast,n)*smoothstep(.015,.14,alt);"
   "return mix(col,mix(vec3(.13,.16,.22),vec3(.87,.88,.86),daylight),cloud);}"
-  "void main(){if(skyPass!=0){gl_FragColor=vec4(skyColor(),1.);return;}if((abs(tint.a-.57)<.005 && camp<1)||(abs(tint.a-.59)<.005 && camp<2))discard;if((abs(tint.a-.08)<.01 && picked.x>.5)||(abs(tint.a-.13)<.01 && picked.y>.5)||(abs(tint.a-.18)<.01 && picked.z>.5))discard;float castShade=0.;vec3 col=tint.rgb;if(tint.a>.9){vec2 p=pos.xz;"
+  "vec3 reflectedBank(vec3 ray){vec3 sky=skyColor(ray);"
+  // The valley canopy texture stores crown heights at the actual tree sites.
+  // Trace a short ray above the water plane; the far field uses the sky.
+  "for(int i=1;i<=16;i++){float d=float(i)*(.8+.21*float(i));vec3 p=pos+d*ray;"
+  "vec2 uv=p.xz/2048.+.5;if(max(abs(uv.x-.5),abs(uv.y-.5))>=.5)break;"
+  "float crown=texture2D(forestShade,uv).r*31.875;float hit=smoothstep(.0,1.4,crown-(p.y-pos.y));"
+  "if(hit>.05){vec3 needles=vec3(.12,.24,.18)*(.74+.35*noise(p.xz*.35))*(.24+.76*daylight);"
+  "return mix(sky,needles,hit);}}return sky;}"
+  "void main(){if(skyPass!=0){gl_FragColor=vec4(skyColor(skyDirection()),1.);return;}if((abs(tint.a-.57)<.005 && camp<1)||(abs(tint.a-.59)<.005 && camp<2))discard;if((abs(tint.a-.08)<.01 && picked.x>.5)||(abs(tint.a-.13)<.01 && picked.y>.5)||(abs(tint.a-.18)<.01 && picked.z>.5))discard;float alpha=1.;float reflection=0.;vec3 reflected=vec3(0.);float castShade=0.;vec3 col=tint.rgb;if(tint.a>.9){vec2 p=pos.xz;"
   "float broad=noise(p*.015);float detail=(noise(p*.64)-.5)*(1.-smoothstep(80.,600.,distanceToEye));"
   "col*=.80+.40*broad+.30*detail;col+=vec3(.032,.024,-.013)*broad;"
   "if(highDetail!=0){float grit=noise(p*11.)-.5;float moss=noise(p*.18);"
@@ -53,6 +62,13 @@ static GLuint rainier_program(void){
   "if(tint.a>.25 && tint.a<.45){vec2 flow=vec2(tint.r*12.-6.,tint.g*4096.-waterTime*.95);"
   "float current=noise(flow*vec2(.8,.38));float riffle=sin(flow.y*5.3+4.*current+flow.x*.8);"
   "col=mix(vec3(.105,.285,.275),vec3(.25,.44,.43),current);"
+  "float facing=abs(normalize(waterEye-pos).y);float calm=1.-smoothstep(2.,10.,length((pos.xz-vec2(15.,8.))*vec2(1.,.7)));"
+  "alpha=clamp(.33+.33*pow(1.-facing,3.)+.23*overcast-.15*calm+.17*smoothstep(.73,.99,riffle),.18,.88);"
+  "float chop=(.035+.037*overcast)*(1.-.45*calm);"
+  "vec3 normal=normalize(vec3(chop*(riffle+.6*sin(3.*flow.x+2.*current)),1.,chop*cos(3.8*flow.y+5.*current)));"
+  "vec3 ray=reflect(normalize(pos-waterEye),normal);ray.y=max(.015,ray.y);"
+  "reflected=reflectedBank(normalize(ray));float fresnel=.025+.94*pow(1.-facing,3.5);"
+  "alpha=alpha+(1.-alpha)*fresnel;reflection=fresnel/alpha;"
   "float fade=1.-smoothstep(25.,110.,distanceToEye);"
   "col+=vec3(.17,.21,.20)*fade*smoothstep(.82,.99,riffle)*smoothstep(.46,.80,current);}"
   "if(highDetail!=0 && animal!=0 && distanceToEye<16.){float strands=noise(vec2((pos.x+.3*pos.z)*55.,(pos.y+.15*pos.x)*245.));"
@@ -63,7 +79,7 @@ static GLuint rainier_program(void){
   "float cover=smoothstep(line-95.,line+150.,elev+110.*noise(pos.xz*.045));"
   "col=mix(col,vec3(.79,.85,.88),cover*.88);}}"
   "col*=mix(vec3(1.),vec3(.52,.63,.72),castShade);"
-  "float haze=1.-exp(-distanceToEye*hazeDensity);gl_FragColor=vec4(mix(col*mix(vec3(.24,.32,.47),vec3(1.),daylight),horizon(),haze),1.);}";
+  "float haze=1.-exp(-distanceToEye*hazeDensity);vec3 lit=col*mix(vec3(.24,.32,.47),vec3(1.),daylight);gl_FragColor=vec4(mix(mix(lit,reflected,reflection),horizon(),haze),alpha);}";
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return 0;
  GLuint frag=wildlife_shader(GL_FRAGMENT_SHADER,fs);if(!frag){glDeleteShader(vert);return 0;}
  GLuint program=glCreateProgram();glAttachShader(program,vert);glAttachShader(program,frag);
@@ -127,12 +143,12 @@ static void river_bounds_build(struct gpu_scene *s,const float *vertices,unsigne
  }
 }
 
-static void river_draw_land(struct gpu_scene *s,unsigned count,float x,float y,float z,float yaw,float pitch,float aspect){
- if(!s->river_blocks){glDrawArrays(GL_TRIANGLES,0,(GLsizei)count);return;}
+static void river_draw_land(struct gpu_scene *s,unsigned count,unsigned skip,float x,float y,float z,float yaw,float pitch,float aspect){
+ if(!s->river_blocks){glDrawArrays(GL_TRIANGLES,(GLint)skip,(GLsizei)(count-skip));return;}
  float sy=sinf(yaw),cy=cosf(yaw),sp=sinf(pitch),cp=cosf(pitch);
  float ty=.5543f,tx=ty*aspect,kx=sqrtf(1+tx*tx),ky=sqrtf(1+ty*ty);
- unsigned start=0;
- for(unsigned first=0;first<count;first+=RIVER_BATCH){
+ unsigned start=skip;
+ for(unsigned first=skip/RIVER_BATCH*RIVER_BATCH;first<count;first+=RIVER_BATCH){
   struct river_bounds b=s->river_blocks[first/RIVER_BATCH];
   float dx=b.x-x,dy=b.y-y,dz=b.z-z;
   float forward=sy*dx+cy*dz,depth=cp*forward-sp*dy;
@@ -164,11 +180,11 @@ static void river_hiker_band(float bottom,float top,float base,float rim,float r
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
-                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh,const float *marker,const float *ripple,int lens,unsigned char *photo,int photo_animal,float focal,int camp,int season,int weather,float originY,float daylight,float sun_angle,float center_x,float center_z,const float *grove,unsigned grove_count){
+                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh,const float *marker,const float *ripple,int lens,unsigned char *photo,int photo_animal,float focal,int camp,int season,int weather,float originY,float daylight,float sun_angle,float center_x,float center_z,const float *grove,unsigned grove_count,unsigned water_count){
  struct gpu_scene *s=ptr;
  if(!s||w<1||h<1||count<3||count>2000000||(!vertices&&!s->rainier_buffer))
   return SDL_SetError("Invalid Rainier scene");
- if(grove_count>250000||nh>7||(nh&&!hikers)||terrain_count>count||ni>2000000||na>64||(!animals&&na)||
+ if(water_count>terrain_count||grove_count>250000||nh>7||(nh&&!hikers)||terrain_count>count||ni>2000000||na>64||(!animals&&na)||
     (!!vertices!=!!indices)||(!indices&&!s->rainier_indices))return SDL_SetError("Invalid Rainier wildlife buffers");
  for(unsigned i=0;i<na;i++){
   const struct rainier_animal *a=animals+i;
@@ -262,7 +278,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  }else glBindTexture(GL_TEXTURE_2D,s->rainier_shadow);
  glUniform1i(glGetUniformLocation(s->rainier_program,"highDetail"),high);
  glUniform1i(glGetUniformLocation(s->rainier_program,"animal"),0);
- glUniform1f(blend,0.f);river_draw_land(s,terrain_count,east,eye,north,yaw,pitch,(float)w/h);
+ glUniform1f(blend,0.f);river_draw_land(s,terrain_count,water_count,east,eye,north,yaw,pitch,(float)w/h);
  if(grove_count){
   if(!s->rainier_grove)glGenBuffers(1,&s->rainier_grove);
   glBindBuffer(GL_ARRAY_BUFFER,s->rainier_grove);
@@ -324,10 +340,25 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   river_hiker_band(1.37f,1.45f,.15f,.025f,.79f,.74f,.58f);
   glPopMatrix();
  }
- if(ripple){
+ /* Blend the river over opaque bed, fish and banks. Depth testing leaves
+    a breaching fish above the surface and hides water behind shore rocks. */
+ if(water_count){
+  glUseProgram(s->rainier_program);
+  glUniform1i(glGetUniformLocation(s->rainier_program,"animal"),0);
+  glUniform3f(glGetUniformLocation(s->rainier_program,"waterEye"),east,eye,north);
+  glUniform1f(blend,0.f);glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+  glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);
+  glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
+  glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+  glDrawArrays(GL_TRIANGLES,0,(GLsizei)water_count);
+  glDisable(GL_BLEND);glUseProgram(0);
+ }
+ if(ripple && !weather && (season==0 || season==3) && daylight>.35f && fmodf(age,17.f)>=.8f && fmodf(age,17.f)<3.f){
   glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
   for(int ring=0;ring<3;ring++){
-   float phase=fmodf(age*.54f+ring/3.f,1.f),r=.12f+phase*.96f;
+   float phase=(fmodf(age,17.f)-.8f-ring*.18f)/1.8f;
+   if(phase<0 || phase>1)continue;
+   float r=.12f+phase*.96f;
    glColor4f(.74f,.90f,.87f,.72f*(1.f-phase));glLineWidth(1.5f);glBegin(GL_LINE_LOOP);
    for(int j=0;j<40;j++){float a=j*.1570796f;glVertex3f(ripple[0]+r*cosf(a),ripple[1],ripple[2]+r*sinf(a));}
    glEnd();
@@ -352,7 +383,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   for(int k=0;k<24;k++){
    float t=age*(.85f+.08f*(k%5))+k;
    float px=ripple[0]+1.5f*sinf(t*.64f+k),pz=ripple[2]+cosf(t*.71f+k);
-   float py=ripple[1]+.75f+.32f*sinf(t*1.6f);
+   float py=ripple[1]+.12f+.18f*(1.f+sinf(t*1.6f));
    glVertex3f(px-.013f,py,pz);glVertex3f(px+.015f,py+.023f,pz);glVertex3f(px,py-.012f,pz+.011f);
   }
   glEnd();
