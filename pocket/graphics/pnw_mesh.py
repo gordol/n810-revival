@@ -1,7 +1,7 @@
 """Regional wildlife silhouettes with tapered sections and articulated appendages."""
 import math
 from geometry import Mesh, Triangle, Vec
-from pnw_species import group
+from pnw_species import PERCH_FLIGHT, group
 
 
 def study(spec,phase,low=False):
@@ -99,7 +99,17 @@ def study(spec,phase,low=False):
                 limb((-.20,height+.04,z),(-.21-tail+.02*i,height+(.20 if form=='wren' else -.055),z*1.6),.024,.009,back)
             for i in range(6):
                 z=side*(.082+.007*i)
-                limb((.07,height+.08-.013*i,z),(-.30+.019*i,height+.005-.015*i,z*1.05),.042,.008,mark if i==3 and form in ('finch','songbird','climber') else back)
+                root=(.07-.024*i,height+.08-.013*i,z)
+                tip=(-.30+.019*i,height+.005-.015*i,z*1.05)
+                if form in PERCH_FLIGHT and phase:
+                    spread=.48+.027*i
+                    tip=(-.20+.038*i,height+(.28 if phase==1 else -.12)*spread/.55,side*spread)
+                limb(root,tip,.042,.008,mark if i==3 and form in ('finch','songbird','climber') else back)
+            if form in PERCH_FLIGHT:
+                # Keep the vertex order identical across folded, up and down poses.
+                wrist=(.11,height+.07,side*.11) if not phase else (.14,height+(.20 if phase==1 else -.06),side*.38)
+                outer=(-.22,height+.03,side*.12) if not phase else (-.04,height+(.32 if phase==1 else -.14),side*.62)
+                panel([(.09,height+.09,side*.08),wrist,outer,(-.18,height+.02,side*.10)],back)
             foot=(.018,.025,side*.062)
             limb((-.02,height,side*.063),foot,.018,.009,0x665e50)
             for toe in (-1,1):limb(foot,(.09,.007,foot[2]+toe*.025),.009,.002,0x685f50)

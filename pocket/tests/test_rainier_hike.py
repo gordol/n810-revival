@@ -36,6 +36,14 @@ class HikeTests(TestCase):
             self.assertEqual(visits,[False,True])
             choose('Pack tent');self.assertFalse(view.story or view.tent)
 
+    def test_debug_overlay_toggle_returns_to_walk(self):
+        view=SimpleNamespace(regional=True,party=None,travel_job=None,pace_name='Walk',travel_error='',debug_overlay=False)
+        menu=HikeMenu(view)
+        for expected in (True,False):
+            row=next(i for i,line in enumerate(menu.lines(36)) if line.startswith('Debug overlay'))
+            self.assertFalse(menu.tap_xy(0,row))
+            self.assertEqual(view.debug_overlay,expected)
+
     def test_lookout_position_and_deck_match_the_mesh(self):
         import fremont_lookout as lookout
         from rainier_pixels import RainierView,surface
@@ -72,7 +80,7 @@ class HikeTests(TestCase):
         self.assertEqual(x,east)
         self.assertAlmostEqual(north-z,2200)
         # A shallow tap can reach a distant hillside beyond the valley extent.
-        target=ground_target((0,100,0,0,0),.5,.55,1,lambda x,z:0,lambda x,z:False,
+        target=ground_target((0,100,0,0,0),.5,.55,1,lambda x,z:0,
                              bounds=bounds(field),regional=True)
         self.assertGreater(target[1],1000)
         walker=SimpleNamespace(x=0,z=0,yaw=0)

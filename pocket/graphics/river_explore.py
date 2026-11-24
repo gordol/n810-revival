@@ -7,24 +7,19 @@ import tempfile
 import zlib
 
 
-def ground_target(camera,u,v,aspect,height,wet,*,bounds=(-1024,1024,-1024,1024),regional=False):
+def ground_target(camera,u,v,aspect,height,*,bounds=(-1024,1024,-1024,1024),regional=False):
     """Intersect a touch ray with the same ground used by the walking camera."""
     x,y,z,yaw,pitch=camera
     from hike_camera import screen_ray
     dx,dy,dz=screen_ray(u,v,aspect,yaw,pitch)
-    # Stop at the bank even when the tapped hillside is across the river.
-    last=(x,z)
-    bank=None
     t=0.
     while t<100000:
         # Small steps at the hiker's feet, coarser samples for distant slopes.
         t+=max(.4,min(40.,t*.025)) if regional else (.4 if t<80 else 2.)
         px,pz=x+t*dx,z+t*dz
         if not (bounds[0]<=px<=bounds[1] and bounds[2]<=pz<=bounds[3]):return None
-        if bank is None and wet(px,pz):bank=last
-        if y+t*dy<=height(px,pz):return bank or (px,pz)
+        if y+t*dy<=height(px,pz):return (px,pz)
         if dx*dx+dz*dz<1e-12 and dy>=0:return None
-        last=(px,pz)
     return None
 
 

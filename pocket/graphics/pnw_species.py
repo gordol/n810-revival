@@ -123,6 +123,8 @@ HERPS={'snake','lizard','skink','frog','toad','newt'}
 INVERTEBRATES={'swallowtail','butterfly','dragonfly','bee','moth','slug'}
 
 
+PERCH_FLIGHT=BIRDS-{'dipper','hummer','duck','merganser','wader','heron'}
+
 def group(form):
     for name,forms in (('Birds',BIRDS),('Fish',FISH),('Herps',HERPS),('Invertebrates',INVERTEBRATES)):
         if form in forms:return name

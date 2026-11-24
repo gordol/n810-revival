@@ -20,7 +20,7 @@ from river_party import PartyMenu
 from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
 from river_notebook import DiscoveryBook
 from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, project_subject, read_photo, save_photo, sighting, walk_to
-from pnw_species import REGIONAL, group
+from pnw_species import PERCH_FLIGHT, REGIONAL, group
 from river_walk import BERRY_BLUFF, BUSHES, FOX, BerryTrail, blueberry_patch, centerline_distances_sq, channel, nearby_calls, river_gain, site, wet
 from vegetation import ground_color, noise
 
@@ -115,23 +115,64 @@ def trout_rise(age,hatch):
     return math.sin(math.pi*phase/1.6)**2 if hatch and phase<1.6 else 0.
 
 
+# Local offsets from each animal's home. Time along each leg is proportional
+# to its length, so a long traverse has the same gait as a short one.
+GAME_TRAIL=((0,0),(-5,8),(-11,12),(-16,5),(-10,-3),(-3,-5))
+TRAIL_LEGS=tuple((x,z,ex-x,ez-z,math.hypot(ex-x,ez-z))
+    for (x,z),(ex,ez) in zip(GAME_TRAIL,GAME_TRAIL[1:]+GAME_TRAIL[:1]))
+TRAIL_LENGTH=sum(leg[-1] for leg in TRAIL_LEGS)
+GRAZERS={'fox':(1.,1.8),'bear':(.9,1.),'goat':(.72,.95),'marmot':(.22,.52),
+         'squirrel':(.18,1.2),'chipmunk':(.12,1.1),'pika':(.13,.8)}
+
+def forage(age,scale,speed):
+    pause=2.8
+    t=age%(TRAIL_LENGTH*scale/speed+len(TRAIL_LEGS)*pause)
+    for x,z,dx,dz,length in TRAIL_LEGS:
+        duration=length*scale/speed
+        if t<=pause+duration:
+            along=max(0.,t-pause)/duration
+            return (x+dx*along)*scale,(z+dz*along)*scale,-math.degrees(math.atan2(dz,dx)),t>pause
+        t-=pause+duration
+    return 0.,0.,0.,False
+
+def bird_excursion(age,index):
+    """Fly out from the home perch, bank around and settle back onto it."""
+    flight=9.+index%7
+    elapsed=(age+index*3.7)%(flight+5.+index%5)
+    if elapsed>=flight:return 0.,0.,0.,0.,False
+    angle=math.tau*elapsed/flight
+    reach=6.+index%10
+    side=1 if index%2 else -1
+    dx=reach*math.sin(angle)
+    dz=side*.65*reach*(1-math.cos(angle))
+    heading=-math.degrees(math.atan2(side*.65*math.sin(angle),math.cos(angle)))
+    return dx,dz,(3.+index%4)*math.sin(angle/2)**2,heading,True
+
+
 def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,optics=None,hatch=False):
     draws=[]
     for i,((species,x,z,_),(first,stride,frames,index,count)) in enumerate(zip(ENCOUNTERS,spans)):
-        distance=math.hypot(x-observer[0],z-observer[1])
-        if distance>230*(optics[2] if optics else 1.):continue
-        heading=0.
-        altitude=0.
+        heading=altitude=0.
         seconds=2.5
-        if species=='fox' or species=='eagle':
-            flying=species=='eagle'
-            radius=4. if flying else .65
-            angle=age*(.43 if flying else .48)
-            x+=radius*math.sin(angle)
-            z+=radius*(1-math.cos(angle))
-            heading=-math.degrees(angle)
-            altitude=4.8+.35*math.sin(angle) if flying else 0.
-            seconds=1.8 if flying else (17/24)/frames
+        moving=True
+        flight=False
+        if species in GRAZERS:
+            dx,dz,heading,moving=forage(age+i*3.1,*GRAZERS[species])
+            if species=='fox':
+                # Come to meet the berry picker as they approach the den.
+                approach=min(1.,math.hypot(x-observer[0],z-observer[1])/14.)
+                dx*=approach
+                dz*=approach
+            x+=dx
+            z+=dz
+            seconds=(17/24)/frames if species=='fox' else .38
+        elif species=='eagle':
+            angle=age*.15
+            x+=26*math.sin(angle)
+            z+=15*(1-math.cos(angle))
+            heading=-math.degrees(math.atan2(15*math.sin(angle),26*math.cos(angle)))
+            altitude=9.+3.*math.sin(angle)
+            seconds=1.8
         if species=='fox' and fed:
             x,z=FOX
             heading=30.
@@ -143,7 +184,6 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
             altitude=0.
         if species in REGIONAL:
             spec=REGIONAL[species]
-            kind=group(spec.form)
             heading=(i*137)%360
             if species=='american_dipper':altitude=.50+.025*math.sin(age*3.)
             if species=='north_american_river_otter':
@@ -151,11 +191,24 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
                 heading=math.degrees(math.atan2(.6*math.sin(age*.38),1.8*math.cos(age*.38)))
                 altitude=.04+.04*math.cos(age*2.)
             if spec.form in PERCHES:altitude=1.6
+            if spec.form in PERCH_FLIGHT:
+                dx,dz,lift,orientation,flight=bird_excursion(age,i)
+                x+=dx
+                z+=dz
+                altitude+=lift
+                moving=flight
+                if flight:heading=orientation
             if spec.form in ('butterfly','swallowtail','bee','dragonfly','moth','bat','hummer'):
                 altitude=.68+.18*math.sin(age*2+i)
                 x+=.55*math.cos(age+i);z+=.35*math.sin(age+i)
-        phase=(age/seconds)%frames
+        distance=math.hypot(x-observer[0],z-observer[1])
+        if distance>230*(optics[2] if optics else 1.):continue
+        phase=(age/seconds)%frames if moving else 0.
         frame=int(phase);blend=phase-frame
+        if flight:
+            frame=1
+            blend=.5+.5*math.sin(age*(9+i%7))
+
         if species!='fox':blend=blend*blend*(3-2*blend)
         level=None
         if species=='trout' or (species in REGIONAL and group(REGIONAL[species].form)=='Fish'):
@@ -275,6 +328,11 @@ def build_world(high=True,plant_sites=None,regional=False):
     for (x,z),(ex,ez) in zip(route,route[1:]):
         length=math.hypot(ex-x,ez-z)
         corridors.append((x,z,(ex-x)/length,(ez-z)/length,length))
+    for key,x,z,_ in ENCOUNTERS:
+        if key in ('fox','bear','goat'):
+            scale=GRAZERS[key][0]
+            for ox,oz,dx,dz,length in TRAIL_LEGS:
+                corridors.append((x+ox*scale,z+oz*scale,dx/length,dz/length,length*scale))
     # Leave narrow gaps in the illustrative canopy where the bluff sees the trail.
     bx,bz=BERRY_BLUFF
     eye=surface(field,bx,bz)+1.25
@@ -377,6 +435,7 @@ class RainierView:
         self.lookout_arrival=False
         self.lookout_site=None
         self.travel_error=''
+        self.debug_overlay=False
         self.trail=BerryTrail()
         self.cruise=False
         self.cruise_heading=None
@@ -545,7 +604,7 @@ class RainierView:
             if not self.regional and math.hypot((1-u)*aspect-1.7*radius,1-v-1.8*radius)<1.65*radius:
                 return self.guide()
             self.trail.free_look=False
-            self.destination=ground_target(camera,u,v,aspect,ground,lambda a,b:not self.regional and wet(a,b,site()[1],-.7),
+            self.destination=ground_target(camera,u,v,aspect,ground,
                                            bounds=bounds(field),regional=self.regional)
             self.cruise=self.trail.guiding=False
         self.pixel_dirty=True
@@ -915,5 +974,12 @@ class RainierView:
                 label=NAMES.get(self.focus_key,self.focus_key)[:w-4]
                 ink.fill((1,5,len(label)+1,1.2),0x1E352CDB)
                 ink.label(1.5,5,label,0xFFF6DA)
+            if self.debug_overlay:
+                place='Summit' if self.regional else 'Ohanapecosh'
+                lines=(f'{place}  t={self.age:.1f}s',f'E {x:+.1f}  N {z:+.1f} m',
+                       f'Elev {eye+origin.y-1.25:.1f} m',f'Heading {round(math.degrees(self.camera[2]))%360:03d}  Pitch {math.degrees(self.camera[3]):+.0f}')
+                top=max(1,h-11)
+                ink.fill((.5,top-.15,min(w-3,max(map(len,lines))+1),4.3),0x10251EF0)
+                for row,line in enumerate(lines):ink.label(1,top+row,line[:w-4],0xFFF6DA)
         self.pixel_jobs+=1;self.pixel_frames+=1
         return rect

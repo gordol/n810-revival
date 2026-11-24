@@ -17,13 +17,49 @@ from river_explore import ground_target, photo_paths, read_photo, save_photo, si
 class RiverExplorationTests(unittest.TestCase):
     camera=(0,1,0,0,0)
 
-    def test_route_stops_on_near_bank(self):
-        target=ground_target(self.camera,.5,.7,1,lambda x,z:0,lambda x,z:z>2.5)
-        self.assertTrue(2<target[1]<2.5)
+    def test_route_crosses_lower_channel_to_tapped_far_bank(self):
+        target=ground_target(self.camera,.5,.7,1,lambda x,z:-.5 if 1<z<3 else 0)
+        self.assertTrue(3<target[1]<5)
         owner=SimpleNamespace(x=0,z=0,yaw=0)
         while target is not None:target=walk_to(owner,target,.1)
-        self.assertTrue(2<owner.z<2.5)
-        self.assertIsNone(ground_target(self.camera,.5,.25,1,lambda x,z:0,lambda x,z:z>2.5))
+        self.assertTrue(3<owner.z<5)
+        self.assertIsNone(ground_target(self.camera,.5,.25,1,lambda x,z:-.5 if 1<z<3 else 0))
+
+    def test_walk_across_mapped_trout_pool_without_berry_guide(self):
+        import math
+        from rainier_pixels import surface,valley_floor
+        from river_walk import channel
+        bed,floor=valley_floor()
+        def height(x,z):return floor.height(x,z,surface(bed,x,z))
+        owner=SimpleNamespace(x=1.,z=8.,yaw=math.pi/2)
+        camera=(owner.x,height(owner.x,owner.z)+1.25,owner.z,owner.yaw,.03)
+        target=ground_target(camera,.5,.5,1,height)
+        self.assertGreater(target[0],22)
+        crossed_water=False
+        for _ in range(100):
+            target=walk_to(owner,target,.1)
+            water=channel().water_height(owner.x,owner.z)
+            if water is not None:
+                crossed_water=True
+                self.assertGreaterEqual(height(owner.x,owner.z)+1.25,water)
+            if target is None:break
+        self.assertIsNone(target)
+        self.assertTrue(crossed_water)
+        self.assertGreater(owner.x,22)
+        self.assertIsNone(channel().water_height(owner.x,owner.z))
+
+    def test_wildlife_routes_move_rest_and_stay_on_land(self):
+        from rainier_pixels import ENCOUNTERS,GRAZERS,bird_excursion,forage
+        from river_walk import channel
+        for key,x,z,_ in ENCOUNTERS:
+            if key not in GRAZERS:continue
+            poses=[forage(t,*GRAZERS[key]) for t in range(120)]
+            self.assertEqual({moving for _,_,_,moving in poses},{True,False})
+            self.assertTrue(all(channel().water_height(x+dx,z+dz) is None for dx,dz,_,_ in poses),key)
+        flight=[bird_excursion(t,12) for t in range(60)]
+        self.assertTrue(any(lift>2 and moving for _,_,lift,_,moving in flight))
+        self.assertIn((0.,0.,0.,0.,False),flight)
+        self.assertGreater(max(abs(dx) for dx,*_ in flight),6)
 
     def test_drag_reprojects_grabbed_point_in_both_orientations(self):
         import math

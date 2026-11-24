@@ -54,7 +54,7 @@ class HikeMenu:
         from rainier_data import installed
         switch='Return to Ohanapecosh' if v.regional else ('Open summit approach' if installed() else 'Download Rainier & hike')
         if v.party:switch='Leave family room to travel'
-        return ('Hike','','Pace   '+v.pace_name,'',switch,'','Back to walk','','Camp & sky',v.travel_error[:width])
+        return ('Hike','','Pace   '+v.pace_name,'',switch,'','Back to walk','','Camp & sky','Debug overlay   '+('On' if v.debug_overlay else 'Off'),v.travel_error[:width])
 
     def tap_xy(self,x,y):
         v=self.view
@@ -79,6 +79,7 @@ class HikeMenu:
             elif y==(4 if v.regional else 8)+int(not v.party):self.trip=False
             return True
         if v.travel_job:return True
+        if y==9:v.debug_overlay=not v.debug_overlay;return False
         if y==8:self.trip=True;return True
         if 1<=y<=2:
             v.pace_index=(v.pace_index+1)%len(v.paces)
