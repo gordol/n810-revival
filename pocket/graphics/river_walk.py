@@ -150,8 +150,37 @@ CALLS={'american_crow':(1,50.),'common_raven':(1,60.),'barred_owl':(2,65.),
 def nearby_calls(subjects,x,y,z):
     voices=[]
     for key,px,py,pz,_ in subjects:
-        if key in CALLS:
-            voice,radius=CALLS[key]
+        species=key.split('#')[0]
+        if species in CALLS:
+            voice,radius=CALLS[species]
             gain=1.-math.dist((x,y,z),(px,py,pz))/radius
             if gain>0:voices.append((key,voice,gain))
     return sorted(voices)
+
+@lru_cache(maxsize=1)
+def hiking_paths():
+    return json.loads((ASSETS/'trails.json').read_text())['paths']
+
+
+def hiking_segments():
+    for path in hiking_paths():
+        for (x,z),(ex,ez) in zip(path['xz'],path['xz'][1:]):
+            length=math.hypot(ex-x,ez-z)
+            if length:yield x,z,(ex-x)/length,(ez-z)/length,length
+
+
+def trail_surface(height,face):
+    for x,z,u,v,length in hiking_segments():
+        steps=math.ceil(length/1.8)
+        previous=None
+        for j in range(steps+1):
+            px,pz=x+u*length*j/steps,z+v*length*j/steps
+            if channel().water_height(px,pz) is not None:
+                previous=None
+                continue
+            left,right=(Vec(px+s*v,height(px+s*v,pz-s*u)+.085,pz-s*u) for s in (-.9,.9))
+            if previous:
+                a,b=previous
+                face(a,b,left,(133,109,79),.53)
+                face(left,b,right,(133,109,79),.53)
+            previous=left,right

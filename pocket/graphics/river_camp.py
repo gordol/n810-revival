@@ -66,3 +66,36 @@ def river_stones(channel,face,height):
         r=rng.uniform(.08,.31)
         grey=rng.randrange(86,158)
         ellipsoid(face,x,ground,z,r,r*.48,r*.73,(grey,grey-3,grey-10))
+
+# Loose material at the practice camp. A set of each makes one campsite.
+SUPPLIES=(('stones',-4.,9.),('sticks',-10.,14.),('log',-7.,22.))
+
+def camp_materials(height,face):
+    def stones(x,z,material):
+        for dx,dz in ((-.22,0.),(.1,-.19),(.18,.13)):
+            ellipsoid(face,x+dx,height(x+dx,z+dz)+.08,z+dz,.21,.14,.17,(133,130,117),material)
+    def wood(x,z,length,radius,material):
+        rings=[]
+        for side in (-1,1):
+            cx=x+side*length/2
+            rings.append([Vec(cx,height(cx,z)+radius*(1+math.sin(i*math.tau/8)),
+                              z+radius*math.cos(i*math.tau/8)) for i in range(8)])
+        for i in range(8):
+            j=(i+1)%8
+            a,b=rings
+            face(a[i],b[i],a[j],(84,63,46),material)
+            face(b[i],b[j],a[j],(102,76,51),material)
+            if 0<i<7:
+                for ring in rings:face(ring[0],ring[i],ring[j],(158,123,80),material)
+    for i,(name,x,z) in enumerate(SUPPLIES):
+        material=.60+.01*i
+        if name=='stones':stones(x,z,material)
+        elif name=='sticks':
+            for j in range(4):wood(x+j*.15,z+j*.11,1.1-.08*j,.045,material)
+        else:wood(x,z,1.65,.18,material)
+    x,z=CAMP
+    wood(x+1.7,z+2.,2.1,.23,.63)
+    for i in range(7):
+        a=i*math.tau/7
+        px,pz=x+.55*math.cos(a),z+2.5+.55*math.sin(a)
+        ellipsoid(face,px,height(px,pz)+.08,pz,.23,.15,.19,(117,116,104),.63)

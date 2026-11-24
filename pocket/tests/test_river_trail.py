@@ -131,6 +131,51 @@ class RiverTrailTests(unittest.TestCase):
                 if above:self.assertGreater(fish.y,stage)
                 else:self.assertLess(fish.y+.39*.65,stage)
 
+    def test_pool_cast_bite_release_and_retry_with_touch_buttons(self):
+        from rainier_pixels import RainierView
+        view=RainierView(None)
+        view.camera=(9.,7.,0.,0.)
+        def tap(label):
+            _,_,(x,y,w,h)=next(tool for tool in view.walk_tools(42,32) if tool[1]==label)
+            self.assertTrue(view.scene_tap(x+w/2,y+h/2,42,32))
+        tap('Cast fly')
+        self.assertIsNotNone(view.fly_position())
+        tap('Fly drifting')
+        view.age+=10
+        self.assertIsNone(view.fly_position())
+        tap('Cast again')
+        view.age+=3
+        tap('Reel in!')
+        tap('Release trout')
+        self.assertIsNone(view.fly_position())
+
+    def test_gather_supplies_once_and_build_at_camp(self):
+        from rainier_pixels import RainierView
+        from river_camp import CAMP,SUPPLIES
+        view=RainierView(None)
+        def actions():return {key:box for key,_,box in view.walk_tools(42,32)}
+        for i,(_,x,z) in enumerate(SUPPLIES):
+            view.camera=(x,z,0.,0.)
+            self.assertNotIn('build',actions())
+            key='gather'+str(i)
+            bx,by,_,_=actions()[key]
+            view.scene_tap(bx+1,by+1,42,32)
+            self.assertNotIn(key,actions())
+        view.camera=(*CAMP,0.,0.)
+        bx,by,_,_=actions()['build']
+        view.scene_tap(bx+1,by+1,42,32)
+        self.assertTrue(view.tent and view.camp_built)
+        self.assertNotIn('build',actions())
+
+    def test_population_and_trail_geometry(self):
+        from rainier_pixels import ENCOUNTERS
+        from river_walk import hiking_paths
+        self.assertEqual(len({key for key,*_ in ENCOUNTERS}),len(ENCOUNTERS))
+        self.assertGreater(sum(key.partition('#')[0]=='trout' for key,*_ in ENCOUNTERS),2)
+        paths=hiking_paths()
+        self.assertEqual({p['name'] for p in paths},{'Silver Falls Loop Trail','Hot Springs Trail'})
+        self.assertTrue(all(abs(c)<=1024 for p in paths for pt in p['xz'] for c in pt))
+
     def test_river_stones_round(self):
         from river_notebook import CARDS,RiverNotebook
         book=RiverNotebook()

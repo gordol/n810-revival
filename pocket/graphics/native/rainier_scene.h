@@ -9,7 +9,7 @@ static GLuint rainier_program(void){
   "distanceToEye=length(eye.xyz);gl_Position=gl_ProjectionMatrix*eye;}";
  const char *fs="#version 120\n"
   "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
-  "uniform int camp;uniform int season;uniform float originY;uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;"
+  "uniform vec4 supplies;uniform int camp;uniform int season;uniform float originY;uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;"
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
   "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
@@ -35,7 +35,7 @@ static GLuint rainier_program(void){
   "float crown=texture2D(forestShade,uv).r*31.875;float hit=smoothstep(.0,1.4,crown-(p.y-pos.y));"
   "if(hit>.05){vec3 needles=vec3(.12,.24,.18)*(.74+.35*noise(p.xz*.35))*(.24+.76*daylight);"
   "return mix(sky,needles,hit);}}return sky;}"
-  "void main(){if(skyPass!=0){gl_FragColor=vec4(skyColor(skyDirection()),1.);return;}if((abs(tint.a-.57)<.005 && camp<1)||(abs(tint.a-.59)<.005 && camp<2))discard;if((abs(tint.a-.08)<.01 && picked.x>.5)||(abs(tint.a-.13)<.01 && picked.y>.5)||(abs(tint.a-.18)<.01 && picked.z>.5))discard;float alpha=1.;float reflection=0.;vec3 reflected=vec3(0.);float castShade=0.;vec3 col=tint.rgb;if(tint.a>.9){vec2 p=pos.xz;"
+  "void main(){if(skyPass!=0){gl_FragColor=vec4(skyColor(skyDirection()),1.);return;}if((abs(tint.a-.60)<.004 && supplies.x>.5)||(abs(tint.a-.61)<.004 && supplies.y>.5)||(abs(tint.a-.62)<.004 && supplies.z>.5)||(abs(tint.a-.63)<.004 && supplies.w<.5))discard;if((abs(tint.a-.57)<.005 && camp<1)||(abs(tint.a-.59)<.005 && camp<2))discard;if((abs(tint.a-.08)<.01 && picked.x>.5)||(abs(tint.a-.13)<.01 && picked.y>.5)||(abs(tint.a-.18)<.01 && picked.z>.5))discard;float alpha=1.;float reflection=0.;vec3 reflected=vec3(0.);float castShade=0.;vec3 col=tint.rgb;if(tint.a>.9){vec2 p=pos.xz;"
   "float broad=noise(p*.015);float detail=(noise(p*.64)-.5)*(1.-smoothstep(80.,600.,distanceToEye));"
   "col*=.80+.40*broad+.30*detail;col+=vec3(.032,.024,-.013)*broad;"
   "if(highDetail!=0){float grit=noise(p*11.)-.5;float moss=noise(p*.18);"
@@ -52,6 +52,9 @@ static GLuint rainier_program(void){
   "shade=max(shade,smoothstep(-.6,.6,canopy-level*(1.-clamp(slope,-1.,.85)))*step(.1,canopy));}"
   "float fade=(1.-smoothstep(175.,340.,distanceToEye))*smoothstep(.12,.62,daylight)*(1.-.68*overcast);"
   "castShade=shade*fade;}}"
+  "if(tint.a>.935 && tint.a<.97){float grains=noise(pos.xz*24.);float stone=noise(pos.xz*6.);"
+  "float lensing=sin(7.*pos.z+3.*sin(5.*pos.x+waterTime*.9)+waterTime)*sin(5.*pos.x+1.7*pos.z-waterTime*.8);"
+  "col*=.84+.20*stone+.15*grains;col+=vec3(.10,.12,.095)*smoothstep(.60,.95,lensing)*daylight;}"
   "if(highDetail!=0 && tint.a>.46 && tint.a<.50){float bark=noise(vec2((pos.x+pos.z)*21.,pos.y*2.6));col*=.68+.6*bark;}"
   "if(highDetail!=0 && tint.a>.06 && tint.a<.20){vec3 n=normalize(cross(dFdx(pos),dFdy(pos)));"
   "float wax=pow(abs(dot(n,normalize(vec3(-.42,.79,-.44)))),14.);col+=vec3(.28,.34,.43)*wax;}"
@@ -63,11 +66,11 @@ static GLuint rainier_program(void){
   "float current=noise(flow*vec2(.8,.38));float riffle=sin(flow.y*5.3+4.*current+flow.x*.8);"
   "col=mix(vec3(.105,.285,.275),vec3(.25,.44,.43),current);"
   "float facing=abs(normalize(waterEye-pos).y);float calm=1.-smoothstep(2.,10.,length((pos.xz-vec2(15.,8.))*vec2(1.,.7)));"
-  "alpha=clamp(.33+.33*pow(1.-facing,3.)+.23*overcast-.15*calm+.17*smoothstep(.73,.99,riffle),.18,.88);"
-  "float chop=(.035+.037*overcast)*(1.-.45*calm);"
+  "alpha=mix(.23,.095,calm)+.12*overcast+.08*(1.-calm)*smoothstep(.73,.99,riffle);"
+  "float chop=(.018+.028*overcast)*(1.-.65*calm);"
   "vec3 normal=normalize(vec3(chop*(riffle+.6*sin(3.*flow.x+2.*current)),1.,chop*cos(3.8*flow.y+5.*current)));"
   "vec3 ray=reflect(normalize(pos-waterEye),normal);ray.y=max(.015,ray.y);"
-  "reflected=reflectedBank(normalize(ray));float fresnel=.025+.94*pow(1.-facing,3.5);"
+  "reflected=reflectedBank(normalize(ray));float fresnel=.018+.94*pow(1.-facing,mix(3.5,7.,calm));"
   "alpha=alpha+(1.-alpha)*fresnel;reflection=fresnel/alpha;"
   "float fade=1.-smoothstep(25.,110.,distanceToEye);"
   "col+=vec3(.17,.21,.20)*fade*smoothstep(.82,.99,riffle)*smoothstep(.46,.80,current);}"
@@ -258,7 +261,8 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
  GLint blend=glGetUniformLocation(s->rainier_program,"poseBlend");
  glUniform1f(glGetUniformLocation(s->rainier_program,"hazeDensity"),(lens<0?.000055f:.00042f)*(weather?5.f:1.f));
- glUniform1i(glGetUniformLocation(s->rainier_program,"camp"),camp);
+ glUniform1i(glGetUniformLocation(s->rainier_program,"camp"),camp&3);
+ glUniform4f(glGetUniformLocation(s->rainier_program,"supplies"),(camp>>2)&1,(camp>>3)&1,(camp>>4)&1,(camp>>5)&1);
  glUniform1i(glGetUniformLocation(s->rainier_program,"season"),season);
  glUniform1f(glGetUniformLocation(s->rainier_program,"originY"),originY);
  glUniform3f(glGetUniformLocation(s->rainier_program,"picked"),picked&1,(picked>>1)&1,(picked>>2)&1);

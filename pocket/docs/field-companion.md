@@ -333,11 +333,21 @@ berry guide, your steps carry on as you look to either side.
 A new tap on the ground sets the next destination. Tap **Walk** for continuous walking while you look,
 and **Stop** to stand still. In Tap to walk mode, looking around keeps your
 walking heading. Stop, face a new direction and tap Walk to head that way. You can also look around on a guided walk.
-Choose **Hike → Camp & sky → Visit trout pool** to watch a rainbow trout from
-the bank. Look down through clear water to see fish and stones. At a shallow angle,
-ripples break up reflections of the sky and the near-bank conifers. On clear spring and summer days
-the trout occasionally rises through a hatch and leaves rings on the surface.
-The pool is an illustrative feature of the mapped reach.
+Choose **Hike → Fish at trout pool** for a bank-side view of several rainbow trout.
+Tap **Cast fly** and watch the gold fly drift until a trout rises. Tap **Reel in!**,
+then **Release trout**. If it gets away, **Cast again**. Look down to see fish and
+stones through the water, or look along the river to see sky and conifer reflections.
+The pool and its fish are illustrative.
+
+Choose **Hot Springs Trail** or **Silver Falls Loop Trail** in **Hike** to arrive on
+the dirt path facing along it. The game includes the portions inside the valley
+terrain. Ferns line the path, and flocks of small birds have homes along it.
+[National Park Service public trail geometry](https://mapservices.nps.gov/arcgis/rest/services/NationalDatasets/NPS_Public_Trails/FeatureServer/0)
+
+Choose **Hike → Gather camp supplies** for the campsite activity. Follow the
+distance and direction to loose stones, sticks and a fallen log. Tap **Gather**
+beside each one, then return to the clearing and tap **Build camp** for a tent,
+stone ring and log seat. These supplies and fishing actions are local to the walk.
 
 The river is audible through the woods and grows louder as you approach the bank. Each berry has its own chime. Listen for occasional caws, hoots, whistles and chips from nearby wildlife. The game synthesizes these calls and fades them with distance. Tap
 **Mute** for quiet play. There is

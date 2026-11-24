@@ -22,8 +22,8 @@ def blade(base,angle,length,width,rise,color,face,serrated=False,steps=7):
         old=row
 
 
-def fern(x,z,y,size,face,rng):
-    arms=rng.randint(4,8)
+def fern(x,z,y,size,face,rng,compact=False):
+    arms=rng.randint(3,5) if compact else rng.randint(4,8)
     rotation=rng.uniform(0,math.tau)
     for arm in range(arms):
         a=rotation+(arm+rng.uniform(-.35,.35))*math.tau/arms
@@ -31,14 +31,14 @@ def fern(x,z,y,size,face,rng):
         u,v=math.cos(a),math.sin(a)
         arch=rng.uniform(.38,.72)
         previous=Vec(x,y,z)
-        for i in range(1,10):
+        for i in range(1,10,2 if compact else 1):
             t=i/10
             p=Vec(x+u*t*length,y+length*(arch*math.sin(t*2.45)+.10*t),z+v*t*length)
             edge=Vec(p.x-.009*v,p.y,p.z+.009*u)
             face(previous,p,edge,(109,122,61))
             for side in (-1,1):
                 span=length*(.21*math.sin(t*math.pi)**.62+.025)*rng.uniform(.72,1.1)
-                blade(p,a+side*(1.12-.36*t),span,.16*span,.025,(53+i,99+i*2,56),face,steps=4)
+                blade(p,a+side*(1.12-.36*t),span,.16*span,.025,(53+i,99+i*2,56),face,steps=2 if compact else 4)
             previous=p
 
 

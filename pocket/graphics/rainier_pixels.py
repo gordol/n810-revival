@@ -11,7 +11,7 @@ import zlib
 from geometry import Vec, cross, sub, unit
 import fremont_lookout as lookout
 from river_channel import TROUT_POOL
-from river_camp import CAMP, OVERLOOK, campsite, river_stones
+from river_camp import CAMP, OVERLOOK, SUPPLIES, camp_materials, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, broadleaf_clump, fern, snag, spruce_sprays, trail_cover
 from rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
@@ -22,6 +22,7 @@ from river_notebook import DiscoveryBook
 from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, project_subject, read_photo, save_photo, sighting, walk_to
 from pnw_species import PERCH_FLIGHT, REGIONAL, group
 from river_walk import BERRY_BLUFF, BUSHES, FOX, BerryTrail, blueberry_patch, centerline_distances_sq, channel, nearby_calls, river_gain, site, wet
+from river_walk import hiking_paths, hiking_segments, trail_surface
 from vegetation import ground_color, noise
 
 def surface(field,x,z):
@@ -72,6 +73,29 @@ def regional_encounters():
 
 
 ENCOUNTERS+=regional_encounters()
+# Additional individuals share their species' mesh and animation buffers.
+def populate(homes):
+    rng=random.Random(881)
+    extras=[]
+    for key,x,z,size in homes:
+        form=REGIONAL[key].form if key in REGIONAL else key
+        if form=='trout':
+            offsets=[(-2.,-1.),(-1.,2.5),(1.8,3.6),(.5,-3.)]
+        elif form in ('finch','tit','crested','crow','elk','deer','butterfly','swallowtail','bee','chipmunk','squirrel'):
+            offsets=[(rng.uniform(-13,13),rng.uniform(-13,13)) for _ in range(4)]
+        else:continue
+        if form in ('tit','finch','crested'):
+            # Additional flocks along the mapped trails, away from the riverbank homes.
+            path=rng.choice(hiking_paths())['xz']
+            tx,tz=rng.choice(path)
+            offsets.extend((tx-x+rng.uniform(-7,7),tz-z+rng.uniform(-7,7)) for _ in range(3))
+        for j,(dx,dz) in enumerate(offsets,1):
+            px,pz=x+dx,z+dz
+            if (channel().water_height(px,pz) is not None)==(form=='trout'):
+                extras.append((f'{key}#{j}',px,pz,size))
+    return tuple(extras)
+
+ENCOUNTERS+=populate(ENCOUNTERS)
 PERCHES={'owl','tufted owl','crested','climber','woodpecker','kingfisher','tit','wren','finch','songbird'}
 
 
@@ -87,7 +111,12 @@ def append_animals(vertices,high=False):
     from wildlife_models import FOX_ASSETS, FOX_FRAMES, pose
     indices=array('I')
     spans=[]
-    for species,x,z,scale in ENCOUNTERS:
+    models={}
+    for key,x,z,scale in ENCOUNTERS:
+        species=key.split('#')[0]
+        if species in models:
+            spans.append(models[species])
+            continue
         low_mesh=species in REGIONAL and not (high and math.hypot(x,z)<30)
         frames=FOX_FRAMES if species in FOX_ASSETS else 3
         first=len(vertices)//7
@@ -105,7 +134,8 @@ def append_animals(vertices,high=False):
                 x,y,z,light=points[j*4:j*4+4]
                 vertices.extend((x*scale,y*scale,z*scale,((color>>16)&255)*light/255,
                                  ((color>>8)&255)*light/255,(color&255)*light/255,0.))
-        spans.append((first,len(palette),frames,offset,len(indices)-offset))
+        models[species]=(first,len(palette),frames,offset,len(indices)-offset)
+        spans.append(models[species])
     return indices,spans
 
 
@@ -149,9 +179,11 @@ def bird_excursion(age,index):
     return dx,dz,(3.+index%4)*math.sin(angle/2)**2,heading,True
 
 
-def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,optics=None,hatch=False):
+def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,optics=None,hatch=False,fly=None):
     draws=[]
-    for i,((species,x,z,_),(first,stride,frames,index,count)) in enumerate(zip(ENCOUNTERS,spans)):
+    for i,((key,x,z,_),(first,stride,frames,index,count)) in enumerate(zip(ENCOUNTERS,spans)):
+        species,_,individual=key.partition('#')
+        local_age=age+2.9*int(individual or 0)
         heading=altitude=0.
         seconds=2.5
         moving=True
@@ -178,10 +210,16 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
             heading=30.
             altitude=.15*abs(math.sin(age*4))
         if species=='trout':
-            z+=1.6*math.sin(age*.8)
-            x+=.3*math.cos(age*.8)
-            heading=-90 if math.cos(age*.8)>0 else 90
+            z+=1.6*math.sin(local_age*.8)
+            x+=.3*math.cos(local_age*.8)
+            heading=-90 if math.cos(local_age*.8)>0 else 90
             altitude=0.
+            if fly and key=='trout':
+                fx,fz,t=fly
+                approach=min(1.,t/2.)
+                heading=-math.degrees(math.atan2(fz-z,fx-x))
+                x+=(fx-x)*approach
+                z+=(fz-z)*approach
         if species in REGIONAL:
             spec=REGIONAL[species]
             heading=(i*137)%360
@@ -218,7 +256,10 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
         if level is None:y=bed-origin.y+altitude
         else:
             hold=max(bed+.025,level-.53)
-            rise=trout_rise(age,hatch) if species=='trout' else 0.
+            rise=trout_rise(local_age,hatch) if species=='trout' else 0.
+            if fly and key=='trout':
+                rise=0.
+                hold+=(level-.16-hold)*min(1.,fly[2]/2.)
             y=hold+(level+.20-hold)*rise-origin.y
         shadow=0. if altitude>.05 or distance>38 else ENCOUNTERS[i][3]
         slope_x=surface(field,origin.x+x+1,origin.z+z)-origin.y-y if shadow else 0.
@@ -231,7 +272,7 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
             point=project_subject(camera,aspect,zoom,(species,x,y+.23*ENCOUNTERS[i][3],z,ENCOUNTERS[i][3]))
             if point and -.1<point[0]<1.1 and -.1<point[1]<1.1:priority=0
             elif distance>230:continue
-        draws.append(((priority,distance),draw,species,ENCOUNTERS[i][3]))
+        draws.append(((priority,distance),draw,key,ENCOUNTERS[i][3]))
     draws.sort(key=lambda item:item[0])
     visible=[entry[1] for entry in draws[:48]]
     if subjects is not None:
@@ -267,11 +308,12 @@ def build_world(high=True,plant_sites=None,regional=False):
             sz=(field.values[bz*field.nx+ix]-field.values[az*field.nx+ix])/((bz-az)*field.dz)
             n=unit(Vec(-sx,1,-sz))
             point=mesh.vertices[k]
+            material=1.
             rgb=ground_color(point,n)
             if not regional and channel().water_height(point.x,point.z) is not None:
-                rgb=(104,103,86)
+                rgb=(95,108,101)
+                material=.94
             light=.55+.45*max(0,n.y*.75-n.x*.51-n.z*.42)
-            material=1.
             colors.append(vertex(mesh.vertices[k],tuple(c*light for c in rgb),material))
     for a,b,c,material,_ in mesh.triangles:
         if material=='terrain':
@@ -333,6 +375,7 @@ def build_world(high=True,plant_sites=None,regional=False):
             scale=GRAZERS[key][0]
             for ox,oz,dx,dz,length in TRAIL_LEGS:
                 corridors.append((x+ox*scale,z+oz*scale,dx/length,dz/length,length*scale))
+    corridors.extend(hiking_segments())
     # Leave narrow gaps in the illustrative canopy where the bluff sees the trail.
     bx,bz=BERRY_BLUFF
     eye=surface(field,bx,bz)+1.25
@@ -361,10 +404,21 @@ def build_world(high=True,plant_sites=None,regional=False):
         # The water shader takes cross-stream and downstream metres from RG.
         water.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z,(side+6)/12,station/4096,0.,.35))
     channel().mesh(height,face,water_vertex)
+    trail_surface(height,face)
+    camp_materials(height,face)
+    trail_rng=random.Random(840)
+    for i,(x,z,u,v,length) in enumerate(hiking_segments()):
+        if i%3:continue
+        offset=trail_rng.choice((-1,1))*trail_rng.uniform(1.6,3.3)
+        px,pz=x+.5*length*u+offset*v,z+.5*length*v-offset*u
+        if not wet(px,pz,segments):
+            fern(px,pz,height(px,pz),trail_rng.uniform(.55,.92),face,trail_rng,compact=True)
+            if plant_sites is not None:plant_sites.append(('fern',px,pz))
     campsite(height,face)
     river_stones(channel(),face,height)
     bank_sign(height,face)
     for key,x,z,_ in ENCOUNTERS:
+        key=key.split('#')[0]
         if key in REGIONAL and REGIONAL[key].form in PERCHES:snag(x,height(x,z),z,1.6,face)
     for i,(x,z) in enumerate(BUSHES):
         blueberry_patch(x,z,height,face,rng,.08+i*.05,high)
@@ -436,6 +490,11 @@ class RainierView:
         self.lookout_site=None
         self.travel_error=''
         self.debug_overlay=False
+        self.supplies=0
+        self.camp_built=False
+        self.gathering=False
+        self.cast_time=None
+        self.hooked=False
         self.trail=BerryTrail()
         self.cruise=False
         self.cruise_heading=None
@@ -566,6 +625,16 @@ class RainierView:
                 self.cruise=self.trail.guiding=False
                 self.destination=None
                 self.zoom=8.
+            elif action=='fish':self.fish()
+            elif action.startswith('gather'):
+                self.supplies|=1<<int(action[-1])
+                self.photo_hint='Camp supplies '+str(self.supplies.bit_count())+'/3'
+                self.hint_until=self.age+2.
+            elif action=='build':
+                self.gathering=False
+                self.camp_built=self.tent=True
+                self.photo_hint='Camp is ready'
+                self.hint_until=self.age+2.
             elif action in ('deck','ground'):self.visit_lookout(deck=action=='deck')
             elif action=='book':
                 self.destination=None
@@ -646,6 +715,8 @@ class RainierView:
         self.album_book=None
         self.album_loaded=None
         self.frame_camera=self.destination=self.shutter=None
+        self.cast_time=None
+        self.hooked=False
         self.age=0.
         self.next_call=0.
         self.stand_center=None
@@ -659,7 +730,7 @@ class RainierView:
     def move_to_view(self,camp=False,pool=False):
         field=self.world[0]
         x,z,tx,tz=(CAMP[0]+3.,CAMP[1]-7.,*CAMP) if camp else OVERLOOK
-        if pool:x,z,tx,tz=8.,8.,*TROUT_POOL
+        if pool:x,z,tx,tz=9.,7.,*TROUT_POOL
         aim_y=channel().water_height(tx,tz)-.3 if pool else surface(field,tx,tz)
         yaw=math.atan2(tx-x,tz-z)
         pitch=math.atan2(self.walk_height(x,z)+1.25-aim_y,math.hypot(tx-x,tz-z))
@@ -668,8 +739,60 @@ class RainierView:
         self.lens=self.binoculars=self.cruise=self.trail.guiding=False
         self.zoom=1.
 
+    def visit_trail(self,name):
+        path=next(p['xz'] for p in hiking_paths() if p['name']==name)
+        x,z=min(path[:-1],key=lambda p:math.hypot(*p))
+        tx,tz=path[path.index([x,z])+1]
+        self.trip_pose=(x,z,math.atan2(tx-x,tz-z),.13)
+        self.destination=self.review_key=None
+        self.lens=self.binoculars=self.cruise=self.trail.guiding=False
+
+    def fly_position(self):
+        if self.cast_time is None:return None
+        elapsed=self.age-self.cast_time
+        if elapsed>9 and not self.hooked:return None
+        fx,fz=TROUT_POOL
+        if self.hooked:
+            # Bring the trout to the near side of the pool to release it.
+            fx-=1.8*min(1.,self.age-self.reel_time)
+        return fx,fz+.8-.16*min(9.,elapsed),elapsed
+
+    def fishing_label(self):
+        if self.hooked:return 'Release trout'
+        if self.cast_time is None:return 'Cast fly'
+        elapsed=self.age-self.cast_time
+        if elapsed<2:return 'Fly drifting'
+        if elapsed<=9:return 'Reel in!'
+        return 'Cast again'
+
+    def fish(self):
+        label=self.fishing_label()
+        if self.hooked:
+            self.hooked=False
+            self.cast_time=None
+            self.photo_hint='Trout released'
+        elif label=='Reel in!':
+            self.hooked=True
+            self.reel_time=self.age
+            self.photo_hint='Rainbow trout!'
+        elif label!='Fly drifting':
+            self.cast_time=self.age
+            self.photo_hint='Watch the fly'
+        self.hint_until=self.age+1.8
+
     def walk_tools(self,width,height):
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
+        if not self.regional and self.camera and not (self.lens or self.binoculars):
+            position=self.camera[:2]
+            if math.dist(position,TROUT_POOL)<=12:
+                buttons.append(('fish',self.fishing_label(),(width-15,height-4,14,3)))
+            nearby=[(math.dist(position,(x,z)),i,name) for i,(name,x,z) in enumerate(SUPPLIES)
+                    if not self.supplies & (1<<i) and math.dist(position,(x,z))<=4.5]
+            if nearby:
+                _,i,name=min(nearby)
+                buttons.append((f'gather{i}','Gather '+name,(1,height-4,15,3)))
+            elif self.supplies==7 and not self.camp_built and math.dist(position,CAMP)<6:
+                buttons.append(('build','Build camp',(1,height-4,15,3)))
         if self.binoculars and not self.regional:
             buttons.append(('berry_view','Berry view',(1,height-3,11,2)))
         if self.regional and self.lookout_site and self.camera:
@@ -799,6 +922,9 @@ class RainierView:
         west,east,south,north=bounds(self.world[0])
         owner.x=max(west,min(east,owner.x));owner.z=max(south,min(north,owner.z))
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)
+        if self.cast_time is not None and (self.regional or math.dist(camera[:2],TROUT_POOL)>12):
+            self.cast_time=None
+            self.hooked=False
         age=owner.clock()-owner.started-owner.paused_total
         if self.camera!=camera or age-self.age>=1/20:
             self.camera=camera;self.age=age;self.pixel_dirty=True
@@ -860,7 +986,7 @@ class RainierView:
         optics=(*self.frame_camera,self.zoom) if self.binoculars or self.lens else None
         daylight=(1.,.43,.04,.52+.48*math.cos(self.age*math.tau/720))[self.time_mode]
         hatch=self.weather==0 and self.season in (0,3) and daylight>.35
-        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics,hatch)
+        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics,hatch,self.fly_position())
         voices=nearby_calls(self.subjects,x,eye,z)
         voice=0
         if self.sound and self.age>=self.next_call and voices:
@@ -933,7 +1059,7 @@ class RainierView:
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, (1+int(self.story)) if self.tent and not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1))
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1))
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()
@@ -946,8 +1072,9 @@ class RainierView:
         if pixels is not None:
             from wildlife_models import NAMES
             try:
-                save_photo(self.shutter,rect[2],rect[3],bytes(pixels))
-                self.photo_hint=NAMES[self.shutter];self.review_key=self.shutter;self.cue=1
+                species=self.shutter.split('#')[0]
+                save_photo(species,rect[2],rect[3],bytes(pixels))
+                self.photo_hint=NAMES[species];self.review_key=self.shutter;self.cue=1
             except OSError:self.photo_hint='Save failed'
             self.hint_until=self.age+2.
             self.shutter=None
@@ -960,6 +1087,14 @@ class RainierView:
                 print_photo(path,(rect[0]+bx*8,rect[1]+by*16,bw*8,bh*16))
             draw_book(ink,self.notebook,w-2,h-3,picture)
         else:
+            fly=self.fly_position()
+            if fly and not self.regional and not (self.binoculars or self.lens):
+                fx,fz,_=fly
+                fy=channel().water_height(fx,fz)
+                point=project_subject(self.frame_camera[0],self.frame_camera[1],1.,('',fx,fy-origin.y+.03,fz,.3))
+                if point:
+                    u,v,_=point
+                    ink.fill((u*(w-2)-.28,v*(h-3)-.13,.56,.26),0xFFDF83FF)
             for _,label,box in self.walk_tools(w-2,h-3):ink.button(box,label)
             if self.age<self.hint_until and self.photo_hint:
                 ink.label(1,5,self.photo_hint[:w-2],0xFFF6DA)
@@ -971,9 +1106,18 @@ class RainierView:
                 cy=max(.8,min(h-3.8,v*(h-3)))
                 for offset in (-1.,1.):
                     ink.fill((cx+offset,cy-.36,.16,.72),0xFFE6A4FF)
-                label=NAMES.get(self.focus_key,self.focus_key)[:w-4]
+                label=NAMES.get(self.focus_key.split('#')[0],self.focus_key)[:w-4]
                 ink.fill((1,5,len(label)+1,1.2),0x1E352CDB)
                 ink.label(1.5,5,label,0xFFF6DA)
+            if self.gathering and not self.regional and not self.camp_built:
+                remaining=[(name,px,pz) for i,(name,px,pz) in enumerate(SUPPLIES) if not self.supplies & (1<<i)]
+                name,px,pz=min(remaining,key=lambda item:math.hypot(item[1]-x,item[2]-z)) if remaining else ('Camp',*CAMP)
+                dist=math.hypot(px-x,pz-z)
+                angle=math.atan2(px-x,pz-z)-self.camera[2]
+                bearing=('ahead','right','behind','left')[round(angle/(math.pi/2))%4]
+                tip=f'{name.capitalize()}  {dist:.0f} m {bearing}'
+                ink.fill((1,7,len(tip)+1,1.3),0x254137EE)
+                ink.label(1.5,7,tip,0xFFF6DA)
             if self.debug_overlay:
                 place='Summit' if self.regional else 'Ohanapecosh'
                 lines=(f'{place}  t={self.age:.1f}s',f'E {x:+.1f}  N {z:+.1f} m',
