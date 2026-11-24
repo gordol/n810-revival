@@ -9,12 +9,17 @@ static GLuint rainier_program(void){
   "distanceToEye=length(eye.xyz);gl_Position=gl_ProjectionMatrix*eye;}";
  const char *fs="#version 120\n"
   "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
+  "uniform float waterTime;"
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
   "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
   "void main(){vec3 col=tint.rgb;if(tint.a>.5){vec2 p=pos.xz;"
   "float broad=noise(p*.015);float detail=(noise(p*.64)-.5)*(1.-smoothstep(80.,600.,distanceToEye));"
   "col*=.80+.40*broad+.30*detail;col+=vec3(.032,.024,-.013)*broad;}"
+  "if(tint.a>.65 && tint.a<.85){float seams=noise(vec2(pos.x*.006,pos.z*.036+sin(pos.x*.007)));"
+  "col*=1.-.25*smoothstep(.60,.78,seams);}"
+  "if(tint.a>.25 && tint.a<.45){float ripples=noise(vec2(pos.x*3.,pos.z*2.+pos.y+waterTime*2.5));"
+  "col=mix(col,vec3(.85,.94,.93),smoothstep(.58,.86,ripples)*.75);}"
   "float haze=1.-exp(-distanceToEye*.000029);gl_FragColor=vec4(mix(col,vec3(.56,.70,.80),haze),1.);}";
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return 0;
  GLuint frag=wildlife_shader(GL_FRAGMENT_SHADER,fs);if(!frag){glDeleteShader(vert);return 0;}
@@ -33,7 +38,7 @@ struct rainier_animal {
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
-                         float east,float eye,float north,float yaw,float pitch){
+                         float east,float eye,float north,float yaw,float pitch,float age){
  struct gpu_scene *s=ptr;
  if(!s||w<1||h<1||count<3||count>2000000||(!vertices&&!s->rainier_buffer))
   return SDL_SetError("Invalid Rainier scene");
@@ -95,6 +100,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);
  glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
  GLint blend=glGetUniformLocation(s->rainier_program,"poseBlend");
+ glUniform1f(glGetUniformLocation(s->rainier_program,"waterTime"),age);
  glUniform1f(blend,0.f);glDrawArrays(GL_TRIANGLES,0,(GLsizei)terrain_count);
  glEnableClientState(GL_TEXTURE_COORD_ARRAY);
  for(unsigned i=0;i<na;i++){

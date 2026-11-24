@@ -6,6 +6,7 @@ import math
 import random
 
 from geometry import Vec, cross, sub, unit
+from rainier_habitat import draw_watershed, forest_sites, shelf_height
 from vegetation import ground_color, noise
 
 # South-east of the DEM summit, looking back up the south flank.
@@ -101,11 +102,11 @@ def build_world():
     def vertex(p,color,ground=0.):
         return (p.x-origin.x,p.y-origin.y,p.z-origin.z,*(max(0,min(255,c))/255 for c in color),ground)
 
-    def face(a,b,c,color):
+    def face(a,b,c,color,material=0.):
         n=unit(cross(sub(b,a),sub(c,a)))
         light=.74+.26*(n.y*.78-n.x*.52-n.z*.35)
         rgb=tuple(v*light for v in color)
-        for p in (a,b,c):triangles.extend(vertex(p,rgb))
+        for p in (a,b,c):triangles.extend(vertex(p,rgb,material))
 
     mesh=model.mesh
     colors=[]
@@ -119,13 +120,23 @@ def build_world():
             n=unit(Vec(-sx,1,-sz))
             rgb=ground_color(mesh.vertices[k],n)
             light=.55+.45*max(0,n.y*.75-n.x*.51-n.z*.42)
+            material=1.
             if field.values[k]>2500:
                 # Snow collects above the treeline and on gentler faces.
                 point=mesh.vertices[k]
                 cover=max(0.,min(1.,(point.y-2500)/650+(n.y-.88)*7+
                                     (noise(point.x,point.z,610)-.5)*1.2))
                 rgb=tuple(a+(b-a)*cover for a,b in zip((103,99,98),(232,235,237)))
-            colors.append(vertex(mesh.vertices[k],tuple(c*light for c in rgb),1.))
+                # A tapering illustrative ice tongue on the summit's south flank.
+                south=origin.z+SOUTH-point.z
+                along=south/4200
+                if 0<along<1:
+                    center=origin.x-EAST+south*.19+240*math.sin(along*6)
+                    width=700*(1-along)**.55
+                    if abs(point.x-center)<width:
+                        material=.72
+                        rgb=(164,196,206)
+            colors.append(vertex(mesh.vertices[k],tuple(c*light for c in rgb),material))
     for a,b,c,material,_ in mesh.triangles:
         if material=='terrain':
             for i in (a,b,c):triangles.extend(colors[i])
@@ -142,34 +153,34 @@ def build_world():
                 face(*points,rgb)
     place(props,Vec(origin.x-anchor.x+12,surface(field,origin.x+12,origin.z+16)-anchor.y,origin.z-anchor.z+7),lambda m,o:(115,112,99) if o.startswith('ruin:') else None)
     rng=random.Random(3918)
-    def pine(x,z,h):
+    def pine(x,z,h,near):
         y=surface(field,x,z)-.14
         def ring(height,radius,angle,count):
             return [Vec(x+math.cos(angle+i*math.tau/count)*radius,y+height,
                         z+math.sin(angle+i*math.tau/count)*radius) for i in range(count)]
-        bottom=ring(0,h*.023,0,6);top=ring(h*.88,h*.009,0,6)
-        for i in range(6):
-            j=(i+1)%6
+        sides=5 if near else 3
+        bottom=ring(0,h*.023,0,sides);top=ring(h*.88,h*.009,0,sides)
+        for i in range(sides):
+            j=(i+1)%sides
             face(bottom[i],top[i],bottom[j],(86,69,50))
             face(bottom[j],top[i],top[j],(86,69,50))
         shade=rng.uniform(.82,1.13)
-        for layer in range(7):
-            t=layer/7;angle=rng.random()*math.tau
+        layers=rng.choice((5,7)) if near else 3
+        needles=rng.choice(((37,75,58),(52,91,66),(64,98,76),(48,82,76)))
+        breadth=rng.uniform(.8,1.24)
+        tips=12 if near else 5
+        for layer in range(layers):
+            t=layer/layers;angle=rng.random()*math.tau
             apex=Vec(x,y+h*(.50+.50*t),z)
-            crown=ring(h*(.16+.76*t),h*(.23-.18*t),angle,14)
+            crown=ring(h*(.16+.76*t),breadth*h*(.23-.18*t),angle,tips)
             for i,p in enumerate(crown):
                 spread=rng.uniform(.60,.80) if i%2 else rng.uniform(1,1.18)
                 crown[i]=Vec(x+(p.x-x)*spread,p.y+h*(.034 if i%2 else -.025),z+(p.z-z)*spread)
             for i,p in enumerate(crown):
-                face(apex,p,crown[(i+1)%14],tuple(v*shade*(.78+.23*t) for v in (43,87,61)))
-    for i in range(290):
-        distance=rng.uniform(12,130) if i<45 else rng.uniform(140,1600)
-        angle=rng.random()*math.tau
-        dx,dz=distance*math.sin(angle),distance*math.cos(angle)
-        if dz>0 and abs(dx+dz*EAST/SOUTH)<max(6.,.19*dz):continue
-        pine(origin.x+dx,origin.z+dz,rng.uniform(6,18))
-    for dx,dz,h in [(-12,23,10),(2.8,28,9),(-15,37,12),(7.5,42,13)]:
-        pine(origin.x+dx,origin.z+dz,h)
+                face(apex,p,crown[(i+1)%tips],tuple(v*shade*(.78+.23*t) for v in needles))
+    for dx,dz,h,near in forest_sites(rng):
+        pine(origin.x+dx,origin.z+dz,h,near)
+    draw_watershed(origin,lambda x,z:surface(field,origin.x+x,origin.z+z),face)
 
     # Low plants and stones give the walker close-range parallax.
     for i in range(1100):
@@ -244,7 +255,7 @@ class RainierView:
         if self.world is None or self.camera is None:return ()
         field,origin,data,terrain_count,indices,spans=self.world
         x,z,yaw,pitch=self.camera
-        eye=surface(field,x+origin.x,z+origin.z)-origin.y+1.7
+        eye=surface(field,x+origin.x,z+origin.z)-origin.y+shelf_height(x,z)+1.7
         wx,wy,w,h=self.host.bounds(self.host.window(self.name))
         ox,oy=self.host.origin
         rect=((wx+ox+1)*8,(wy+oy+1)*16,(w-2)*8,(h-3)*16)
@@ -252,10 +263,10 @@ class RainierView:
         draw=ctx.lib.pocket_scene_rainier
         commands=encounters(field,origin,spans,self.age)
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*5
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6
         ctx.check(draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,len(data)//7,terrain_count,
                        indices.buffer_info()[0] if self.upload else None,len(indices),commands,len(commands),
-                       x,eye,z,yaw,pitch))
+                       x,eye,z,yaw,pitch,self.age))
         self.context=ctx
         self.upload=False
         self.pixel_jobs+=1;self.pixel_frames+=1

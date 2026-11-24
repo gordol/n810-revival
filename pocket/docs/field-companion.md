@@ -327,7 +327,11 @@ Pocket keeps the prepared grid locally for subsequent offline launches.
 On Android, conversion uses the GIS environment prepared by `make mobile`.
 In the mobile OpenGL view you start southeast of the summit. The mountain and
 ridges use the downloaded elevations. The conifers, ground cover, animals and
-stone remains are illustrative 3D scenery. Look for a marmot near your feet,
+stone remains are illustrative 3D scenery. Walk uphill with the summit ahead.
+On the left, follow the meltwater creek to a rock ledge, waterfall and remnant
+snowfield. On the right, a landslide has left a fan of loose rock. Conifer
+stands surround the meadow, and an illustrative glacier tongue marks the
+upper south flank. These features are generated offline. Look for a marmot near your feet,
 a red fox walking around the meadow and a bald eagle circling above it. The
 walk shares these models, the goat, chipmunk, squirrel and pika with Wildlife.
 
