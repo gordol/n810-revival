@@ -65,6 +65,34 @@ class RiverTrailTests(unittest.TestCase):
         self.assertIsNotNone(river.water_height(15,8))
         self.assertIsNone(river.water_height(-1000,900))
 
+    def test_camera_clears_rendered_bank_and_water_triangles(self):
+        from geometry import Vec
+        from rainier_pixels import RainierView,surface,valley_floor
+        from river_walk import channel
+        bed,_=valley_floor()
+        origin=Vec(0,surface(bed,0,0),0)
+        view=RainierView.__new__(RainierView)
+        view.regional=False
+        view.world=(bed,origin)
+        max_gap=0.
+        def check(a,b,c):
+            nonlocal max_gap
+            for u,v in ((.3,.4),(.5,.5),(0.,0.)):
+                w=1.-u-v
+                x,y,z=(u*i+v*j+w*k for i,j,k in zip((a.x,a.y,a.z),(b.x,b.y,b.z),(c.x,c.y,c.z)))
+                max_gap=max(max_gap,y-surface(bed,x,z))
+                eye=view.eye_position(x,z)[1]+origin.y
+                self.assertGreaterEqual(eye+1e-7,y+1.25)
+        water=[]
+        def water_vertex(p,*_):
+            water.append(p)
+            if len(water)==3:
+                check(*water)
+                water.clear()
+        channel().mesh(lambda x,z:surface(bed,x,z),lambda a,b,c,*_:check(a,b,c),water_vertex)
+        self.assertGreater(max_gap,5.)
+        self.assertEqual(view.walk_height(-900,900),surface(bed,-900,900))
+
     def test_mapped_site_and_dry_game_route(self):
         field,segments=site()
         self.assertEqual(field.nx,257)

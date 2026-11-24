@@ -1,6 +1,7 @@
 """Perspective terrain for the graphical Rainier walk. World coordinates are metres."""
 from array import array
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 import ctypes as C
 import math
 import random
@@ -32,6 +33,14 @@ def surface(field,x,z):
     a,b,c,d=(field.values[k+n] for n in (0,1,field.nx,field.nx+1))
     return a+(b-a)*u+(c-a)*v if u+v<=1 else d+(c-d)*(1-u)+(b-d)*(1-v)
 
+
+
+@lru_cache(maxsize=1)
+def valley_floor():
+    from river_channel import RiverFloor
+    river=channel()
+    bed=river.bed_field(site()[0])
+    return bed,RiverFloor(river,lambda x,z:surface(bed,x,z))
 
 
 # Illustrative encounters around the starting meadow (east, north, model scale).
@@ -166,8 +175,7 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
 
 
 def build_world(high=True,plant_sites=None,regional=False):
-    field,segments=(region_field(),()) if regional else site()
-    if not regional:field=channel().bed_field(field)
+    field,segments=(region_field(),()) if regional else (valley_floor()[0],site()[1])
     origin=Vec(0,surface(field,0,0),0)
     triangles=array('f')
     detail=array('f')
@@ -506,7 +514,7 @@ class RainierView:
         u,v=(x+.5)/width,(y+.5)/height
         camera,aspect=self.frame_camera
         field,origin=self.world[:2]
-        def ground(px,pz):return surface(field,px+origin.x,pz+origin.z)-origin.y
+        def ground(px,pz):return self.walk_height(px+origin.x,pz+origin.z)-origin.y
         if self.binoculars:return True
         if self.lens:
             if self.review_key and self.age<self.hint_until:return True
@@ -715,9 +723,13 @@ class RainierView:
         if self.camera!=camera or age-self.age>=1/20:
             self.camera=camera;self.age=age;self.pixel_dirty=True
 
+    def walk_height(self,x,z):
+        terrain=surface(self.world[0],x,z)
+        return terrain if self.regional else valley_floor()[1].height(x,z,terrain)
+
     def eye_position(self,x,z):
         field,origin=self.world[:2]
-        ground=surface(field,x+origin.x,z+origin.z)
+        ground=self.walk_height(x+origin.x,z+origin.z)
         if self.regional and self.lookout_site:
             cx,cz,base=self.lookout_site
             if max(abs(x-cx),abs(z-cz))<=3.2:ground=base+lookout.DECK
@@ -789,12 +801,12 @@ class RainierView:
             for uid,(px,pz) in self.party.roster.items():
                 if uid!=self.party.ident:
                     hx,hz=px/10,pz/10
-                    hikers.extend((hx,surface(field,hx+origin.x,hz+origin.z)-origin.y,hz))
+                    hikers.extend((hx,self.walk_height(hx+origin.x,hz+origin.z)-origin.y,hz))
         hikers_buffer=(C.c_float*len(hikers))(*hikers)
         marker=(C.c_float*3)() if self.destination is not None else None
         if marker is not None:
             mx,mz=self.destination
-            marker[:]=mx,surface(field,mx+origin.x,mz+origin.z)-origin.y+.07,mz
+            marker[:]=mx,self.walk_height(mx+origin.x,mz+origin.z)-origin.y+.07,mz
         fish=next(((fx,fz) for key,fx,_,fz,_ in self.subjects if key=='trout'),None)
         ripple=None
         if fish:

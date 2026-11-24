@@ -132,7 +132,7 @@ class RiverChannel:
             values[k]=min(values[k]+blend*(y-depth-values[k]),ceiling.get(k,float('inf')))
         return replace(field,values=tuple(values))
 
-    def mesh(self,height,face,water_vertex):
+    def triangles(self,height):
         previous=None
         for r in self.rows:
             row=[]
@@ -143,7 +143,35 @@ class RiverChannel:
             if previous:
                 for j in range(len(row)-1):
                     for tri in ((previous[j],row[j],previous[j+1]),(row[j+1],previous[j+1],row[j])):
-                        if j==2:
-                            for p,side,station in tri:water_vertex(p,side,station)
-                        else:face(*(v[0] for v in tri),(122,116,95),.53)
+                        yield tri,j==2
             previous=row
+
+    def mesh(self,height,face,water_vertex):
+        for tri,is_water in self.triangles(height):
+            if is_water:
+                for p,side,station in tri:water_vertex(p,side,station)
+            else:face(*(v[0] for v in tri),(122,116,95),.53)
+
+
+class RiverFloor:
+    """Index the drawn gravel and water triangles above the carved DEM."""
+    def __init__(self,channel,height):
+        self.cells={}
+        for triangle,_ in channel.triangles(height):
+            a,b,c=(v[0] for v in triangle)
+            ux,uz=b.x-a.x,b.z-a.z
+            vx,vz=c.x-a.x,c.z-a.z
+            det=ux*vz-uz*vx
+            if abs(det)<1e-9:continue
+            plane=(a,vz/det,-vx/det,-uz/det,ux/det,b.y-a.y,c.y-a.y)
+            for i in range(floor(min(a.x,b.x,c.x)/16),floor(max(a.x,b.x,c.x)/16)+1):
+                for j in range(floor(min(a.z,b.z,c.z)/16),floor(max(a.z,b.z,c.z)/16)+1):
+                    self.cells.setdefault((i,j),[]).append(plane)
+
+    def height(self,x,z,terrain):
+        for a,ux,uz,vx,vz,dy_b,dy_c in self.cells.get((floor(x/16),floor(z/16)),()):
+            dx,dz=x-a.x,z-a.z
+            u,v=dx*ux+dz*uz,dx*vx+dz*vz
+            if min(u,v)>=-1e-8 and u+v<=1.00000001:
+                terrain=max(terrain,a.y+u*dy_b+v*dy_c)
+        return terrain

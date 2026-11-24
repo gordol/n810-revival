@@ -52,7 +52,10 @@ class HikeTests(TestCase):
         faces=[]
         lookout.build(height,lambda a,b,c,color:faces.append((a,b,c)),x,z)
         self.assertTrue(any(all(p.y==level+lookout.DECK for p in triangle) for triangle in faces))
-        view=SimpleNamespace(world=(field,Vec(0,0,0)),regional=True,lookout_site=(x,z,level))
+        view=RainierView.__new__(RainierView)
+        view.world=(field,Vec(0,0,0))
+        view.regional=True
+        view.lookout_site=(x,z,level)
         RainierView.visit_lookout(view,deck=True)
         px,pz=view.trip_pose[:2]
         self.assertEqual(RainierView.eye_position(view,px,pz)[1],level+lookout.DECK+1.25)
