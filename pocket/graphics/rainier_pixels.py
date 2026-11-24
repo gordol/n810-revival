@@ -12,7 +12,7 @@ import fremont_lookout as lookout
 from river_camp import CAMP, OVERLOOK, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, fern, snag, spruce_sprays
-from rainier_habitat import forest_sites
+from rainier_habitat import forest_sites,ridge_grass
 from rainier_hike import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from river_party import PartyMenu
 from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
@@ -198,7 +198,10 @@ def build_world(high=True,plant_sites=None,regional=False):
 
     if regional:
         position=lookout.location(field)
-        if position:lookout.build(lambda x,z:surface(field,x,z),face,*position)
+        if position:
+            def ridge_height(x,z):return surface(field,x,z)
+            lookout.build(ridge_height,face,*position)
+            ridge_grass(ridge_height,face,random.Random(1934),*position)
         count=len(triangles)//7
         return field,origin,triangles,count,array('I',[0]),(),count,None
 
@@ -326,7 +329,9 @@ class RainierView:
         self.lens=self.binoculars=False
         self.zoom=1.
         self.focus_key=None
-        self.tent=self.story=self.mist=False
+        self.tent=self.story=False
+        self.weather=0
+        self.time_mode=0
         self.season=0
         self.trip_pose=None
         self.album=[]
@@ -742,7 +747,7 @@ class RainierView:
         sound(ctx.handle,self.sound and not self.regional,self.cue,river_gain(x,z,site()[1]),voice,gain)
         self.cue=0
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float]
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float]
         target_x,target_z=self.trail.target(x,z)
         direction=math.atan2(target_x-x,target_z-z)-yaw
         mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
@@ -781,10 +786,11 @@ class RainierView:
             focal=max(focal,min(12.,horizontal*min(1.,rect[2]/rect[3])/(size*2.8)))
             break
         photo_index=next((i for i,p in enumerate(self.subjects) if p[0]==self.shutter),-1)
+        daylight=(1.,.43,.04,.52+.48*math.cos(self.age*math.tau/720))[self.time_mode]
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, (1+int(self.story)) if self.tent and not self.regional else 0,self.season,self.mist,origin.y)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, (1+int(self.story)) if self.tent and not self.regional else 0,self.season,self.weather,origin.y,daylight)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()

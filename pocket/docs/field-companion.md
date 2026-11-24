@@ -449,8 +449,9 @@ a little way off center. Swipe left or right to turn guidebook or album pages.
 In **Hike → Camp & sky**, visit the river overlook to see the Ohanapecosh
 channel and its rocky shallows from above. Pitch a tent in the starting
 clearing or turn on the optional Bigfoot camp story. Camp choices apply on
-this device. The season and clear/misty weather controls change the scene's
-appearance. Snow cover changes by season. River discharge and snowmelt are
+this device. Tap **Light** for day, dusk, night, or a 12-minute cycle, and
+**Weather** for clear skies, mist, or showers. Clouds drift past the stars
+at night. On clear spring and summer days, watch the trout pool for a hatch. Snow cover changes by season. River discharge and snowmelt are
 not simulated. To visit the fire tower, choose **Visit Mt Fremont lookout** on the same
 menu while exploring solo. Pocket opens the regional elevation map, downloading
 it on the first visit. At the tower, tap **Up to deck** for the view toward

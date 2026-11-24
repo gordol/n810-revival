@@ -21,15 +21,16 @@ class HikeTests(TestCase):
     def test_camp_menu_controls_match_drawn_rows(self):
         for height in (14,38):
             visits=[]
-            view=SimpleNamespace(name='Walk',party=None,regional=False,travel_job=None,season=0,mist=False,
+            view=SimpleNamespace(name='Walk',time_mode=0,party=None,regional=False,travel_job=None,season=0,weather=0,
                 tent=False,story=False,host=SimpleNamespace(window=lambda _:SimpleNamespace(h=height)),
                 move_to_view=lambda camp=False:visits.append(camp))
             menu=HikeMenu(view)
             menu.tap_xy(0,8)
             def choose(prefix):
                 return menu.tap_xy(0,next(i for i,row in enumerate(menu.lines(40)) if row.startswith(prefix)))
-            choose('Season');choose('Weather')
-            self.assertEqual((view.season,view.mist),(1,True))
+            choose('Season');choose('Weather');choose('Light')
+            self.assertEqual(view.time_mode,1)
+            self.assertEqual((view.season,view.weather),(1,1))
             self.assertFalse(choose('Visit river'));self.assertEqual(visits,[False])
             self.assertFalse(choose('Bigfoot'));self.assertTrue(view.story and view.tent)
             self.assertEqual(visits,[False,True])

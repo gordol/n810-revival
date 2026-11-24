@@ -35,16 +35,17 @@ class HikeMenu:
         self.trip=False
 
     def trip_spacing(self):
-        return 2 if self.view.host.window(self.view.name).h>=19 else 1
+        return 2 if self.view.host.window(self.view.name).h>=21 else 1
 
     def lines(self,width):
         v=self.view
         if self.trip:
             rows=['Camp & sky','Season   '+('Summer','Autumn','Winter','Spring')[v.season],
-                  'Weather   '+('Mist' if v.mist else 'Clear')]
+                  'Weather   '+('Clear','Mist','Showers')[v.weather]]
             if not v.regional:rows+=['Visit river overlook','Pack tent' if v.tent else 'Pitch tent at camp',
                                     'Bigfoot story   '+('On' if v.story else 'Off')]
             if not v.party:rows.append('Visit Mt Fremont lookout')
+            rows.append('Light   '+('Day','Dusk','Night','12-minute cycle')[v.time_mode])
             rows.append('Back')
             if self.trip_spacing()==2:return tuple(line for row in rows for line in ('',row))
             return tuple(rows)
@@ -59,7 +60,7 @@ class HikeMenu:
         if self.trip:
             y//=self.trip_spacing()
             if y==1:v.season=(v.season+1)%4
-            elif y==2:v.mist=not v.mist
+            elif y==2:v.weather=(v.weather+1)%3
             elif not v.regional and y==3:v.move_to_view();return False
             elif not v.regional and y==4:
                 v.tent=not v.tent
@@ -72,7 +73,8 @@ class HikeMenu:
                 if v.regional:v.visit_lookout();return False
                 self.trip=False
                 v.start_region(lookout_arrival=True)
-            elif y==(3 if v.regional else 6)+int(not v.party):self.trip=False
+            elif y==(3 if v.regional else 6)+int(not v.party):v.time_mode=(v.time_mode+1)%4
+            elif y==(4 if v.regional else 7)+int(not v.party):self.trip=False
             return True
         if v.travel_job:return True
         if y==8:self.trip=True;return True
