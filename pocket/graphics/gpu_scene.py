@@ -33,6 +33,8 @@ class Context:
             'pocket_scene_font':([C.c_void_p,C.c_void_p,C.c_void_p,C.c_uint,C.c_void_p,C.c_void_p,C.c_uint],C.c_int),
             'pocket_scene_size':([C.c_void_p,C.c_uint,C.c_uint],C.c_int),
             'pocket_scene_cells':([C.c_void_p,C.c_void_p,C.c_uint,C.c_uint,C.c_int],C.c_int),
+            'pocket_scene_rect':([C.c_void_p,*([C.c_float]*4),C.c_uint],C.c_int),
+            'pocket_scene_text':([C.c_void_p,C.c_float,C.c_float,C.c_void_p,C.c_uint,C.c_uint],C.c_int),
             'pocket_scene_begin':([C.c_void_p],C.c_int),
             'pocket_scene_map':([C.c_void_p,C.c_void_p,C.c_uint,C.c_uint,C.c_uint,C.c_uint],C.c_void_p),
             'pocket_scene_lines':([C.c_void_p,C.c_void_p,C.c_void_p,C.c_uint,C.c_uint],C.c_int),

@@ -102,35 +102,31 @@ class DiscoveryBook:
         key=self.entries[self.page][1]
         return next((p for p in self.photos if p not in self.damaged and p.stem.rsplit('-',1)[0]==key),None)
 
-    def picture_rows(self):
-        return max(0,self.view.host.window(self.view.name).h-11) if self.preview else 0
-
     def lines(self,width):
-        if self.entries:
-            name,key,clue=self.entries[self.page]
-            heading=f'My guidebook   {self.page+1}/{len(self.entries)}'
-            body=[name,*(['']*self.picture_rows()),*textwrap.wrap(clue,max(16,width-2))]
-        else:
-            heading='My guidebook'
-            body=textwrap.wrap('Photograph an animal or walk up to a plant to fill your first page.',max(16,width-2))
-        return tuple([heading,'',*body,'','[ Previous ]    [ Next ]','[ Photo album ]','[ Back to the river ]','for ella'])
+        return ()
 
     def tap_xy(self,x,y):
-        height=len(self.lines(self.view.host.window(self.view.name).w-2))
-        if self.entries and 3<=y<=3+self.picture_rows():
-            key=self.entries[self.page][1]
-            shots=[p for p in self.photos if p.stem.rsplit('-',1)[0]==key]
-            if shots:
-                self.view.album=shots
+        from river_overlay import book_layout,hit
+        window=self.view.host.window(self.view.name)
+        page,buttons=book_layout(window.w-2,window.h-3)
+        for action,_,bounds in buttons:
+            if not hit(bounds,x,y):continue
+            if action=='close':return False
+            if action=='album' and self.photos:
+                self.view.album_book=self
+                self.view.album=self.photos.copy()
                 self.view.album_index=0
                 self.view.album_loaded=None
                 return False
-        if y==height-2:return False
-        if y==height-3 and self.photos:
-            self.view.album=self.photos.copy()
+            if action in ('prev','next') and self.entries:
+                self.page=(self.page+(1 if action=='next' else -1))%len(self.entries)
+            return True
+        if not hit(page,x,y):return False
+        if self.preview:
+            key=self.entries[self.page][1]
+            self.view.album_book=self
+            self.view.album=[p for p in self.photos if p.stem.rsplit('-',1)[0]==key and p not in self.damaged]
             self.view.album_index=0
             self.view.album_loaded=None
             return False
-        if y==height-4 and self.entries:
-            self.page=(self.page+(1 if x>=14 else -1))%len(self.entries)
         return True

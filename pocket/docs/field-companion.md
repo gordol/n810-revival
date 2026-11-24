@@ -330,7 +330,7 @@ again to play another round. Each feeding adds a heart for this session.
 Drag anywhere in the scene to pull the view around while walking to the ring.
 A new tap on the ground sets the next destination. Tap **Walk** for continuous walking while you look,
 and **Stop** to stand still. You can also look around on a guided walk.
-The river is audible through the woods and grows louder as you approach the bank. Each berry has its own chime. Tap
+The river is audible through the woods and grows louder as you approach the bank. Each berry has its own chime. Listen for occasional caws, hoots, whistles and chips from nearby wildlife. The game synthesizes these calls and fades them with distance. Tap
 **Mute** for quiet play. There is
 no countdown. The fox is a game character. At Mount Rainier, watch wild
 animals from a distance and leave them their natural food.
@@ -355,10 +355,11 @@ Encounter locations are game placements and imply no recorded sighting.
 
 Watch for rings spreading over the trout. Head upstream on the starting bank:
 a dipper bobs on a broad rock and paw prints lead toward the otter pool.
-Tap **Camera**, then tap a visible animal to take its picture. Drag to aim,
-or walk closer to small animals. Tap **Lens on** to put the camera away.
-Tap **Album** with the camera out to browse your pictures. Tap either side of
-a photo to turn the page, or **Back** to return to the bank. Portraits are
+Tap the large **Camera** button, aim the crosshair at an animal, then press
+**Take photo**. You can also tap an animal directly. **Put away** closes the
+camera. Open **Guidebook** from the trail to leaf through your finds or open
+the **Album**. The river valley shows through the paper. Tap either side of
+a photo to turn the page, or tap **Book** to return to its guidebook page. Portraits are
 also saved locally as PNGs in
 `${XDG_DATA_HOME:-$HOME/.local/share}/pocket/rainier-walk/photos/`. Each
 player keeps their own photos in a family room.
@@ -418,6 +419,6 @@ In **Settings → App: Rainier walk → Touch controls**, choose **Tap to walk**
 (the default) or **Two thumbs**. With Two thumbs, drag on the left to walk or
 sidestep and on the right to look around. Pocket saves this choice locally. On a computer use W/A/S/D and the arrow keys. Tap Camera
 and photograph an animal, or walk within a few steps of a blueberry shrub,
-conifer or forest fern. Open **Camera → Guidebook** for the discoveries saved
+conifer or forest fern. Open **Guidebook** for the discoveries saved
 on this device. The photo album keeps repeat shots, too. Ferns appear at high
 detail. Android uses Termux:X11's **Direct touch** mode for independent fingers.

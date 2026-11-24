@@ -58,5 +58,13 @@ class RiverExplorationTests(unittest.TestCase):
             book=DiscoveryBook(view)
             self.assertEqual({e[1] for e in book.entries},{'trout','blueberry'})
             book.page=next(i for i,e in enumerate(book.entries) if e[1]=='trout')
+            from river_overlay import book_layout,tools,hit
+            for width,height in ((20,9),(40,21),(90,32)):
+                page,buttons=book_layout(width,height)
+                for _,_,box in buttons+tools(width,height,True):
+                    x,y,w,h=box
+                    self.assertGreaterEqual(h,2)
+                    self.assertTrue(hit(box,x+w-.01,y+h-.01))
+                    self.assertLessEqual(x+w,width);self.assertLessEqual(y+h,height)
             self.assertFalse(book.tap_xy(2,3))
             self.assertEqual(len(view.album),2)

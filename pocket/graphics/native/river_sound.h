@@ -1,10 +1,26 @@
 /* Short queued blocks keep the river quiet when the walk is hidden. */
-int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river){
+static float animal_call(int voice,int sample,float noise){
+ /* Repeated notes with rounded attacks. The crow has a noisy harmonic edge,
+    the owl a low sustained vowel, the small mammals short rising chips. */
+ const float spacing[]={0,.43f,.51f,.29f,.17f};
+ const float duration[]={0,.26f,.35f,.17f,.075f};
+ float t=fmodf(sample/22050.f,spacing[voice]),length=duration[voice];
+ if(t>=length)return 0;
+ float env=sinf(3.141593f*t/length);
+ float base=voice==1?660.f:voice==2?340.f:voice==3?2200.f:3100.f;
+ float glide=voice==1?-440.f:voice==2?-85.f:voice==3?1250.f:2100.f;
+ float phase=6.2831853f*(base*t+.5f*glide*t*t);
+ float note=sinf(phase);
+ if(voice==1)note=.60f*note+.26f*sinf(phase*2)+.14f*noise;
+ return env*env*note*fminf(1.f,(22050-sample)/882.f);
+}
+
+int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river,int voice,float gain){
  struct gpu_scene *s=ptr;
  if(!s)return -1;
  if(!enabled){
   if(s->river_audio){SDL_CloseAudioDevice(s->river_audio);s->river_audio=0;}
-  s->river_cue=s->river_note=0;return 0;
+  s->river_cue=s->river_note=s->animal_voice=0;return 0;
  }
  if(!s->river_audio){
   if(s->river_audio_failed)return -1;
@@ -14,6 +30,7 @@ int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river){
   if(!s->river_audio){s->river_audio_failed=1;return -1;}
   SDL_PauseAudioDevice(s->river_audio,0);
  }
+ if(voice>=1&&voice<=4){s->animal_voice=voice;s->animal_sample=0;}
  if(cue){s->river_cue=cue;s->river_note=0;}
  while(SDL_GetQueuedAudioSize(s->river_audio)<6144){
   int16_t samples[1024];
@@ -22,6 +39,10 @@ int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river){
    float noise=((int)(s->river_seed>>16)-32768)/32768.f;
    s->river_low+=.065f*(noise-s->river_low);
    float signal=river*(s->river_low*.40f+noise*.0325f);
+   if(s->animal_voice){
+    signal+=.24f*gain*animal_call(s->animal_voice,s->animal_sample,noise);
+    if(++s->animal_sample>=22050)s->animal_voice=0;
+   }
    if(s->river_cue){
     int part=s->river_note/3308;
     float t=(s->river_note%3308)/22050.f;

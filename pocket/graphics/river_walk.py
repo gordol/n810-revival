@@ -149,3 +149,19 @@ def blueberry_patch(x,z,height,face,rng,material,high=True):
                     face(crown,Vec(bx+.013*math.cos(a),by+.038,cz+.013*math.sin(a)),
                          Vec(bx+.006*math.cos(a+.7),by+.039,cz+.006*math.sin(a+.7)),
                          (52,65,108),material)
+
+
+# Short illustrative calls and their audible radii in game metres.
+CALLS={'american_crow':(1,50.),'common_raven':(1,60.),'barred_owl':(2,65.),
+       'great_horned_owl':(2,70.),'american_dipper':(3,32.),'pika':(3,24.),
+       'chipmunk':(4,18.),'squirrel':(4,24.),'marmot':(3,45.)}
+
+
+def nearby_calls(subjects,x,y,z):
+    voices=[]
+    for key,px,py,pz,_ in subjects:
+        if key in CALLS:
+            voice,radius=CALLS[key]
+            gain=1.-math.dist((x,y,z),(px,py,pz))/radius
+            if gain>0:voices.append((key,voice,gain))
+    return sorted(voices)

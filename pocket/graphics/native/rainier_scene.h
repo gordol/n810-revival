@@ -299,6 +299,10 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  float radius=(w<h?w:h)*.044f;
  if(lens){
   glColor3f(.94f,.92f,.76f);glLineWidth(2.f);
+  glBegin(GL_LINES);
+  glVertex2f(.5f*w-radius*.37f,.5f*h);glVertex2f(.5f*w+radius*.37f,.5f*h);
+  glVertex2f(.5f*w,.5f*h-radius*.37f);glVertex2f(.5f*w,.5f*h+radius*.37f);
+  glEnd();
   for(int k=0;k<4;k++){
    float cx=(k%2?.83f:.17f)*w,cy=(k/2?.75f:.25f)*h;
    glBegin(GL_LINE_STRIP);glVertex2f(cx+(k%2?-1:1)*radius,cy);
@@ -361,4 +365,55 @@ int pocket_scene_river_photo(void *ptr,int x,int y,int w,int h,int pw,int ph,con
  SDL_SetRenderDrawColor(s->device,23,28,26,255);
  if(SDL_RenderFillRect(s->device,&frame))return -1;
  return SDL_RenderCopy(s->device,s->river_print,NULL,&dest);
+}
+
+/* Botanical line drawings in the margin of a plant discovery page. */
+int pocket_scene_plant_sketch(void *ptr,int x,int y,int w,int h,int kind){
+ struct gpu_scene *s=ptr;
+ if(!s||w<1||h<1||scene_target(s,s->canvas))return -1;
+ float size=fminf(w,h)*.88f,cx=x+w*.5f,base=y+(h+size)*.5f;
+ SDL_Renderer *r=s->device;
+ SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
+ for(int stem=0;stem<(kind==2?1:3);stem++){
+  float tilt=(stem-1)*.29f;
+  if(kind==2)tilt=0;
+  float len=size*(1.f-fabsf(tilt));
+  float tip=cx+len*tilt;
+  SDL_SetRenderDrawColor(r,58,75,48,230);
+  SDL_RenderDrawLineF(r,cx,base,tip,base-len);
+  int pairs=kind==2?14:kind==3?17:7;
+  for(int j=1;j<pairs;j++){
+   float t=(float)j/pairs;
+   float ax=cx+len*tilt*t,ay=base-len*t;
+   float span=len*(kind==2?.31f*(1.f-t):.19f*sinf(3.14159f*t));
+   for(int sign=-1;sign<=1;sign+=2){
+    float bx=ax+sign*span,by=ay+span*(kind==2?.37f:-.64f);
+    SDL_SetRenderDrawColor(r,57,84,55,225);
+    SDL_RenderDrawLineF(r,ax,ay,bx,by);
+    if(kind==1){
+     for(int k=1;k<=12;k++){
+      float u=(k-.5f)/12.f;
+      float mid=ay+(by-ay)*u,leaf=span*.22f*sinf(3.14159f*u);
+      SDL_RenderDrawLineF(r,ax+(bx-ax)*u,mid-leaf,ax+(bx-ax)*u,mid+leaf);
+     }
+     if(j%2==0){
+      SDL_SetRenderDrawColor(r,54,67,108,245);
+      float radius=fmaxf(2.f,len*.025f);
+      for(int k=-(int)radius;k<=(int)radius;k++){
+       float half=sqrtf(radius*radius-k*k);
+       SDL_RenderDrawLineF(r,ax+sign*span*.4f-half,ay+k,ax+sign*span*.4f+half,ay+k);
+      }
+     }
+    }else{
+     for(int k=1;k<9;k++){
+      float u=k/9.f,px=ax+(bx-ax)*u,py=ay+(by-ay)*u;
+      float needle=span*.20f*(1.f-u*.65f);
+      SDL_RenderDrawLineF(r,px,py,px+sign*needle,py-needle);
+      SDL_RenderDrawLineF(r,px,py,px+sign*needle,py+needle*.48f);
+     }
+    }
+   }
+  }
+ }
+ return 0;
 }

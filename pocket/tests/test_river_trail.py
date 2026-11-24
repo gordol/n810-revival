@@ -7,7 +7,7 @@ import unittest
 
 root=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(root/'graphics'),str(root/'shell')]
-from river_walk import BUSHES, FOX, BerryTrail, river_gain, site, wet
+from river_walk import BUSHES, FOX, BerryTrail, nearby_calls, river_gain, site, wet
 
 
 class RiverTrailTests(unittest.TestCase):
@@ -26,6 +26,13 @@ class RiverTrailTests(unittest.TestCase):
             self.assertEqual(len(trail.picked),min(leg+1,3))
             self.assertEqual(trail.fed,leg==3)
         self.assertGreater(owner.pitch,0.)
+
+    def test_calls_follow_animals_in_three_dimensions(self):
+        subjects=[('barred_owl',0.,10.,0.,.5),('trout',1.,0.,0.,1.),('chipmunk',0.,0.,18.,.3)]
+        near=nearby_calls(subjects,0.,0.,0.)
+        self.assertEqual([key for key,_,_ in near],['barred_owl'])
+        self.assertAlmostEqual(near[0][2],1-10/65)
+        self.assertFalse(nearby_calls(subjects,200.,0.,0.))
 
     def test_river_sound_fades_from_nearest_bank(self):
         segments=[(0,0,1,0,50),(100,0,0,1,50)]

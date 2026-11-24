@@ -27,7 +27,7 @@ struct gpu_scene {
  unsigned window_budget;int window_budget_ready;
 #else
  struct wildlife_gl wildlife;
- SDL_AudioDeviceID river_audio;int river_audio_failed,river_cue,river_note;unsigned river_seed;float river_low;
+ SDL_AudioDeviceID river_audio;int river_audio_failed,river_cue,river_note,animal_voice,animal_sample;unsigned river_seed;float river_low;
  struct river_bounds {float x,y,z,r;} *river_blocks;
  SDL_Texture *river_print;int print_w,print_h;
  GLuint rainier_shadow,rainier_bloom,rainier_color;int bloom_w,bloom_h,rainier_bloom_failed;
@@ -530,11 +530,11 @@ int pocket_scene_retained_draw(void *ptr,void *target,int x,int y,int width,int 
 }
 void pocket_scene_texture_free(void *ptr){struct scene_texture *image=ptr;if(image){Scene_DestroyTexture(image->texture);free(image);}}
 #ifndef POCKET_SCENE_GL
-int pocket_scene_river_sound(void *,int,int,float);
+int pocket_scene_river_sound(void *,int,int,float,int,float);
 void pocket_scene_rainier_release(void *ptr){
  struct gpu_scene *s=ptr;
  if(!s)return;
- pocket_scene_river_sound(s,0,0,0);s->river_audio_failed=0;
+ pocket_scene_river_sound(s,0,0,0,0,0);s->river_audio_failed=0;
  if(s->river_print){SDL_DestroyTexture(s->river_print);s->river_print=NULL;}
  if(!s->rainier_program)return;
  SDL_RenderFlush(s->device);

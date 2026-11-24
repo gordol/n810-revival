@@ -12,9 +12,11 @@ from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, fern, snag, spruce_sprays
 from rainier_habitat import forest_sites
 from river_party import PartyMenu
+from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
+from river_notebook import DiscoveryBook
 from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, read_photo, save_photo, sighting, walk_to
 from pnw_species import REGIONAL, group
-from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, river_gain, river_mesh, site, wet
+from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, nearby_calls, river_gain, river_mesh, site, wet
 from vegetation import ground_color, noise
 
 def surface(field,x,z):
@@ -290,11 +292,13 @@ class RainierView:
         self.notebook=None
         self.lens=False
         self.album=[]
+        self.album_book=None
         self.album_index=0
         self.album_loaded=None
         self.destination=None
         self.shutter=None
         self.subjects=[]
+        self.last_caller=''
         self.frame_camera=None
         self.review_key=None
         self.photo_hint=''
@@ -310,6 +314,7 @@ class RainierView:
         self.pixel_jobs=self.pixel_frames=0
         self.pool=self.job=self.world=self.camera=None
         self.age=0.
+        self.next_call=0.
         self.upload=True
         self.context=None
         self.error=''
@@ -321,18 +326,17 @@ class RainierView:
         if self.album:
             from wildlife_models import NAMES
             key=self.album[self.album_index].stem.rsplit('-',1)[0]
-            footer=f'<  {NAMES.get(key,key)}   {self.album_index+1}/{len(self.album)}   Back  >'
+            footer=f'{NAMES.get(key,key)}   {self.album_index+1}/{len(self.album)}'
             return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
         trail=self.trail
         if trail.fed:hint=f'Again ({self.hearts})'
         elif len(trail.picked)==3:hint='3/3 | Feed fox'
         else:hint=f'Berries {len(trail.picked)}/3'
-        if self.lens:hint="Guidebook"
         family='Family'
         if self.party:family=f'{len(self.party.roster)} here' if self.party.roster else 'Finding'
-        labels=('Stop' if self.cruise else 'Walk',hint,family,self.photo_hint if self.age<self.hint_until else ('Lens on' if self.lens else 'Camera'),'Mute' if self.sound else 'Sound')
+        labels=('Stop' if self.cruise else 'Walk',hint,family,'Mute' if self.sound else 'Sound')
         width=self.host.window(self.name).w-2
-        bounds=[0,width//7,width*3//7,width*4//7,width*6//7,width]
+        bounds=[0,width//5,width//2,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
         return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
 
@@ -340,35 +344,54 @@ class RainierView:
         if self.album:
             if x<width*.22:self.album_index=(self.album_index-1)%len(self.album)
             elif x>width*.82:self.album_index=(self.album_index+1)%len(self.album)
-            else:self.album=[]
+            else:
+                self.album=[]
+                self.notebook=self.album_book
+                self.album_book=None
             self.pixel_dirty=True
             return True
-        if x<width//7:
+        if x<width//5:
             self.destination=None
             self.cruise=not self.cruise
             self.trail.guiding=False
-        elif x>=width*6//7:self.sound=not self.sound
-        elif x>=width*4//7:
-            self.lens=not self.lens
-            self.review_key=None
-            self.destination=None
-            self.hint_until=0.
-            self.trail.guiding=self.cruise=False
-        elif x>=width*3//7:
+        elif x>=width*3//4:self.sound=not self.sound
+        elif x>=width//2:
             self.destination=None
             self.notebook=PartyMenu(self)
             self.trail.guiding=self.cruise=False
-        elif self.lens:
-            self.cruise=self.trail.guiding=False
-            self.destination=None
-            from river_notebook import DiscoveryBook
-            self.notebook=DiscoveryBook(self)
         else:return self.guide()
         return True
 
     def scene_tap(self,x,y,width,height):
         if self.album:
-            self.album_index=(self.album_index+(-1 if x<width/2 else 1))%len(self.album)
+            action=next((a for a,_,box in album_tools(width,height) if hit(box,x,y)),None)
+            if action=='back':
+                self.album=[]
+                self.notebook=self.album_book or DiscoveryBook(self)
+                self.album_book=None
+                self.pixel_dirty=True
+                return True
+            step=-1 if action=='prev' or (action is None and x<width/2) else 1
+            self.album_index=(self.album_index+step)%len(self.album)
+            self.pixel_dirty=True
+            return True
+        for action,_,bounds in river_tools(width,height,self.lens):
+            if not hit(bounds,x,y):continue
+            if action=='book':
+                self.destination=None
+                self.cruise=self.trail.guiding=False
+                self.notebook=DiscoveryBook(self)
+            elif action=='camera':
+                self.lens=not self.lens
+                self.review_key=self.destination=None
+                self.hint_until=0.
+                self.trail.guiding=self.cruise=False
+            elif self.frame_camera:
+                camera,aspect=self.frame_camera
+                field,origin=self.world[:2]
+                self.shutter=sighting(camera,.5,.5,aspect,self.subjects,
+                                      lambda px,pz:surface(field,px+origin.x,pz+origin.z)-origin.y)
+                if not self.shutter:self.photo_hint='Aim at wildlife';self.hint_until=self.age+2.
             self.pixel_dirty=True
             return True
         if self.frame_camera is None:return False
@@ -424,9 +447,11 @@ class RainierView:
             release(self.context.handle)
         self.context=None
         self.album=[]
+        self.album_book=None
         self.album_loaded=None
         self.frame_camera=self.destination=self.shutter=None
         self.age=0.
+        self.next_call=0.
         self.upload=True
         self.camera=None
         self.error=''
@@ -485,8 +510,8 @@ class RainierView:
 
     def draw_rainier(self,ctx):
         self.pixel_dirty=False
-        preview=getattr(self.notebook,'preview',None)
-        if self.world is None or self.camera is None or (self.notebook and not preview):return ()
+        book=isinstance(self.notebook,DiscoveryBook)
+        if self.world is None or self.camera is None or (self.notebook and not book):return ()
         field,origin,data,terrain_count,indices,spans,base_count,shadows=self.world
         self.quality.frame(self.age)
         high=self.quality.high
@@ -496,33 +521,40 @@ class RainierView:
         ox,oy=self.host.origin
         rect=((wx+ox+1)*8,(wy+oy+1)*16,(w-2)*8,(h-3)*16)
         if min(rect[2:])<1:return ()
-        if self.album or preview:
-            if preview:
-                rows=self.notebook.picture_rows()
-                if not rows:return ()
-                rect=(rect[0],rect[1]+48,rect[2],rows*16)
-            path=preview or self.album[self.album_index]
+        def print_photo(path,frame):
             w=h=0;rgb=None
             if path!=self.album_loaded:
                 try:w,h,rgb=read_photo(path)
                 except (OSError,ValueError,zlib.error,struct.error):
-                    if preview:self.notebook.damaged.add(preview);return ()
-                    self.album.pop(self.album_index)
-                    if self.album:self.album_index%=len(self.album)
-                    return ()
+                    if book:self.notebook.damaged.add(path)
+                    elif self.album:
+                        self.album.pop(self.album_index)
+                        if self.album:self.album_index%=len(self.album)
+                    return
             display=ctx.lib.pocket_scene_river_photo
             display.argtypes=[C.c_void_p]+[C.c_int]*6+[C.c_void_p]
-            ctx.check(display(ctx.handle,*rect,w,h,rgb))
+            ctx.check(display(ctx.handle,*frame,w,h,rgb))
             self.album_loaded=path
+        if self.album:
+            print_photo(self.album[self.album_index],rect)
+            ink=Ink(ctx,rect)
+            for _,label,box in album_tools(w-2,h-3):ink.button(box,label)
             return rect
-        sound=ctx.lib.pocket_scene_river_sound
-        sound.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_float]
-        sound(ctx.handle,self.sound,self.cue,river_gain(x,z,site()[1]))
-        self.cue=0
         draw=ctx.lib.pocket_scene_rainier
         self.subjects=[]
         self.frame_camera=((x,eye,z,yaw,pitch),rect[2]/rect[3])
         commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects)
+        voices=nearby_calls(self.subjects,x,eye,z)
+        voice=0
+        if self.sound and self.age>=self.next_call and voices:
+            key,voice,_=next((v for v in voices if v[0]>self.last_caller),voices[0])
+            self.last_caller=key
+            self.next_call=self.age+4.5+.3*voice
+        gain=next((gain for key,_,gain in voices if key==self.last_caller),0.)
+        sound=ctx.lib.pocket_scene_river_sound
+        sound.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_float,C.c_int,C.c_float]
+        sound(ctx.handle,self.sound,self.cue,river_gain(x,z,site()[1]),voice,gain)
+        self.cue=0
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
                        C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float]
         target_x,target_z=self.trail.target(x,z)
@@ -582,5 +614,15 @@ class RainierView:
             self.shutter=None
         if self.upload:self.world=field,origin,None,terrain_count,None,spans,base_count,None
         self.upload=False
+        ink=Ink(ctx,rect)
+        if book:
+            def picture(path,box):
+                bx,by,bw,bh=box
+                print_photo(path,(rect[0]+bx*8,rect[1]+by*16,bw*8,bh*16))
+            draw_book(ink,self.notebook,w-2,h-3,picture)
+        else:
+            for _,label,box in river_tools(w-2,h-3,self.lens):ink.button(box,label)
+            if self.age<self.hint_until and self.photo_hint:
+                ink.label(1,3,self.photo_hint[:w-2],0xFFF6DA)
         self.pixel_jobs+=1;self.pixel_frames+=1
         return rect
