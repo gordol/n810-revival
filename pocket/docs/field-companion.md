@@ -327,7 +327,8 @@ the berry trail, tap **Berries** or the round compass in the scene. When you arr
 bush loses its fruit. Tap the compass again to find the next bush. After three, tap to
 bring the berries to the story fox. A heart means the fox has eaten. Tap
 again to play another round. Each feeding adds a heart for this session.
-Drag anywhere in the scene to pull the view around while walking to the ring.
+Touch a spot on the hillside and drag. That spot follows your finger as you
+look around, even while you walk toward the ring.
 A new tap on the ground sets the next destination. Tap **Walk** for continuous walking while you look,
 and **Stop** to stand still. You can also look around on a guided walk.
 The river is audible through the woods and grows louder as you approach the bank. Each berry has its own chime. Listen for occasional caws, hoots, whistles and chips from nearby wildlife. The game synthesizes these calls and fades them with distance. Tap

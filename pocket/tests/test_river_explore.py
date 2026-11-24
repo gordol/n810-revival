@@ -25,6 +25,26 @@ class RiverExplorationTests(unittest.TestCase):
         self.assertTrue(2<owner.z<2.5)
         self.assertIsNone(ground_target(self.camera,.5,.25,1,lambda x,z:0,lambda x,z:z>2.5))
 
+    def test_drag_reprojects_grabbed_point_in_both_orientations(self):
+        import math
+        from hike_camera import ViewGrab,screen_ray
+        for aspect in (.52,1.9):
+            for pitch in (-.48,.39):
+                grab=ViewGrab(.22,.64,aspect,2.9,pitch)
+                grab.point=tuple(c*26 for c in grab.direction)
+                for eye in ((0,0,0),(1.2,.4,2.)):
+                    grab.cursor=(.58,.46)
+                    yaw,new_pitch=grab.aim(eye,aspect,2.9)
+                    ray=screen_ray(*grab.cursor,aspect,yaw,new_pitch)
+                    to_point=[p-e for p,e in zip(grab.point,eye)]
+                    for a,b in zip(ray,to_point):
+                        self.assertAlmostEqual(a/math.hypot(*ray),b/math.hypot(*to_point),places=9)
+                grab.point=None
+                grab.cursor=grab.start
+                yaw,new_pitch=grab.aim((0,0,0),aspect,2.9)
+                self.assertAlmostEqual(yaw,2.9)
+                self.assertAlmostEqual(new_pitch,pitch)
+
     def test_waypoint_keeps_moving_while_looking_elsewhere(self):
         owner=SimpleNamespace(x=0,z=0,yaw=-1.4)
         walk_to(owner,(0,12),.1,face_path=False)

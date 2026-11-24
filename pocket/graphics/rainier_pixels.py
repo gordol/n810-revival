@@ -577,10 +577,36 @@ class RainierView:
         self.last_tick=now
         west,east,south,north=bounds(self.world[0])
         owner.x=max(west,min(east,owner.x));owner.z=max(south,min(north,owner.z))
+        owner.update_grab()
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)
         age=owner.clock()-owner.started-owner.paused_total
         if self.camera!=camera or age-self.age>=1/20:
             self.camera=camera;self.age=age;self.pixel_dirty=True
+
+    def eye_position(self,x,z):
+        field,origin=self.world[:2]
+        return x,surface(field,x+origin.x,z+origin.z)-origin.y+1.25,z
+
+    def grab_point(self,eye,direction):
+        # Find terrain under the press, including slopes across the river.
+        field,origin=self.world[:2]
+        west,east,south,north=bounds(field)
+        x,y,z=eye
+        dx,dy,dz=direction
+        near=0.
+        while near<100000:
+            far=near+max(.4,min(field.dx*.5,field.dz*.5,near*.025))
+            px,pz=x+far*dx,z+far*dz
+            if not (west<=px<=east and south<=pz<=north):break
+            if y+far*dy<=surface(field,px+origin.x,pz+origin.z)-origin.y:
+                for _ in range(12):
+                    mid=(near+far)/2
+                    if y+mid*dy>surface(field,x+mid*dx+origin.x,z+mid*dz+origin.z)-origin.y:near=mid
+                    else:far=mid
+                return x+far*dx,y+far*dy,z+far*dz
+            if dy>0 and y+far*dy>9000:break
+            near=far
+        return None
 
     def draw_rainier(self,ctx):
         self.pixel_dirty=False
@@ -590,7 +616,7 @@ class RainierView:
         self.quality.frame(self.age)
         high=self.quality.high and not self.regional
         x,z,yaw,pitch=self.camera
-        eye=surface(field,x+origin.x,z+origin.z)-origin.y+1.25
+        _,eye,_=self.eye_position(x,z)
         wx,wy,w,h=self.host.bounds(self.host.window(self.name))
         ox,oy=self.host.origin
         rect=((wx+ox+1)*8,(wy+oy+1)*16,(w-2)*8,(h-3)*16)

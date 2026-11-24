@@ -52,18 +52,20 @@ class DesktopWindow(Window):
             room=self.active_room();target=self.active_pointer()
             if self.captured and getattr(self,'captured_target',None) is not target:self.release_capture()
             if kind==1:yield {'action':'quit'}
-            elif kind in (2,9) and repeat:
-                host=self.platform.host
-                registered=host.app_forms.get(host.focus)
-                form=getattr(registered,'owner',registered)
-                handled=False
-                if hasattr(form,'world_touch') and not host.launcher_lines and form._active():
-                    wx,wy,ww,wh=host.bounds(host.window(form.name))
-                    ox,oy=host.origin
-                    handled=form.world_touch(repeat,x/8-wx-ox-1,y/16-wy-oy-1,ww-2,wh-3,button,bool(up))
-                if not handled and kind==2:
+            elif kind in (2,9):
+                if not self.captured and (repeat or target is None):
+                    host=self.platform.host
+                    registered=getattr(host,'app_forms',{}).get(getattr(host,'focus',None))
+                    form=getattr(registered,'owner',registered)
+                    if hasattr(form,'world_touch') and not host.launcher_lines and form._active():
+                        wx,wy,ww,wh=host.bounds(host.window(form.name))
+                        ox,oy=host.origin
+                        if form.world_touch(repeat,x/8-wx-ox-1,y/16-wy-oy-1,ww-2,wh-3,button,bool(up)):
+                            continue
+                if kind==9:continue
+                if repeat:
                     yield dict(action='pointer',x=x,y=y,button=button,released=bool(up))
-            elif kind==2:
+                    continue
                 if self.captured:
                     if target is not None and hasattr(target,'pointer_button'):target.pointer_button(button,bool(up))
                     elif room and button==0 and not up:

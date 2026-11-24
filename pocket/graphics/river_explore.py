@@ -10,12 +10,8 @@ import zlib
 def ground_target(camera,u,v,aspect,height,wet,*,bounds=(-1024,1024,-1024,1024),regional=False):
     """Intersect a touch ray with the same ground used by the walking camera."""
     x,y,z,yaw,pitch=camera
-    side=(2*u-1)*.5543*aspect
-    up=(1-2*v)*.5543
-    ahead=math.cos(pitch)+up*math.sin(pitch)
-    dy=up*math.cos(pitch)-math.sin(pitch)
-    dx=side*math.cos(yaw)+ahead*math.sin(yaw)
-    dz=ahead*math.cos(yaw)-side*math.sin(yaw)
+    from hike_camera import screen_ray
+    dx,dy,dz=screen_ray(u,v,aspect,yaw,pitch)
     # Stop at the bank even when the tapped hillside is across the river.
     last=(x,z)
     bank=None

@@ -1,6 +1,7 @@
 """Cheap registration; Runtime decides any canonical registry integration."""
 from pathlib import Path
 from held_motion import MotionStep
+from hike_camera import ViewGrab
 import importlib.util
 
 def app_module():
@@ -36,6 +37,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             self.drag_axes=(0.,0.)
             self.drag_moved=False
             self.contacts={}
+            self.grab=None
             self.touch_walk=(0.,0.)
             self.controls=app_context.preferences['touch-controls'] if app_context else WAYPOINT
             self.pixel_scene=pixel_scene
@@ -89,43 +91,77 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             self.cancel_pointer()
             self.controls=preferences['touch-controls']
 
-        def pan_view(self,dx,dy,width,height,direction):
-            self.pixel_scene.trail.free_look=True
-            self.yaw+=direction*dx*3./width
-            self.pitch=max(-1.,min(1.,self.pitch+direction*dy*2./max(1,height)))
+        def begin_grab(self,x,y,width,height):
+            scene=self.pixel_scene
+            aspect=width*8/(height*16)
+            camera=getattr(scene,'frame_camera',None)
+            if camera:
+                (ex,ey,ez,yaw,pitch),_=camera
+                self.grab_eye=(ex,ey,ez)
+            else:
+                yaw,pitch=self.yaw,self.pitch
+                self.grab_eye=(self.x,0.,self.z)
+            self.grab=ViewGrab(x/width,y/height,aspect,yaw,pitch)
+            self.grab_aspect=aspect
+
+        def drag_view(self,x,y,width,height):
+            if not self.grab:return
+            u,v=x/width,y/height
+            if self.controls==TWIN_THUMB:
+                # Keep the alternate layout's camera-steering direction.
+                u,v=2*self.grab.start[0]-u,2*self.grab.start[1]-v
+            scene=self.pixel_scene
+            if self.controls==WAYPOINT and self.grab.cursor is None and getattr(scene,'frame_camera',None):
+                self.grab.point=scene.grab_point(self.grab_eye,self.grab.direction)
+            self.grab.cursor=(u,v)
+            self.grab_aspect=width*8/(height*16)
+            scene.trail.free_look=True
+            self.update_grab()
+
+        def update_grab(self):
+            if not self.grab or self.grab.cursor is None:return
+            eye=self.pixel_scene.eye_position(self.x,self.z) if self.grab.point is not None else self.grab_eye
+            angles=self.grab.aim(eye,self.grab_aspect,self.yaw)
+            if angles:self.yaw,self.pitch=angles
 
         def world_touch(self,slot,x,y,width,height,button,released):
             scene=self.pixel_scene
+            if slot==0 and self.controls==TWIN_THUMB:return False
             if slot not in self.contacts:
                 if button or released or not scene or not scene.world or scene.notebook or scene.album:return False
                 if not (0<=x<width and 0<=y<height):return False
                 side=('walk' if x<width/2 else 'look') if self.controls==TWIN_THUMB else 'pan'
                 if any(contact[0]==side for contact in self.contacts.values()):side='ignore'
-                self.contacts[slot]=[side,x,y,x,y,bool(self.contacts)]
+                if side in ('pan','look'):self.begin_grab(x,y,width,height)
+                self.contacts[slot]=[side,x,y,bool(self.contacts)]
                 if len(self.contacts)>1:
-                    for contact in self.contacts.values():contact[5]=True
+                    for contact in self.contacts.values():contact[3]=True
                 self.touch_time=self.clock()
                 return True
             contact=self.contacts[slot]
-            side,start_x,start_y,last_x,last_y,_=contact
+            side,start_x,start_y,_=contact
             dx,dy=x-start_x,y-start_y
             dragged=abs(dx)>1 or abs(dy)>.6
+            if side in ('pan','look'):dragged=(dx*8)**2+(dy*16)**2>9
             if released:
                 del self.contacts[slot]
+                if side in ('pan','look'):
+                    if dragged or (self.grab and self.grab.cursor is not None):self.drag_view(x,y,width,height)
+                    self.grab=None
                 if side=='walk':self.touch_walk=(0.,0.)
-                if not contact[5] and not dragged:scene.scene_tap(int(x),int(y),width,height)
+                if not contact[3] and not dragged:scene.scene_tap(int(x),int(y),width,height)
             else:
-                if dragged:contact[5]=True
-                if contact[5] and side!='ignore':
+                if dragged:contact[3]=True
+                if contact[3] and side!='ignore':
                     if side!='pan':scene.destination=None
                     if side=='walk':
                         scene.cruise=scene.trail.guiding=False
                         self.touch_walk=(max(-1.,min(1.,-dy/max(2,height*.15))),max(-1.,min(1.,dx/max(3,width*.15))))
-                    else:self.pan_view(x-last_x,y-last_y,width,height,-1 if side=='pan' else 1)
-                contact[3:5]=[x,y]
+                    else:self.drag_view(x,y,width,height)
             return True
 
         def cancel_pointer(self):
+            self.grab=None
             self.contacts.clear()
             self.touch_walk=(0.,0.)
             self.drag_start=None
@@ -160,6 +196,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                 self.drag_moved |= abs(dx)>1 or abs(dy)>1
                 if released:
                     tap=not self.drag_moved
+                    if not tap and self.grab:self.drag_view(x+.5,y+.5,width,self.host.window(self.name).h-3)
                     self.cancel_pointer()
                     if tap and self.pixel_scene:
                         book=getattr(self.pixel_scene,'notebook',None)
@@ -178,16 +215,12 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                     if self.pixel_scene and self.controls==WAYPOINT:
                         height=self.host.window(self.name).h-3
                         if self.drag_moved and self.drag_start[1]<height and not self.pixel_scene.notebook and not self.pixel_scene.album:
-                            last_x,last_y=self.look_last
-                            self.pan_view(x-last_x,y-last_y,width,height,-1)
-                        self.look_last=(x,y)
+                            self.drag_view(x+.5,y+.5,width,height)
                         return True
                     if self.pixel_scene and self.drag_moved:self.pixel_scene.destination=None
                     if self.pixel_scene and self.drag_start[0]>=width/2:
                         if self.drag_moved:
-                            last_x,last_y=self.look_last
-                            self.pan_view(x-last_x,y-last_y,width,self.host.window(self.name).h,1)
-                        self.look_last=(x,y)
+                            self.drag_view(x+.5,y+.5,width,self.host.window(self.name).h-3)
                         return True
                     if self.pixel_scene and self.drag_moved:
                         self.pixel_scene.trail.guiding=False
@@ -196,7 +229,10 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                                     axis(dx,max(4,width*.20)))
                 return True
             if button!=0:return False
-            self.look_last=self.drag_start=(x,y)
+            self.drag_start=(x,y)
+            height=self.host.window(self.name).h-3
+            if self.pixel_scene and y<height and not self.pixel_scene.notebook and not self.pixel_scene.album:
+                if self.controls==WAYPOINT or x>=width/2:self.begin_grab(x+.5,y+.5,width,height)
             self.drag_time=self.clock()
             self.drag_axes=(0.,0.)
             self.drag_moved=False
