@@ -41,10 +41,9 @@ class Platform:
     if getattr(ctx,'backend',None)!='opengl' or not hasattr(ctx.lib,'pocket_scene_rainier'):
      return original_rainier(host,**options)
     sys.path.insert(0,str(HERE.parent/'shell/apps/landscape-lab'))
-    from rainier_pixels import RainierView, EAST, SOUTH
-    import math
+    from rainier_pixels import RainierView
     view=RainierView(host);owner=original_rainier(host,pixel_scene=view,**options)
-    owner.yaw=math.atan2(-EAST,SOUTH);owner.pitch=-.12
+    owner.yaw=0.;owner.pitch=-.14
     self.register_pixel_view(view);return owner
    registry.entries['rainier-walk']=entry._replace(factory=rainier_factory)
   if 'wildlife' in registry.entries and (self.display is None or hasattr(self.display.lib,'pocket_scene_wildlife')):

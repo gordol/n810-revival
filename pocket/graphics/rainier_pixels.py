@@ -6,12 +6,9 @@ import math
 import random
 
 from geometry import Vec, cross, sub, unit
-from rainier_habitat import draw_watershed, forest_sites, shelf_height
+from rainier_habitat import forest_sites
+from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, river_mesh, site, wet
 from vegetation import ground_color, noise
-
-# South-east of the DEM summit, looking back up the south flank.
-EAST, SOUTH = 1800., 7350.
-
 
 def surface(field,x,z):
     """Height on the two actual rendered triangles in this DEM cell."""
@@ -26,9 +23,9 @@ def surface(field,x,z):
 
 
 # Illustrative encounters around the starting meadow (east, north, model scale).
-ENCOUNTERS=(('marmot',-1.35,4.8,.78),('eagle',1.,17.,1.),
+ENCOUNTERS=(('marmot',-95.,153.,.78),('eagle',1.,17.,1.),
             ('chipmunk',1.3,5.6,.30),('squirrel',-6.,9.,.45),
-            ('pika',-9.,17.,.38),('goat',-3.,25.,1.45),('fox',1.,10.,.86))
+            ('pika',-82.,126.,.38),('goat',-117.,187.,1.45),('fox',*FOX,.86),('bear',40.,28.,1.4),('trout',15.,8.,.65))
 
 
 class AnimalDraw(C.Structure):
@@ -63,7 +60,7 @@ def append_animals(vertices):
     return indices,spans
 
 
-def encounters(field,origin,spans,age):
+def encounters(field,origin,spans,age,fed=False):
     commands=(AnimalDraw*len(spans))()
     for i,((species,x,z,_),(first,stride,frames,index,count)) in enumerate(zip(ENCOUNTERS,spans)):
         heading=0.
@@ -71,13 +68,22 @@ def encounters(field,origin,spans,age):
         seconds=2.5
         if species=='fox' or species=='eagle':
             flying=species=='eagle'
-            radius=4. if flying else 1.6
+            radius=4. if flying else .65
             angle=age*(.43 if flying else .48)
             x+=radius*math.sin(angle)
             z+=radius*(1-math.cos(angle))
             heading=-math.degrees(angle)
             altitude=4.8+.35*math.sin(angle) if flying else 0.
             seconds=1.8 if flying else (17/24)/frames
+        if species=='fox' and fed:
+            x,z=FOX
+            heading=30.
+            altitude=.15*abs(math.sin(age*4))
+        if species=='trout':
+            z+=1.6*math.sin(age*.8)
+            x+=.3*math.cos(age*.8)
+            heading=-90 if math.cos(age*.8)>0 else 90
+            altitude=.17+.32*max(0.,math.sin(age*2.1))**5
         phase=(age/seconds)%frames
         frame=int(phase);blend=phase-frame
         if species!='fox':blend=blend*blend*(3-2*blend)
@@ -88,15 +94,8 @@ def encounters(field,origin,spans,age):
 
 
 def build_world():
-    from model_scene import tahoma
-    from outdoors import world
-    model=tahoma(1)
-    field=model.terrain
-    _,props,anchor=world()
-    peak=field.values.index(max(field.values))
-    ex=field.origin.x+(peak%field.nx)*field.dx+EAST
-    ez=field.origin.z+(peak//field.nx)*field.dz-SOUTH
-    origin=Vec(ex,surface(field,ex,ez),ez)
+    field,segments=site()
+    origin=Vec(0,surface(field,0,0),0)
     triangles=array('f')
 
     def vertex(p,color,ground=0.):
@@ -108,7 +107,7 @@ def build_world():
         rgb=tuple(v*light for v in color)
         for p in (a,b,c):triangles.extend(vertex(p,rgb,material))
 
-    mesh=model.mesh
+    mesh=field.mesh()
     colors=[]
     for iz in range(field.nz):
         for ix in range(field.nx):
@@ -121,37 +120,12 @@ def build_world():
             rgb=ground_color(mesh.vertices[k],n)
             light=.55+.45*max(0,n.y*.75-n.x*.51-n.z*.42)
             material=1.
-            if field.values[k]>2500:
-                # Snow collects above the treeline and on gentler faces.
-                point=mesh.vertices[k]
-                cover=max(0.,min(1.,(point.y-2500)/650+(n.y-.88)*7+
-                                    (noise(point.x,point.z,610)-.5)*1.2))
-                rgb=tuple(a+(b-a)*cover for a,b in zip((103,99,98),(232,235,237)))
-                # A tapering illustrative ice tongue on the summit's south flank.
-                south=origin.z+SOUTH-point.z
-                along=south/4200
-                if 0<along<1:
-                    center=origin.x-EAST+south*.19+240*math.sin(along*6)
-                    width=700*(1-along)**.55
-                    if abs(point.x-center)<width:
-                        material=.72
-                        rgb=(164,196,206)
             colors.append(vertex(mesh.vertices[k],tuple(c*light for c in rgb),material))
     for a,b,c,material,_ in mesh.triangles:
         if material=='terrain':
             for i in (a,b,c):triangles.extend(colors[i])
         else:face(mesh.vertices[a],mesh.vertices[b],mesh.vertices[c],(46,80,62))
 
-    # Keep the walking demo's stone remains and animals at their local offsets.
-    def place(mesh,shift,color):
-        for a,b,c,material,owner in mesh.triangles:
-            rgb=color(material,owner)
-            if rgb is None:continue
-            points=[Vec(p.x+shift.x,p.y+shift.y,p.z+shift.z) for p in
-                    (mesh.vertices[a],mesh.vertices[b],mesh.vertices[c])]
-            if len(set(points))==3 and any(cross(sub(points[1],points[0]),sub(points[2],points[0]))):
-                face(*points,rgb)
-    place(props,Vec(origin.x-anchor.x+12,surface(field,origin.x+12,origin.z+16)-anchor.y,origin.z-anchor.z+7),lambda m,o:(115,112,99) if o.startswith('ruin:') else None)
     rng=random.Random(3918)
     def pine(x,z,h,near):
         y=surface(field,x,z)-.14
@@ -179,13 +153,18 @@ def build_world():
             for i,p in enumerate(crown):
                 face(apex,p,crown[(i+1)%tips],tuple(v*shade*(.78+.23*t) for v in needles))
     for dx,dz,h,near in forest_sites(rng):
+        if wet(dx,dz,segments,2):continue
         pine(origin.x+dx,origin.z+dz,h,near)
-    draw_watershed(origin,lambda x,z:surface(field,origin.x+x,origin.z+z),face)
+    def height(x,z):return surface(field,x,z)
+    river_mesh(segments,height,face)
+    for i,(x,z) in enumerate(BUSHES):
+        blueberry_patch(x,z,height,face,rng,.08+i*.05)
 
     # Low plants and stones give the walker close-range parallax.
     for i in range(1100):
         angle=rng.random()*math.tau;radius=48*math.sqrt(rng.random())
         x=origin.x+radius*math.cos(angle);z=origin.z+radius*math.sin(angle)
+        if wet(x,z,segments):continue
         y=surface(field,x,z)
         height=rng.uniform(.13,.48)
         if i%9==0:
@@ -205,6 +184,8 @@ class RainierView:
     name='Rainier walk'
     def __init__(self,host):
         self.host=host
+        self.trail=BerryTrail()
+        self.last_tick=None
         self.closed=False
         self.pixel_dirty=True
         self.pixel_jobs=self.pixel_frames=0
@@ -216,7 +197,18 @@ class RainierView:
 
     def lines(self):
         if self.error:return ('Rainier terrain could not open.',self.error)
-        return ('Preparing the 3D terrain...',) if self.world is None else ('',)*max(0,self.host.window(self.name).h-3)+('Drag to walk and steer. Lift to stop.',)
+        if self.world is None:return ('Opening Ohanapecosh River…',)
+        trail=self.trail
+        if trail.fed:hint='Happy fox!  Tap to play again'
+        elif len(trail.picked)==3:hint='3/3   Tap to feed your fox'
+        else:hint=f'{len(trail.picked)}/3 blueberries   Tap to follow'
+        return ('',)*max(0,self.host.window(self.name).h-3)+(hint,)
+
+    def guide(self):
+        if self.world is None:return False
+        if self.trail.fed:self.trail=BerryTrail()
+        self.trail.guiding=True
+        return True
 
     def release(self):
         if self.context and self.context.handle:
@@ -245,6 +237,10 @@ class RainierView:
             try:self.world=self.job.result()
             except Exception as error:self.error=str(error);return
             finally:self.pool.shutdown(wait=False);self.pool=self.job=None
+        now=owner.clock()
+        self.trail.advance(owner,min(.1,max(0.,now-(self.last_tick or now))))
+        self.last_tick=now
+        owner.x=max(-1000.,min(1000.,owner.x));owner.z=max(-1000.,min(1000.,owner.z))
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)
         age=owner.clock()-owner.started-owner.paused_total
         if self.camera!=camera or age-self.age>=1/20:
@@ -255,18 +251,21 @@ class RainierView:
         if self.world is None or self.camera is None:return ()
         field,origin,data,terrain_count,indices,spans=self.world
         x,z,yaw,pitch=self.camera
-        eye=surface(field,x+origin.x,z+origin.z)-origin.y+shelf_height(x,z)+1.7
+        eye=surface(field,x+origin.x,z+origin.z)-origin.y+1.25
         wx,wy,w,h=self.host.bounds(self.host.window(self.name))
         ox,oy=self.host.origin
         rect=((wx+ox+1)*8,(wy+oy+1)*16,(w-2)*8,(h-3)*16)
         if min(rect[2:])<1:return ()
         draw=ctx.lib.pocket_scene_rainier
-        commands=encounters(field,origin,spans,self.age)
+        commands=encounters(field,origin,spans,self.age,self.trail.fed)
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int]
+        target_x,target_z=self.trail.target(x,z)
+        direction=math.atan2(target_x-x,target_z-z)-yaw
+        mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
         ctx.check(draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,len(data)//7,terrain_count,
                        indices.buffer_info()[0] if self.upload else None,len(indices),commands,len(commands),
-                       x,eye,z,yaw,pitch,self.age))
+                       x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed))
         self.context=ctx
         self.upload=False
         self.pixel_jobs+=1;self.pixel_frames+=1

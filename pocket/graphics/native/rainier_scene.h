@@ -9,11 +9,11 @@ static GLuint rainier_program(void){
   "distanceToEye=length(eye.xyz);gl_Position=gl_ProjectionMatrix*eye;}";
  const char *fs="#version 120\n"
   "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
-  "uniform float waterTime;"
+  "uniform float waterTime;uniform vec3 picked;"
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
   "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
-  "void main(){vec3 col=tint.rgb;if(tint.a>.5){vec2 p=pos.xz;"
+  "void main(){if((abs(tint.a-.08)<.01 && picked.x>.5)||(abs(tint.a-.13)<.01 && picked.y>.5)||(abs(tint.a-.18)<.01 && picked.z>.5))discard;vec3 col=tint.rgb;if(tint.a>.5){vec2 p=pos.xz;"
   "float broad=noise(p*.015);float detail=(noise(p*.64)-.5)*(1.-smoothstep(80.,600.,distanceToEye));"
   "col*=.80+.40*broad+.30*detail;col+=vec3(.032,.024,-.013)*broad;}"
   "if(tint.a>.65 && tint.a<.85){float seams=noise(vec2(pos.x*.006,pos.z*.036+sin(pos.x*.007)));"
@@ -38,7 +38,7 @@ struct rainier_animal {
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
-                         float east,float eye,float north,float yaw,float pitch,float age){
+                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed){
  struct gpu_scene *s=ptr;
  if(!s||w<1||h<1||count<3||count>2000000||(!vertices&&!s->rainier_buffer))
   return SDL_SetError("Invalid Rainier scene");
@@ -100,6 +100,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);
  glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
  GLint blend=glGetUniformLocation(s->rainier_program,"poseBlend");
+ glUniform3f(glGetUniformLocation(s->rainier_program,"picked"),picked&1,(picked>>1)&1,(picked>>2)&1);
  glUniform1f(glGetUniformLocation(s->rainier_program,"waterTime"),age);
  glUniform1f(blend,0.f);glDrawArrays(GL_TRIANGLES,0,(GLsizei)terrain_count);
  glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -114,6 +115,39 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   glDrawElements(GL_TRIANGLES,(GLsizei)a->count,GL_UNSIGNED_INT,(const void *)((size_t)a->index*sizeof(unsigned)));
   glPopMatrix();
  }
+ /* Screen-space trail markers: three berries and a pointer to the next stop. */
+ glLoadIdentity();glMatrixMode(GL_PROJECTION);glLoadIdentity();glOrtho(0,w,0,h,-1,1);
+ glUseProgram(0);glDisable(GL_DEPTH_TEST);
+ float radius=(w<h?w:h)*.044f;
+ for(int i=0;i<4;i++){
+  float cx=i==3?w-radius*1.7f:radius*(1.35f+i*1.5f);
+  float cy=i==3?h-radius*1.8f:radius*1.4f;
+  float size=i==3?radius*1.3f:radius*.60f;
+  glColor3f(.09f,.17f,.16f);
+  for(int pass=0;pass<2;pass++){
+   glBegin(GL_TRIANGLE_FAN);glVertex2f(cx,cy);
+   for(int j=0;j<=24;j++){float a=j*6.2831853f/24.f;glVertex2f(cx+size*cosf(a),cy+size*sinf(a));}
+   glEnd();
+   if(i==3)break;
+   size*=.76f;
+   if(picked&(1<<i))glColor3f(.40f,.60f,.99f);else glColor3f(.56f,.61f,.61f);
+  }
+  if(i==3){
+   glPushMatrix();glTranslatef(cx,cy,0);
+   if(fed){
+    glColor3f(.98f,.44f,.45f);
+    glBegin(GL_TRIANGLE_FAN);glVertex2f(0,.76f*radius);
+    for(int j=0;j<=32;j++){float a=j*6.2831853f/32.f;float sn=sinf(a);
+     glVertex2f(radius*sn*sn*sn,-radius*(13*cosf(a)-5*cosf(2*a)-2*cosf(3*a)-cosf(4*a))/16.f);}
+    glEnd();
+   }else{
+    glRotatef(direction*57.29578f,0,0,1);glColor3f(.98f,.85f,.42f);
+    glBegin(GL_TRIANGLES);glVertex2f(0,-radius);glVertex2f(-radius*.68f,radius*.62f);glVertex2f(radius*.68f,radius*.62f);glEnd();
+   }
+   glPopMatrix();
+  }
+ }
+ glMatrixMode(GL_MODELVIEW);
  glPopMatrix();glMatrixMode(GL_PROJECTION);glPopMatrix();
 done:
  glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,0);

@@ -28,7 +28,7 @@ def create_outdoors(host,*,pixel_scene=None,**options):
         def __init__(self,*args,**options):
             super().__init__(*args,**options)
             from rainier_data import installed
-            self.needs_grid=installed() is None
+            self.needs_grid=pixel_scene is None and installed() is None
             self.drag_start=None
             self.drag_axes=(0.,0.)
             self.drag_moved=False
@@ -99,11 +99,13 @@ def create_outdoors(host,*,pixel_scene=None,**options):
                 if released:
                     tap=not self.drag_moved
                     self.cancel_pointer()
+                    if tap and self.pixel_scene:return self.pixel_scene.guide()
                     if tap:return self.key('left' if x<width//3 else 'right' if x>=2*width//3 else 'up')
                 else:
                     def axis(delta,reach):
                         magnitude=min(1.,max(0,abs(delta)-1)/reach)
                         return -magnitude if delta<0 else magnitude
+                    if self.pixel_scene and self.drag_moved:self.pixel_scene.trail.guiding=False
                     self.drag_axes=(axis(dy,max(3,(self.host.window(self.name).h-2)*.20)),
                                     axis(dx,max(4,width*.20)))
                 return True
@@ -124,6 +126,7 @@ def create_outdoors(host,*,pixel_scene=None,**options):
             super().close()
 
         def key(self,key,now=None):
+            if self.pixel_scene and key in ('space',' ','enter','\r'):return self.pixel_scene.guide()
             if key.lower()=='o' and self._sync():
                 self.cancel_keys();self.host.activate('Scenery');return True
             if self.needs_grid and key in ('d','D','\r','\n'):
@@ -135,6 +138,10 @@ def create_outdoors(host,*,pixel_scene=None,**options):
                 return True
             return super().key(key,now)
     form=RainierWalk(host,outdoors=True,name='Rainier walk',**options)
+    if pixel_scene:
+        form.help=(('Blueberry trail',('Tap to follow the arrow. Visit three berry bushes, then bring the berries to your story fox.',
+                    'Drag to walk and turn on your own. Tap again for help finding the next stop.')), )
+        return form
     form.help+=(('Touch movement',('Drag up or down to walk forward or backward. Drag sideways to turn. Diagonal drags combine both.',
         'Hold your finger away from the starting point to keep moving. Lift to stop. Tap the centre for one step.')),('Terrain viewpoints',('O opens Scenery: original, wide, elevated and valley cameras.',
         'Scenery is a separate overview; returning here keeps your walking position.')),)
@@ -144,6 +151,6 @@ def create_outdoors(host,*,pixel_scene=None,**options):
 def outdoor_descriptor():
     """Optional app reference; Runtime owns canonical discovery/menu inclusion."""
     return dict(id='rainier-walk',title='Rainier walk',preferred_size=(90,32),minimum_size=(22,12),category='Experiments',
-        description='Ground-level Rainier terrain, fictional ruins and existing wildlife meshes',
+        description='Explore Rainier terrain and wildlife. On mobile, follow the Ohanapecosh blueberry trail.',
         help=(('Explore',('W/S walk; A/D strafe; arrows turn.','I/K look up/down; ground follows metre-scale terrain.','O opens saved terrain viewpoints in Scenery.',
                           'Fictional ruins; real elevation data; existing Lab marmot/eagle.')),),factory=create_outdoors)

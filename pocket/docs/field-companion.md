@@ -321,27 +321,27 @@ directory follows `XDG_STATE_HOME` when set.
 
 ### Rainier walk and Wildlife
 
-Open **Apps → Rainier walk**. On first use, tap **Download Rainier terrain**
-(or press **D**) to fetch the USGS 3DEP elevation grid for this scene.
-Pocket keeps the prepared grid locally for subsequent offline launches.
-On Android, conversion uses the GIS environment prepared by `make mobile`.
-In the mobile OpenGL view you start southeast of the summit. The mountain and
-ridges use the downloaded elevations. The conifers, ground cover, animals and
-stone remains are illustrative 3D scenery. Walk uphill with the summit ahead.
-On the left, follow the meltwater creek to a rock ledge, waterfall and remnant
-snowfield. On the right, a landslide has left a fan of loose rock. Conifer
-stands surround the meadow, and an illustrative glacier tongue marks the
-upper south flank. These features are generated offline. Look for a marmot near your feet,
-a red fox walking around the meadow and a bald eagle circling above it. The
-walk shares these models, the goat, chipmunk, squirrel and pika with Wildlife.
+Open **Apps → Rainier walk** in the Android OpenGL shell to play on the
+Ohanapecosh River. Tap anywhere in the view to follow the gold arrow to one
+blueberry bush. When you arrive, a berry turns blue in the counter and the
+bush loses its fruit. Tap again to find the next bush. After three, tap to
+bring the berries to the story fox. A heart means the fox has eaten. Tap
+again to play another round. Drag to wander or steer at any time. There is
+no countdown. The fox is a game character. At Mount Rainier, watch wild
+animals from a distance and leave them their natural food.
 
-Touch the view and drag up to walk forward or down to back up. Drag sideways
-to steer, or diagonally to walk and turn together. Hold off-center to keep
-moving, slide back to where you touched to stand still, or lift to stop.
-For a single step, tap the center. Tap either side for a small turn.
+The game includes a roughly 2 km square of USGS 3DEP elevations sampled at
+8 m and four USGS National Hydrography Dataset flowlines. The water width,
+individual trees, blueberries and wildlife encounters are illustrative. Look
+across the river for a black bear or along the shallows for a jumping rainbow
+trout. The site data travels with Pocket and works offline. The cell-based
+walk still uses its original separately downloaded summit-area grid.
+[USGS sources and reach identifiers](../graphics/assets/ohanapecosh/site.json) ·
+[National Park Service guide to Ohanapecosh](https://www.nps.gov/mora/planyourvisit/ohanapecosh.htm) ·
+[Mount Rainier fish](https://www.nps.gov/mora/learn/nature/fish.htm)
 
 In the Android graphical shell, **Apps → Wildlife** opens an animated hoary
 marmot. Tap **Animal** to cycle through the bald eagle, Townsend's chipmunk,
-Douglas squirrel, American pika, mountain goat, red fox and winter-coated Arctic fox. Tap **Turn** to inspect
+Douglas squirrel, American pika, mountain goat, red fox, winter-coated Arctic fox, American black bear and rainbow trout. Tap **Turn** to inspect
 the silhouette, **Zoom** to see the markings, and **Pause** to hold a pose.
-Pocket renders all eight models offline.
+Pocket renders all ten models offline.

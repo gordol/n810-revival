@@ -12,7 +12,7 @@ FOX_FRAMES=16
 FOX_ASSETS={'fox':'red_fox.mesh.gz','arctic_fox':'arctic_fox.mesh.gz'}
 
 NAMES={'marmot':'Hoary marmot','eagle':'Bald eagle','chipmunk':"Townsend's chipmunk",
-       'squirrel':'Douglas squirrel','pika':'American pika','goat':'Mountain goat','fox':'Red fox','arctic_fox':'Arctic fox'}
+       'squirrel':'Douglas squirrel','pika':'American pika','goat':'Mountain goat','fox':'Red fox','arctic_fox':'Arctic fox','bear':'American black bear','trout':'Rainbow trout'}
 
 
 def skin(rings, paint):
@@ -378,9 +378,51 @@ def raptor(phase):
     return Mesh(tuple(vertices),m.triangles)
 
 
+def black_bear(phase):
+    lift=(0,.025,-.015)[phase]
+    fur=0x413b34
+    parts=[body([(-.58,.49,.06,.06),(-.48,.51,.25,.17),(-.28,.53,.31,.21),
+                 (.04,.52,.27,.20),(.28,.56,.25,.18),(.41,.61+lift,.18,.14),
+                 (.53,.64+lift,.15,.13),(.64,.60+lift,.09,.095),(.73,.58+lift,.053,.066)],
+                lambda i,t:0x986f4a if i>6.3 else fur)]
+    for side in (-1,1):
+        def oval(center,radii,color):
+            parts.append(ellipsoid(Vec(*center),radii,color,'',14,10,True))
+        oval((.45,.80+lift,.097*side),(.056,.078,.042),fur)
+        oval((.572,.678+lift,.109*side),(.017,.016,.012),0x171918)
+        for hind in (False,True):
+            x=-.35 if hind else .28
+            knee=.065 if hind else -.035
+            legz=side*.13
+            parts.append(tube([(x,.51,legz,.116,.096),(x+knee,.32,legz,.095,.078),
+                               (x-.04,.15,legz,.064,.062),(x-.032,.065,legz,.047,.055)],fur))
+            oval((x-.005,.048,legz),(.102,.046,.064),0x36302c)
+    oval((.729,.61+lift,0),(.035,.033,.058),0x242421)
+    return merge(parts)
+
+
+def rainbow_trout(phase):
+    def scales(i,t):
+        up=math.cos(t)
+        if up>.15 and math.sin(i*41+round(t*10)*17)>.82:return 0x394a43
+        return 0x647b65 if up>.32 else 0xb5828c if up>-.13 else 0xc3c4ad
+    fish=body([(-.49,.18,.025,.02),(-.31,.18,.056,.037),(-.10,.19,.11,.063),
+               (.13,.19,.118,.07),(.32,.18,.085,.062),(.45,.16,.029,.025)],scales)
+    parts=[fish]
+    for points in [[(-.31,.18),(-.57,.32),(-.53,.18),(-.57,.06)],
+                   [(-.14,.28),(-.10,.39),(.025,.30)],[(.035,.11),(-.08,.045),(-.09,.13)]]:
+        verts=tuple(Vec(x,y,0) for x,y in points)
+        parts.append(Mesh(verts,tuple(Triangle(0,i,i+1,0x69766b,'') for i in range(1,len(verts)-1))))
+    for side in (-1,1):
+        parts.append(ellipsoid(Vec(.32,.205,side*.053),(.021,.021,.012),0x272c27,'',10,8,True))
+    mesh=merge(parts)
+    return Mesh(tuple(Vec(x,y,z+(0,.07,-.07)[phase]*max(0.,.30-x)**2) for x,y,z in mesh.vertices),mesh.triangles)
+
+
 @lru_cache(maxsize=FOX_FRAMES+3)
 def pose(species,index,obstacle):
-    model=raptor(index) if species=='eagle' else mammal(species,index)
+    builders={'eagle':raptor,'bear':black_bear,'trout':rainbow_trout}
+    model=builders[species](index) if species in builders else mammal(species,index)
     if obstacle:
         model=merge((model,ellipsoid(Vec(.13,.055,-.19) if species!='eagle' else Vec(-.45,-.95,-1.1),
                                      (.1,.065,.07) if species!='eagle' else (.22,.55,.12),'rock','rock')))

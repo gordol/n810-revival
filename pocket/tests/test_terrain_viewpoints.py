@@ -60,7 +60,7 @@ class ViewpointTests(unittest.TestCase):
   host=Host(50,20,[Window('Rainier walk',0,0,44,18),Window('Scenery',0,0,44,18)])
   host.activate('Rainier walk')
   now=[1.]
-  view=SimpleNamespace(poll=lambda owner:None,close=lambda:None)
+  view=SimpleNamespace(poll=lambda owner:None,close=lambda:None,trail=SimpleNamespace(guiding=True))
   app=registration.create_outdoors(host,clock=lambda:now[0],pixel_scene=view)
   app.needs_grid=False
   try:
@@ -68,6 +68,7 @@ class ViewpointTests(unittest.TestCase):
    app.pointer(27,3,42,32)
    now[0]+=.1;app.poll()
    self.assertGreater(app.z,0);self.assertGreater(app.yaw,0)
+   self.assertFalse(view.trail.guiding)
    app.pointer(18,9,42,32);stopped=(app.x,app.z,app.yaw)
    now[0]+=.1;app.poll()
    self.assertEqual((app.x,app.z,app.yaw),stopped)
