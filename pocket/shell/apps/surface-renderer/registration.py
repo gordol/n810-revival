@@ -1,5 +1,6 @@
 """Cheap registration; Runtime decides any canonical registry integration."""
 from pathlib import Path
+from math import dist
 from held_motion import MotionStep
 from hike_camera import ViewGrab
 import importlib.util
@@ -37,6 +38,8 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             self.drag_axes=(0.,0.)
             self.drag_moved=False
             self.contacts={}
+            self.optic_fingers={}
+            self.pinch=None
             self.grab=None
             self.touch_walk=(0.,0.)
             self.controls=app_context.preferences['touch-controls'] if app_context else WAYPOINT
@@ -101,12 +104,14 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             else:
                 yaw,pitch=self.yaw,self.pitch
                 self.grab_eye=(self.x,0.,self.z)
-            self.grab=ViewGrab(x/width,y/height,aspect,yaw,pitch)
+            zoom=getattr(scene,'zoom',1.)
+            self.grab=ViewGrab(.5+(x/width-.5)/zoom,.5+(y/height-.5)/zoom,aspect,yaw,pitch)
             self.grab_aspect=aspect
 
         def drag_view(self,x,y,width,height):
             if not self.grab:return
-            u,v=x/width,y/height
+            zoom=getattr(self.pixel_scene,'zoom',1.)
+            u,v=.5+(x/width-.5)/zoom,.5+(y/height-.5)/zoom
             if self.controls==TWIN_THUMB:
                 # Keep the alternate layout's camera-steering direction.
                 u,v=2*self.grab.start[0]-u,2*self.grab.start[1]-v
@@ -126,6 +131,25 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def world_touch(self,slot,x,y,width,height,button,released):
             scene=self.pixel_scene
+            optics=getattr(scene,'lens',False) or getattr(scene,'binoculars',False)
+            if slot and (slot in self.optic_fingers or (optics and not button and not released
+                    and not scene.notebook and not scene.album and 0<=x<width and 0<=y<height)):
+                self.optic_fingers[slot]=(x*8,y*16)
+                if self.pinch is None and len(self.optic_fingers)==2:
+                    a,b=self.optic_fingers
+                    self.pinch=(a,b,max(1.,dist(self.optic_fingers[a],self.optic_fingers[b])),scene.zoom)
+                    self.contacts.clear()
+                    self.grab=None
+                    self.touch_walk=(0.,0.)
+                if self.pinch:
+                    a,b,start,zoom=self.pinch
+                    if a in self.optic_fingers and b in self.optic_fingers:
+                        scene.zoom=max(1.,min(8.,zoom*dist(self.optic_fingers[a],self.optic_fingers[b])/start))
+                        scene.pixel_dirty=True
+                    if released:del self.optic_fingers[slot]
+                    if not self.optic_fingers:self.pinch=None
+                    return True
+                if released:del self.optic_fingers[slot]
             if slot==0 and self.controls==TWIN_THUMB:return False
             if slot not in self.contacts:
                 if button or released or not scene or not scene.world or scene.notebook or scene.album:return False
@@ -163,6 +187,8 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
         def cancel_pointer(self):
             self.grab=None
             self.contacts.clear()
+            self.optic_fingers.clear()
+            self.pinch=None
             self.touch_walk=(0.,0.)
             self.drag_start=None
             self.drag_axes=(0.,0.)
@@ -196,6 +222,19 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                 self.drag_moved |= abs(dx)>1 or abs(dy)>1
                 if released:
                     tap=not self.drag_moved
+                    if not tap and self.pixel_scene and abs(dx)>=max(3,width*.12) and abs(dx)>abs(dy)*2:
+                        book=getattr(self.pixel_scene,'notebook',None)
+                        step=1 if dx<0 else -1
+                        if hasattr(book,'turn_page'):
+                            book.turn_page(step)
+                            self.pixel_scene.pixel_dirty=True
+                            self.cancel_pointer()
+                            return True
+                        if self.pixel_scene.album:
+                            self.pixel_scene.album_index=(self.pixel_scene.album_index+step)%len(self.pixel_scene.album)
+                            self.pixel_scene.pixel_dirty=True
+                            self.cancel_pointer()
+                            return True
                     if not tap and self.grab:self.drag_view(x+.5,y+.5,width,self.host.window(self.name).h-3)
                     self.cancel_pointer()
                     if tap and self.pixel_scene:
@@ -209,6 +248,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                         return self.pixel_scene.scene_tap(x,y,width,self.host.window(self.name).h-3)
                     if tap:return self.key('left' if x<width//3 else 'right' if x>=2*width//3 else 'up')
                 else:
+                    if self.pixel_scene and (self.pixel_scene.notebook or self.pixel_scene.album):return True
                     def axis(delta,reach):
                         magnitude=min(1.,max(0,abs(delta)-1)/reach)
                         return -magnitude if delta<0 else magnitude

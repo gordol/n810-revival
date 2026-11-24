@@ -71,6 +71,22 @@ class ViewpointTests(unittest.TestCase):
    app.world_touch(1,9,8,42,15,0,False)
    app.world_touch(1,9.2,8.1,42,15,0,True)
    self.assertEqual(taps,[(9,8)])
+   view.lens=True;view.zoom=2.
+   yaw,pitch=app.yaw,app.pitch
+   app.world_touch(1,10,5,42,15,0,False)
+   app.world_touch(2,20,5,42,15,0,False)
+   app.world_touch(2,30,5,42,15,32,False)
+   self.assertEqual(view.zoom,4.)
+   app.world_touch(1,10,5,42,15,0,True)
+   app.world_touch(2,30,5,42,15,0,True)
+   self.assertEqual((app.yaw,app.pitch),(yaw,pitch))
+   self.assertEqual(taps,[(9,8)])
+   view.lens=False
+   pages=[]
+   view.notebook=SimpleNamespace(turn_page=pages.append)
+   app.pointer(32,7,42);app.pointer(9,7,42,32);app.pointer(9,7,42,released=True)
+   self.assertEqual(pages,[1])
+   view.notebook=None
    for start in (5,30):
     app.world_touch(1,start,5,42,15,0,False)
     yaw,pitch=app.yaw,app.pitch

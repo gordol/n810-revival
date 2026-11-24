@@ -8,6 +8,7 @@ import struct
 import zlib
 
 from geometry import Vec, cross, sub, unit
+from river_camp import CAMP, OVERLOOK, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, fern, snag, spruce_sprays
 from rainier_habitat import forest_sites
@@ -15,7 +16,7 @@ from rainier_hike import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from river_party import PartyMenu
 from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
 from river_notebook import DiscoveryBook
-from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, read_photo, save_photo, sighting, walk_to
+from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, project_subject, read_photo, save_photo, sighting, walk_to
 from pnw_species import REGIONAL, group
 from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, channel, nearby_calls, river_gain, site, wet
 from vegetation import ground_color, noise
@@ -242,6 +243,8 @@ def build_world(high=True,plant_sites=None,regional=False):
         # The water shader takes cross-stream and downstream metres from RG.
         target.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z,(side+6)/12,station/4096,0.,.35))
     channel().mesh(height,face,water_vertex)
+    campsite(height,face)
+    river_stones(channel(),face)
     bank_sign(height,face)
     for key,x,z,_ in ENCOUNTERS:
         if key in REGIONAL and REGIONAL[key].form in PERCHES:snag(x,height(x,z),z,1.6,face)
@@ -315,7 +318,12 @@ class RainierView:
         self.cruise=False
         self.sound=True
         self.notebook=None
-        self.lens=False
+        self.lens=self.binoculars=False
+        self.zoom=1.
+        self.focus_key=None
+        self.tent=self.story=self.mist=False
+        self.season=0
+        self.trip_pose=None
         self.album=[]
         self.album_book=None
         self.album_index=0
@@ -413,22 +421,24 @@ class RainierView:
             self.album_index=(self.album_index+step)%len(self.album)
             self.pixel_dirty=True
             return True
-        for action,_,box in ([] if self.regional else river_tools(width,height,self.lens)):
+        for action,_,box in river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional):
             if not hit(box,x,y):continue
             if action=='book':
                 self.destination=None
                 self.cruise=self.trail.guiding=False
                 self.notebook=DiscoveryBook(self)
-            elif action=='camera':
-                self.lens=not self.lens
+            elif action=='zoom':
+                self.zoom=next((level for level in (2.,4.,8.) if level>self.zoom+.01),1.)
+            elif action in ('camera','binoculars'):
+                self.lens=action=='camera' and not self.lens
+                self.binoculars=action=='binoculars' and not self.binoculars
+                self.zoom=4. if self.binoculars else 1.
+                self.focus_key=None
                 self.review_key=self.destination=None
                 self.hint_until=0.
                 self.trail.guiding=self.cruise=False
             elif self.frame_camera:
-                camera,aspect=self.frame_camera
-                field,origin=self.world[:2]
-                self.shutter=sighting(camera,.5,.5,aspect,self.subjects,
-                                      lambda px,pz:surface(field,px+origin.x,pz+origin.z)-origin.y)
+                self.shutter=self.focus_key
                 if not self.shutter:self.photo_hint='Aim at wildlife';self.hint_until=self.age+2.
             self.pixel_dirty=True
             return True
@@ -437,9 +447,10 @@ class RainierView:
         camera,aspect=self.frame_camera
         field,origin=self.world[:2]
         def ground(px,pz):return surface(field,px+origin.x,pz+origin.z)-origin.y
+        if self.binoculars:return True
         if self.lens:
             if self.review_key and self.age<self.hint_until:return True
-            self.shutter=sighting(camera,u,v,aspect,self.subjects,ground)
+            self.shutter=sighting(camera,u,v,aspect,self.subjects,ground,zoom=self.zoom)
             if not self.shutter:
                 self.photo_hint='Look closer';self.hint_until=self.age+1.2
         else:
@@ -470,7 +481,8 @@ class RainierView:
     def guide(self):
         if self.world is None or self.regional:return False
         self.destination=None
-        self.lens=False
+        self.lens=self.binoculars=False
+        self.zoom=1.
         if self.trail.fed:
             if self.party:self.party.restart=True;return True
             self.trail=BerryTrail()
@@ -496,6 +508,16 @@ class RainierView:
         self.error=''
         if self.pool:self.pool.shutdown(wait=False,cancel_futures=True)
         self.world=self.job=self.pool=None
+
+    def move_to_view(self,camp=False):
+        field=self.world[0]
+        x,z,tx,tz=(CAMP[0]+3.,CAMP[1]-7.,*CAMP) if camp else OVERLOOK
+        yaw=math.atan2(tx-x,tz-z)
+        pitch=math.atan2(surface(field,x,z)+1.25-surface(field,tx,tz),math.hypot(tx-x,tz-z))
+        self.trip_pose=(x,z,yaw,pitch)
+        self.destination=self.review_key=None
+        self.lens=self.binoculars=self.cruise=self.trail.guiding=False
+        self.zoom=1.
 
     def start_region(self):
         self.travel_error=''
@@ -529,7 +551,8 @@ class RainierView:
                 self.release()
                 self.world=world
                 self.regional=True
-                self.lens=False
+                self.lens=self.binoculars=False
+                self.zoom=1.
                 self.review_key=self.notebook=None
                 owner.cancel_keys()
                 owner.x,owner.z=summit_start(world[0])
@@ -550,6 +573,10 @@ class RainierView:
                 return
             except Exception as error:self.error=str(error);return
             finally:self.pool.shutdown(wait=False);self.pool=self.job=None
+        if self.trip_pose and not self.regional:
+            owner.x,owner.z,owner.yaw,owner.pitch=self.trip_pose
+            self.trip_pose=None
+            owner.cancel_keys()
         if self.regional and self.map_position:
             owner.x,owner.z=self.map_position
             owner.pitch=-.12
@@ -666,7 +693,7 @@ class RainierView:
         sound(ctx.handle,self.sound and not self.regional,self.cue,river_gain(x,z,site()[1]),voice,gain)
         self.cue=0
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float]
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float]
         target_x,target_z=self.trail.target(x,z)
         direction=math.atan2(target_x-x,target_z-z)-yaw
         mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
@@ -691,21 +718,24 @@ class RainierView:
         pixels=(C.c_ubyte*(3*rect[2]*rect[3]))() if self.shutter else None
         # Compose the keepsake from the player's real eye position. A short
         # telephoto view gives small birds and insects enough pixels to see.
-        focal=1.
-        focus=self.shutter or (self.review_key if self.lens and self.age<self.hint_until else None)
+        focal=self.zoom if self.lens or self.binoculars else 1.
+        if self.lens or self.binoculars:
+            self.focus_key=sighting(self.frame_camera[0],.5,.5,self.frame_camera[1],self.subjects,
+                lambda px,pz:surface(field,px+origin.x,pz+origin.z)-origin.y,zoom=focal,tracked=self.focus_key)
+        focus=self.shutter
         for key,fx,fy,fz,size in self.subjects:
             if key!=focus:continue
             dx,dz=fx-x,fz-z
             horizontal=math.hypot(dx,dz)
             yaw=math.atan2(dx,dz)
             pitch=math.atan2(eye-fy,horizontal)
-            focal=max(1.,min(12.,horizontal*min(1.,rect[2]/rect[3])/(size*2.8)))
+            focal=max(focal,min(12.,horizontal*min(1.,rect[2]/rect[3])/(size*2.8)))
             break
         photo_index=next((i for i,p in enumerate(self.subjects) if p[0]==self.shutter),-1)
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else self.lens,pixels,photo_index,focal)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, (1+int(self.story)) if self.tent and not self.regional else 0,self.season,self.mist,origin.y)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()
@@ -731,9 +761,20 @@ class RainierView:
                 bx,by,bw,bh=box
                 print_photo(path,(rect[0]+bx*8,rect[1]+by*16,bw*8,bh*16))
             draw_book(ink,self.notebook,w-2,h-3,picture)
-        elif not self.regional:
-            for _,label,box in river_tools(w-2,h-3,self.lens):ink.button(box,label)
+        else:
+            for _,label,box in river_tools(w-2,h-3,self.lens,self.binoculars,self.zoom,self.regional):ink.button(box,label)
             if self.age<self.hint_until and self.photo_hint:
-                ink.label(1,3,self.photo_hint[:w-2],0xFFF6DA)
+                ink.label(1,5,self.photo_hint[:w-2],0xFFF6DA)
+            elif (self.lens or self.binoculars) and self.focus_key:
+                from wildlife_models import NAMES
+                subject=next(s for s in self.subjects if s[0]==self.focus_key)
+                u,v,_=project_subject(self.frame_camera[0],self.frame_camera[1],self.zoom,subject)
+                cx=max(1.2,min(w-3.2,u*(w-2)))
+                cy=max(.8,min(h-3.8,v*(h-3)))
+                for offset in (-1.,1.):
+                    ink.fill((cx+offset,cy-.36,.16,.72),0xFFE6A4FF)
+                label=NAMES.get(self.focus_key,self.focus_key)[:w-4]
+                ink.fill((1,5,len(label)+1,1.2),0x1E352CDB)
+                ink.label(1.5,5,label,0xFFF6DA)
         self.pixel_jobs+=1;self.pixel_frames+=1
         return rect

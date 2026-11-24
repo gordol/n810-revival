@@ -57,6 +57,16 @@ class RiverExplorationTests(unittest.TestCase):
         self.assertIsNone(sighting(self.camera,.9,.2,1,animals,lambda x,z:0))
         self.assertIsNone(sighting(self.camera,.5,.5,1,animals,lambda x,z:2))
 
+    def test_binocular_range_and_sticky_focus(self):
+        animals=[('bird',6,1,110,.5)]
+        level=lambda x,z:0
+        self.assertIsNone(sighting(self.camera,.5,.5,1,animals,level))
+        self.assertEqual(sighting(self.camera,.5,.5,1,animals,level,zoom=4),'bird')
+        animals[0]=('bird',10,1,110,.5)
+        self.assertIsNone(sighting(self.camera,.5,.5,1,animals,level,zoom=4))
+        self.assertEqual(sighting(self.camera,.5,.5,1,animals,level,zoom=4,tracked='bird'),'bird')
+        self.assertIsNone(sighting(self.camera,.5,.5,1,animals,lambda x,z:5,zoom=4,tracked='bird'))
+
     def test_png_scanlines_keep_orientation(self):
         with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,XDG_DATA_HOME=temp):
             rgb=bytes([255,0,0,0,0,255])

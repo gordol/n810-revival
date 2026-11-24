@@ -105,6 +105,9 @@ class DiscoveryBook:
     def lines(self,width):
         return ()
 
+    def turn_page(self,step):
+        if self.entries:self.page=(self.page+step)%len(self.entries)
+
     def tap_xy(self,x,y):
         from river_overlay import book_layout,hit
         window=self.view.host.window(self.view.name)
@@ -119,7 +122,7 @@ class DiscoveryBook:
                 self.view.album_loaded=None
                 return False
             if action in ('prev','next') and self.entries:
-                self.page=(self.page+(1 if action=='next' else -1))%len(self.entries)
+                self.turn_page(1 if action=='next' else -1)
             return True
         if not hit(page,x,y):return False
         if self.preview:

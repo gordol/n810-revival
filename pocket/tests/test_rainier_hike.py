@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 pocket=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(pocket/'graphics'),str(pocket/'shell'),str(pocket/'shell/apps/surface-renderer')]
-from rainier_hike import ReliefMap,bounds,region_field,summit_start
+from rainier_hike import HikeMenu,ReliefMap,bounds,region_field,summit_start
 from river_explore import ground_target,walk_to
 
 
@@ -17,6 +17,23 @@ class HikeTests(TestCase):
         values=list(range(30))
         with patch('rainier_data.download'),patch('terrain_elevation.grid',return_value=(meta,values)):
             return region_field()
+
+    def test_camp_menu_controls_match_drawn_rows(self):
+        for height in (14,38):
+            visits=[]
+            view=SimpleNamespace(name='Walk',regional=False,travel_job=None,season=0,mist=False,
+                tent=False,story=False,host=SimpleNamespace(window=lambda _:SimpleNamespace(h=height)),
+                move_to_view=lambda camp=False:visits.append(camp))
+            menu=HikeMenu(view)
+            menu.tap_xy(0,8)
+            def choose(prefix):
+                return menu.tap_xy(0,next(i for i,row in enumerate(menu.lines(40)) if row.startswith(prefix)))
+            choose('Season');choose('Weather')
+            self.assertEqual((view.season,view.mist),(1,True))
+            self.assertFalse(choose('Visit river'));self.assertEqual(visits,[False])
+            self.assertFalse(choose('Bigfoot'));self.assertTrue(view.story and view.tent)
+            self.assertEqual(visits,[False,True])
+            choose('Pack tent');self.assertFalse(view.story or view.tent)
 
     def test_whole_field_and_summit_approach(self):
         field=self.field()

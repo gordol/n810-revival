@@ -28,24 +28,34 @@ def ground_target(camera,u,v,aspect,height,wet,*,bounds=(-1024,1024,-1024,1024),
     return None
 
 
-def sighting(camera,u,v,aspect,subjects,height):
+def project_subject(camera,aspect,zoom,subject):
     x,y,z,yaw,pitch=camera
+    _,px,py,pz,size=subject
+    dx,dy,dz=px-x,py-y,pz-z
+    ahead=dx*math.sin(yaw)+dz*math.cos(yaw)
+    depth=ahead*math.cos(pitch)-dy*math.sin(pitch)
+    if not .2<depth<min(230.,55.*zoom) or size*zoom/depth<.004:return None
+    side=dx*math.cos(yaw)-dz*math.sin(yaw)
+    up=dy*math.cos(pitch)+ahead*math.sin(pitch)
+    return .5+zoom*side/(1.1086*aspect*depth),.5-zoom*up/(1.1086*depth),depth
+
+
+def sighting(camera,u,v,aspect,subjects,height,*,zoom=1.,tracked=None):
+    x,y,z=camera[:3]
     hits=[]
-    for key,px,py,pz,size in subjects:
+    for subject in subjects:
+        point=project_subject(camera,aspect,zoom,subject)
+        if point is None:continue
+        sx,sy,depth=point
+        key,px,py,pz,_=subject
         dx,dy,dz=px-x,py-y,pz-z
-        ahead=dx*math.sin(yaw)+dz*math.cos(yaw)
-        depth=ahead*math.cos(pitch)-dy*math.sin(pitch)
-        if not .2<depth<45 or size/depth<.007:continue
-        side=dx*math.cos(yaw)-dz*math.sin(yaw)
-        up=dy*math.cos(pitch)+ahead*math.sin(pitch)
-        sx=.5+side/(1.1086*aspect*depth)
-        sy=.5-up/(1.1086*depth)
         if not (0<=sx<=1 and 0<=sy<=1):continue
-        miss=math.hypot((u-sx)*aspect,v-sy)
-        if miss>min(.19,max(.039,.54*size/depth)):continue
+        # A generous elliptical focus area scales with the screen in portrait.
+        miss=math.hypot((u-sx)/.28,(v-sy)/.22)
+        if miss>(1.45 if key==tracked else 1.):continue
         samples=max(2,int(depth))
         if any(height(x+dx*j/samples,z+dz*j/samples)>y+dy*j/samples+.08 for j in range(1,samples)):continue
-        hits.append((miss,depth,key))
+        hits.append((miss-(.55 if key==tracked else 0.),depth,key))
     return min(hits)[2] if hits else None
 
 

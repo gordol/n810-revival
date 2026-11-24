@@ -32,18 +32,45 @@ def summit_start(field):
 class HikeMenu:
     def __init__(self,view):
         self.view=view
+        self.trip=False
+
+    def trip_spacing(self):
+        return 2 if self.view.host.window(self.view.name).h>=17 else 1
 
     def lines(self,width):
         v=self.view
+        if self.trip:
+            rows=['Camp & sky','Season   '+('Summer','Autumn','Winter','Spring')[v.season],
+                  'Weather   '+('Mist' if v.mist else 'Clear')]
+            if not v.regional:rows+=['Visit river overlook','Pack tent' if v.tent else 'Pitch tent at camp',
+                                    'Bigfoot story   '+('On' if v.story else 'Off')]
+            rows.append('Back')
+            if self.trip_spacing()==2:return tuple(line for row in rows for line in ('',row))
+            return tuple(rows)
         if v.travel_job:return ('Opening terrain…','', 'Preparing the regional elevation map.')
         from rainier_data import installed
         switch='Return to Ohanapecosh' if v.regional else ('Open summit approach' if installed() else 'Download Rainier & hike')
         if v.party:switch='Leave family room to travel'
-        return ('Hike','','Pace   '+v.pace_name,'',switch,'','Back to walk','',v.travel_error[:width])
+        return ('Hike','','Pace   '+v.pace_name,'',switch,'','Back to walk','','Camp & sky',v.travel_error[:width])
 
     def tap_xy(self,x,y):
         v=self.view
+        if self.trip:
+            y//=self.trip_spacing()
+            if y==1:v.season=(v.season+1)%4
+            elif y==2:v.mist=not v.mist
+            elif not v.regional and y==3:v.move_to_view();return False
+            elif not v.regional and y==4:
+                v.tent=not v.tent
+                if v.tent:v.move_to_view(camp=True);return False
+                v.story=False
+            elif not v.regional and y==5:
+                v.story=not v.story
+                if v.story:v.tent=True;v.move_to_view(camp=True);return False
+            elif y==(3 if v.regional else 6):self.trip=False
+            return True
         if v.travel_job:return True
+        if y==8:self.trip=True;return True
         if 1<=y<=2:
             v.pace_index=(v.pace_index+1)%len(v.paces)
         elif 3<=y<=4 and not v.party:

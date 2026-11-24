@@ -440,3 +440,15 @@ and photograph an animal, or walk within a few steps of a blueberry shrub,
 conifer or forest fern. Open **Guidebook** for the discoveries saved
 on this device. The photo album keeps repeat shots, too. Ferns appear at high
 detail. Android uses Termux:X11's **Direct touch** mode for independent fingers.
+
+Tap **Binoculars** for a 4× view. Pinch with two fingers or tap **Zoom** to
+change magnification from 1× to 8×. With **Camera** open, keep an animal near
+the middle until its name appears, then tap **Take photo**. Focus follows it
+a little way off center. Swipe left or right to turn guidebook or album pages.
+
+In **Hike → Camp & sky**, visit the river overlook to see the Ohanapecosh
+channel and its rocky shallows from above. Pitch a tent in the starting
+clearing or turn on the optional Bigfoot camp story. Camp choices apply on
+this device. The season and clear/misty weather controls change the scene's
+appearance. Snow cover changes by season. River discharge and snowmelt are
+not simulated. The larger summit map contains elevation only.

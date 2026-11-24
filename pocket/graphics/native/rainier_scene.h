@@ -9,11 +9,11 @@ static GLuint rainier_program(void){
   "distanceToEye=length(eye.xyz);gl_Position=gl_ProjectionMatrix*eye;}";
  const char *fs="#version 120\n"
   "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
-  "uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;"
+  "uniform int camp;uniform int season;uniform float originY;uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;"
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
   "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
-  "void main(){if((abs(tint.a-.08)<.01 && picked.x>.5)||(abs(tint.a-.13)<.01 && picked.y>.5)||(abs(tint.a-.18)<.01 && picked.z>.5))discard;vec3 col=tint.rgb;if(tint.a>.9){vec2 p=pos.xz;"
+  "void main(){if((abs(tint.a-.57)<.005 && camp<1)||(abs(tint.a-.59)<.005 && camp<2))discard;if((abs(tint.a-.08)<.01 && picked.x>.5)||(abs(tint.a-.13)<.01 && picked.y>.5)||(abs(tint.a-.18)<.01 && picked.z>.5))discard;vec3 col=tint.rgb;if(tint.a>.9){vec2 p=pos.xz;"
   "float broad=noise(p*.015);float detail=(noise(p*.64)-.5)*(1.-smoothstep(80.,600.,distanceToEye));"
   "col*=.80+.40*broad+.30*detail;col+=vec3(.032,.024,-.013)*broad;"
   "if(highDetail!=0){float grit=noise(p*11.)-.5;float moss=noise(p*.18);"
@@ -34,6 +34,11 @@ static GLuint rainier_program(void){
   "col+=vec3(.17,.21,.20)*fade*smoothstep(.82,.99,riffle)*smoothstep(.46,.80,current);}"
   "if(highDetail!=0 && animal!=0 && distanceToEye<16.){float strands=noise(vec2((pos.x+.3*pos.z)*55.,(pos.y+.15*pos.x)*245.));"
   "col*=1.+.20*(strands-.5)*(1.-smoothstep(3.,16.,distanceToEye));}"
+  "if(tint.a>.9 && animal==0){float elev=pos.y+originY;"
+  "if(season==1)col=mix(col,col*vec3(1.28,1.02,.76),.65);"
+  "if(season==2 || season==3){float line=season==2?520.:1600.;"
+  "float cover=smoothstep(line-95.,line+150.,elev+110.*noise(pos.xz*.045));"
+  "col=mix(col,vec3(.79,.85,.88),cover*.88);}}"
   "float haze=1.-exp(-distanceToEye*hazeDensity);gl_FragColor=vec4(mix(col,vec3(.56,.70,.80),haze),1.);}";
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return 0;
  GLuint frag=wildlife_shader(GL_FRAGMENT_SHADER,fs);if(!frag){glDeleteShader(vert);return 0;}
@@ -135,7 +140,7 @@ static void river_hiker_band(float bottom,float top,float base,float rim,float r
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
-                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh,const float *marker,const float *ripple,int lens,unsigned char *photo,int photo_animal,float focal){
+                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh,const float *marker,const float *ripple,int lens,unsigned char *photo,int photo_animal,float focal,int camp,int season,int mist,float originY){
  struct gpu_scene *s=ptr;
  if(!s||w<1||h<1||count<3||count>2000000||(!vertices&&!s->rainier_buffer))
   return SDL_SetError("Invalid Rainier scene");
@@ -190,7 +195,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glMatrixMode(GL_PROJECTION);glPushMatrix();glLoadIdentity();
  glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
  glBegin(GL_TRIANGLE_STRIP);
- glColor3f(.34f,.54f,.72f);glVertex2f(-1,-1);glVertex2f(1,-1);
+ if(mist)glColor3f(.57f,.64f,.66f);else glColor3f(.34f,.54f,.72f);glVertex2f(-1,-1);glVertex2f(1,-1);
  glColor3f(.76f,.84f,.87f);glVertex2f(-1,1);glVertex2f(1,1);glEnd();
  glPopMatrix();glMatrixMode(GL_PROJECTION);glPopMatrix();
  glEnable(GL_DEPTH_TEST);glUseProgram(s->rainier_program);
@@ -206,7 +211,10 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);
  glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
  GLint blend=glGetUniformLocation(s->rainier_program,"poseBlend");
- glUniform1f(glGetUniformLocation(s->rainier_program,"hazeDensity"),lens<0?.000055f:.00042f);
+ glUniform1f(glGetUniformLocation(s->rainier_program,"hazeDensity"),(lens<0?.000055f:.00042f)*(mist?5.f:1.f));
+ glUniform1i(glGetUniformLocation(s->rainier_program,"camp"),camp);
+ glUniform1i(glGetUniformLocation(s->rainier_program,"season"),season);
+ glUniform1f(glGetUniformLocation(s->rainier_program,"originY"),originY);
  glUniform3f(glGetUniformLocation(s->rainier_program,"picked"),picked&1,(picked>>1)&1,(picked>>2)&1);
  glUniform1f(glGetUniformLocation(s->rainier_program,"waterTime"),age);
  glActiveTexture(GL_TEXTURE0);
