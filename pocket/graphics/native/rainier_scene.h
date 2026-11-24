@@ -9,7 +9,7 @@ static GLuint rainier_program(void){
   "distanceToEye=length(eye.xyz);gl_Position=gl_ProjectionMatrix*eye;}";
  const char *fs="#version 120\n"
   "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
-  "uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;"
+  "uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;"
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
   "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
@@ -31,7 +31,7 @@ static GLuint rainier_program(void){
   "col+=vec3(.47,.49,.43)*smoothstep(.84,1.,glint)*smoothstep(.57,.85,ripples);}}"
   "if(highDetail!=0 && animal!=0 && distanceToEye<16.){float strands=noise(vec2((pos.x+.3*pos.z)*55.,(pos.y+.15*pos.x)*245.));"
   "col*=1.+.20*(strands-.5)*(1.-smoothstep(3.,16.,distanceToEye));}"
-  "float haze=1.-exp(-distanceToEye*.00042);gl_FragColor=vec4(mix(col,vec3(.56,.70,.80),haze),1.);}";
+  "float haze=1.-exp(-distanceToEye*hazeDensity);gl_FragColor=vec4(mix(col,vec3(.56,.70,.80),haze),1.);}";
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return 0;
  GLuint frag=wildlife_shader(GL_FRAGMENT_SHADER,fs);if(!frag){glDeleteShader(vert);return 0;}
  GLuint program=glCreateProgram();glAttachShader(program,vert);glAttachShader(program,frag);
@@ -203,6 +203,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);
  glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
  GLint blend=glGetUniformLocation(s->rainier_program,"poseBlend");
+ glUniform1f(glGetUniformLocation(s->rainier_program,"hazeDensity"),lens<0?.000055f:.00042f);
  glUniform3f(glGetUniformLocation(s->rainier_program,"picked"),picked&1,(picked>>1)&1,(picked>>2)&1);
  glUniform1f(glGetUniformLocation(s->rainier_program,"waterTime"),age);
  glActiveTexture(GL_TEXTURE0);
@@ -297,7 +298,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glLoadIdentity();glMatrixMode(GL_PROJECTION);glLoadIdentity();glOrtho(0,w,0,h,-1,1);
  glUseProgram(0);glDisable(GL_DEPTH_TEST);
  float radius=(w<h?w:h)*.044f;
- if(lens){
+ if(lens>0){
   glColor3f(.94f,.92f,.76f);glLineWidth(2.f);
   glBegin(GL_LINES);
   glVertex2f(.5f*w-radius*.37f,.5f*h);glVertex2f(.5f*w+radius*.37f,.5f*h);
@@ -346,7 +347,7 @@ done:
  return result;
 }
 
-int pocket_scene_river_photo(void *ptr,int x,int y,int w,int h,int pw,int ph,const void *rgb){
+static int river_image(void *ptr,int x,int y,int w,int h,int pw,int ph,const void *rgb,int fit){
  struct gpu_scene *s=ptr;
  if(!s||scene_target(s,s->canvas))return -1;
  if(rgb){
@@ -361,10 +362,18 @@ int pocket_scene_river_photo(void *ptr,int x,int y,int w,int h,int pw,int ph,con
  if(!s->river_print)return -1;
  float scale=fminf((float)w/s->print_w,(float)h/s->print_h);
  SDL_Rect frame={x,y,w,h},dest={0,0,(int)(s->print_w*scale),(int)(s->print_h*scale)};
+ if(!fit)return SDL_RenderCopy(s->device,s->river_print,NULL,&frame);
  dest.x=x+(w-dest.w)/2;dest.y=y+(h-dest.h)/2;
  SDL_SetRenderDrawColor(s->device,23,28,26,255);
  if(SDL_RenderFillRect(s->device,&frame))return -1;
  return SDL_RenderCopy(s->device,s->river_print,NULL,&dest);
+}
+
+int pocket_scene_river_photo(void *ptr,int x,int y,int w,int h,int pw,int ph,const void *rgb){
+ return river_image(ptr,x,y,w,h,pw,ph,rgb,1);
+}
+int pocket_scene_river_map(void *ptr,int x,int y,int w,int h,int pw,int ph,const void *rgb){
+ return river_image(ptr,x,y,w,h,pw,ph,rgb,0);
 }
 
 /* Botanical line drawings in the margin of a plant discovery page. */

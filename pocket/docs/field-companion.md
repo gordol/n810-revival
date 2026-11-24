@@ -335,6 +335,21 @@ The river is audible through the woods and grows louder as you approach the bank
 no countdown. The fox is a game character. At Mount Rainier, watch wild
 animals from a distance and leave them their natural food.
 
+Tap **Hike → Pace** to cycle between Walk (1×), Brisk (2×) and Explore (8×).
+The pace affects manual movement, continuous walking and ground waypoints.
+The guided berry stops keep their usual pace.
+
+For a mountain hike, tap **Hike → Download Rainier & hike**. Pocket fetches
+the regional USGS elevation grid once. On later visits choose **Open summit
+approach**. Start about 2.2 km south of the highest sampled point and head
+north uphill. The whole grid is walkable, about 52 km east–west by 59 km
+north–south, with elevation samples roughly 200–230 m apart. The altitude
+in the footer follows the ground underfoot. **Map** opens a north-up relief
+map. Tap a spot to start walking there, or tap **Back** to stay put.
+**Hike → Return to Ohanapecosh** restores your previous valley position.
+Wildlife encounters and shared family rooms are in the detailed valley.
+The regional terrain represents mountain shape; it does not show climbing routes.
+
 The game includes a roughly 2 km square of USGS 3DEP elevations sampled at
 8 m and four USGS National Hydrography Dataset flowlines. The water width,
 individual trees, blueberries and wildlife encounters are illustrative. Look

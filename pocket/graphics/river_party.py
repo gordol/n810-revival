@@ -53,13 +53,13 @@ class RiverParty:
 
     def step(self,x,z,now=None):
         now=time.monotonic() if now is None else now
-        pos=(round(10*max(-1000,min(1000,x))),round(10*max(-1000,min(1000,z))))
+        pos=(round(10*max(-1024,min(1024,x))),round(10*max(-1024,min(1024,z))))
         for _ in range(32):
             try:data,addr=self.sock.recvfrom(256)
             except (BlockingIOError,OSError):break
             if self.hosting and len(data)==MOVE.size:
                 tag,code,uid,epoch,serial,px,pz,replay=MOVE.unpack(data)
-                if tag!=VERSION or code!=self.code or uid in (0,self.ident) or max(abs(px),abs(pz))>10000:continue
+                if tag!=VERSION or code!=self.code or uid in (0,self.ident) or max(abs(px),abs(pz))>10240:continue
                 old=self.players.get(uid)
                 if old and (old[0]!=addr or serial<=old[5]):continue
                 if not old and len(self.players)>=LIMIT-1:continue

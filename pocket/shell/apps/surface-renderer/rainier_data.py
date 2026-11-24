@@ -24,7 +24,7 @@ def installed():
 
 def download():
     if installed():return
-    target=rainier_cache()
+    target=rainier_cache()/'regional'
     target.parent.mkdir(parents=True,exist_ok=True)
     params=dict(bbox='-122.1,46.53,-121.42,47.06',bboxSR=4326,imageSR=4326,size='257,257',
                 format='tiff',pixelType='F32',interpolation='RSP_BilinearInterpolation',
@@ -34,7 +34,9 @@ def download():
         stage=Path(tmp)
         with urlopen(url,timeout=45) as response:export=json.load(response)
         if (export.get('width'),export.get('height'))!=(257,257):raise ValueError('USGS did not return the requested Rainier grid')
-        with urlopen(export['href'],timeout=60) as response:raw=response.read(2**20+1)
+        # ArcGIS JSON can be cached longer than its temporary TIFF URL.
+        image_url=SERVICE+'?'+urlencode(dict(params,f='image'))
+        with urlopen(image_url,timeout=60) as response:raw=response.read(2**20+1)
         if len(raw)>2**20:raise ValueError('USGS image exceeded the expected size')
         image=stage/'raw.tif';image.write_bytes(raw)
         record=stage/'export.json';record.write_text(json.dumps(dict(request_url=url,response=export,accessed=date.today().isoformat())))

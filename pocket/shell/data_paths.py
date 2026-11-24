@@ -14,7 +14,7 @@ def rainier_cache():
 
 def rainier_root():
     root=data_root()
-    for directory in (root,rainier_cache()):
+    for directory in (root,rainier_cache()/'regional',rainier_cache()):
         if all((directory/name).is_file() for name in ('tahoma-3dep.json','tahoma-3dep.i16.zlib')):
             return directory
     return root

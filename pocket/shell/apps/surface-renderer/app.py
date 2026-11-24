@@ -63,11 +63,14 @@ class SurfaceRoom:
     def cancel_keys(self,now=None):
         if self.held_motion.held:self.input_status='Held keys cleared.'
         self.held_motion.clear(self.clock() if now is None else now)
+    def movement_bounds(self):return -1100,1100,-900,6600 if self.portal or self.rift else 5300
+
     def _translate(self,forward,sideways,distance,heading=None):
         heading=self.yaw if heading is None else heading
         x=self.x+(math.sin(heading)*forward+math.cos(heading)*sideways)*distance
         z=self.z+(math.cos(heading)*forward-math.sin(heading)*sideways)*distance
-        x=max(-1100,min(1100,x));z=max(-900,min(6600 if self.portal or self.rift else 5300,z))
+        west,east,south,north=self.movement_bounds()
+        x=max(west,min(east,x));z=max(south,min(north,z))
         if not (self.portal or self.rift or self.outdoors) and 3370<z<3900 and abs(x)>300:z=min(self.z,3370)
         if not (self.portal or self.rift or self.outdoors) and z>=3900:x=max(-300,min(300,x))
         if self.rift:

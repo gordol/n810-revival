@@ -76,6 +76,15 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
         @property
         def pointer_captured(self):return self.drag_start is not None
 
+        def movement_bounds(self):
+            if self.pixel_scene and isinstance(getattr(self.pixel_scene,'world',None),tuple):
+                from rainier_hike import bounds
+                return bounds(self.pixel_scene.world[0])
+            return super().movement_bounds()
+
+        def _translate(self,forward,sideways,distance,heading=None):
+            super()._translate(forward,sideways,distance*getattr(self.pixel_scene,'pace',1.),heading)
+
         def preferences_changed(self,preferences):
             self.cancel_pointer()
             self.controls=preferences['touch-controls']
@@ -195,6 +204,9 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def on_close(self):
             if self.pixel_scene:
+                if self.pixel_scene.valley_pose:
+                    self.x,self.z,self.yaw,self.pitch=self.pixel_scene.valley_pose
+                self.pixel_scene.reset_hike()
                 self.pixel_scene.leave_party()
                 self.pixel_scene.release()
             super().on_close()

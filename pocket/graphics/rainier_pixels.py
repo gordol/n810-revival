@@ -11,6 +11,7 @@ from geometry import Vec, cross, sub, unit
 from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, fern, snag, spruce_sprays
 from rainier_habitat import forest_sites
+from rainier_hike import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from river_party import PartyMenu
 from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
 from river_notebook import DiscoveryBook
@@ -153,8 +154,8 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None):
     return (AnimalDraw*len(visible))(*visible)
 
 
-def build_world(high=True,plant_sites=None):
-    field,segments=site()
+def build_world(high=True,plant_sites=None,regional=False):
+    field,segments=(region_field(),()) if regional else site()
     origin=Vec(0,surface(field,0,0),0)
     triangles=array('f')
     detail=array('f')
@@ -188,6 +189,10 @@ def build_world(high=True,plant_sites=None):
         if material=='terrain':
             for i in (a,b,c):triangles.extend(colors[i])
         else:face(mesh.vertices[a],mesh.vertices[b],mesh.vertices[c],(46,80,62))
+
+    if regional:
+        count=len(triangles)//7
+        return field,origin,triangles,count,array('I',[0]),(),count,None
 
     rng=random.Random(3918)
     def pine(x,z,h,near):
@@ -283,9 +288,22 @@ def build_world(high=True,plant_sites=None):
 
 class RainierView:
     name='Rainier walk'
+    paces=(('Walk',1.),('Brisk',2.),('Explore',8.))
+
+    @property
+    def pace_name(self):return self.paces[self.pace_index][0]
+
+    @property
+    def pace(self):return self.paces[self.pace_index][1]
+
     def __init__(self,host):
         self.host=host
         self.quality=RiverQuality()
+        self.pace_index=0
+        self.regional=False
+        self.valley_pose=self.map_position=None
+        self.travel_job=self.travel_pool=None
+        self.travel_error=''
         self.trail=BerryTrail()
         self.cruise=False
         self.sound=True
@@ -334,9 +352,13 @@ class RainierView:
         else:hint=f'Berries {len(trail.picked)}/3'
         family='Family'
         if self.party:family=f'{len(self.party.roster)} here' if self.party.roster else 'Finding'
-        labels=('Stop' if self.cruise else 'Walk',hint,family,'Mute' if self.sound else 'Sound')
+        labels=('Stop' if self.cruise else 'Walk',hint,'Hike',family,'Mute' if self.sound else 'Sound')
+        if self.regional:
+            field=self.world[0]
+            elevation=round(surface(field,*self.camera[:2])) if self.camera else 0
+            labels=(labels[0],f'{elevation} m','Hike',self.pace_name,'Map')
         width=self.host.window(self.name).w-2
-        bounds=[0,width//5,width//2,width*3//4,width]
+        bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
         return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
 
@@ -350,12 +372,21 @@ class RainierView:
                 self.album_book=None
             self.pixel_dirty=True
             return True
-        if x<width//5:
+        if x<width//6:
             self.destination=None
             self.cruise=not self.cruise
             self.trail.guiding=False
+        elif self.regional and x>=width*3//4:
+            self.cruise=False
+            self.destination=None
+            self.notebook=ReliefMap(self)
+            self.album_loaded=None
+        elif width*3//7<=x<width*4//7 or self.regional:
+            self.destination=None
+            self.cruise=self.trail.guiding=False
+            self.notebook=HikeMenu(self)
         elif x>=width*3//4:self.sound=not self.sound
-        elif x>=width//2:
+        elif x>=width*4//7:
             self.destination=None
             self.notebook=PartyMenu(self)
             self.trail.guiding=self.cruise=False
@@ -375,8 +406,8 @@ class RainierView:
             self.album_index=(self.album_index+step)%len(self.album)
             self.pixel_dirty=True
             return True
-        for action,_,bounds in river_tools(width,height,self.lens):
-            if not hit(bounds,x,y):continue
+        for action,_,box in ([] if self.regional else river_tools(width,height,self.lens)):
+            if not hit(box,x,y):continue
             if action=='book':
                 self.destination=None
                 self.cruise=self.trail.guiding=False
@@ -407,10 +438,11 @@ class RainierView:
         else:
             # The compass still provides the child's one-tap berry route.
             radius=min(1.,aspect)*.044
-            if math.hypot((1-u)*aspect-1.7*radius,1-v-1.8*radius)<1.65*radius:
+            if not self.regional and math.hypot((1-u)*aspect-1.7*radius,1-v-1.8*radius)<1.65*radius:
                 return self.guide()
             self.trail.free_look=False
-            self.destination=ground_target(camera,u,v,aspect,ground,lambda a,b:wet(a,b,site()[1],-.7))
+            self.destination=ground_target(camera,u,v,aspect,ground,lambda a,b:not self.regional and wet(a,b,site()[1],-.7),
+                                           bounds=bounds(field),regional=self.regional)
             self.cruise=self.trail.guiding=False
         self.pixel_dirty=True
         return True
@@ -429,7 +461,7 @@ class RainierView:
             self.solo=None
 
     def guide(self):
-        if self.world is None:return False
+        if self.world is None or self.regional:return False
         self.destination=None
         self.lens=False
         if self.trail.fed:
@@ -458,12 +490,46 @@ class RainierView:
         if self.pool:self.pool.shutdown(wait=False,cancel_futures=True)
         self.world=self.job=self.pool=None
 
+    def start_region(self):
+        self.travel_error=''
+        self.travel_pool=ThreadPoolExecutor(max_workers=1)
+        self.travel_job=self.travel_pool.submit(build_world,False,None,True)
+
+    def return_to_valley(self):
+        self.release()
+        self.regional=False
+        self.notebook=None
+        self.pixel_dirty=True
+
+    def reset_hike(self):
+        if self.travel_pool:self.travel_pool.shutdown(wait=False,cancel_futures=True)
+        self.travel_pool=self.travel_job=None
+        self.regional=False
+        self.map_position=self.valley_pose=self.notebook=None
+
     def close(self):
+        self.reset_hike()
         self.leave_party()
         self.release()
         self.closed=True
 
     def poll(self,owner):
+        if self.travel_job and self.travel_job.done():
+            try:world=self.travel_job.result()
+            except Exception as error:self.travel_error=str(error)
+            else:
+                self.valley_pose=(owner.x,owner.z,owner.yaw,owner.pitch)
+                self.release()
+                self.world=world
+                self.regional=True
+                self.lens=False
+                self.review_key=self.notebook=None
+                owner.cancel_keys()
+                owner.x,owner.z=summit_start(world[0])
+                owner.yaw,owner.pitch=0.,-.38
+            finally:
+                self.travel_pool.shutdown(wait=False)
+                self.travel_pool=self.travel_job=None
         if self.error:return
         if self.world is None:
             if self.job is None:
@@ -477,11 +543,18 @@ class RainierView:
                 return
             except Exception as error:self.error=str(error);return
             finally:self.pool.shutdown(wait=False);self.pool=self.job=None
+        if self.regional and self.map_position:
+            owner.x,owner.z=self.map_position
+            owner.pitch=-.12
+            self.map_position=None
+        if not self.regional and self.valley_pose:
+            owner.x,owner.z,owner.yaw,owner.pitch=self.valley_pose
+            self.valley_pose=None
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
-        if self.destination is not None:self.destination=walk_to(owner,self.destination,dt,face_path=not self.trail.free_look)
+        if self.destination is not None:self.destination=walk_to(owner,self.destination,dt,face_path=not self.trail.free_look,speed=3.2*self.pace)
         if self.cruise:owner._translate(1.,0.,dt*2.5)
-        for plant,px,pz in self.plant_sites:
+        for plant,px,pz in (() if self.regional else self.plant_sites):
             if plant not in self.found_plants and (owner.x-px)**2+(owner.z-pz)**2<=2.5**2:
                 from river_notebook import record_plant
                 try:record_plant(plant)
@@ -489,7 +562,7 @@ class RainierView:
                 self.found_plants.add(plant)
         before=len(self.trail.picked)
         fed=self.trail.fed
-        self.trail.advance(owner,dt,local_pick=self.party is None)
+        if not self.regional:self.trail.advance(owner,dt,local_pick=self.party is None)
         if self.party:
             self.party.step(owner.x,owner.z)
             shared=self.party.trail
@@ -502,7 +575,8 @@ class RainierView:
             self.cue=4;self.cruise=False
         elif len(self.trail.picked)>before:self.cue=len(self.trail.picked)
         self.last_tick=now
-        owner.x=max(-1000.,min(1000.,owner.x));owner.z=max(-1000.,min(1000.,owner.z))
+        west,east,south,north=bounds(self.world[0])
+        owner.x=max(west,min(east,owner.x));owner.z=max(south,min(north,owner.z))
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)
         age=owner.clock()-owner.started-owner.paused_total
         if self.camera!=camera or age-self.age>=1/20:
@@ -511,16 +585,19 @@ class RainierView:
     def draw_rainier(self,ctx):
         self.pixel_dirty=False
         book=isinstance(self.notebook,DiscoveryBook)
-        if self.world is None or self.camera is None or (self.notebook and not book):return ()
+        if self.world is None or self.camera is None or (self.notebook and not book and not isinstance(self.notebook,ReliefMap)):return ()
         field,origin,data,terrain_count,indices,spans,base_count,shadows=self.world
         self.quality.frame(self.age)
-        high=self.quality.high
+        high=self.quality.high and not self.regional
         x,z,yaw,pitch=self.camera
         eye=surface(field,x+origin.x,z+origin.z)-origin.y+1.25
         wx,wy,w,h=self.host.bounds(self.host.window(self.name))
         ox,oy=self.host.origin
         rect=((wx+ox+1)*8,(wy+oy+1)*16,(w-2)*8,(h-3)*16)
         if min(rect[2:])<1:return ()
+        if isinstance(self.notebook,ReliefMap):
+            self.notebook.draw(ctx,rect)
+            return rect
         def print_photo(path,frame):
             w=h=0;rgb=None
             if path!=self.album_loaded:
@@ -553,7 +630,7 @@ class RainierView:
         gain=next((gain for key,_,gain in voices if key==self.last_caller),0.)
         sound=ctx.lib.pocket_scene_river_sound
         sound.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_float,C.c_int,C.c_float]
-        sound(ctx.handle,self.sound,self.cue,river_gain(x,z,site()[1]),voice,gain)
+        sound(ctx.handle,self.sound and not self.regional,self.cue,river_gain(x,z,site()[1]),voice,gain)
         self.cue=0
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
                        C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float]
@@ -594,7 +671,7 @@ class RainierView:
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,self.lens,pixels,photo_index,focal)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else self.lens,pixels,photo_index,focal)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()
@@ -620,7 +697,7 @@ class RainierView:
                 bx,by,bw,bh=box
                 print_photo(path,(rect[0]+bx*8,rect[1]+by*16,bw*8,bh*16))
             draw_book(ink,self.notebook,w-2,h-3,picture)
-        else:
+        elif not self.regional:
             for _,label,box in river_tools(w-2,h-3,self.lens):ink.button(box,label)
             if self.age<self.hint_until and self.photo_hint:
                 ink.label(1,3,self.photo_hint[:w-2],0xFFF6DA)
