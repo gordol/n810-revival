@@ -77,6 +77,8 @@ mobile: mobile-map-deps
 
 .PHONY: mobile-update
 mobile-update:
-	@test "$$(git branch --show-current)" = feat/offline-field-companion || { echo "Switch to feat/offline-field-companion to update this build." >&2; exit 1; }
-	git pull --ff-only origin feat/offline-field-companion
+	@branch=$$(git branch --show-current); case "$$branch" in \
+	  feat/offline-field-companion|feat/ohanapecosh-wildlife) git pull --ff-only origin "$$branch" ;; \
+	  *) echo "Switch to a Pocket mobile feature branch to update this build." >&2; exit 1 ;; \
+	esac
 	$(MAKE) mobile
