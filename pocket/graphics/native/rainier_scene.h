@@ -121,11 +121,11 @@ struct rainier_animal {
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
-                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows){
+                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh){
  struct gpu_scene *s=ptr;
  if(!s||w<1||h<1||count<3||count>2000000||(!vertices&&!s->rainier_buffer))
   return SDL_SetError("Invalid Rainier scene");
- if(terrain_count>count||ni>2000000||na>64||(!animals&&na)||
+ if(nh>3||(nh&&!hikers)||terrain_count>count||ni>2000000||na>64||(!animals&&na)||
     (!!vertices!=!!indices)||(!indices&&!s->rainier_indices))return SDL_SetError("Invalid Rainier wildlife buffers");
  for(unsigned i=0;i<na;i++){
   const struct rainier_animal *a=animals+i;
@@ -232,6 +232,15 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   glPushMatrix();glTranslatef(a->x,a->y,a->z);glRotatef(a->heading,0,1,0);
   glDrawElements(GL_TRIANGLES,(GLsizei)a->count,GL_UNSIGNED_INT,(const void *)((size_t)a->index*sizeof(unsigned)));
   glPopMatrix();
+ }
+ /* A bright trail pennant marks each family member in world space. */
+ glUseProgram(0);glLineWidth(3.f);
+ for(unsigned i=0;i<nh;i++){
+  const float *p=hikers+i*3;float dx=.39f*cosf(yaw),dz=-.39f*sinf(yaw);
+  glColor3f(.88f,.80f,.59f);glBegin(GL_LINES);
+  glVertex3f(p[0],p[1],p[2]);glVertex3f(p[0],p[1]+1.65f,p[2]);glEnd();
+  glColor3f(1.f,.44f,.13f);glBegin(GL_TRIANGLES);
+  glVertex3f(p[0],p[1]+1.65f,p[2]);glVertex3f(p[0]+dx,p[1]+1.47f,p[2]+dz);glVertex3f(p[0],p[1]+1.28f,p[2]);glEnd();
  }
  if(high)river_bloom(s,x,y,w,h);
  /* Screen-space trail markers: three berries and a pointer to the next stop. */

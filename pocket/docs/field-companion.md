@@ -378,3 +378,29 @@ POCKET_RIVER_QUALITY=high make mobile
 ```
 
 Use `low` for the lighter build, or run `make mobile` with no override for auto.
+
+### Family walk
+
+Up to four mobile-shell players can share the blueberry hunt on a trusted
+Wi-Fi network. Open **Rainier walk → Family** on each device.
+
+1. On one device, tap **Host on this Wi-Fi**. Read the four-digit room code.
+2. On the others, tap **Join with a code** and enter those four digits.
+3. When the room shows everyone, tap **Walk together**. Orange pennants mark
+   the other walkers. Each player can steer or tap to follow a berry.
+4. The room shares one basket and one heart per feeding. Anyone can start
+   another round. **Family → Leave room** returns to your solo basket.
+
+Keep the host in Rainier Walk while playing. Hosting opens UDP port 43817.
+Broadcast discovery needs a network that allows devices to talk to each
+other. To join through an existing private VPN, or when broadcast is
+unavailable, launch the joining device with the host's reachable IPv4 address:
+
+```sh
+POCKET_RIVER_HOST=192.168.1.24 make mobile
+```
+
+Replace the example with the host's LAN or VPN address, then enter its room
+code. A VPN server can route the connection between devices. The host still
+runs the game. The room protocol is unencrypted and designed for trusted
+networks. Keep the UDP port private.

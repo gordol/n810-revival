@@ -34,7 +34,7 @@ class BerryTrail:
         else:self.picked.add(target)
         self.guiding=False
 
-    def advance(self,owner,dt):
+    def advance(self,owner,dt,local_pick=True):
         if self.guiding and not self.fed:
             x,z=self.target(owner.x,owner.z)
             dx,dz=x-owner.x,z-owner.z
@@ -46,7 +46,7 @@ class BerryTrail:
                 owner.x+=step*math.sin(heading)
                 owner.z+=step*math.cos(heading)
         arriving=self.guiding and not self.fed
-        self.visit(owner.x,owner.z)
+        if local_pick:self.visit(owner.x,owner.z)
         if arriving and self.fed:
             owner.yaw=math.atan2(FOX[0]-owner.x,FOX[1]-owner.z)
             owner.pitch=.38

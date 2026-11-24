@@ -102,7 +102,8 @@ def create_outdoors(host,*,pixel_scene=None,**options):
                     if tap and self.pixel_scene:
                         book=getattr(self.pixel_scene,'notebook',None)
                         if book:
-                            if not book.tap(y):self.pixel_scene.notebook=None
+                            stay=book.tap_xy(x,y) if hasattr(book,"tap_xy") else book.tap(y)
+                            if not stay:self.pixel_scene.notebook=None
                             self.pixel_scene.pixel_dirty=True
                             return True
                         if y>=self.host.window(self.name).h-3:return self.pixel_scene.footer(x,width)
@@ -134,7 +135,9 @@ def create_outdoors(host,*,pixel_scene=None,**options):
             return True
 
         def on_close(self):
-            if self.pixel_scene:self.pixel_scene.release()
+            if self.pixel_scene:
+                self.pixel_scene.leave_party()
+                self.pixel_scene.release()
             super().on_close()
 
         def close(self):

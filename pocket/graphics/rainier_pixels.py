@@ -9,6 +9,7 @@ from geometry import Vec, cross, sub, unit
 from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, fern, snag, spruce_sprays
 from rainier_habitat import forest_sites
+from river_party import PartyMenu
 from river_notebook import RiverNotebook
 from pnw_species import REGIONAL, group
 from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, river_mesh, site, wet
@@ -270,6 +271,8 @@ class RainierView:
         self.cruise=False
         self.sound=True
         self.notebook=None
+        self.party=None
+        self.solo=None
         self.hearts=self.cue=0
         self.last_tick=None
         self.closed=False
@@ -286,28 +289,49 @@ class RainierView:
         if self.world is None:return ('Opening Ohanapecosh River…',)
         if self.notebook:return self.notebook.lines(self.host.window(self.name).w-2)
         trail=self.trail
-        if trail.fed:hint=f'{self.hearts} hearts / Again'
+        if trail.fed:hint=f'Again ({self.hearts})'
         elif len(trail.picked)==3:hint='3/3 | Feed fox'
         else:hint=f'{len(trail.picked)}/3 | Follow'
-        labels=('Stop' if self.cruise else 'Walk',hint,'Stones','Mute' if self.sound else 'Sound')
+        family='Family'
+        if self.party:family=f'{len(self.party.roster)} here' if self.party.roster else 'Finding'
+        labels=('Stop' if self.cruise else 'Walk',hint,family,'Stones','Mute' if self.sound else 'Sound')
         width=self.host.window(self.name).w-2
-        footer=''.join(label.center(end-start)[:end-start] for label,start,end in zip(labels,(0,width//5,width*3//5,width*4//5),(width//5,width*3//5,width*4//5,width)))
+        bounds=[0,width//7,width*3//7,width*4//7,width*6//7,width]
+        footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
         return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
 
     def footer(self,x,width):
-        if x<width//5:
+        if x<width//7:
             self.cruise=not self.cruise
             self.trail.guiding=False
-        elif x>=width*4//5:self.sound=not self.sound
-        elif x>=width*3//5:
+        elif x>=width*6//7:self.sound=not self.sound
+        elif x>=width*4//7:
             self.notebook=RiverNotebook()
+            self.trail.guiding=self.cruise=False
+        elif x>=width*3//7:
+            self.notebook=PartyMenu(self)
             self.trail.guiding=self.cruise=False
         else:return self.guide()
         return True
 
+    def enter_party(self,party):
+        self.solo=(self.trail,self.hearts)
+        self.party=party
+        self.trail=BerryTrail()
+        self.hearts=0
+
+    def leave_party(self):
+        if self.party:
+            self.party.close()
+            self.party=None
+            self.trail,self.hearts=self.solo
+            self.solo=None
+
     def guide(self):
         if self.world is None:return False
-        if self.trail.fed:self.trail=BerryTrail()
+        if self.trail.fed:
+            if self.party:self.party.restart=True;return True
+            self.trail=BerryTrail()
         self.trail.free_look=False
         self.cruise=False
         self.trail.guiding=True
@@ -327,6 +351,7 @@ class RainierView:
         self.world=self.job=self.pool=None
 
     def close(self):
+        self.leave_party()
         self.release()
         self.closed=True
 
@@ -349,9 +374,17 @@ class RainierView:
         if self.cruise:owner._translate(1.,0.,dt*2.5)
         before=len(self.trail.picked)
         fed=self.trail.fed
-        self.trail.advance(owner,dt)
+        self.trail.advance(owner,dt,local_pick=self.party is None)
+        if self.party:
+            self.party.step(owner.x,owner.z)
+            shared=self.party.trail
+            if self.trail.picked!=shared.picked or self.trail.fed!=shared.fed:self.trail.guiding=False
+            self.trail.picked=set(shared.picked)
+            self.trail.fed=shared.fed
+            self.hearts=self.party.hearts
         if self.trail.fed and not fed:
-            self.hearts+=1;self.cue=4;self.cruise=False
+            if not self.party:self.hearts+=1
+            self.cue=4;self.cruise=False
         elif len(self.trail.picked)>before:self.cue=len(self.trail.picked)
         self.last_tick=now
         owner.x=max(-1000.,min(1000.,owner.x));owner.z=max(-1000.,min(1000.,owner.z))
@@ -379,15 +412,22 @@ class RainierView:
         draw=ctx.lib.pocket_scene_rainier
         commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z))
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p]
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint]
         target_x,target_z=self.trail.target(x,z)
         direction=math.atan2(target_x-x,target_z-z)-yaw
         mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
         if self.upload:self.counts=len(data)//7,len(indices)
+        hikers=[]
+        if self.party:
+            for uid,(px,pz) in self.party.roster.items():
+                if uid!=self.party.ident:
+                    hx,hz=px/10,pz/10
+                    hikers.extend((hx,surface(field,hx+origin.x,hz+origin.z)-origin.y,hz))
+        hikers_buffer=(C.c_float*len(hikers))(*hikers)
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None,hikers_buffer,len(hikers)//3)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()
