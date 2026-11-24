@@ -1,4 +1,4 @@
-"""Quality selection and the static forest shadow mask, in scene metres."""
+"""Quality selection and the canopy height map, in scene metres."""
 import math
 import os
 
@@ -25,17 +25,15 @@ class RiverQuality:
         self.last=now
 
 
-def shade_tree(mask,x,z,height):
-    """Project the evergreen crown down-sun into the meadow's 1 m shadow texels."""
-    if max(abs(x),abs(z))>269:return
-    length=.85*height
-    width=.20*height
-    for j in range(max(0,int(z+256-width)),min(512,math.ceil(z+256+.6*length+width)+1)):
-        for i in range(max(0,int(x+256-width)),min(512,math.ceil(x+256+.8*length+width)+1)):
-            dx,dz=i-255.5-x,j-255.5-z
-            t=(dx*.8+dz*.6)/length
-            if -.13<t<1:
-                breadth=width*max(.08,1-abs(t-.30)/.73)
-                cover=max(0.,min(1.,(1-abs(dz*.8-dx*.6)/breadth)*2))
-                k=j*512+i
-                mask[k]=max(mask[k],int(cover*190))
+def shade_tree(mask,x,z,height,texel=1):
+    """Store the tallest conifer crown in each texel (8 units/m)."""
+    width=math.isqrt(len(mask))
+    x=x/texel+width/2
+    z=z/texel+width/2
+    radius=max(.8,height*.23/texel)
+    for j in range(max(0,int(z-radius)),min(width,math.ceil(z+radius))):
+        for i in range(max(0,int(x-radius)),min(width,math.ceil(x+radius))):
+            r=math.hypot(i+.5-x,j+.5-z)/radius
+            if r<1:
+                k=j*width+i
+                mask[k]=max(mask[k],min(255,round(8*height*(1.-.72*r))))

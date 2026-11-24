@@ -12,7 +12,7 @@ import fremont_lookout as lookout
 from river_camp import CAMP, OVERLOOK, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, broadleaf_clump, fern, snag, spruce_sprays
-from rainier_habitat import forest_sites,ridge_grass,understory
+from rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from rainier_hike import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from river_party import PartyMenu
 from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
@@ -166,7 +166,7 @@ def build_world(high=True,plant_sites=None,regional=False):
     triangles=array('f')
     detail=array('f')
     target=triangles
-    shadows=bytearray(512*512) if high else None
+    shadows=None if regional else bytearray(1024*1024)
 
     def vertex(p,color,ground=0.):
         return (p.x-origin.x,p.y-origin.y,p.z-origin.z,*(max(0,min(255,c))/255 for c in color),ground)
@@ -249,7 +249,7 @@ def build_world(high=True,plant_sites=None,regional=False):
     for dx,dz,h,near in forest_sites(random.Random(3918)):
         if wet(dx,dz,segments,2) or min(centerline_distances_sq(dx,dz,corridors))<(1.5+.09*h)**2:continue
         if plant_sites is not None and math.hypot(dx,dz)<70:plant_sites.append(("conifer",dx,dz))
-        if high:shade_tree(shadows,dx,dz,h)
+        shade_tree(shadows,dx,dz,h,texel=2)
         pine(origin.x+dx,origin.z+dz,h,near)
     def height(x,z):return surface(field,x,z)
     def water_vertex(p,side,station):
@@ -364,6 +364,8 @@ class RainierView:
         self.pool=self.job=self.world=self.camera=None
         self.age=0.
         self.next_call=0.
+        self.stand_center=None
+        self.stand_count=0
         self.upload=True
         self.context=None
         self.error=''
@@ -520,6 +522,8 @@ class RainierView:
         self.frame_camera=self.destination=self.shutter=None
         self.age=0.
         self.next_call=0.
+        self.stand_center=None
+        self.stand_count=0
         self.upload=True
         self.camera=None
         self.error=''
@@ -753,7 +757,7 @@ class RainierView:
         sound(ctx.handle,self.sound and not self.regional,self.cue,river_gain(x,z,site()[1]),voice,gain)
         self.cue=0
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float]
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint]
         target_x,target_z=self.trail.target(x,z)
         direction=math.atan2(target_x-x,target_z-z)-yaw
         mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
@@ -793,10 +797,24 @@ class RainierView:
             break
         photo_index=next((i for i,p in enumerate(self.subjects) if p[0]==self.shutter),-1)
         daylight=(1.,.43,.04,.52+.48*math.cos(self.age*math.tau/720))[self.time_mode]
+        sun_angle=(.64,-.82,.64,.64-self.age*math.tau/720)[self.time_mode]
+        center=(0,0)
+        stand_ptr=None
+        upload_shade=self.upload
+        if self.regional:
+            center=self.stand_center
+            if center is None or max(abs(x-center[0]),abs(z-center[1]))>64:
+                center=(96*round(x/96),96*round(z/96))
+            if center!=self.stand_center or self.upload:
+                stand,shadows=regional_stand(field,origin.y,*center,surface,self.lookout_site)
+                stand_ptr=stand.buffer_info()[0]
+                self.stand_count=len(stand)//7
+                self.stand_center=center
+                upload_shade=True
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, (1+int(self.story)) if self.tent and not self.regional else 0,self.season,self.weather,origin.y,daylight)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, (1+int(self.story)) if self.tent and not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()

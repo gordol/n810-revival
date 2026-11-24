@@ -58,3 +58,66 @@ def ridge_grass(height,face,rng,cx,cz):
                 edge=Vec(base.x-.026*dz,y,base.z+.026*dx)
                 tip=Vec(base.x+.09+dx*length,y+length,base.z+dz*length)
                 face(base,tip,edge,(rng.randrange(110,147),rng.randrange(122,147),76))
+
+
+def regional_stand(field,base_y,cx,cz,surface,lookout):
+    """Stable world-grid trees and meadow clumps within walking distance."""
+    from array import array
+    import random
+    from river_detail import shade_tree
+
+    vertices=array('f')
+    canopy=bytearray(512*512)
+    east=field.origin.x+(field.nx-1)*field.dx
+    north=field.origin.z+(field.nz-1)*field.dz
+    def cone(x,y,z,r,h,tone,angle,sides,foliage=False):
+        ring=[]
+        for i in range(sides):
+            a=angle+i*math.tau/sides
+            spread=r*(.81+.25*math.sin(2*a+angle)) if foliage else r
+            drop=-.19*r if foliage and i%2 else 0.
+            ring.append((x+spread*math.cos(a),y+drop,z+spread*math.sin(a)))
+        for i,p in enumerate(ring):
+            light=.80+.16*math.cos(angle+(i+.5)*math.tau/sides)
+            color=tuple(c*light for c in tone)+(0.,)
+            for pt in (p,(x,y+h,z),ring[(i+1)%sides]):vertices.extend((*pt,*color))
+
+    for j in range((cz-128)//12,(cz+128)//12):
+        for i in range((cx-128)//12,(cx+128)//12):
+            rng=random.Random((i*73856093)^(j*19349663))
+            x=(i+rng.random())*12
+            z=(j+rng.random())*12
+            if not (field.origin.x+4<x<east-4 and field.origin.z+4<z<north-4):continue
+            if lookout and math.hypot(x-lookout[0],z-lookout[1])<12:continue
+            y=surface(field,x,z)
+            if y>2420:continue
+            slope=math.hypot(surface(field,x+3,z)-y,surface(field,x,z+3)-y)/3
+            if slope>.84:continue
+            treeline=1920+100*math.sin(x*.0017)+55*math.cos(z*.0021)
+            density=.66+.23*math.sin(x*.021+math.cos(z*.03))
+            fraction=max(0.,min(1.,(treeline-y)/250))
+            angle=rng.random()*math.tau
+            if rng.random()<density*fraction:
+                h=rng.uniform(5,21)*(.4+.6*fraction)
+                ground=y-base_y
+                cone(x,ground-.2,z,h*.032,h*.8,(.36,.28,.19),angle,4)
+                shade=rng.uniform(.8,1.1)
+                tone=(.18*shade,.34*shade,.24*shade)
+                lean_x,lean_z=rng.uniform(-.08,.08)*h,rng.uniform(-.08,.08)*h
+                for rise,width in ((.18,.22),(.35,.20),(.52,.17),(.68,.12),(.81,.075)):
+                    level=rise+rng.uniform(-.04,.04)
+                    cone(x+lean_x*rise,ground+h*level,z+lean_z*rise,h*width,h*min(.33,1-level),
+                         tone,angle+rng.uniform(-1,1),8,True)
+                shade_tree(canopy,x-cx,z-cz,h)
+            elif rng.random()<.64:
+                for _ in range(7):
+                    px=x+rng.uniform(-1.8,1.8)
+                    pz=z+rng.uniform(-1.8,1.8)
+                    ground=surface(field,px,pz)-base_y
+                    h=rng.uniform(.18,.54)
+                    for _ in range(5):
+                        a=rng.random()*math.tau
+                        u,v=math.cos(a),math.sin(a)
+                        for vx,vy,vz in ((-.04*v,0,.04*u),(.04*v,0,-.04*u),(.65*h*u,h,.65*h*v)):
+                            vertices.extend((px+vx,ground+vy,pz+vz,.40,.47,.25,0.))
+    return vertices,canopy

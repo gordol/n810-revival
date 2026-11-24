@@ -350,6 +350,11 @@ in the footer follows the ground underfoot. **Map** opens a north-up relief
 map. Tap a spot to start walking there, or tap **Back** to stay put.
 **Hike → Return to Ohanapecosh** restores your previous valley position.
 Wildlife encounters and shared family rooms are in the detailed valley.
+On the regional map, nearby terrain grows deterministic conifer stands below
+the treeline and grass clumps in open areas. Steep rock and the high summit
+stay bare. This vegetation illustrates elevation and slope on the USGS grid.
+Nearby trees cast longer shadows in low sun. Shadows change direction during
+the 12-minute light cycle, soften in mist and showers, and fade at night.
 The regional terrain represents mountain shape; it does not show climbing routes.
 
 The game includes a roughly 2 km square of USGS 3DEP elevations sampled at
@@ -394,7 +399,7 @@ Washington rules and emergency updates for the specific water.
 - [CDC guidance on Giardia and drinking water](https://www.cdc.gov/giardia/prevention/index.html)
 
 Rainier Walk selects graphics detail automatically. High detail adds denser
-berry clusters and nearby wildlife meshes, bark and ground texture, forest and
+berry clusters and nearby wildlife meshes, bark and ground texture, nearby
 animal shadows, and a soft glow around bright highlights. Auto starts with a
 smaller mesh on devices reporting less than 3 GiB of RAM. On a sustained
 slowdown it drops bloom, fine shading and extra foliage for the session.

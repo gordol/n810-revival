@@ -13,7 +13,7 @@ static GLuint rainier_program(void){
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
   "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
-  "uniform int skyPass;uniform vec4 skyCamera;uniform float daylight;uniform float overcast;"
+  "uniform vec2 shadeCenter;uniform vec2 shadowStep;uniform int regional;uniform int skyPass;uniform vec4 skyCamera;uniform float daylight;uniform float overcast;"
   "vec3 horizon(){return mix(vec3(.095,.13,.20),mix(vec3(.87,.58,.43),vec3(.68,.80,.86),smoothstep(.35,.9,daylight)),daylight);}"
   "vec3 skyColor(){vec2 uv=vec2(pos.x*skyCamera.z,-pos.y)*skyCamera.w;"
   "float cp=cos(skyCamera.y),sp=sin(skyCamera.y);float f=cp+uv.y*sp;"
@@ -26,13 +26,23 @@ static GLuint rainier_program(void){
   "float n=.57*noise(p)+.30*noise(2.1*p)+.13*noise(4.4*p);"
   "float cloud=smoothstep(.52-.15*overcast,.78-.12*overcast,n)*smoothstep(.015,.14,alt);"
   "return mix(col,mix(vec3(.13,.16,.22),vec3(.87,.88,.86),daylight),cloud);}"
-  "void main(){if(skyPass!=0){gl_FragColor=vec4(skyColor(),1.);return;}if((abs(tint.a-.57)<.005 && camp<1)||(abs(tint.a-.59)<.005 && camp<2))discard;if((abs(tint.a-.08)<.01 && picked.x>.5)||(abs(tint.a-.13)<.01 && picked.y>.5)||(abs(tint.a-.18)<.01 && picked.z>.5))discard;vec3 col=tint.rgb;if(tint.a>.9){vec2 p=pos.xz;"
+  "void main(){if(skyPass!=0){gl_FragColor=vec4(skyColor(),1.);return;}if((abs(tint.a-.57)<.005 && camp<1)||(abs(tint.a-.59)<.005 && camp<2))discard;if((abs(tint.a-.08)<.01 && picked.x>.5)||(abs(tint.a-.13)<.01 && picked.y>.5)||(abs(tint.a-.18)<.01 && picked.z>.5))discard;float castShade=0.;vec3 col=tint.rgb;if(tint.a>.9){vec2 p=pos.xz;"
   "float broad=noise(p*.015);float detail=(noise(p*.64)-.5)*(1.-smoothstep(80.,600.,distanceToEye));"
   "col*=.80+.40*broad+.30*detail;col+=vec3(.032,.024,-.013)*broad;"
   "if(highDetail!=0){float grit=noise(p*11.)-.5;float moss=noise(p*.18);"
   "col+=vec3(.075,.055,.026)*moss;col+=grit*vec3(.041,.037,.024)*(1.-smoothstep(6.,38.,distanceToEye));"
-  "vec2 uv=p/512.+.5;float shade=texture2D(forestShade,uv).r*(1.-smoothstep(.45,.5,max(abs(uv.x-.5),abs(uv.y-.5))));"
-  "col*=mix(vec3(1.1,1.09,1.02),vec3(.52,.64,.74),shade);}}"
+  "}"
+  "if(regional!=0){float elev=pos.y+originY;float line=1920.+100.*sin(p.x*.0017)+55.*cos(p.y*.0021);"
+  "float stand=(1.-smoothstep(line-230.,line,elev))*smoothstep(.26,.69,noise(p*.018));"
+  "col=mix(col,col*vec3(.48,.71,.54),stand*smoothstep(65.,170.,distanceToEye));}"
+  "float footprint=regional!=0?512.:2048.;vec2 uv=(p-shadeCenter)/footprint+.5;"
+  "if(daylight>.12 && distanceToEye<340. && max(abs(uv.x-.5),abs(uv.y-.5))<.46){"
+  "vec3 n=cross(dFdx(pos),dFdy(pos));float slope=abs(n.y)>.001?dot(n.xz/n.y,shadowStep):0.;"
+  "float shade=0.;for(int i=0;i<8;i++){float level=.75+float(i)*(1.5+.16*float(i));"
+  "float canopy=texture2D(forestShade,uv-shadowStep*level/footprint).r*31.875;"
+  "shade=max(shade,smoothstep(-.6,.6,canopy-level*(1.-clamp(slope,-1.,.85)))*step(.1,canopy));}"
+  "float fade=(1.-smoothstep(175.,340.,distanceToEye))*smoothstep(.12,.62,daylight)*(1.-.68*overcast);"
+  "castShade=shade*fade;}}"
   "if(highDetail!=0 && tint.a>.46 && tint.a<.50){float bark=noise(vec2((pos.x+pos.z)*21.,pos.y*2.6));col*=.68+.6*bark;}"
   "if(highDetail!=0 && tint.a>.06 && tint.a<.20){vec3 n=normalize(cross(dFdx(pos),dFdy(pos)));"
   "float wax=pow(abs(dot(n,normalize(vec3(-.42,.79,-.44)))),14.);col+=vec3(.28,.34,.43)*wax;}"
@@ -52,6 +62,7 @@ static GLuint rainier_program(void){
   "if(season==2 || season==3){float line=season==2?520.:1600.;"
   "float cover=smoothstep(line-95.,line+150.,elev+110.*noise(pos.xz*.045));"
   "col=mix(col,vec3(.79,.85,.88),cover*.88);}}"
+  "col*=mix(vec3(1.),vec3(.52,.63,.72),castShade);"
   "float haze=1.-exp(-distanceToEye*hazeDensity);gl_FragColor=vec4(mix(col*mix(vec3(.24,.32,.47),vec3(1.),daylight),horizon(),haze),1.);}";
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return 0;
  GLuint frag=wildlife_shader(GL_FRAGMENT_SHADER,fs);if(!frag){glDeleteShader(vert);return 0;}
@@ -153,11 +164,11 @@ static void river_hiker_band(float bottom,float top,float base,float rim,float r
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
-                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh,const float *marker,const float *ripple,int lens,unsigned char *photo,int photo_animal,float focal,int camp,int season,int weather,float originY,float daylight){
+                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh,const float *marker,const float *ripple,int lens,unsigned char *photo,int photo_animal,float focal,int camp,int season,int weather,float originY,float daylight,float sun_angle,float center_x,float center_z,const float *grove,unsigned grove_count){
  struct gpu_scene *s=ptr;
  if(!s||w<1||h<1||count<3||count>2000000||(!vertices&&!s->rainier_buffer))
   return SDL_SetError("Invalid Rainier scene");
- if(nh>7||(nh&&!hikers)||terrain_count>count||ni>2000000||na>64||(!animals&&na)||
+ if(grove_count>250000||nh>7||(nh&&!hikers)||terrain_count>count||ni>2000000||na>64||(!animals&&na)||
     (!!vertices!=!!indices)||(!indices&&!s->rainier_indices))return SDL_SetError("Invalid Rainier wildlife buffers");
  for(unsigned i=0;i<na;i++){
   const struct rainier_animal *a=animals+i;
@@ -237,25 +248,40 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glUniform3f(glGetUniformLocation(s->rainier_program,"picked"),picked&1,(picked>>1)&1,(picked>>2)&1);
  glUniform1f(glGetUniformLocation(s->rainier_program,"waterTime"),age);
  glActiveTexture(GL_TEXTURE0);
+ float stretch=.55f+2.3f*(1.f-daylight);
+ glUniform2f(glGetUniformLocation(s->rainier_program,"shadowStep"),cosf(sun_angle)*stretch,sinf(sun_angle)*stretch);
+ glUniform2f(glGetUniformLocation(s->rainier_program,"shadeCenter"),center_x,center_z);
+ glUniform1i(glGetUniformLocation(s->rainier_program,"regional"),lens<0);
  if(shadows){
   if(!s->rainier_shadow)glGenTextures(1,&s->rainier_shadow);
   glBindTexture(GL_TEXTURE_2D,s->rainier_shadow);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D,0,GL_LUMINANCE,512,512,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,shadows);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+  int canopy_size=lens<0?512:1024;
+  glTexImage2D(GL_TEXTURE_2D,0,GL_LUMINANCE,canopy_size,canopy_size,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,shadows);
  }else glBindTexture(GL_TEXTURE_2D,s->rainier_shadow);
  glUniform1i(glGetUniformLocation(s->rainier_program,"highDetail"),high);
  glUniform1i(glGetUniformLocation(s->rainier_program,"animal"),0);
  glUniform1f(blend,0.f);river_draw_land(s,terrain_count,east,eye,north,yaw,pitch,(float)w/h);
+ if(grove_count){
+  if(!s->rainier_grove)glGenBuffers(1,&s->rainier_grove);
+  glBindBuffer(GL_ARRAY_BUFFER,s->rainier_grove);
+  if(grove)glBufferData(GL_ARRAY_BUFFER,(size_t)grove_count*7*sizeof(float),grove,GL_DYNAMIC_DRAW);
+  glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);
+  glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
+  glDrawArrays(GL_TRIANGLES,0,(GLsizei)grove_count);
+  glBindBuffer(GL_ARRAY_BUFFER,s->rainier_buffer);
+ }
  if(high){
   glUseProgram(0);glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
   for(unsigned i=0;i<na;i++){
    const struct rainier_animal *a=animals+i;if(a->shadow<=0)continue;
    float turn=a->heading*.01745329f,c=cosf(turn),sn=sinf(turn);
-   glBegin(GL_TRIANGLE_FAN);glColor4f(.055f,.075f,.08f,.48f);glVertex3f(a->x,a->y+.018f,a->z);
+   glBegin(GL_TRIANGLE_FAN);glColor4f(.055f,.075f,.08f,.48f*daylight*(weather?.4f:1.f));glVertex3f(a->x,a->y+.018f,a->z);
    glColor4f(.055f,.075f,.08f,0.f);
    for(int j=0;j<=24;j++){
     float t=j*.2617994f,u=cosf(t)*a->shadow*.70f,v=sinf(t)*a->shadow*.27f;
-    float dx=c*u+sn*v+.07f*a->shadow,dz=-sn*u+c*v+.05f*a->shadow;
+    float dx=c*u+sn*v+cosf(sun_angle)*.22f*stretch*a->shadow,dz=-sn*u+c*v+sinf(sun_angle)*.22f*stretch*a->shadow;
     glVertex3f(a->x+dx,a->y+.018f+dx*a->slope_x+dz*a->slope_z,a->z+dz);
    }
    glEnd();

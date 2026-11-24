@@ -31,7 +31,7 @@ struct gpu_scene {
  struct river_bounds {float x,y,z,r;} *river_blocks;
  SDL_Texture *river_print;int print_w,print_h;
  GLuint rainier_shadow,rainier_bloom,rainier_color;int bloom_w,bloom_h,rainier_bloom_failed;
- GLuint rainier_buffer,rainier_indices,rainier_depth,rainier_program;unsigned rainier_w,rainier_h;
+ GLuint rainier_grove,rainier_buffer,rainier_indices,rainier_depth,rainier_program;unsigned rainier_w,rainier_h;
 #endif
 };
 static Scene_Color scene_rgb(uint32_t v){return (Scene_Color){(v>>16)&255,(v>>8)&255,v&255,255};}
@@ -541,6 +541,7 @@ void pocket_scene_rainier_release(void *ptr){
  free(s->river_blocks);s->river_blocks=NULL;
  glDeleteTextures(1,&s->rainier_shadow);glDeleteTextures(1,&s->rainier_color);glDeleteProgram(s->rainier_bloom);
  s->rainier_color=s->rainier_shadow=s->rainier_bloom=0;s->bloom_w=s->bloom_h=s->rainier_bloom_failed=0;
+ glDeleteBuffers(1,&s->rainier_grove);s->rainier_grove=0;
  glDeleteProgram(s->rainier_program);glDeleteBuffers(1,&s->rainier_buffer);glDeleteBuffers(1,&s->rainier_indices);glDeleteRenderbuffers(1,&s->rainier_depth);
  s->rainier_program=s->rainier_buffer=s->rainier_indices=s->rainier_depth=0;
  s->rainier_w=s->rainier_h=0;
