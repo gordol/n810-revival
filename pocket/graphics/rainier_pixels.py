@@ -14,7 +14,7 @@ from rainier_habitat import forest_sites
 from river_party import PartyMenu
 from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, read_photo, save_photo, sighting, walk_to
 from pnw_species import REGIONAL, group
-from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, river_mesh, site, wet
+from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, river_gain, river_mesh, site, wet
 from vegetation import ground_color, noise
 
 def surface(field,x,z):
@@ -517,7 +517,7 @@ class RainierView:
             return rect
         sound=ctx.lib.pocket_scene_river_sound
         sound.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_float]
-        sound(ctx.handle,self.sound,self.cue,1. if wet(x,z,site()[1],10) else .30)
+        sound(ctx.handle,self.sound,self.cue,river_gain(x,z,site()[1]))
         self.cue=0
         draw=ctx.lib.pocket_scene_rainier
         self.subjects=[]

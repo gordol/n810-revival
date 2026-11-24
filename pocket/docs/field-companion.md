@@ -330,7 +330,7 @@ again to play another round. Each feeding adds a heart for this session.
 Drag anywhere in the scene to pull the view around while walking to the ring.
 A new tap on the ground sets the next destination. Tap **Walk** for continuous walking while you look,
 and **Stop** to stand still. You can also look around on a guided walk.
-Water sounds grow louder near the river, with a chime for each berry. Tap
+The river is audible through the woods and grows louder as you approach the bank. Each berry has its own chime. Tap
 **Mute** for quiet play. There is
 no countdown. The fox is a game character. At Mount Rainier, watch wild
 animals from a distance and leave them their natural food.

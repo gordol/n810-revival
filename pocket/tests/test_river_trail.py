@@ -7,7 +7,7 @@ import unittest
 
 root=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(root/'graphics'),str(root/'shell')]
-from river_walk import BUSHES, FOX, BerryTrail, site, wet
+from river_walk import BUSHES, FOX, BerryTrail, river_gain, site, wet
 
 
 class RiverTrailTests(unittest.TestCase):
@@ -26,6 +26,14 @@ class RiverTrailTests(unittest.TestCase):
             self.assertEqual(len(trail.picked),min(leg+1,3))
             self.assertEqual(trail.fed,leg==3)
         self.assertGreater(owner.pitch,0.)
+
+    def test_river_sound_fades_from_nearest_bank(self):
+        segments=[(0,0,1,0,50),(100,0,0,1,50)]
+        self.assertEqual(river_gain(40,8,segments),1.)
+        self.assertAlmostEqual(river_gain(40,-168,segments),.5)
+        self.assertEqual(river_gain(108,40,segments),1.)
+        self.assertAlmostEqual(river_gain(100,378,segments),1/3)
+        self.assertEqual(river_gain(0,0,[]),0.)
 
     def test_mapped_site_and_dry_game_route(self):
         field,segments=site()

@@ -21,7 +21,7 @@ int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river){
    s->river_seed=s->river_seed*1664525u+1013904223u;
    float noise=((int)(s->river_seed>>16)-32768)/32768.f;
    s->river_low+=.065f*(noise-s->river_low);
-   float signal=river*(s->river_low*.16f+noise*.013f);
+   float signal=river*(s->river_low*.40f+noise*.0325f);
    if(s->river_cue){
     int part=s->river_note/3308;
     float t=(s->river_note%3308)/22050.f;

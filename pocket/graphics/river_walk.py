@@ -70,12 +70,22 @@ def site():
     return field,segments
 
 
-def wet(x,z,segments,margin=0.):
-    radius=8.+margin
+def centerline_distances_sq(x,z,segments):
     for a,b,u,v,length in segments:
         t=max(0.,min(length,(x-a)*u+(z-b)*v))
-        if (x-a-t*u)**2+(z-b-t*v)**2<radius**2:return True
-    return False
+        yield (x-a-t*u)**2+(z-b-t*v)**2
+
+
+def wet(x,z,segments,margin=0.):
+    radius_sq=(8.+margin)**2
+    return any(d<radius_sq for d in centerline_distances_sq(x,z,segments))
+
+
+def river_gain(x,z,segments):
+    nearest=min(centerline_distances_sq(x,z,segments),default=math.inf)
+    bank_distance=max(0.,math.sqrt(nearest)-8.)
+    # Broad valley ambience: half the bank amplitude at 160 metres.
+    return 160./(160.+bank_distance)
 
 
 def river_mesh(segments,height,face):
