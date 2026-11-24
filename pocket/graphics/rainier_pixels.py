@@ -11,15 +11,15 @@ from geometry import Vec, cross, sub, unit
 import fremont_lookout as lookout
 from river_camp import CAMP, OVERLOOK, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
-from forest_floor import blade, fern, snag, spruce_sprays
-from rainier_habitat import forest_sites,ridge_grass
+from forest_floor import blade, broadleaf_clump, fern, snag, spruce_sprays
+from rainier_habitat import forest_sites,ridge_grass,understory
 from rainier_hike import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from river_party import PartyMenu
 from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
 from river_notebook import DiscoveryBook
 from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, project_subject, read_photo, save_photo, sighting, walk_to
 from pnw_species import REGIONAL, group
-from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, channel, nearby_calls, river_gain, site, wet
+from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, centerline_distances_sq, channel, nearby_calls, river_gain, site, wet
 from vegetation import ground_color, noise
 
 def surface(field,x,z):
@@ -206,6 +206,7 @@ def build_world(high=True,plant_sites=None,regional=False):
         return field,origin,triangles,count,array('I',[0]),(),count,None
 
     rng=random.Random(3918)
+    branch_rng=random.Random(911)
     def pine(x,z,h,near):
         nonlocal target
         y=surface(field,x,z)-.14
@@ -223,24 +224,30 @@ def build_world(high=True,plant_sites=None,regional=False):
         needles=rng.choice(((37,75,58),(52,91,66),(64,98,76),(48,82,76)))
         breadth=rng.uniform(.8,1.24)
         tips=(20 if high else 10) if near else 5
+        lean_x,lean_z=(rng.uniform(-.085,.085)*h for _ in range(2))
         for layer in range(layers):
             t=layer/layers;angle=rng.random()*math.tau
-            apex=Vec(x,y+h*(.50+.50*t),z)
+            apex=Vec(x+lean_x*(.5+.5*t),y+h*(.50+.50*t),z+lean_z*(.5+.5*t))
             crown=ring(h*(.16+.76*t),breadth*h*(.23-.18*t),angle,tips)
             for i,p in enumerate(crown):
                 spread=rng.uniform(.60,.80) if i%2 else rng.uniform(1,1.18)
-                crown[i]=Vec(x+(p.x-x)*spread,p.y+h*(.034 if i%2 else -.025),z+(p.z-z)*spread)
+                crown[i]=Vec(x+lean_x*t+(p.x-x)*spread,p.y+h*rng.uniform(-.048,.04),z+lean_z*t+(p.z-z)*spread)
             if high and math.hypot(x,z)<55:
                 target=detail
-                spruce_sprays(x,y,z,h,t,angle,needles,face)
+                spruce_sprays(x,y,z,h,t,angle,needles,face,branch_rng)
                 target=triangles
             for i,p in enumerate(crown):
                 face(apex,p,crown[(i+1)%tips],tuple(v*shade*(.78+.23*t) for v in needles))
     if plant_sites is not None:
         plant_sites.clear()
         plant_sites.extend(('blueberry',x,z) for x,z in BUSHES)
+    route=((0.,0.),*BUSHES,FOX)
+    corridors=[]
+    for (x,z),(ex,ez) in zip(route,route[1:]):
+        length=math.hypot(ex-x,ez-z)
+        corridors.append((x,z,(ex-x)/length,(ez-z)/length,length))
     for dx,dz,h,near in forest_sites(random.Random(3918)):
-        if wet(dx,dz,segments,2):continue
+        if wet(dx,dz,segments,2) or min(centerline_distances_sq(dx,dz,corridors))<(1.5+.09*h)**2:continue
         if plant_sites is not None and math.hypot(dx,dz)<70:plant_sites.append(("conifer",dx,dz))
         if high:shade_tree(shadows,dx,dz,h)
         pine(origin.x+dx,origin.z+dz,h,near)
@@ -257,28 +264,27 @@ def build_world(high=True,plant_sites=None,regional=False):
     for i,(x,z) in enumerate(BUSHES):
         blueberry_patch(x,z,height,face,rng,.08+i*.05,high)
 
-    target=detail
-    for _ in range(38 if high else 0):
-        dx,dz=rng.uniform(-15,15),rng.uniform(-15,35)
-        if wet(dx,dz,segments,1) or abs(dx)<2:continue
-        if plant_sites is not None:plant_sites.append(("fern",dx,dz))
-        fern(dx,dz,height(dx,dz),rng.uniform(.45,.85),face,rng)
-
-    target=triangles
     grass_rng=random.Random(8451)
-    # Low plants and stones give the walker close-range parallax.
-    for i in range(1100):
-        angle=rng.random()*math.tau;radius=48*math.sqrt(rng.random())
-        x=origin.x+radius*math.cos(angle);z=origin.z+radius*math.sin(angle)
-        if wet(x,z,segments):continue
+    fern_count=0
+    for i,(x,z,size,color) in enumerate(understory(random.Random(927),route)):
+        if wet(x,z,segments,.5):continue
         y=surface(field,x,z)
-        height=rng.uniform(.13,.48)
-        if i%9==0:
+        radius=math.hypot(x,z)
+        if high and i%29==0 and fern_count<32:
+            target=detail
+            fern(x,z,y,size*2.2,face,grass_rng)
+            if plant_sites is not None:plant_sites.append(("fern",x,z))
+            fern_count+=1
+            target=triangles
+            continue
+        if i%12==1:
+            broadleaf_clump(x,y,z,size*1.4,color,face,grass_rng)
+        elif i%9==0:
             sides=11 if high else 6
-            outline=[(height*math.cos(t*math.tau/sides),.7*height*math.sin(t*math.tau/sides)) for t in range(sides)]
+            outline=[(size*math.cos(t*math.tau/sides),.7*size*math.sin(t*math.tau/sides)) for t in range(sides)]
             foot=[Vec(x+dx,y-.05,z+dz) for dx,dz in outline]
-            ridge=[Vec(x+dx*.79,y+height*(.23+.07*math.sin(j*2.1)),z+dz*.79) for j,(dx,dz) in enumerate(outline)]
-            top=Vec(x-.13*height,y+height*.42,z+.07*height)
+            ridge=[Vec(x+dx*.79,y+size*(.23+.07*math.sin(j*2.1)),z+dz*.79) for j,(dx,dz) in enumerate(outline)]
+            top=Vec(x-.13*size,y+size*.42,z+.07*size)
             for j,p in enumerate(ridge):
                 k=(j+1)%sides
                 for tri in ((p,top,ridge[k]),(foot[j],p,foot[k]),(p,ridge[k],foot[k])):
@@ -287,13 +293,13 @@ def build_world(high=True,plant_sites=None,regional=False):
             target=detail
             for j in range(6):
                 a=grass_rng.random()*math.tau
-                blade(Vec(x,y,z),a,height*.56,height*.043,height*(.48+.45*grass_rng.random()),(99,123,65),face)
+                blade(Vec(x,y,z),a,size*.56,size*.043,size*(.48+.45*grass_rng.random()),color,face)
             target=triangles
         else:
-            for j in range(4):
-                t=angle+j*1.57;dx,dz=math.cos(t)*.07,math.sin(t)*.07
-                face(Vec(x-dz,y,z+dx),Vec(x+dx*2,y+height*rng.uniform(.65,1),z+dz*2),
-                     Vec(x+dz,y,z-dx),(90+i%21,106+i%18,62))
+            for j in range(grass_rng.randint(3,7)):
+                t=grass_rng.uniform(0,math.tau);dx,dz=math.cos(t)*size*.28,math.sin(t)*size*.28
+                face(Vec(x-dz,y,z+dx),Vec(x+dx*2,y+size*rng.uniform(.65,1),z+dz*2),
+                     Vec(x+dz,y,z-dx),color)
     base_count=len(triangles)//7
     triangles.extend(detail)
     del detail

@@ -3,11 +3,11 @@ import math
 from geometry import Vec
 
 
-def blade(base,angle,length,width,rise,color,face,serrated=False):
+def blade(base,angle,length,width,rise,color,face,serrated=False,steps=7):
     """Taper both ends around a raised midrib and a recurved tip."""
     u,v=math.cos(angle),math.sin(angle)
     old=None
-    steps=12 if serrated else 7
+    if serrated:steps=12
     for i in range(steps+1):
         t=i/steps
         profile=math.sin(math.pi*t)**.78
@@ -23,20 +23,46 @@ def blade(base,angle,length,width,rise,color,face,serrated=False):
 
 
 def fern(x,z,y,size,face,rng):
-    for arm in range(7):
-        a=arm*math.tau/7+rng.uniform(-.25,.25)
+    arms=rng.randint(4,8)
+    rotation=rng.uniform(0,math.tau)
+    for arm in range(arms):
+        a=rotation+(arm+rng.uniform(-.35,.35))*math.tau/arms
         length=size*rng.uniform(.65,1.05)
         u,v=math.cos(a),math.sin(a)
+        arch=rng.uniform(.38,.72)
         previous=Vec(x,y,z)
         for i in range(1,10):
             t=i/10
-            p=Vec(x+u*t*length,y+length*(.58*math.sin(t*2.45)+.10*t),z+v*t*length)
+            p=Vec(x+u*t*length,y+length*(arch*math.sin(t*2.45)+.10*t),z+v*t*length)
             edge=Vec(p.x-.009*v,p.y,p.z+.009*u)
             face(previous,p,edge,(109,122,61))
             for side in (-1,1):
-                span=length*(.21*math.sin(t*math.pi)**.62+.025)
-                blade(p,a+side*(1.12-.36*t),span,.16*span,.025,(53+i,99+i*2,56),face)
+                span=length*(.21*math.sin(t*math.pi)**.62+.025)*rng.uniform(.72,1.1)
+                blade(p,a+side*(1.12-.36*t),span,.16*span,.025,(53+i,99+i*2,56),face,steps=4)
             previous=p
+
+
+def broadleaf_clump(x,y,z,height,color,face,rng):
+    """Branching understory with offset, folded leaves of different ages."""
+    for _ in range(rng.randint(3,6)):
+        heading=rng.uniform(0,math.tau)
+        u,v=math.cos(heading),math.sin(heading)
+        reach=height*rng.uniform(.45,1.)
+        tip=Vec(x+u*reach,y+height*rng.uniform(.65,1.25),z+v*reach)
+        face(Vec(x-.012,y,z),Vec(x+.012,y,z),tip,(106,89,60))
+        for i in range(1,6):
+            t=i/6
+            base=Vec(x+(tip.x-x)*t,y+(tip.y-y)*t,z+(tip.z-z)*t)
+            a=heading+(-1 if i%2 else 1)*rng.uniform(.65,1.65)
+            dx,dz=math.cos(a),math.sin(a)
+            length=height*rng.uniform(.30,.56)
+            mid=Vec(base.x+.52*length*dx,base.y+.19*length,base.z+.52*length*dz)
+            end=Vec(base.x+length*dx,base.y+.08*length,base.z+length*dz)
+            for side in (-1,1):
+                width=side*.21*length
+                edge=Vec(mid.x-dz*width,mid.y-.05*length,mid.z+dx*width)
+                face(base,mid,edge,color)
+                face(mid,end,edge,color)
 
 
 def snag(x,y,z,height,face):
@@ -55,12 +81,13 @@ def snag(x,y,z,height,face):
     for i,p in enumerate(rings[-1]):face(p,Vec(x,y+height,z),rings[-1][i-1],(162,138,100))
 
 
-def spruce_sprays(x,y,z,h,t,angle,needles,face):
+def spruce_sprays(x,y,z,h,t,angle,needles,face,rng):
     """Layered lateral shoots on the outer silhouette of nearby conifers."""
-    for j in range(8):
-        a=angle+j*math.tau/8
+    shoots=rng.randint(5,9)
+    for j in range(shoots):
+        a=angle+(j+rng.uniform(-.38,.38))*math.tau/shoots
         u,v=math.cos(a),math.sin(a)
-        reach=h*(.24-.19*t)
+        reach=h*(.24-.19*t)*rng.uniform(.65,1.18)
         for k in range(1,5):
             f=k/5
             bx,bz=x+reach*f*u,z+reach*f*v

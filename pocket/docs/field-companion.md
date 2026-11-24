@@ -324,7 +324,8 @@ directory follows `XDG_STATE_HOME` when set.
 Open **Apps → Rainier walk** in the Android OpenGL shell to play on the
 Ohanapecosh River. Tap dry ground to walk to the little gold ring. To follow
 the berry trail, tap **Berries** or the round compass in the scene. When you arrive, a berry turns blue in the counter and the
-bush loses its fruit. Tap the compass again to find the next bush. After three, tap to
+bush loses its fruit. From the starting clearing the four stops trace roughly
+140 metres through the woods on the same riverbank. Tap the compass again to find the next bush. After three, tap to
 bring the berries to the story fox. A heart means the fox has eaten. Tap
 again to play another round. Each feeding adds a heart for this session.
 Touch a spot on the hillside and drag. That spot follows your finger as you

@@ -11,8 +11,8 @@ from geometry import HeightField, Vec
 from forest_floor import blade
 
 ASSETS=Path(__file__).parent/'assets'/'ohanapecosh'
-BUSHES=((-1.,5.),(2.,10.),(-1.,16.))
-FOX=(-2.,22.)
+BUSHES=((-13.,5.),(-27.,42.),(-11.,82.))
+FOX=(-40.,113.)
 
 
 class BerryTrail:
@@ -96,10 +96,12 @@ def channel():
 
 
 def blueberry_patch(x,z,height,face,rng,material,high=True):
-    for _ in range(20):
+    lean=rng.uniform(-.32,.32)
+    width=rng.uniform(.76,1.28)
+    for _ in range(rng.randint(15,20)):
         a=rng.random()*math.tau
         r=rng.uniform(.15,.68)
-        cx,cz=x+r*math.cos(a),z+r*math.sin(a)
+        cx,cz=x+r*width*math.cos(a)+lean,z+r*math.sin(a)
         y=height(cx,cz)+rng.uniform(.38,.70)
         branch=Vec(cx,y,cz)
         face(Vec(x-.025,height(x,z),z),Vec(x+.025,height(x,z),z+.02),branch,(106,76,54))
@@ -107,20 +109,21 @@ def blueberry_patch(x,z,height,face,rng,material,high=True):
         for k in range(1,7):
             t=k/7
             stalk=Vec(foot.x+(cx-foot.x)*t,foot.y+(y-foot.y)*t,foot.z+(cz-foot.z)*t)
-            angle=a+2.4*k
+            angle=a+2.4*k+rng.uniform(-.4,.4)
             blade(stalk,angle,rng.uniform(.09,.16),rng.uniform(.029,.051),
                   rng.uniform(.008,.045),(55+4*k,111+4*k,54),face,serrated=True)
         # Plump blue clusters with a dark calyx, enlarged for a small screen.
-        for offset in (0.,.059):
-            bx=cx+offset;by=y+.045-offset*.35
-            face(branch,Vec(cx+.012,y+.015,cz+.007),Vec(bx,by,cz),(108,106,66))
+        for offset in (0.,rng.uniform(.044,.073)):
+            bx=cx+offset*math.cos(a);by=y+.045-offset*.35
+            bz=cz+offset*math.sin(a)
+            face(branch,Vec(cx+.012,y+.015,cz+.007),Vec(bx,by,bz),(108,106,66))
             rings=[]
             sides=24 if high else 9
             bands=12 if high else 4
             for k in range(bands+1):
                 lat=-math.pi/2+math.pi*k/bands
                 rings.append([Vec(bx+.041*math.cos(lat)*math.cos(i*math.tau/sides),
-                                  by+.038*math.sin(lat),cz+.041*math.cos(lat)*math.sin(i*math.tau/sides))
+                                  by+.038*math.sin(lat),bz+.041*math.cos(lat)*math.sin(i*math.tau/sides))
                               for i in range(sides)])
             for band,(lo,hi) in enumerate(zip(rings,rings[1:])):
                 color=((57,69,128),(71,92,165),(94,119,191),(94,109,167))[band*4//bands]
@@ -129,11 +132,11 @@ def blueberry_patch(x,z,height,face,rng,material,high=True):
                     if band:face(p,hi[i],lo[j],color,material)
                     if band+1<bands:face(lo[j],hi[i],hi[j],color,material)
             if high:
-                crown=Vec(bx,by+.0388,cz)
+                crown=Vec(bx,by+.0388,bz)
                 for j in range(5):
                     a=j*math.tau/5
-                    face(crown,Vec(bx+.013*math.cos(a),by+.038,cz+.013*math.sin(a)),
-                         Vec(bx+.006*math.cos(a+.7),by+.039,cz+.006*math.sin(a+.7)),
+                    face(crown,Vec(bx+.013*math.cos(a),by+.038,bz+.013*math.sin(a)),
+                         Vec(bx+.006*math.cos(a+.7),by+.039,bz+.006*math.sin(a+.7)),
                          (52,65,108),material)
 
 

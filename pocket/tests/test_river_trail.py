@@ -70,8 +70,14 @@ class RiverTrailTests(unittest.TestCase):
         self.assertEqual(field.nx,257)
         self.assertTrue(550<field.height(0,0)<570)
         self.assertTrue(wet(15,8,segments))
-        for x,z in ((0,0),*BUSHES,FOX):
-            self.assertFalse(wet(x,z,segments))
+        stops=((0,0),*BUSHES,FOX)
+        self.assertGreater(math.dist(BUSHES[-1],FOX),35.)
+        for i,(start,end) in enumerate(zip(stops,stops[1:])):
+            distance=math.dist(start,end)
+            self.assertGreater(distance,30. if i else 10.)
+            for j in range(math.ceil(distance)+1):
+                t=j/math.ceil(distance)
+                self.assertFalse(wet(start[0]+(end[0]-start[0])*t,start[1]+(end[1]-start[1])*t,segments,1.))
 
 
     def test_guided_walk_can_look_sideways(self):
