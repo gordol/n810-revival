@@ -327,8 +327,8 @@ the berry trail, tap **Berries** or the round compass in the scene. When you arr
 bush loses its fruit. Tap the compass again to find the next bush. After three, tap to
 bring the berries to the story fox. A heart means the fox has eaten. Tap
 again to play another round. Each feeding adds a heart for this session.
-Drag the left side to walk and steer. Drag the right side to look around,
-including up and down. Tap **Walk** for continuous walking while you look,
+Drag anywhere in the scene to pull the view around while walking to the ring.
+A new tap on the ground sets the next destination. Tap **Walk** for continuous walking while you look,
 and **Stop** to stand still. You can also look around on a guided walk.
 Water sounds grow louder near the river, with a chime for each berry. Tap
 **Mute** for quiet play. There is
@@ -414,8 +414,9 @@ runs the game. The room protocol is unencrypted and designed for trusted
 networks. Keep the UDP port private.
 
 
-In Rainier Walk, drag with your left thumb to walk or sidestep and your right
-thumb to look around. On a computer use W/A/S/D and the arrow keys. Tap Camera
+In **Settings → App: Rainier walk → Touch controls**, choose **Tap to walk**
+(the default) or **Two thumbs**. With Two thumbs, drag on the left to walk or
+sidestep and on the right to look around. Pocket saves this choice locally. On a computer use W/A/S/D and the arrow keys. Tap Camera
 and photograph an animal, or walk within a few steps of a blueberry shrub,
 conifer or forest fern. Open **Camera → Guidebook** for the discoveries saved
 on this device. The photo album keeps repeat shots, too. Ferns appear at high

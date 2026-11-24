@@ -65,6 +65,26 @@ class ViewpointTests(unittest.TestCase):
   app.needs_grid=False
   try:
    view.world=True;view.album=[];view.notebook=None
+   taps=[]
+   view.scene_tap=lambda x,y,w,h:taps.append((x,y))
+   view.destination=(0.,20.)
+   app.world_touch(1,9,8,42,15,0,False)
+   app.world_touch(1,9.2,8.1,42,15,0,True)
+   self.assertEqual(taps,[(9,8)])
+   for start in (5,30):
+    app.world_touch(1,start,5,42,15,0,False)
+    yaw,pitch=app.yaw,app.pitch
+    app.world_touch(1,start+3,7,42,15,32,False)
+    app.world_touch(1,start+3,7,42,15,0,True)
+    self.assertLess(app.yaw,yaw);self.assertLess(app.pitch,pitch)
+   self.assertTrue(view.trail.free_look)
+   self.assertEqual(view.destination,(0.,20.))
+   self.assertEqual(taps,[(9,8)])
+   app.x=app.z=app.yaw=0.
+   app.pointer(3,4,42);app.pointer(8,8,42,32);app.pointer(8,8,42,released=True)
+   self.assertLess(app.yaw,0);self.assertEqual(app.z,0)
+   app.preferences_changed({'touch-controls':'Two thumbs'})
+   app.yaw=0.
    app.world_touch(2,32,7,42,15,0,False)
    app.world_touch(1,10,8,42,15,0,False)
    app.world_touch(1,10,3,42,15,32,False)

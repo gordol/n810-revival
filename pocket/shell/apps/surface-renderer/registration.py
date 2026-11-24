@@ -21,7 +21,10 @@ def descriptor():
         help=(('Explore',('W/S walk; A/D strafe; arrows turn.','One moving object; isolated rendering proof.')),),factory=create)
 
 
-def create_outdoors(host,*,pixel_scene=None,**options):
+WAYPOINT='Tap to walk'
+TWIN_THUMB='Two thumbs'
+
+def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
     # The saved overview cameras belong to Scenery; expose that existing app
     # rather than creating another camera library in the walking demo.
     class RainierWalk(app_module().SurfaceRoom):
@@ -34,6 +37,7 @@ def create_outdoors(host,*,pixel_scene=None,**options):
             self.drag_moved=False
             self.contacts={}
             self.touch_walk=(0.,0.)
+            self.controls=app_context.preferences['touch-controls'] if app_context else WAYPOINT
             self.pixel_scene=pixel_scene
             self.download_pool=None
             self.download_job=None
@@ -72,12 +76,21 @@ def create_outdoors(host,*,pixel_scene=None,**options):
         @property
         def pointer_captured(self):return self.drag_start is not None
 
+        def preferences_changed(self,preferences):
+            self.cancel_pointer()
+            self.controls=preferences['touch-controls']
+
+        def pan_view(self,dx,dy,width,height,direction):
+            self.pixel_scene.trail.free_look=True
+            self.yaw+=direction*dx*3./width
+            self.pitch=max(-1.,min(1.,self.pitch+direction*dy*2./max(1,height)))
+
         def world_touch(self,slot,x,y,width,height,button,released):
             scene=self.pixel_scene
             if slot not in self.contacts:
                 if button or released or not scene or not scene.world or scene.notebook or scene.album:return False
                 if not (0<=x<width and 0<=y<height):return False
-                side='walk' if x<width/2 else 'look'
+                side=('walk' if x<width/2 else 'look') if self.controls==TWIN_THUMB else 'pan'
                 if any(contact[0]==side for contact in self.contacts.values()):side='ignore'
                 self.contacts[slot]=[side,x,y,x,y,bool(self.contacts)]
                 if len(self.contacts)>1:
@@ -94,15 +107,12 @@ def create_outdoors(host,*,pixel_scene=None,**options):
                 if not contact[5] and not dragged:scene.scene_tap(int(x),int(y),width,height)
             else:
                 if dragged:contact[5]=True
-                if contact[5]:
-                    scene.destination=None
+                if contact[5] and side!='ignore':
+                    if side!='pan':scene.destination=None
                     if side=='walk':
                         scene.cruise=scene.trail.guiding=False
                         self.touch_walk=(max(-1.,min(1.,-dy/max(2,height*.15))),max(-1.,min(1.,dx/max(3,width*.15))))
-                    elif side=='look':
-                        scene.trail.free_look=True
-                        self.yaw+=(x-last_x)*3./width
-                        self.pitch=max(-1.,min(1.,self.pitch+(y-last_y)*2./height))
+                    else:self.pan_view(x-last_x,y-last_y,width,height,-1 if side=='pan' else 1)
                 contact[3:5]=[x,y]
             return True
 
@@ -156,13 +166,18 @@ def create_outdoors(host,*,pixel_scene=None,**options):
                     def axis(delta,reach):
                         magnitude=min(1.,max(0,abs(delta)-1)/reach)
                         return -magnitude if delta<0 else magnitude
+                    if self.pixel_scene and self.controls==WAYPOINT:
+                        height=self.host.window(self.name).h-3
+                        if self.drag_moved and self.drag_start[1]<height and not self.pixel_scene.notebook and not self.pixel_scene.album:
+                            last_x,last_y=self.look_last
+                            self.pan_view(x-last_x,y-last_y,width,height,-1)
+                        self.look_last=(x,y)
+                        return True
                     if self.pixel_scene and self.drag_moved:self.pixel_scene.destination=None
                     if self.pixel_scene and self.drag_start[0]>=width/2:
                         if self.drag_moved:
-                            self.pixel_scene.trail.free_look=True
                             last_x,last_y=self.look_last
-                            self.yaw+=(x-last_x)*3./width
-                            self.pitch=max(-1.,min(1.,self.pitch+(y-last_y)*2./max(1,self.host.window(self.name).h)))
+                            self.pan_view(x-last_x,y-last_y,width,self.host.window(self.name).h,1)
                         self.look_last=(x,y)
                         return True
                     if self.pixel_scene and self.drag_moved:
@@ -210,7 +225,7 @@ def create_outdoors(host,*,pixel_scene=None,**options):
     form=RainierWalk(host,outdoors=True,name='Rainier walk',**options)
     if pixel_scene:
         form.help=(('Blueberry trail',('Tap the ground to explore, or tap Berries for the guided fox hunt.',
-                    'Left thumb walks. Right thumb looks. Tap Camera to take a wildlife photo.')), )
+                    'Drag the scenery to look around. Choose Two thumbs in Rainier walk settings for split controls.')), )
         return form
     form.help+=(('Touch movement',('Drag up or down to walk forward or backward. Drag sideways to turn. Diagonal drags combine both.',
         'Hold your finger away from the starting point to keep moving. Lift to stop. Tap the centre for one step.')),('Terrain viewpoints',('O opens Scenery: original, wide, elevated and valley cameras.',
@@ -222,5 +237,6 @@ def outdoor_descriptor():
     """Optional app reference; Runtime owns canonical discovery/menu inclusion."""
     return dict(id='rainier-walk',title='Rainier walk',preferred_size=(90,32),minimum_size=(22,12),category='Experiments',
         description='Explore Rainier terrain and wildlife. On mobile, follow the Ohanapecosh blueberry trail.',
+        settings=(dict(id='touch-controls',label='Touch controls',kind='choice',choices=(WAYPOINT,TWIN_THUMB),default=WAYPOINT),),
         help=(('Explore',('W/S walk; A/D strafe; arrows turn.','I/K look up/down; ground follows metre-scale terrain.','O opens saved terrain viewpoints in Scenery.',
                           'Fictional ruins; real elevation data; existing Lab marmot/eagle.')),),factory=create_outdoors)

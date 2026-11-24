@@ -25,6 +25,12 @@ class RiverExplorationTests(unittest.TestCase):
         self.assertTrue(2<owner.z<2.5)
         self.assertIsNone(ground_target(self.camera,.5,.25,1,lambda x,z:0,lambda x,z:z>2.5))
 
+    def test_waypoint_keeps_moving_while_looking_elsewhere(self):
+        owner=SimpleNamespace(x=0,z=0,yaw=-1.4)
+        walk_to(owner,(0,12),.1,face_path=False)
+        self.assertGreater(owner.z,0)
+        self.assertEqual(owner.yaw,-1.4)
+
     def test_visible_subject_at_tap(self):
         animals=[('behind',0,1,-2,.5),('near',0,1,5,.5),('far',0,1,16,.5)]
         self.assertEqual(sighting(self.camera,.5,.5,1,animals,lambda x,z:0),'near')

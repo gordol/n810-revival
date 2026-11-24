@@ -386,6 +386,7 @@ class RainierView:
             radius=min(1.,aspect)*.044
             if math.hypot((1-u)*aspect-1.7*radius,1-v-1.8*radius)<1.65*radius:
                 return self.guide()
+            self.trail.free_look=False
             self.destination=ground_target(camera,u,v,aspect,ground,lambda a,b:wet(a,b,site()[1],-.7))
             self.cruise=self.trail.guiding=False
         self.pixel_dirty=True
@@ -453,7 +454,7 @@ class RainierView:
             finally:self.pool.shutdown(wait=False);self.pool=self.job=None
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
-        if self.destination is not None:self.destination=walk_to(owner,self.destination,dt)
+        if self.destination is not None:self.destination=walk_to(owner,self.destination,dt,face_path=not self.trail.free_look)
         if self.cruise:owner._translate(1.,0.,dt*2.5)
         for plant,px,pz in self.plant_sites:
             if plant not in self.found_plants and (owner.x-px)**2+(owner.z-pz)**2<=2.5**2:

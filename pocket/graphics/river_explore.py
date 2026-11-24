@@ -71,13 +71,14 @@ def save_photo(key,width,height,pixels):
     return final
 
 
-def walk_to(owner,target,dt):
+def walk_to(owner,target,dt,*,face_path=True):
     dx,dz=target[0]-owner.x,target[1]-owner.z
     distance=math.hypot(dx,dz)
     if distance<.28:return None
-    heading=math.atan2(dx,dz)
-    turn=math.remainder(heading-owner.yaw,math.tau)
-    owner.yaw+=max(-2.7*dt,min(2.7*dt,turn))
+    if face_path:
+        heading=math.atan2(dx,dz)
+        turn=math.remainder(heading-owner.yaw,math.tau)
+        owner.yaw+=max(-2.7*dt,min(2.7*dt,turn))
     step=min(distance,dt*3.2)
     owner.x+=step*dx/distance;owner.z+=step*dz/distance
     return target
