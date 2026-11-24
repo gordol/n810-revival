@@ -68,6 +68,9 @@ class RiverNotebook:
 
 
 PLANTS={
+    'lupine':('Broadleaf lupine','Look for blue-purple pea flowers packed in rings up a tall spike.'),
+    'paintbrush':('Magenta paintbrush','The bright pink-red tips are bracts, small leaves surrounding the flowers.'),
+    'avalanche_lily':('Avalanche lily','Six white petals curve back around yellow anthers. Watch for these lilies where snow has melted.'),
     'blueberry':('Blueberry shrub','Look for round blue berries among the leaves on the trail to the fox.'),
     'conifer':('Evergreen conifer','Step under the low branches and look up through the layers of needles.'),
     'fern':('Forest fern','Look down near the forest floor. Each spreading frond divides into smaller leaflets.'),

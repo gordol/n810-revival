@@ -55,7 +55,7 @@ class HikeMenu:
         switch='Return to Ohanapecosh' if v.regional else ('Open summit approach' if installed() else 'Download Rainier & hike')
         if v.party:switch='Leave family room to travel'
         outings=() if v.regional else ('Fish at trout pool','Gather camp supplies','Hot Springs Trail','Silver Falls Loop Trail')
-        return ('Hike','','Pace   '+v.pace_name,'',switch,'','Back to walk','','Camp & sky','Debug overlay   '+('On' if v.debug_overlay else 'Off'),*outings,v.travel_error[:width])
+        return ('Hike','','Pace   '+v.pace_name,'',switch,'','Back to walk','Paradise meadows' if not v.party else '','Camp & sky','Debug overlay   '+('On' if v.debug_overlay else 'Off'),*outings,v.travel_error[:width])
 
     def tap_xy(self,x,y):
         v=self.view
@@ -86,6 +86,10 @@ class HikeMenu:
             else:v.visit_trail(('Hot Springs Trail','Silver Falls Loop Trail')[y-12])
             return False
         if y==9:v.debug_overlay=not v.debug_overlay;return False
+        if y==7 and not v.party:
+            if v.regional:v.visit_meadow();return False
+            v.start_region(meadow_arrival=True)
+            return True
         if y==8:self.trip=True;return True
         if 1<=y<=2:
             v.pace_index=(v.pace_index+1)%len(v.paces)
@@ -133,6 +137,12 @@ class ReliefMap:
         x,y,rw,rh=self.frame(w,h)
         self.draw_image(ctx,rect,x,y,rw,rh,field.nx,field.nz)
         west,east,south,north=bounds(field)
+        if self.view.meadow_site:
+            mx,mz=self.view.meadow_site
+            sx=(x+(mx-west)/(east-west)*(rw-1))/8
+            sy=(y+(north-mz)/(north-south)*(rh-1))/16
+            ink.fill((sx-.25,sy-.125,.5,.25),0xFFABCAFF)
+            ink.label(max(0,min(w//8-8,sx+1)),sy-.5,'Paradise',0xFFE0EC)
         px,pz=self.view.camera[:2]
         ink.fill(((x+(px-west)/(east-west)*(rw-1)-2)/8,(y+(north-pz)/(north-south)*(rh-1)-2)/16,.625,.3125),0xFFB52DFF)
         ink.label(0,0,'Tap terrain to start here'[:w//8],0xFFF4CF)

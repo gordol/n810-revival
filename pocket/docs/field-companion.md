@@ -339,6 +339,13 @@ reach and both mapped hiking trails. Tap a spot, then **Zoom in** to inspect it
 or **Walk here** to set a direct walking waypoint. **Back** closes the map.
 The valley map works offline.
 
+Choose **Hike → Paradise meadows** on a solo walk to visit the subalpine
+flower fields above Paradise. The first regional visit needs the Rainier elevation
+download. In summer, look for violet broadleaf lupine, magenta paintbrush
+and white avalanche lilies. Approach a patch to add the flower to **Guidebook**.
+The spring setting shows the snowmelt lilies. The flower patches are illustrative,
+and their bloom follows the game's seasons. [Mount Rainier wildflowers](https://www.nps.gov/mora/learn/nature/wildflowers.htm)
+
 Choose **Hike → Fish at trout pool** for a bank-side view of several rainbow trout.
 Tap **Cast fly** and watch the gold fly drift until a trout rises. Tap **Reel in!**,
 then **Release trout**. If it gets away, **Cast again**. Look down to see fish and

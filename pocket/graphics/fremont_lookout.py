@@ -6,11 +6,11 @@ LATITUDE,LONGITUDE=46.9340,-121.6756
 DECK=3.0
 
 
-def location(field):
+def location(field,latitude=LATITUDE,longitude=LONGITUDE):
     from terrain_elevation import grid
     meta,_=grid()
-    col=(LONGITUDE-meta['longitude_first'])/meta['longitude_step']
-    row=(LATITUDE-meta['latitude_first'])/meta['latitude_step']
+    col=(longitude-meta['longitude_first'])/meta['longitude_step']
+    row=(latitude-meta['latitude_first'])/meta['latitude_step']
     if not (0<=col<field.nx-1 and 0<=row<field.nz-1):return None
     return field.origin.x+col*field.dx,field.origin.z+row*field.dz
 

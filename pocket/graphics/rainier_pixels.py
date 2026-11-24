@@ -10,6 +10,7 @@ import zlib
 
 from geometry import Vec, cross, sub, unit
 import fremont_lookout as lookout
+import paradise_meadow as paradise
 from river_channel import TROUT_POOL
 from river_camp import CAMP, OVERLOOK, SUPPLIES, camp_materials, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
@@ -327,6 +328,9 @@ def build_world(high=True,plant_sites=None,regional=False):
             def ridge_height(x,z):return surface(field,x,z)
             lookout.build(ridge_height,face,*position)
             ridge_grass(ridge_height,face,random.Random(1934),*position)
+        clearing=lookout.location(field,paradise.LATITUDE,paradise.LONGITUDE)
+        if clearing:
+            paradise.meadow(lambda x,z:surface(field,x,z),face,*clearing)
         count=len(triangles)//7
         return field,origin,triangles,count,array('I',[0]),(),count,None
 
@@ -487,6 +491,9 @@ class RainierView:
         self.regional=False
         self.valley_pose=self.map_position=None
         self.travel_job=self.travel_pool=None
+        self.meadow_site=None
+        self.flower_sites=[]
+        self.meadow_arrival=False
         self.lookout_arrival=False
         self.lookout_site=None
         self.travel_error=''
@@ -828,7 +835,16 @@ class RainierView:
         self.cruise=self.binoculars=False
         self.zoom=1.
 
-    def start_region(self,lookout_arrival=False):
+    def visit_meadow(self):
+        if self.meadow_site:
+            x,z=self.meadow_site
+            self.trip_pose=(x,z,-.30,.12)
+            self.destination=None
+            self.cruise=self.binoculars=self.lens=False
+            self.zoom=1.
+
+    def start_region(self,lookout_arrival=False,meadow_arrival=False):
+        self.meadow_arrival=meadow_arrival
         self.lookout_arrival=lookout_arrival
         self.travel_error=''
         self.travel_pool=ThreadPoolExecutor(max_workers=1)
@@ -868,6 +884,12 @@ class RainierView:
                 owner.cancel_keys()
                 owner.x,owner.z=summit_start(world[0])
                 owner.yaw,owner.pitch=0.,-.38
+                self.meadow_site=lookout.location(world[0],paradise.LATITUDE,paradise.LONGITUDE)
+                self.flower_sites=[]
+                if self.meadow_site:
+                    mx,mz=self.meadow_site
+                    self.flower_sites=[(key,mx+dx,mz+dz) for key,dx,dz in paradise.patches()]
+                    if self.meadow_arrival:self.visit_meadow()
                 site_xz=lookout.location(world[0])
                 if site_xz:
                     self.lookout_site=(*site_xz,lookout.base_level(lambda x,z:surface(world[0],x,z),*site_xz))
@@ -904,12 +926,16 @@ class RainierView:
         dt=min(.1,max(0.,now-(self.last_tick or now)))
         if self.destination is not None:self.destination=walk_to(owner,self.destination,dt,face_path=not self.trail.free_look,speed=3.2*self.pace)
         if self.cruise:owner._translate(1.,0.,dt*2.5,self.cruise_heading)
-        for plant,px,pz in (() if self.regional else self.plant_sites):
+        for plant,px,pz in (self.flower_sites if self.regional else self.plant_sites):
+            if self.regional and not paradise.blooming(plant,self.season):continue
             if plant not in self.found_plants and (owner.x-px)**2+(owner.z-pz)**2<=2.5**2:
-                from river_notebook import record_plant
+                from river_notebook import PLANTS,record_plant
                 try:record_plant(plant)
                 except OSError:continue
                 self.found_plants.add(plant)
+                if self.regional:
+                    self.photo_hint=PLANTS[plant][0]+' in guidebook'
+                    self.hint_until=self.age+2.5
         before=len(self.trail.picked)
         fed=self.trail.fed
         if not self.regional:self.trail.advance(owner,dt,local_pick=self.party is None)
@@ -1057,7 +1083,7 @@ class RainierView:
             if center is None or max(abs(x-center[0]),abs(z-center[1]))>64:
                 center=(96*round(x/96),96*round(z/96))
             if center!=self.stand_center or self.upload:
-                stand,shadows=regional_stand(field,origin.y,*center,surface,self.lookout_site)
+                stand,shadows=regional_stand(field,origin.y,*center,surface,self.lookout_site,self.meadow_site)
                 stand_ptr=stand.buffer_info()[0]
                 self.stand_count=len(stand)//7
                 self.stand_center=center

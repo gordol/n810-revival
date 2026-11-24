@@ -123,3 +123,29 @@ class HikeTests(TestCase):
             self.assertFalse(overview.tap_xy(cols//2,rows-4))
             self.assertEqual(view.destination,target)
             self.assertFalse(view.trail.free_look)
+
+    def test_paradise_outing_and_seasonal_discoveries(self):
+        import paradise_meadow as meadow
+        from river_notebook import PLANTS
+        from rainier_pixels import RainierView
+        view=RainierView(None)
+        menu=HikeMenu(view)
+        row=menu.lines(40).index('Paradise meadows')
+        with patch.object(view,'start_region') as start:
+            self.assertTrue(menu.tap_xy(0,row))
+            start.assert_called_once_with(meadow_arrival=True)
+        view.regional=True
+        view.meadow_site=(120.,350.)
+        self.assertFalse(menu.tap_xy(0,row))
+        self.assertEqual(view.trip_pose[:2],view.meadow_site)
+        self.assertEqual(set(k for k,_,_ in meadow.patches()),set(meadow.FLOWERS))
+        for k in meadow.FLOWERS:
+            self.assertIn(k,PLANTS)
+            self.assertEqual([s for s in range(4) if meadow.blooming(k,s)],[0,3] if k=='avalanche_lily' else [0])
+        counts={}
+        def face(a,b,c,color,material):
+            self.assertGreaterEqual(min(a.y,b.y,c.y),9.98)
+            counts[material]=counts.get(material,0)+3
+        meadow.meadow(lambda x,z:10.,face,*view.meadow_site)
+        self.assertEqual(set(counts),{.86,.88})
+        self.assertLess(sum(counts.values()),300_000)

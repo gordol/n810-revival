@@ -12,7 +12,7 @@ def tools(width,height,lens,binoculars=False,zoom=1.,regional=False):
     w=min(13,(width-3)//2)
     optics=lens or binoculars
     if regional:
-        buttons=[]
+        buttons=[('book','Guidebook',(width-w-1,3,w,2))]
     else:
         buttons=[('camera','Put away' if lens else 'Camera',(1,1,w,2)),
                  ('book','Guidebook',(width-w-1,1,w,2))]

@@ -60,7 +60,7 @@ def ridge_grass(height,face,rng,cx,cz):
                 face(base,tip,edge,(rng.randrange(110,147),rng.randrange(122,147),76))
 
 
-def regional_stand(field,base_y,cx,cz,surface,lookout):
+def regional_stand(field,base_y,cx,cz,surface,lookout,meadow=None):
     """Stable world-grid trees and meadow clumps within walking distance."""
     from array import array
     import random
@@ -97,7 +97,8 @@ def regional_stand(field,base_y,cx,cz,surface,lookout):
             density=.66+.23*math.sin(x*.021+math.cos(z*.03))
             fraction=max(0.,min(1.,(treeline-y)/250))
             angle=rng.random()*math.tau
-            if rng.random()<density*fraction:
+            in_meadow=meadow and math.hypot(x-meadow[0],(z-meadow[1]-9)/.8)<53
+            if rng.random()<density*fraction and not in_meadow:
                 h=rng.uniform(5,21)*(.4+.6*fraction)
                 ground=y-base_y
                 cone(x,ground-.2,z,h*.032,h*.8,(.36,.28,.19),angle,4)
