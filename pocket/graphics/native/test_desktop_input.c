@@ -28,9 +28,24 @@ int main(void){
  SDL_zero(e);e.type=SDL_FINGERDOWN;e.tfinger.x=.75f;e.tfinger.y=.25f;e.tfinger.fingerId=7;
  CHECK(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1);
  CHECK(pocket_window_event(out)&&out[0]==2&&out[1]==600&&out[2]==120&&!out[4]);
+ int first=out[5];CHECK(first>0);
+ e.tfinger.fingerId=0x100000007LL;e.tfinger.x=.25f;
+ CHECK(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1);
+ SDL_Event pair[2];pair[0]=e;pair[0].type=SDL_FINGERUP;pair[0].tfinger.fingerId=7;
+ pair[1]=e;pair[1].type=SDL_FINGERMOTION;pair[1].tfinger.x=.4f;
+ CHECK(SDL_PeepEvents(pair,2,SDL_ADDEVENT,0,0)==2);
  e.type=SDL_FINGERUP;CHECK(SDL_PeepEvents(&e,1,SDL_ADDEVENT,0,0)==1);
- int released=0;for(unsigned i=0;i<100;i++){if(pocket_window_event(out)&&out[0]==2&&out[4]){released=1;break;}SDL_Delay(2);}
- CHECK(released);
+ int index=0,second=0;
+ for(unsigned i=0;i<100&&index<4;i++){
+  if(!pocket_window_event(out)){SDL_Delay(2);continue;}
+  if((out[0]!=2&&out[0]!=9)||!out[5])continue;
+  if(index==0){second=out[5];CHECK(second!=first&&out[0]==9&&!out[4]);}
+  if(index==1)CHECK(out[0]==2&&out[4]&&out[5]==first);
+  if(index==2)CHECK(out[0]==9&&out[3]==32&&out[5]==second);
+  if(index==3)CHECK(out[0]==9&&out[4]&&out[5]==second);
+  index++;
+ }
+ CHECK(index==4);
  pocket_window_close(w);
  puts("Native SDL text-input, shift, wheel, captured mouse and focus-loss checks pass.");return 0;
 }

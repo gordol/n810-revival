@@ -34,7 +34,7 @@ class Platform:
    from room_pixels import PixelRoom
    room=PixelRoom(host,Path(self.library).resolve().parent/'room-pixels.so');self.register_pixel_view(room);return room
   entry=registry.entries['surface-room'];registry.entries['surface-room']=entry._replace(factory=room_factory)
-  if self.mobile and 'rainier-walk' in registry.entries:
+  if 'rainier-walk' in registry.entries:
    entry=registry.entries['rainier-walk'];original_rainier=entry.factory
    def rainier_factory(host,**options):
     ctx=self.gpu_context

@@ -118,6 +118,17 @@ struct rainier_animal {
  float blend,x,y,z,heading,shadow,slope_x,slope_z;
 };
 
+static void river_hiker_band(float bottom,float top,float base,float rim,float r,float g,float b){
+ glBegin(GL_QUAD_STRIP);
+ for(int j=0;j<=8;j++){
+  float a=j*.78539816f,x=cosf(a),z=sinf(a);
+  float light=.78f+.16f*x-.06f*z;
+  glColor3f(r*light,g*light,b*light);
+  glVertex3f(x*base,bottom,z*base);glVertex3f(x*rim,top,z*rim);
+ }
+ glEnd();
+}
+
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
@@ -125,7 +136,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  struct gpu_scene *s=ptr;
  if(!s||w<1||h<1||count<3||count>2000000||(!vertices&&!s->rainier_buffer))
   return SDL_SetError("Invalid Rainier scene");
- if(nh>3||(nh&&!hikers)||terrain_count>count||ni>2000000||na>64||(!animals&&na)||
+ if(nh>7||(nh&&!hikers)||terrain_count>count||ni>2000000||na>64||(!animals&&na)||
     (!!vertices!=!!indices)||(!indices&&!s->rainier_indices))return SDL_SetError("Invalid Rainier wildlife buffers");
  for(unsigned i=0;i<na;i++){
   const struct rainier_animal *a=animals+i;
@@ -237,14 +248,24 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   if(photo_query && (int)i==photo_animal)glEndQuery(GL_SAMPLES_PASSED);
   glPopMatrix();
  }
- /* A bright trail pennant marks each family member in world space. */
- glUseProgram(0);glLineWidth(3.f);
+ /* Small rain jackets and knit caps stand out against the dark conifers. */
+ glUseProgram(0);
+ static const float coats[][3]={{.93f,.47f,.12f},{.12f,.66f,.67f},{.75f,.28f,.40f},
+  {.42f,.48f,.81f},{.85f,.67f,.18f},{.50f,.63f,.27f},{.68f,.38f,.65f}};
  for(unsigned i=0;i<nh;i++){
-  const float *p=hikers+i*3;float dx=.39f*cosf(yaw),dz=-.39f*sinf(yaw);
-  glColor3f(.88f,.80f,.59f);glBegin(GL_LINES);
-  glVertex3f(p[0],p[1],p[2]);glVertex3f(p[0],p[1]+1.65f,p[2]);glEnd();
-  glColor3f(1.f,.44f,.13f);glBegin(GL_TRIANGLES);
-  glVertex3f(p[0],p[1]+1.65f,p[2]);glVertex3f(p[0]+dx,p[1]+1.47f,p[2]+dz);glVertex3f(p[0],p[1]+1.28f,p[2]);glEnd();
+  const float *p=hikers+i*3,*coat=coats[i];
+  glPushMatrix();glTranslatef(p[0],p[1],p[2]);
+  for(int leg=-1;leg<=1;leg+=2){
+   glPushMatrix();glTranslatef(leg*.10f,0,0);
+   river_hiker_band(.02f,.52f,.085f,.09f,.13f,.16f,.19f);
+   glPopMatrix();
+  }
+  river_hiker_band(.48f,.94f,.22f,.24f,coat[0],coat[1],coat[2]);
+  river_hiker_band(.94f,1.10f,.24f,.11f,coat[0],coat[1],coat[2]);
+  river_hiker_band(1.09f,1.32f,.12f,.14f,.63f,.44f,.32f);
+  river_hiker_band(1.29f,1.37f,.16f,.15f,.89f,.83f,.65f);
+  river_hiker_band(1.37f,1.45f,.15f,.025f,.79f,.74f,.58f);
+  glPopMatrix();
  }
  if(ripple){
   glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);

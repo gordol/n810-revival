@@ -41,6 +41,21 @@ class FamilyWalkTests(unittest.TestCase):
         server.step(0,0,now+6)
         self.assertEqual(server.roster,{server.ident:(0,0)})
 
+    def test_eight_seats_and_a_waiting_ninth_player(self):
+        host=RiverParty(True,4321,port=0)
+        self.addCleanup(host.close)
+        guests=[]
+        for i in range(8):
+            client=RiverParty(False,4321,'127.0.0.1',host.sock.getsockname()[1])
+            self.addCleanup(client.close)
+            guests.append(client)
+        for tick in range(5):
+            for client in guests:client.step(0,0,tick*.2)
+            host.step(0,0,tick*.2)
+        self.assertEqual(len(host.roster),8)
+        self.assertTrue(all(len(client.roster)==8 for client in guests[:7]))
+        self.assertFalse(guests[-1].roster)
+
     def test_touch_keypad(self):
         from unittest.mock import patch
         view=SimpleNamespace(party=None)

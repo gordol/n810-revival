@@ -8,4 +8,10 @@ subprocess.run([sys.executable,str(here/'build.py')],check=True)
 if os.environ.get('POCKET_TERMUX') == '1' and not {'--headless','--help','-h'}.intersection(sys.argv[1:]):
     from termux_display import ensure_display
     ensure_display()
+    if '--mobile-shell' in sys.argv and os.environ.get('PREFIX'):
+        sys.path.insert(0,str(here.parent/'shell'))
+        from mobile_shell import TouchInput
+        control=TouchInput()
+        control.apply()
+        print(control.message,file=sys.stderr,flush=True)
 os.execv(sys.executable,[sys.executable,str(here/'run.py'),*sys.argv[1:]])

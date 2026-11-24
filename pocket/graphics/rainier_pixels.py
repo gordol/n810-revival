@@ -12,7 +12,7 @@ from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, fern, snag, spruce_sprays
 from rainier_habitat import forest_sites
 from river_party import PartyMenu
-from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, photo_paths, read_photo, save_photo, sighting, walk_to
+from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, read_photo, save_photo, sighting, walk_to
 from pnw_species import REGIONAL, group
 from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, river_mesh, site, wet
 from vegetation import ground_color, noise
@@ -151,7 +151,7 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None):
     return (AnimalDraw*len(visible))(*visible)
 
 
-def build_world(high=True):
+def build_world(high=True,plant_sites=None):
     field,segments=site()
     origin=Vec(0,surface(field,0,0),0)
     triangles=array('f')
@@ -218,8 +218,12 @@ def build_world(high=True):
                 target=triangles
             for i,p in enumerate(crown):
                 face(apex,p,crown[(i+1)%tips],tuple(v*shade*(.78+.23*t) for v in needles))
+    if plant_sites is not None:
+        plant_sites.clear()
+        plant_sites.extend(('blueberry',x,z) for x,z in BUSHES)
     for dx,dz,h,near in forest_sites(random.Random(3918)):
         if wet(dx,dz,segments,2):continue
+        if plant_sites is not None and math.hypot(dx,dz)<70:plant_sites.append(("conifer",dx,dz))
         if high:shade_tree(shadows,dx,dz,h)
         pine(origin.x+dx,origin.z+dz,h,near)
     def height(x,z):return surface(field,x,z)
@@ -234,6 +238,7 @@ def build_world(high=True):
     for _ in range(38 if high else 0):
         dx,dz=rng.uniform(-15,15),rng.uniform(-15,35)
         if wet(dx,dz,segments,1) or abs(dx)<2:continue
+        if plant_sites is not None:plant_sites.append(("fern",dx,dz))
         fern(dx,dz,height(dx,dz),rng.uniform(.45,.85),face,rng)
 
     target=triangles
@@ -295,6 +300,8 @@ class RainierView:
         self.photo_hint=''
         self.hint_until=0.
         self.party=None
+        self.plant_sites=[]
+        self.found_plants=set()
         self.solo=None
         self.hearts=self.cue=0
         self.last_tick=None
@@ -320,7 +327,7 @@ class RainierView:
         if trail.fed:hint=f'Again ({self.hearts})'
         elif len(trail.picked)==3:hint='3/3 | Feed fox'
         else:hint=f'Berries {len(trail.picked)}/3'
-        if self.lens:hint="Album"
+        if self.lens:hint="Guidebook"
         family='Family'
         if self.party:family=f'{len(self.party.roster)} here' if self.party.roster else 'Finding'
         labels=('Stop' if self.cruise else 'Walk',hint,family,self.photo_hint if self.age<self.hint_until else ('Lens on' if self.lens else 'Camera'),'Mute' if self.sound else 'Sound')
@@ -354,11 +361,8 @@ class RainierView:
         elif self.lens:
             self.cruise=self.trail.guiding=False
             self.destination=None
-            try:self.album=photo_paths()
-            except OSError:self.album=[]
-            self.album_index=0
-            self.album_loaded=None
-            if not self.album:self.photo_hint='Tap wildlife';self.hint_until=self.age+2.
+            from river_notebook import DiscoveryBook
+            self.notebook=DiscoveryBook(self)
         else:return self.guide()
         return True
 
@@ -438,7 +442,7 @@ class RainierView:
         if self.world is None:
             if self.job is None:
                 self.pool=ThreadPoolExecutor(max_workers=1)
-                self.job=self.pool.submit(build_world,self.quality.high)
+                self.job=self.pool.submit(build_world,self.quality.high,self.plant_sites)
             if not self.job.done():return
             try:self.world=self.job.result()
             except MemoryError:
@@ -451,6 +455,12 @@ class RainierView:
         dt=min(.1,max(0.,now-(self.last_tick or now)))
         if self.destination is not None:self.destination=walk_to(owner,self.destination,dt)
         if self.cruise:owner._translate(1.,0.,dt*2.5)
+        for plant,px,pz in self.plant_sites:
+            if plant not in self.found_plants and (owner.x-px)**2+(owner.z-pz)**2<=2.5**2:
+                from river_notebook import record_plant
+                try:record_plant(plant)
+                except OSError:continue
+                self.found_plants.add(plant)
         before=len(self.trail.picked)
         fed=self.trail.fed
         self.trail.advance(owner,dt,local_pick=self.party is None)
@@ -474,7 +484,8 @@ class RainierView:
 
     def draw_rainier(self,ctx):
         self.pixel_dirty=False
-        if self.world is None or self.camera is None or self.notebook:return ()
+        preview=getattr(self.notebook,'preview',None)
+        if self.world is None or self.camera is None or (self.notebook and not preview):return ()
         field,origin,data,terrain_count,indices,spans,base_count,shadows=self.world
         self.quality.frame(self.age)
         high=self.quality.high
@@ -484,12 +495,17 @@ class RainierView:
         ox,oy=self.host.origin
         rect=((wx+ox+1)*8,(wy+oy+1)*16,(w-2)*8,(h-3)*16)
         if min(rect[2:])<1:return ()
-        if self.album:
-            path=self.album[self.album_index]
+        if self.album or preview:
+            if preview:
+                rows=self.notebook.picture_rows()
+                if not rows:return ()
+                rect=(rect[0],rect[1]+48,rect[2],rows*16)
+            path=preview or self.album[self.album_index]
             w=h=0;rgb=None
             if path!=self.album_loaded:
                 try:w,h,rgb=read_photo(path)
                 except (OSError,ValueError,zlib.error,struct.error):
+                    if preview:self.notebook.damaged.add(preview);return ()
                     self.album.pop(self.album_index)
                     if self.album:self.album_index%=len(self.album)
                     return ()

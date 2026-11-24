@@ -15,7 +15,7 @@ STATE=struct.Struct('!4sHIIIIBB')
 PLAYER=struct.Struct('!Ihh')
 VERSION=b'ORB1'
 SNAP=b'ORS1'
-LIMIT=4
+LIMIT=8
 
 
 class RiverParty:

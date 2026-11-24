@@ -32,6 +32,8 @@ def create_outdoors(host,*,pixel_scene=None,**options):
             self.drag_start=None
             self.drag_axes=(0.,0.)
             self.drag_moved=False
+            self.contacts={}
+            self.touch_walk=(0.,0.)
             self.pixel_scene=pixel_scene
             self.download_pool=None
             self.download_job=None
@@ -70,7 +72,43 @@ def create_outdoors(host,*,pixel_scene=None,**options):
         @property
         def pointer_captured(self):return self.drag_start is not None
 
+        def world_touch(self,slot,x,y,width,height,button,released):
+            scene=self.pixel_scene
+            if slot not in self.contacts:
+                if button or released or not scene or not scene.world or scene.notebook or scene.album:return False
+                if not (0<=x<width and 0<=y<height):return False
+                side='walk' if x<width/2 else 'look'
+                if any(contact[0]==side for contact in self.contacts.values()):side='ignore'
+                self.contacts[slot]=[side,x,y,x,y,bool(self.contacts)]
+                if len(self.contacts)>1:
+                    for contact in self.contacts.values():contact[5]=True
+                self.touch_time=self.clock()
+                return True
+            contact=self.contacts[slot]
+            side,start_x,start_y,last_x,last_y,_=contact
+            dx,dy=x-start_x,y-start_y
+            dragged=abs(dx)>1 or abs(dy)>.6
+            if released:
+                del self.contacts[slot]
+                if side=='walk':self.touch_walk=(0.,0.)
+                if not contact[5] and not dragged:scene.scene_tap(int(x),int(y),width,height)
+            else:
+                if dragged:contact[5]=True
+                if contact[5]:
+                    scene.destination=None
+                    if side=='walk':
+                        scene.cruise=scene.trail.guiding=False
+                        self.touch_walk=(max(-1.,min(1.,-dy/max(2,height*.15))),max(-1.,min(1.,dx/max(3,width*.15))))
+                    elif side=='look':
+                        scene.trail.free_look=True
+                        self.yaw+=(x-last_x)*3./width
+                        self.pitch=max(-1.,min(1.,self.pitch+(y-last_y)*2./height))
+                contact[3:5]=[x,y]
+            return True
+
         def cancel_pointer(self):
+            self.contacts.clear()
+            self.touch_walk=(0.,0.)
             self.drag_start=None
             self.drag_axes=(0.,0.)
             self.drag_moved=False
@@ -80,6 +118,11 @@ def create_outdoors(host,*,pixel_scene=None,**options):
             super().cancel_keys(now)
 
         def advance_drag(self):
+            if self.contacts:
+                now=self.clock()
+                dt=min(.1,max(0.,now-self.touch_time))
+                self.touch_time=now
+                self._apply_motion(MotionStep(dt,*self.touch_walk,0.,0.),now)
             if self.drag_start is None:return
             now=self.clock()
             dt=min(.1,max(0.,now-self.drag_time))
@@ -167,7 +210,7 @@ def create_outdoors(host,*,pixel_scene=None,**options):
     form=RainierWalk(host,outdoors=True,name='Rainier walk',**options)
     if pixel_scene:
         form.help=(('Blueberry trail',('Tap the ground to explore, or tap Berries for the guided fox hunt.',
-                    'Drag to walk and look. Tap Camera, then tap a visible animal for a photo.')), )
+                    'Left thumb walks. Right thumb looks. Tap Camera to take a wildlife photo.')), )
         return form
     form.help+=(('Touch movement',('Drag up or down to walk forward or backward. Drag sideways to turn. Diagonal drags combine both.',
         'Hold your finger away from the starting point to keep moving. Lift to stop. Tap the centre for one step.')),('Terrain viewpoints',('O opens Scenery: original, wide, elevated and valley cameras.',

@@ -12,12 +12,12 @@
 static struct window *input_window;
 static unsigned canvas_width=800,canvas_height=480;
 static int dynamic_canvas;
-static int mobile_input, touching;
-static SDL_FingerID primary_finger;
+static int mobile_input;
+static struct {int active,primary; SDL_TouchID device; SDL_FingerID finger;} contacts[10];
 
 static void *desktop_open(int fd,int mobile){
- mobile_input=mobile;touching=0;
- if(mobile)SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS,"0");
+ mobile_input=mobile;memset(contacts,0,sizeof contacts);
+ if(mobile){SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS,"0");SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS,"0");}
  void *window=pocket_window_create(fd,0,mobile);
  if(window){
   input_window=window;SDL_StopTextInput();
@@ -74,7 +74,7 @@ int pocket_window_event(int out[6]){
   if(e.type==SDL_QUIT){out[0]=1;return 1;}
   if(e.type==SDL_WINDOWEVENT){
    if(e.window.event==SDL_WINDOWEVENT_FOCUS_GAINED)SDL_StopTextInput();
-   if(e.window.event==SDL_WINDOWEVENT_FOCUS_LOST){touching=0;SDL_SetRelativeMouseMode(SDL_FALSE);out[0]=6;return 1;}
+   if(e.window.event==SDL_WINDOWEVENT_FOCUS_LOST){memset(contacts,0,sizeof contacts);SDL_SetRelativeMouseMode(SDL_FALSE);out[0]=6;return 1;}
    if(e.window.event==SDL_WINDOWEVENT_SIZE_CHANGED&&dynamic_canvas){out[0]=8;out[1]=e.window.data1;out[2]=e.window.data2;return 1;}
    if(e.window.event==SDL_WINDOWEVENT_SIZE_CHANGED||e.window.event==SDL_WINDOWEVENT_EXPOSED){out[0]=4;return 1;}
   }
@@ -97,19 +97,27 @@ int pocket_window_event(int out[6]){
    out[3]=up?64:65;return 1;
   }
   if(mobile_input&&(e.type==SDL_FINGERDOWN||e.type==SDL_FINGERMOTION||e.type==SDL_FINGERUP)){
+   int slot=-1,empty=-1,held=0;
+   for(int i=0;i<10;i++){
+    if(!contacts[i].active){if(empty<0)empty=i;continue;}
+    held++;
+    if(contacts[i].device==e.tfinger.touchId&&contacts[i].finger==e.tfinger.fingerId)slot=i;
+   }
    if(e.type==SDL_FINGERDOWN){
-    if(touching)continue;
-    touching=1;primary_finger=e.tfinger.fingerId;SDL_ShowCursor(SDL_DISABLE);
-   }else if(!touching||e.tfinger.fingerId!=primary_finger)continue;
-   out[0]=2;out[1]=(int)(e.tfinger.x*canvas_width);out[2]=(int)(e.tfinger.y*canvas_height);
+    if(slot>=0||empty<0)continue;
+    slot=empty;contacts[slot].active=1;contacts[slot].primary=!held;
+    contacts[slot].device=e.tfinger.touchId;contacts[slot].finger=e.tfinger.fingerId;
+    SDL_ShowCursor(SDL_DISABLE);
+   }else if(slot<0)continue;
+   out[0]=contacts[slot].primary?2:9;out[5]=slot+1;
+   out[1]=(int)(e.tfinger.x*canvas_width);out[2]=(int)(e.tfinger.y*canvas_height);
    out[3]=e.type==SDL_FINGERMOTION?32:0;out[4]=e.type==SDL_FINGERUP;
-   if(out[4])touching=0;
+   if(out[4])contacts[slot].active=0;
    return 1;
   }
   if(mobile_input&&(e.type==SDL_MOUSEMOTION||e.type==SDL_MOUSEBUTTONDOWN||e.type==SDL_MOUSEBUTTONUP)){
    Uint32 which=e.type==SDL_MOUSEMOTION?e.motion.which:e.button.which;
    if(which==SDL_TOUCH_MOUSEID)continue;
-   if(e.type==SDL_MOUSEBUTTONDOWN)touching=0;
    SDL_ShowCursor(SDL_ENABLE);
   }
   if(e.type==SDL_MOUSEMOTION&&SDL_GetRelativeMouseMode()){

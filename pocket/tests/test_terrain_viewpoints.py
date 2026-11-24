@@ -64,6 +64,17 @@ class ViewpointTests(unittest.TestCase):
   app=registration.create_outdoors(host,clock=lambda:now[0],pixel_scene=view)
   app.needs_grid=False
   try:
+   view.world=True;view.album=[];view.notebook=None
+   app.world_touch(2,32,7,42,15,0,False)
+   app.world_touch(1,10,8,42,15,0,False)
+   app.world_touch(1,10,3,42,15,32,False)
+   app.world_touch(2,36,7,42,15,32,False)
+   now[0]+=.1;app.poll()
+   self.assertGreater(app.z,0);self.assertGreater(app.yaw,0)
+   app.world_touch(2,36,7,42,15,0,True)
+   moving=app.z;now[0]+=.1;app.poll();self.assertGreater(app.z,moving)
+   app.world_touch(1,10,3,42,15,0,True)
+   app.x=app.z=app.yaw=0.
    app.pointer(18,9,42)
    app.pointer(27,3,42,32)
    now[0]+=.1;app.poll()

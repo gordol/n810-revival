@@ -41,3 +41,16 @@ class RiverExplorationTests(unittest.TestCase):
             offset=image.index(b'IDAT')
             size=struct.unpack('>I',image[offset-4:offset])[0]
             self.assertEqual(zlib.decompress(image[offset+4:offset+4+size]),bytes([0,255,0,0,0,0,0,255]))
+
+    def test_private_discovery_pages_survive_reopening(self):
+        sys.path[:0]=[str(root/'shell/apps/surface-renderer'),str(root/'shell/apps/landscape-lab')]
+        from river_notebook import DiscoveryBook,record_plant
+        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,XDG_DATA_HOME=temp):
+            view=SimpleNamespace(name='Rainier walk',host=SimpleNamespace(window=lambda _:SimpleNamespace(w=42,h=24)))
+            record_plant('blueberry');record_plant('blueberry')
+            for _ in range(2):save_photo('trout',1,1,bytes(3))
+            book=DiscoveryBook(view)
+            self.assertEqual({e[1] for e in book.entries},{'trout','blueberry'})
+            book.page=next(i for i,e in enumerate(book.entries) if e[1]=='trout')
+            self.assertFalse(book.tap_xy(2,3))
+            self.assertEqual(len(view.album),2)

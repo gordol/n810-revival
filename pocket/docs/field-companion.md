@@ -389,7 +389,7 @@ Use `low` for the lighter build, or run `make mobile` with no override for auto.
 
 ### Family walk
 
-Up to four mobile-shell players can share the blueberry hunt on a trusted
+Up to eight graphical Pocket players can share the blueberry hunt on a trusted
 Wi-Fi network. Open **Rainier walk → Family** on each device.
 
 1. On one device, tap **Host on this Wi-Fi**. Read the four-digit room code.
@@ -412,3 +412,11 @@ Replace the example with the host's LAN or VPN address, then enter its room
 code. A VPN server can route the connection between devices. The host still
 runs the game. The room protocol is unencrypted and designed for trusted
 networks. Keep the UDP port private.
+
+
+In Rainier Walk, drag with your left thumb to walk or sidestep and your right
+thumb to look around. On a computer use W/A/S/D and the arrow keys. Tap Camera
+and photograph an animal, or walk within a few steps of a blueberry shrub,
+conifer or forest fern. Open **Camera → Guidebook** for the discoveries saved
+on this device. The photo album keeps repeat shots, too. Ferns appear at high
+detail. Android uses Termux:X11's **Direct touch** mode for independent fingers.
