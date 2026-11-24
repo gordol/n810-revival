@@ -31,6 +31,49 @@ class RiverDetailTests(unittest.TestCase):
                 count=len(spans)
             del vertices
 
+    def test_binoculars_prioritize_in_frame_wildlife_beyond_walking_range(self):
+        from geometry import Vec
+        from rainier_pixels import encounters
+        from river_walk import site
+        field,_=site()
+        crowd=tuple((f'near{i}',2.,5.,1.) for i in range(50))+(('distant',0.,500.,1.),)
+        spans=[(0,1,1,0,3)]*len(crowd)
+        camera=(0,field.height(0,500),0,0,0)
+        with patch('rainier_pixels.ENCOUNTERS',crowd):
+            for optics,expected in ((None,False),((camera,.5,8),True)):
+                seen=[]
+                draws=encounters(field,Vec(0,0,0),spans,0,subjects=seen,optics=optics)
+                self.assertLessEqual(len(draws),48)
+                self.assertEqual('distant' in [s[0] for s in seen],expected)
+
+    def test_bluff_cycles_unpicked_patches_then_fox_with_clear_terrain(self):
+        import math
+        from rainier_pixels import RainierView,surface
+        from river_walk import BERRY_BLUFF,BUSHES,FOX,BerryTrail,channel,site
+        view=RainierView.__new__(RainierView)
+        view.lens=view.regional=False
+        view.binoculars=True
+        view.album=[]
+        view.zoom=4.
+        view.trail=BerryTrail()
+        view.trail.picked.add(BUSHES[0])
+        field=channel().bed_field(site()[0])
+        view.world=(field,)
+        view.camera=(0,0,0,0)
+        view.bluff_target=None
+        for tx,tz in (BUSHES[1],BUSHES[2],FOX,BUSHES[1]):
+            self.assertTrue(view.scene_tap(2,28,40,30))
+            x,z,yaw,pitch=view.camera=view.trip_pose
+            self.assertEqual((x,z),BERRY_BLUFF)
+            self.assertEqual(view.bluff_target,(tx,tz))
+            self.assertAlmostEqual(yaw,math.atan2(tx-x,tz-z))
+            for i in range(100):
+                t=i/100
+                ray_y=surface(field,x,z)+1.25-math.tan(pitch)*math.hypot(tx-x,tz-z)*t
+                self.assertGreater(ray_y,surface(field,x+(tx-x)*t,z+(tz-z)*t))
+        self.assertEqual(view.trail.picked,{BUSHES[0]})
+        self.assertFalse(view.trail.fed)
+
     def test_canopy_height_is_centered_on_the_tree(self):
         mask=bytearray(512*512)
         shade_tree(mask,0,0,14)

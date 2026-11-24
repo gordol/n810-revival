@@ -34,7 +34,7 @@ def project_subject(camera,aspect,zoom,subject):
     dx,dy,dz=px-x,py-y,pz-z
     ahead=dx*math.sin(yaw)+dz*math.cos(yaw)
     depth=ahead*math.cos(pitch)-dy*math.sin(pitch)
-    if not .2<depth<min(230.,55.*zoom) or size*zoom/depth<.004:return None
+    if not .2<depth<(55. if zoom<=1 else 230.*zoom) or size*zoom/depth<.004:return None
     side=dx*math.cos(yaw)-dz*math.sin(yaw)
     up=dy*math.cos(pitch)+ahead*math.sin(pitch)
     return .5+zoom*side/(1.1086*aspect*depth),.5-zoom*up/(1.1086*depth),depth

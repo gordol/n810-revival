@@ -448,7 +448,10 @@ conifer or forest fern. Open **Guidebook** for the discoveries saved
 on this device. The photo album keeps repeat shots, too. Ferns appear at high
 detail. Android uses Termux:X11's **Direct touch** mode for independent fingers.
 
-Tap **Binoculars** for a 4× view. Pinch with two fingers or tap **Zoom** to
+Tap **Binoculars** for a 4× view. In the valley, **Berry view** takes you
+to a bluff across the river and aims at an unpicked blueberry patch at 8×.
+Tap it again to scan the remaining patches and the fox. Spotting leaves the
+berries on the bushes until a player walks up to them. Pinch with two fingers or tap **Zoom** to
 change magnification from 1× to 8×. With **Camera** open, keep an animal near
 the middle until its name appears, then tap **Take photo**. Focus follows it
 a little way off center. Swipe left or right to turn guidebook or album pages.

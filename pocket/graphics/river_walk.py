@@ -13,6 +13,7 @@ from forest_floor import blade
 ASSETS=Path(__file__).parent/'assets'/'ohanapecosh'
 BUSHES=((-13.,5.),(-27.,42.),(-11.,82.))
 FOX=(-40.,113.)
+BERRY_BLUFF=(56.,56.)
 
 
 class BerryTrail:

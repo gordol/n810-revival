@@ -19,7 +19,7 @@ from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
 from river_notebook import DiscoveryBook
 from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, project_subject, read_photo, save_photo, sighting, walk_to
 from pnw_species import REGIONAL, group
-from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, centerline_distances_sq, channel, nearby_calls, river_gain, site, wet
+from river_walk import BERRY_BLUFF, BUSHES, FOX, BerryTrail, blueberry_patch, centerline_distances_sq, channel, nearby_calls, river_gain, site, wet
 from vegetation import ground_color, noise
 
 def surface(field,x,z):
@@ -36,7 +36,7 @@ def surface(field,x,z):
 
 # Illustrative encounters around the starting meadow (east, north, model scale).
 ENCOUNTERS=(('marmot',-95.,153.,.78),('eagle',1.,17.,1.),
-            ('chipmunk',1.3,5.6,.30),('squirrel',-6.,9.,.45),
+            ('chipmunk',BUSHES[1][0]+1.,BUSHES[1][1]-.6,.30),('squirrel',BUSHES[0][0]+1.,BUSHES[0][1]-.7,.45),
             ('pika',-82.,126.,.38),('goat',-117.,187.,1.45),('fox',*FOX,.86),('bear',40.,28.,1.4),('trout',15.,8.,.65))
 
 
@@ -54,7 +54,7 @@ def regional_encounters():
         x=a+along*u+across*v;z=b+along*v-across*u
         if key=='american_dipper':x,z=DIPPER_ROCK
         if key=='north_american_river_otter':x,z=OTTER_POOL
-        if key=='american_crow':x,z=-3.,12.
+        if key=='american_crow':x,z=BUSHES[2][0]+1.4,BUSHES[2][1]-.3
         if key=='barred_owl':x,z=-4.,24.
         if key=='western_tiger_swallowtail':x,z=1.2,9.
         sites.append((key,x,z,spec.length))
@@ -99,11 +99,11 @@ def append_animals(vertices,high=False):
     return indices,spans
 
 
-def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None):
+def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,optics=None):
     draws=[]
     for i,((species,x,z,_),(first,stride,frames,index,count)) in enumerate(zip(ENCOUNTERS,spans)):
         distance=math.hypot(x-observer[0],z-observer[1])
-        if distance>230:continue
+        if distance>230*(optics[2] if optics else 1.):continue
         heading=0.
         altitude=0.
         seconds=2.5
@@ -151,7 +151,13 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None):
         slope_z=surface(field,origin.x+x,origin.z+z+1)-origin.y-y if shadow else 0.
         draw=AnimalDraw(first+frame*stride,first+((frame+1)%frames)*stride,
                                index,count,stride,blend,x,y,z,heading,shadow,slope_x,slope_z)
-        draws.append((distance,draw,species,ENCOUNTERS[i][3]))
+        priority=1
+        if optics:
+            camera,aspect,zoom=optics
+            point=project_subject(camera,aspect,zoom,(species,x,y+.23*ENCOUNTERS[i][3],z,ENCOUNTERS[i][3]))
+            if point and -.1<point[0]<1.1 and -.1<point[1]<1.1:priority=0
+            elif distance>230:continue
+        draws.append(((priority,distance),draw,species,ENCOUNTERS[i][3]))
     draws.sort(key=lambda item:item[0])
     visible=[entry[1] for entry in draws[:48]]
     if subjects is not None:
@@ -246,8 +252,25 @@ def build_world(high=True,plant_sites=None,regional=False):
     for (x,z),(ex,ez) in zip(route,route[1:]):
         length=math.hypot(ex-x,ez-z)
         corridors.append((x,z,(ex-x)/length,(ez-z)/length,length))
+    # Leave narrow gaps in the illustrative canopy where the bluff sees the trail.
+    bx,bz=BERRY_BLUFF
+    eye=surface(field,bx,bz)+1.25
+    sightlines=[]
+    for tx,tz in (*BUSHES,FOX):
+        length=math.hypot(tx-bx,tz-bz)
+        sightlines.append(((tx-bx)/length,(tz-bz)/length,length,(surface(field,tx,tz)+.5-eye)/length))
     for dx,dz,h,near in forest_sites(random.Random(3918)):
         if wet(dx,dz,segments,2) or min(centerline_distances_sq(dx,dz,corridors))<(1.5+.09*h)**2:continue
+        if math.hypot(dx-bx,dz-bz)<130:
+            ground=surface(field,dx,dz)
+            blocked=False
+            for ux,uz,length,grade in sightlines:
+                along=(dx-bx)*ux+(dz-bz)*uz
+                across=abs((dx-bx)*uz-(dz-bz)*ux)
+                if -3<along<length+3 and across<2.4+.30*h and ground+h>eye+along*grade-.8:
+                    blocked=True
+                    break
+            if blocked:continue
         if plant_sites is not None and math.hypot(dx,dz)<70:plant_sites.append(("conifer",dx,dz))
         shade_tree(shadows,dx,dz,h,texel=2)
         pine(origin.x+dx,origin.z+dz,h,near)
@@ -337,6 +360,7 @@ class RainierView:
         self.lens=self.binoculars=False
         self.zoom=1.
         self.focus_key=None
+        self.bluff_target=None
         self.tent=self.story=False
         self.weather=0
         self.time_mode=0
@@ -444,7 +468,21 @@ class RainierView:
             return True
         for action,_,box in self.walk_tools(width,height):
             if not hit(box,x,y):continue
-            if action in ('deck','ground'):self.visit_lookout(deck=action=='deck')
+            if action=='berry_view':
+                bx,bz=BERRY_BLUFF
+                stops=[p for p in BUSHES if p not in self.trail.picked]+[FOX]
+                at_bluff=self.camera and math.hypot(self.camera[0]-bx,self.camera[1]-bz)<1
+                index=(stops.index(self.bluff_target)+1)%len(stops) if at_bluff and self.bluff_target in stops else 0
+                self.bluff_target=tx,tz=stops[index]
+                self.focus_key=None
+                field=self.world[0]
+                yaw=math.atan2(tx-bx,tz-bz)
+                pitch=math.atan2(surface(field,bx,bz)+1.25-surface(field,tx,tz)-.48,math.hypot(tx-bx,tz-bz))
+                self.trip_pose=(bx,bz,yaw,pitch)
+                self.cruise=self.trail.guiding=False
+                self.destination=None
+                self.zoom=8.
+            elif action in ('deck','ground'):self.visit_lookout(deck=action=='deck')
             elif action=='book':
                 self.destination=None
                 self.cruise=self.trail.guiding=False
@@ -545,6 +583,8 @@ class RainierView:
 
     def walk_tools(self,width,height):
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
+        if self.binoculars and not self.regional:
+            buttons.append(('berry_view','Berry view',(1,height-3,11,2)))
         if self.regional and self.lookout_site and self.camera:
             x,z=self.camera[:2]
             cx,cz,_=self.lookout_site
@@ -725,7 +765,8 @@ class RainierView:
         draw=ctx.lib.pocket_scene_rainier
         self.subjects=[]
         self.frame_camera=((x,eye,z,yaw,pitch),rect[2]/rect[3])
-        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects)
+        optics=(*self.frame_camera,self.zoom) if self.binoculars or self.lens else None
+        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics)
         voices=nearby_calls(self.subjects,x,eye,z)
         voice=0
         if self.sound and self.age>=self.next_call and voices:
@@ -764,8 +805,12 @@ class RainierView:
         # Compose the keepsake from the player's real eye position. A short
         # telephoto view gives small birds and insects enough pixels to see.
         focal=self.zoom if self.lens or self.binoculars else 1.
+        spotting=self.subjects
+        if self.binoculars and not self.regional:
+            spotting=self.subjects+[(f'Berries {i+1}',bx,surface(field,bx,bz)-origin.y+.48,bz,1.2)
+                for i,(bx,bz) in enumerate(BUSHES) if (bx,bz) not in self.trail.picked]
         if self.lens or self.binoculars:
-            self.focus_key=sighting(self.frame_camera[0],.5,.5,self.frame_camera[1],self.subjects,
+            self.focus_key=sighting(self.frame_camera[0],.5,.5,self.frame_camera[1],spotting,
                 lambda px,pz:surface(field,px+origin.x,pz+origin.z)-origin.y,zoom=focal,tracked=self.focus_key)
         focus=self.shutter
         for key,fx,fy,fz,size in self.subjects:
@@ -827,7 +872,7 @@ class RainierView:
                 ink.label(1,5,self.photo_hint[:w-2],0xFFF6DA)
             elif (self.lens or self.binoculars) and self.focus_key:
                 from wildlife_models import NAMES
-                subject=next(s for s in self.subjects if s[0]==self.focus_key)
+                subject=next(s for s in spotting if s[0]==self.focus_key)
                 u,v,_=project_subject(self.frame_camera[0],self.frame_camera[1],self.zoom,subject)
                 cx=max(1.2,min(w-3.2,u*(w-2)))
                 cy=max(.8,min(h-3.8,v*(h-3)))
