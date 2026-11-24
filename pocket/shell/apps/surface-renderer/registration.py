@@ -107,12 +107,13 @@ def create_outdoors(host,*,pixel_scene=None,**options):
                             self.pixel_scene.pixel_dirty=True
                             return True
                         if y>=self.host.window(self.name).h-3:return self.pixel_scene.footer(x,width)
-                        return self.pixel_scene.guide()
+                        return self.pixel_scene.scene_tap(x,y,width,self.host.window(self.name).h-3)
                     if tap:return self.key('left' if x<width//3 else 'right' if x>=2*width//3 else 'up')
                 else:
                     def axis(delta,reach):
                         magnitude=min(1.,max(0,abs(delta)-1)/reach)
                         return -magnitude if delta<0 else magnitude
+                    if self.pixel_scene and self.drag_moved:self.pixel_scene.destination=None
                     if self.pixel_scene and self.drag_start[0]>=width/2:
                         if self.drag_moved:
                             self.pixel_scene.trail.free_look=True
@@ -146,6 +147,12 @@ def create_outdoors(host,*,pixel_scene=None,**options):
             super().close()
 
         def key(self,key,now=None):
+            if self.pixel_scene and key=='?' and self.pixel_scene.world is not None:
+                from river_notebook import RiverNotebook
+                self.pixel_scene.notebook=RiverNotebook()
+                self.pixel_scene.destination=None
+                self.pixel_scene.trail.guiding=self.pixel_scene.cruise=False
+                return True
             if self.pixel_scene and key in ('space',' ','enter','\r'):return self.pixel_scene.guide()
             if key.lower()=='o' and self._sync():
                 self.cancel_keys();self.host.activate('Scenery');return True
@@ -159,8 +166,8 @@ def create_outdoors(host,*,pixel_scene=None,**options):
             return super().key(key,now)
     form=RainierWalk(host,outdoors=True,name='Rainier walk',**options)
     if pixel_scene:
-        form.help=(('Blueberry trail',('Tap to follow the arrow. Visit three berry bushes, then bring the berries to your story fox.',
-                    'Drag to walk and turn on your own. Tap again for help finding the next stop.')), )
+        form.help=(('Blueberry trail',('Tap the ground to explore, or tap Berries for the guided fox hunt.',
+                    'Drag to walk and look. Tap Camera, then tap a visible animal for a photo.')), )
         return form
     form.help+=(('Touch movement',('Drag up or down to walk forward or backward. Drag sideways to turn. Diagonal drags combine both.',
         'Hold your finger away from the starting point to keep moving. Lift to stop. Tap the centre for one step.')),('Terrain viewpoints',('O opens Scenery: original, wide, elevated and valley cameras.',

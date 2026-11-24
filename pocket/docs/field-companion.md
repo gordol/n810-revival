@@ -322,9 +322,9 @@ directory follows `XDG_STATE_HOME` when set.
 ### Rainier walk and Wildlife
 
 Open **Apps → Rainier walk** in the Android OpenGL shell to play on the
-Ohanapecosh River. Tap anywhere in the view to follow the gold arrow to one
-blueberry bush. When you arrive, a berry turns blue in the counter and the
-bush loses its fruit. Tap again to find the next bush. After three, tap to
+Ohanapecosh River. Tap dry ground to walk to the little gold ring. To follow
+the berry trail, tap **Berries** or the round compass in the scene. When you arrive, a berry turns blue in the counter and the
+bush loses its fruit. Tap the compass again to find the next bush. After three, tap to
 bring the berries to the story fox. A heart means the fox has eaten. Tap
 again to play another round. Each feeding adds a heart for this session.
 Drag the left side to walk and steer. Drag the right side to look around,
@@ -353,10 +353,18 @@ owls, American crows, newts, swallowtails and trout. Regional studies share
 body shapes across related species, with different size, coloration and marks.
 Encounter locations are game placements and imply no recorded sighting.
 
-**Stones** opens eight optional riverbank puzzles. Pick a fly, inspect a fin,
-or decide what to do at a closed lake. Each discovery earns a pebble. Tap
-**Back to the fox** whenever you want to walk again. The rules in these cards
-were checked November 24, 2026. For a trip, check the current park rules or the
+Watch for rings spreading over the trout. Head upstream on the starting bank:
+a dipper bobs on a broad rock and paw prints lead toward the otter pool.
+Tap **Camera**, then tap a visible animal to take its picture. Drag to aim,
+or walk closer to small animals. Tap **Lens on** to put the camera away.
+Tap **Album** with the camera out to browse your pictures. Tap either side of
+a photo to turn the page, or **Back** to return to the bank. Portraits are
+also saved locally as PNGs in
+`${XDG_DATA_HOME:-$HOME/.local/share}/pocket/rainier-walk/photos/`. Each
+player keeps their own photos in a family room.
+
+The optional riverbank questions are available with the **?** key.
+The regional rules in those cards were checked November 24, 2026. For a trip, check the current park rules or the
 Washington rules and emergency updates for the specific water.
 
 - [Mount Rainier fishing and boating](https://www.nps.gov/mora/planyourvisit/fishing-and-boating.htm)

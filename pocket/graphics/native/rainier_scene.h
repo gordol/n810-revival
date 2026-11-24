@@ -121,7 +121,7 @@ struct rainier_animal {
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
-                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh){
+                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh,const float *marker,const float *ripple,int lens,unsigned char *photo,int photo_animal,float focal){
  struct gpu_scene *s=ptr;
  if(!s||w<1||h<1||count<3||count>2000000||(!vertices&&!s->rainier_buffer))
   return SDL_SetError("Invalid Rainier scene");
@@ -182,7 +182,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glEnable(GL_DEPTH_TEST);glUseProgram(s->rainier_program);
  glMatrixMode(GL_PROJECTION);glPushMatrix();glLoadIdentity();
  /* 58 degree vertical FOV; target texture row zero is the upper screen row. */
- double half=.2*.5543,wide=half*w/h;
+ double half=.2*.5543/fmaxf(1.f,focal),wide=half*w/h;
  glFrustum(-wide,wide,half,-half,.2,85000.);
  glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
  glScalef(1,1,-1);glRotatef(-pitch*57.29578f,1,0,0);glRotatef(-yaw*57.29578f,0,1,0);
@@ -222,6 +222,8 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  }
  glUniform1i(glGetUniformLocation(s->rainier_program,"animal"),1);
  glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+ GLuint photo_query=0;
+ if(photo && photo_animal>=0 && (unsigned)photo_animal<na)glGenQueries(1,&photo_query);
  for(unsigned i=0;i<na;i++){
   const struct rainier_animal *a=animals+i;
   size_t start=(size_t)a->first*7*sizeof(float);
@@ -230,7 +232,9 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   glTexCoordPointer(3,GL_FLOAT,7*sizeof(float),(const void *)((size_t)a->second*7*sizeof(float)));
   glUniform1f(blend,a->blend);
   glPushMatrix();glTranslatef(a->x,a->y,a->z);glRotatef(a->heading,0,1,0);
+  if(photo_query && (int)i==photo_animal)glBeginQuery(GL_SAMPLES_PASSED,photo_query);
   glDrawElements(GL_TRIANGLES,(GLsizei)a->count,GL_UNSIGNED_INT,(const void *)((size_t)a->index*sizeof(unsigned)));
+  if(photo_query && (int)i==photo_animal)glEndQuery(GL_SAMPLES_PASSED);
   glPopMatrix();
  }
  /* A bright trail pennant marks each family member in world space. */
@@ -242,12 +246,45 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   glColor3f(1.f,.44f,.13f);glBegin(GL_TRIANGLES);
   glVertex3f(p[0],p[1]+1.65f,p[2]);glVertex3f(p[0]+dx,p[1]+1.47f,p[2]+dz);glVertex3f(p[0],p[1]+1.28f,p[2]);glEnd();
  }
+ if(ripple){
+  glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
+  for(int ring=0;ring<3;ring++){
+   float phase=fmodf(age*.54f+ring/3.f,1.f),r=.12f+phase*.96f;
+   glColor4f(.74f,.90f,.87f,.72f*(1.f-phase));glLineWidth(1.5f);glBegin(GL_LINE_LOOP);
+   for(int j=0;j<40;j++){float a=j*.1570796f;glVertex3f(ripple[0]+r*cosf(a),ripple[1],ripple[2]+r*sinf(a));}
+   glEnd();
+  }
+  glDepthMask(GL_TRUE);glDisable(GL_BLEND);
+ }
+ if(marker){
+  glColor3f(.94f,.75f,.40f);glLineWidth(2.f);glBegin(GL_LINE_LOOP);
+  for(int j=0;j<32;j++){float a=j*.19634954f;glVertex3f(marker[0]+.25f*cosf(a),marker[1],marker[2]+.25f*sinf(a));}
+  glEnd();
+ }
  if(high)river_bloom(s,x,y,w,h);
+ if(photo){
+  GLuint samples=0;
+  if(photo_query){glGetQueryObjectuiv(photo_query,GL_QUERY_RESULT,&samples);glDeleteQueries(1,&photo_query);}
+  if(!samples){photo=NULL;result=1;}
+ }
+ if(photo){
+  glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);glPixelStorei(GL_PACK_ALIGNMENT,1);
+  glPixelStorei(GL_PACK_ROW_LENGTH,0);glPixelStorei(GL_PACK_SKIP_PIXELS,0);glPixelStorei(GL_PACK_SKIP_ROWS,0);
+  glReadPixels(x,y,w,h,GL_RGB,GL_UNSIGNED_BYTE,photo);glPopClientAttrib();
+ }
  /* Screen-space trail markers: three berries and a pointer to the next stop. */
  glLoadIdentity();glMatrixMode(GL_PROJECTION);glLoadIdentity();glOrtho(0,w,0,h,-1,1);
  glUseProgram(0);glDisable(GL_DEPTH_TEST);
  float radius=(w<h?w:h)*.044f;
- for(int i=0;i<4;i++){
+ if(lens){
+  glColor3f(.94f,.92f,.76f);glLineWidth(2.f);
+  for(int k=0;k<4;k++){
+   float cx=(k%2?.83f:.17f)*w,cy=(k/2?.75f:.25f)*h;
+   glBegin(GL_LINE_STRIP);glVertex2f(cx+(k%2?-1:1)*radius,cy);
+   glVertex2f(cx,cy);glVertex2f(cx,cy+(k/2?-1:1)*radius);glEnd();
+  }
+ }
+ for(int i=0;i<4&&!lens;i++){
   float cx=i==3?w-radius*1.7f:radius*(1.35f+i*1.5f);
   float cy=i==3?h-radius*1.8f:radius*1.4f;
   float size=i==3?radius*1.3f:radius*.60f;
@@ -282,4 +319,25 @@ done:
  glUseProgram(previous_program);glBindRenderbuffer(GL_RENDERBUFFER,previous_depth);
  glPopClientAttrib();glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,previous_indices);glBindBuffer(GL_ARRAY_BUFFER,previous_buffer);glPopAttrib();
  return result;
+}
+
+int pocket_scene_river_photo(void *ptr,int x,int y,int w,int h,int pw,int ph,const void *rgb){
+ struct gpu_scene *s=ptr;
+ if(!s||scene_target(s,s->canvas))return -1;
+ if(rgb){
+  if(pw<1||ph<1||pw>4096||ph>4096)return SDL_SetError("Invalid photo dimensions");
+  SDL_Texture *image=SDL_CreateTexture(s->device,SDL_PIXELFORMAT_RGB24,SDL_TEXTUREACCESS_STATIC,pw,ph);
+  if(!image)return -1;
+  if(SDL_UpdateTexture(image,NULL,rgb,pw*3)){SDL_DestroyTexture(image);return -1;}
+  SDL_SetTextureScaleMode(image,SDL_ScaleModeLinear);
+  if(s->river_print)SDL_DestroyTexture(s->river_print);
+  s->river_print=image;s->print_w=pw;s->print_h=ph;
+ }
+ if(!s->river_print)return -1;
+ float scale=fminf((float)w/s->print_w,(float)h/s->print_h);
+ SDL_Rect frame={x,y,w,h},dest={0,0,(int)(s->print_w*scale),(int)(s->print_h*scale)};
+ dest.x=x+(w-dest.w)/2;dest.y=y+(h-dest.h)/2;
+ SDL_SetRenderDrawColor(s->device,23,28,26,255);
+ if(SDL_RenderFillRect(s->device,&frame))return -1;
+ return SDL_RenderCopy(s->device,s->river_print,NULL,&dest);
 }

@@ -4,13 +4,15 @@ from concurrent.futures import ThreadPoolExecutor
 import ctypes as C
 import math
 import random
+import struct
+import zlib
 
 from geometry import Vec, cross, sub, unit
 from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, fern, snag, spruce_sprays
 from rainier_habitat import forest_sites
 from river_party import PartyMenu
-from river_notebook import RiverNotebook
+from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, photo_paths, read_photo, save_photo, sighting, walk_to
 from pnw_species import REGIONAL, group
 from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, river_mesh, site, wet
 from vegetation import ground_color, noise
@@ -45,6 +47,8 @@ def regional_encounters():
         kind=group(spec.form)
         across=0 if kind=='Fish' else (12+i%23)*(1 if i%2 else -1)
         x=a+along*u+across*v;z=b+along*v-across*u
+        if key=='american_dipper':x,z=DIPPER_ROCK
+        if key=='north_american_river_otter':x,z=OTTER_POOL
         if key=='american_crow':x,z=-3.,12.
         if key=='barred_owl':x,z=-4.,24.
         if key=='western_tiger_swallowtail':x,z=1.2,9.
@@ -90,7 +94,7 @@ def append_animals(vertices,high=False):
     return indices,spans
 
 
-def encounters(field,origin,spans,age,fed=False,observer=(0.,0.)):
+def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None):
     draws=[]
     for i,((species,x,z,_),(first,stride,frames,index,count)) in enumerate(zip(ENCOUNTERS,spans)):
         distance=math.hypot(x-observer[0],z-observer[1])
@@ -120,6 +124,11 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.)):
             spec=REGIONAL[species]
             kind=group(spec.form)
             heading=(i*137)%360
+            if species=='american_dipper':altitude=.50+.025*math.sin(age*3.)
+            if species=='north_american_river_otter':
+                x+=1.8*math.sin(age*.38);z+=.6*math.cos(age*.38)
+                heading=math.degrees(math.atan2(.6*math.sin(age*.38),1.8*math.cos(age*.38)))
+                altitude=.04+.04*math.cos(age*2.)
             if spec.form in PERCHES:altitude=1.6
             if kind=='Fish':altitude=.16+.22*max(0.,math.sin(age+i))**8
             if spec.form in ('butterfly','swallowtail','bee','dragonfly','moth','bat','hummer'):
@@ -134,9 +143,11 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.)):
         slope_z=surface(field,origin.x+x,origin.z+z+1)-origin.y-y if shadow else 0.
         draw=AnimalDraw(first+frame*stride,first+((frame+1)%frames)*stride,
                                index,count,stride,blend,x,y,z,heading,shadow,slope_x,slope_z)
-        draws.append((distance,draw))
+        draws.append((distance,draw,species,ENCOUNTERS[i][3]))
     draws.sort(key=lambda item:item[0])
-    visible=[draw for _,draw in draws[:48]]
+    visible=[entry[1] for entry in draws[:48]]
+    if subjects is not None:
+        subjects.extend((key,d.x,d.y+.23*size,d.z,size) for _,d,key,size in draws[:48])
     return (AnimalDraw*len(visible))(*visible)
 
 
@@ -213,6 +224,7 @@ def build_world(high=True):
         pine(origin.x+dx,origin.z+dz,h,near)
     def height(x,z):return surface(field,x,z)
     river_mesh(segments,height,face)
+    bank_sign(height,face)
     for key,x,z,_ in ENCOUNTERS:
         if key in REGIONAL and REGIONAL[key].form in PERCHES:snag(x,height(x,z),z,1.6,face)
     for i,(x,z) in enumerate(BUSHES):
@@ -271,6 +283,17 @@ class RainierView:
         self.cruise=False
         self.sound=True
         self.notebook=None
+        self.lens=False
+        self.album=[]
+        self.album_index=0
+        self.album_loaded=None
+        self.destination=None
+        self.shutter=None
+        self.subjects=[]
+        self.frame_camera=None
+        self.review_key=None
+        self.photo_hint=''
+        self.hint_until=0.
         self.party=None
         self.solo=None
         self.hearts=self.cue=0
@@ -288,30 +311,80 @@ class RainierView:
         if self.error:return ('Rainier terrain could not open.',self.error)
         if self.world is None:return ('Opening Ohanapecosh River…',)
         if self.notebook:return self.notebook.lines(self.host.window(self.name).w-2)
+        if self.album:
+            from wildlife_models import NAMES
+            key=self.album[self.album_index].stem.rsplit('-',1)[0]
+            footer=f'<  {NAMES.get(key,key)}   {self.album_index+1}/{len(self.album)}   Back  >'
+            return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
         trail=self.trail
         if trail.fed:hint=f'Again ({self.hearts})'
         elif len(trail.picked)==3:hint='3/3 | Feed fox'
-        else:hint=f'{len(trail.picked)}/3 | Follow'
+        else:hint=f'Berries {len(trail.picked)}/3'
+        if self.lens:hint="Album"
         family='Family'
         if self.party:family=f'{len(self.party.roster)} here' if self.party.roster else 'Finding'
-        labels=('Stop' if self.cruise else 'Walk',hint,family,'Stones','Mute' if self.sound else 'Sound')
+        labels=('Stop' if self.cruise else 'Walk',hint,family,self.photo_hint if self.age<self.hint_until else ('Lens on' if self.lens else 'Camera'),'Mute' if self.sound else 'Sound')
         width=self.host.window(self.name).w-2
         bounds=[0,width//7,width*3//7,width*4//7,width*6//7,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
         return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
 
     def footer(self,x,width):
+        if self.album:
+            if x<width*.22:self.album_index=(self.album_index-1)%len(self.album)
+            elif x>width*.82:self.album_index=(self.album_index+1)%len(self.album)
+            else:self.album=[]
+            self.pixel_dirty=True
+            return True
         if x<width//7:
+            self.destination=None
             self.cruise=not self.cruise
             self.trail.guiding=False
         elif x>=width*6//7:self.sound=not self.sound
         elif x>=width*4//7:
-            self.notebook=RiverNotebook()
+            self.lens=not self.lens
+            self.review_key=None
+            self.destination=None
+            self.hint_until=0.
             self.trail.guiding=self.cruise=False
         elif x>=width*3//7:
+            self.destination=None
             self.notebook=PartyMenu(self)
             self.trail.guiding=self.cruise=False
+        elif self.lens:
+            self.cruise=self.trail.guiding=False
+            self.destination=None
+            try:self.album=photo_paths()
+            except OSError:self.album=[]
+            self.album_index=0
+            self.album_loaded=None
+            if not self.album:self.photo_hint='Tap wildlife';self.hint_until=self.age+2.
         else:return self.guide()
+        return True
+
+    def scene_tap(self,x,y,width,height):
+        if self.album:
+            self.album_index=(self.album_index+(-1 if x<width/2 else 1))%len(self.album)
+            self.pixel_dirty=True
+            return True
+        if self.frame_camera is None:return False
+        u,v=(x+.5)/width,(y+.5)/height
+        camera,aspect=self.frame_camera
+        field,origin=self.world[:2]
+        def ground(px,pz):return surface(field,px+origin.x,pz+origin.z)-origin.y
+        if self.lens:
+            if self.review_key and self.age<self.hint_until:return True
+            self.shutter=sighting(camera,u,v,aspect,self.subjects,ground)
+            if not self.shutter:
+                self.photo_hint='Look closer';self.hint_until=self.age+1.2
+        else:
+            # The compass still provides the child's one-tap berry route.
+            radius=min(1.,aspect)*.044
+            if math.hypot((1-u)*aspect-1.7*radius,1-v-1.8*radius)<1.65*radius:
+                return self.guide()
+            self.destination=ground_target(camera,u,v,aspect,ground,lambda a,b:wet(a,b,site()[1],-.7))
+            self.cruise=self.trail.guiding=False
+        self.pixel_dirty=True
         return True
 
     def enter_party(self,party):
@@ -329,6 +402,8 @@ class RainierView:
 
     def guide(self):
         if self.world is None:return False
+        self.destination=None
+        self.lens=False
         if self.trail.fed:
             if self.party:self.party.restart=True;return True
             self.trail=BerryTrail()
@@ -343,6 +418,9 @@ class RainierView:
             release.argtypes=[C.c_void_p];release.restype=None
             release(self.context.handle)
         self.context=None
+        self.album=[]
+        self.album_loaded=None
+        self.frame_camera=self.destination=self.shutter=None
         self.age=0.
         self.upload=True
         self.camera=None
@@ -371,6 +449,7 @@ class RainierView:
             finally:self.pool.shutdown(wait=False);self.pool=self.job=None
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
+        if self.destination is not None:self.destination=walk_to(owner,self.destination,dt)
         if self.cruise:owner._translate(1.,0.,dt*2.5)
         before=len(self.trail.picked)
         fed=self.trail.fed
@@ -405,14 +484,30 @@ class RainierView:
         ox,oy=self.host.origin
         rect=((wx+ox+1)*8,(wy+oy+1)*16,(w-2)*8,(h-3)*16)
         if min(rect[2:])<1:return ()
+        if self.album:
+            path=self.album[self.album_index]
+            w=h=0;rgb=None
+            if path!=self.album_loaded:
+                try:w,h,rgb=read_photo(path)
+                except (OSError,ValueError,zlib.error,struct.error):
+                    self.album.pop(self.album_index)
+                    if self.album:self.album_index%=len(self.album)
+                    return ()
+            display=ctx.lib.pocket_scene_river_photo
+            display.argtypes=[C.c_void_p]+[C.c_int]*6+[C.c_void_p]
+            ctx.check(display(ctx.handle,*rect,w,h,rgb))
+            self.album_loaded=path
+            return rect
         sound=ctx.lib.pocket_scene_river_sound
         sound.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_float]
         sound(ctx.handle,self.sound,self.cue,1. if wet(x,z,site()[1],10) else .30)
         self.cue=0
         draw=ctx.lib.pocket_scene_rainier
-        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z))
+        self.subjects=[]
+        self.frame_camera=((x,eye,z,yaw,pitch),rect[2]/rect[3])
+        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects)
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint]
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float]
         target_x,target_z=self.trail.target(x,z)
         direction=math.atan2(target_x-x,target_z-z)-yaw
         mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
@@ -424,16 +519,50 @@ class RainierView:
                     hx,hz=px/10,pz/10
                     hikers.extend((hx,surface(field,hx+origin.x,hz+origin.z)-origin.y,hz))
         hikers_buffer=(C.c_float*len(hikers))(*hikers)
+        marker=(C.c_float*3)() if self.destination is not None else None
+        if marker is not None:
+            mx,mz=self.destination
+            marker[:]=mx,surface(field,mx+origin.x,mz+origin.z)-origin.y+.07,mz
+        fish=next(((fx,fz) for key,fx,_,fz,_ in self.subjects if key=='trout'),None)
+        ripple=None
+        if fish:
+            fx,fz=fish
+            ripple=(C.c_float*3)(fx,surface(field,fx+origin.x,fz+origin.z)-origin.y+.19,fz)
+        pixels=(C.c_ubyte*(3*rect[2]*rect[3]))() if self.shutter else None
+        # Compose the keepsake from the player's real eye position. A short
+        # telephoto view gives small birds and insects enough pixels to see.
+        focal=1.
+        focus=self.shutter or (self.review_key if self.lens and self.age<self.hint_until else None)
+        for key,fx,fy,fz,size in self.subjects:
+            if key!=focus:continue
+            dx,dz=fx-x,fz-z
+            horizontal=math.hypot(dx,dz)
+            yaw=math.atan2(dx,dz)
+            pitch=math.atan2(eye-fy,horizontal)
+            focal=max(1.,min(12.,horizontal*min(1.,rect[2]/rect[3])/(size*2.8)))
+            break
+        photo_index=next((i for i,p in enumerate(self.subjects) if p[0]==self.shutter),-1)
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None,hikers_buffer,len(hikers)//3)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if self.upload and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,self.lens,pixels,photo_index,focal)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()
             self.quality.high=False
             return ()
-        ctx.check(result)
+        if result==1 and pixels is not None:
+            pixels=self.shutter=None
+            self.photo_hint="View blocked";self.hint_until=self.age+1.2
+        else:ctx.check(result)
+        if pixels is not None:
+            from wildlife_models import NAMES
+            try:
+                save_photo(self.shutter,rect[2],rect[3],bytes(pixels))
+                self.photo_hint=NAMES[self.shutter];self.review_key=self.shutter;self.cue=1
+            except OSError:self.photo_hint='Save failed'
+            self.hint_until=self.age+2.
+            self.shutter=None
         if self.upload:self.world=field,origin,None,terrain_count,None,spans,base_count,None
         self.upload=False
         self.pixel_jobs+=1;self.pixel_frames+=1
