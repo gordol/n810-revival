@@ -88,25 +88,11 @@ def river_gain(x,z,segments):
     return 160./(160.+bank_distance)
 
 
-def river_mesh(segments,height,face):
-    # NHD supplies the centerline. Width and the gravel margins are illustrative.
-    for x,z,u,v,length in segments:
-        count=math.ceil(length/3)
-        previous=None
-        for i in range(count+1):
-            t=length*i/count
-            a,b=x+t*u,z+t*v
-            row=[]
-            for side in (-8,-6,0,6,8):
-                px,pz=a+side*v,b-side*u
-                row.append(Vec(px,height(px,pz)+(.14 if abs(side)<8 else .06),pz))
-            if previous:
-                for j in range(4):
-                    water=j in (1,2)
-                    color=(52,132,131) if water else (142,137,119)
-                    for tri in ((previous[j],row[j],previous[j+1]),(previous[j+1],row[j],row[j+1])):
-                        face(*tri,color,.35 if water else 0.)
-            previous=row
+@lru_cache(maxsize=1)
+def channel():
+    from river_channel import RiverChannel
+    field,segments=site()
+    return RiverChannel(field,segments)
 
 
 def blueberry_patch(x,z,height,face,rng,material,high=True):

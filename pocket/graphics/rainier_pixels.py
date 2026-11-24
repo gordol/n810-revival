@@ -17,7 +17,7 @@ from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
 from river_notebook import DiscoveryBook
 from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, read_photo, save_photo, sighting, walk_to
 from pnw_species import REGIONAL, group
-from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, nearby_calls, river_gain, river_mesh, site, wet
+from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, channel, nearby_calls, river_gain, site, wet
 from vegetation import ground_color, noise
 
 def surface(field,x,z):
@@ -140,7 +140,10 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None):
         phase=(age/seconds)%frames
         frame=int(phase);blend=phase-frame
         if species!='fox':blend=blend*blend*(3-2*blend)
-        y=surface(field,origin.x+x,origin.z+z)-origin.y+altitude
+        level=None
+        if species=='trout' or (species in REGIONAL and group(REGIONAL[species].form)=='Fish'):
+            level=channel().water_height(x,z)
+        y=(surface(field,origin.x+x,origin.z+z) if level is None else level-.14)-origin.y+altitude
         shadow=0. if altitude>.05 or distance>38 else ENCOUNTERS[i][3]
         slope_x=surface(field,origin.x+x+1,origin.z+z)-origin.y-y if shadow else 0.
         slope_z=surface(field,origin.x+x,origin.z+z+1)-origin.y-y if shadow else 0.
@@ -156,6 +159,7 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None):
 
 def build_world(high=True,plant_sites=None,regional=False):
     field,segments=(region_field(),()) if regional else site()
+    if not regional:field=channel().bed_field(field)
     origin=Vec(0,surface(field,0,0),0)
     triangles=array('f')
     detail=array('f')
@@ -234,7 +238,10 @@ def build_world(high=True,plant_sites=None,regional=False):
         if high:shade_tree(shadows,dx,dz,h)
         pine(origin.x+dx,origin.z+dz,h,near)
     def height(x,z):return surface(field,x,z)
-    river_mesh(segments,height,face)
+    def water_vertex(p,side,station):
+        # The water shader takes cross-stream and downstream metres from RG.
+        target.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z,(side+6)/12,station/4096,0.,.35))
+    channel().mesh(height,face,water_vertex)
     bank_sign(height,face)
     for key,x,z,_ in ENCOUNTERS:
         if key in REGIONAL and REGIONAL[key].form in PERCHES:snag(x,height(x,z),z,1.6,face)
@@ -679,7 +686,8 @@ class RainierView:
         ripple=None
         if fish:
             fx,fz=fish
-            ripple=(C.c_float*3)(fx,surface(field,fx+origin.x,fz+origin.z)-origin.y+.19,fz)
+            level=channel().water_height(fx,fz)
+            if level is not None:ripple=(C.c_float*3)(fx,level-origin.y+.035,fz)
         pixels=(C.c_ubyte*(3*rect[2]*rect[3]))() if self.shutter else None
         # Compose the keepsake from the player's real eye position. A short
         # telephoto view gives small birds and insects enough pixels to see.

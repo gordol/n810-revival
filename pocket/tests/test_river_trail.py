@@ -42,6 +42,29 @@ class RiverTrailTests(unittest.TestCase):
         self.assertAlmostEqual(river_gain(100,378,segments),1/3)
         self.assertEqual(river_gain(0,0,[]),0.)
 
+    def test_water_surface_falls_downstream_and_clears_terrain(self):
+        from river_walk import channel
+        from rainier_pixels import surface
+        field,_=site()
+        river=channel()
+        bed=river.bed_field(field)
+        vertices=[]
+        river.mesh(bed.height,lambda *args:None,lambda *vertex:vertices.append(vertex))
+        self.assertGreater(river.rows[0].stage,river.rows[-1].stage)
+        for a,b in zip(river.rows,river.rows[1:]):
+            self.assertGreater(b.station,a.station)
+            self.assertLessEqual(b.stage,a.stage)
+        for (a,_,sa),(b,_,sb),(c,_,sc) in zip(vertices[::3],vertices[1::3],vertices[2::3]):
+            self.assertLess((b.x-a.x)*(c.z-a.z)-(b.z-a.z)*(c.x-a.x),0)
+            edge=(a,b) if sa==sb else (a,c) if sa==sc else (b,c)
+            self.assertAlmostEqual(edge[0].y,edge[1].y)
+            for p in (a,b,c):
+                self.assertGreater(p.y,surface(bed,p.x,p.z))
+            x,z=(a.x+b.x+c.x)/3,(a.z+b.z+c.z)/3
+            self.assertAlmostEqual(river.water_height(x,z),(a.y+b.y+c.y)/3)
+        self.assertIsNotNone(river.water_height(15,8))
+        self.assertIsNone(river.water_height(-1000,900))
+
     def test_mapped_site_and_dry_game_route(self):
         field,segments=site()
         self.assertEqual(field.nx,257)

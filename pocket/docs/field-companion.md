@@ -352,7 +352,9 @@ Wildlife encounters and shared family rooms are in the detailed valley.
 The regional terrain represents mountain shape; it does not show climbing routes.
 
 The game includes a roughly 2 km square of USGS 3DEP elevations sampled at
-8 m and four USGS National Hydrography Dataset flowlines. The water width,
+8 m and four USGS National Hydrography Dataset flowlines. The water surface
+is level from bank to bank and descends along the joined flowlines. Ripples
+travel downstream through bends. The channel depth, water level and width,
 individual trees, blueberries and wildlife encounters are illustrative. Look
 across the river for a black bear or along the shallows for a jumping rainbow
 trout. The site data travels with Pocket and works offline. The cell-based
