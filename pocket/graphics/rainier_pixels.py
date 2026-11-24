@@ -8,6 +8,7 @@ import struct
 import zlib
 
 from geometry import Vec, cross, sub, unit
+import fremont_lookout as lookout
 from river_camp import CAMP, OVERLOOK, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, fern, snag, spruce_sprays
@@ -196,6 +197,8 @@ def build_world(high=True,plant_sites=None,regional=False):
         else:face(mesh.vertices[a],mesh.vertices[b],mesh.vertices[c],(46,80,62))
 
     if regional:
+        position=lookout.location(field)
+        if position:lookout.build(lambda x,z:surface(field,x,z),face,*position)
         count=len(triangles)//7
         return field,origin,triangles,count,array('I',[0]),(),count,None
 
@@ -313,6 +316,8 @@ class RainierView:
         self.regional=False
         self.valley_pose=self.map_position=None
         self.travel_job=self.travel_pool=None
+        self.lookout_arrival=False
+        self.lookout_site=None
         self.travel_error=''
         self.trail=BerryTrail()
         self.cruise=False
@@ -421,9 +426,10 @@ class RainierView:
             self.album_index=(self.album_index+step)%len(self.album)
             self.pixel_dirty=True
             return True
-        for action,_,box in river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional):
+        for action,_,box in self.walk_tools(width,height):
             if not hit(box,x,y):continue
-            if action=='book':
+            if action in ('deck','ground'):self.visit_lookout(deck=action=='deck')
+            elif action=='book':
                 self.destination=None
                 self.cruise=self.trail.guiding=False
                 self.notebook=DiscoveryBook(self)
@@ -519,7 +525,37 @@ class RainierView:
         self.lens=self.binoculars=self.cruise=self.trail.guiding=False
         self.zoom=1.
 
-    def start_region(self):
+    def walk_tools(self,width,height):
+        buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
+        if self.regional and self.lookout_site and self.camera:
+            x,z=self.camera[:2]
+            cx,cz,_=self.lookout_site
+            if math.hypot(x-cx,z-cz)<35:
+                on_deck=max(abs(x-cx),abs(z-cz))<=3.2
+                buttons.append(('ground' if on_deck else 'deck','Step down' if on_deck else 'Up to deck',(1,3,12,2)))
+        return buttons
+
+    def visit_lookout(self,deck=False):
+        if not self.lookout_site:return
+        x,z,_=self.lookout_site
+        if deck:
+            px,pz=x,z-2.7
+            peak=max(range(len(self.world[0].values)),key=self.world[0].values.__getitem__)
+            field=self.world[0]
+            tx=field.origin.x+(peak%field.nx)*field.dx
+            tz=field.origin.z+(peak//field.nx)*field.dz
+            yaw,pitch=math.atan2(tx-px,tz-pz),-.12
+        else:
+            px,pz=x+9,z-16
+            yaw=math.atan2(x-px,z-pz)
+            pitch=math.atan2(surface(self.world[0],px,pz)+1.25-self.lookout_site[2]-3.,math.hypot(x-px,z-pz))
+        self.trip_pose=(px,pz,yaw,pitch)
+        self.destination=None
+        self.cruise=self.binoculars=False
+        self.zoom=1.
+
+    def start_region(self,lookout_arrival=False):
+        self.lookout_arrival=lookout_arrival
         self.travel_error=''
         self.travel_pool=ThreadPoolExecutor(max_workers=1)
         self.travel_job=self.travel_pool.submit(build_world,False,None,True)
@@ -527,6 +563,7 @@ class RainierView:
     def return_to_valley(self):
         self.release()
         self.regional=False
+        self.lookout_site=self.trip_pose=None
         self.notebook=None
         self.pixel_dirty=True
 
@@ -557,6 +594,10 @@ class RainierView:
                 owner.cancel_keys()
                 owner.x,owner.z=summit_start(world[0])
                 owner.yaw,owner.pitch=0.,-.38
+                site_xz=lookout.location(world[0])
+                if site_xz:
+                    self.lookout_site=(*site_xz,lookout.base_level(lambda x,z:surface(world[0],x,z),*site_xz))
+                    if self.lookout_arrival:self.visit_lookout()
             finally:
                 self.travel_pool.shutdown(wait=False)
                 self.travel_pool=self.travel_job=None
@@ -573,7 +614,7 @@ class RainierView:
                 return
             except Exception as error:self.error=str(error);return
             finally:self.pool.shutdown(wait=False);self.pool=self.job=None
-        if self.trip_pose and not self.regional:
+        if self.trip_pose:
             owner.x,owner.z,owner.yaw,owner.pitch=self.trip_pose
             self.trip_pose=None
             owner.cancel_keys()
@@ -619,7 +660,15 @@ class RainierView:
 
     def eye_position(self,x,z):
         field,origin=self.world[:2]
-        return x,surface(field,x+origin.x,z+origin.z)-origin.y+1.25,z
+        ground=surface(field,x+origin.x,z+origin.z)
+        if self.regional and self.lookout_site:
+            cx,cz,base=self.lookout_site
+            if max(abs(x-cx),abs(z-cz))<=3.2:ground=base+lookout.DECK
+            elif abs(x-cx)<=.7 and -7.4<=z-cz<-3.2:
+                bottom=surface(field,cx,cz-7.4)
+                step=min(14,int((z-cz+7.4)/.3)+1)
+                ground=bottom+(base+lookout.DECK-bottom)*step/14
+        return x,ground-origin.y+1.25,z
 
     def grab_point(self,eye,direction):
         # Find terrain under the press, including slopes across the river.
@@ -762,7 +811,7 @@ class RainierView:
                 print_photo(path,(rect[0]+bx*8,rect[1]+by*16,bw*8,bh*16))
             draw_book(ink,self.notebook,w-2,h-3,picture)
         else:
-            for _,label,box in river_tools(w-2,h-3,self.lens,self.binoculars,self.zoom,self.regional):ink.button(box,label)
+            for _,label,box in self.walk_tools(w-2,h-3):ink.button(box,label)
             if self.age<self.hint_until and self.photo_hint:
                 ink.label(1,5,self.photo_hint[:w-2],0xFFF6DA)
             elif (self.lens or self.binoculars) and self.focus_key:

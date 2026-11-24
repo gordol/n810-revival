@@ -451,4 +451,11 @@ channel and its rocky shallows from above. Pitch a tent in the starting
 clearing or turn on the optional Bigfoot camp story. Camp choices apply on
 this device. The season and clear/misty weather controls change the scene's
 appearance. Snow cover changes by season. River discharge and snowmelt are
-not simulated. The larger summit map contains elevation only.
+not simulated. To visit the fire tower, choose **Visit Mt Fremont lookout** on the same
+menu while exploring solo. Pocket opens the regional elevation map, downloading
+it on the first visit. At the tower, tap **Up to deck** for the view toward
+Rainier, **Binoculars** for a closer look, or **Step down** to explore on foot.
+**Hike → Return to Ohanapecosh** returns to the valley. The model approximates
+the two-story lookout and wraparound balcony at the NPS site coordinates.
+[National Park Service lookout history](https://www.nps.gov/places/mount-fremont-fire-lookout.htm)
+and [site location](https://parkplanning.nps.gov/showFile.cfm?projectID=95553&sfid=478470).

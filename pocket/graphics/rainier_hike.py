@@ -35,7 +35,7 @@ class HikeMenu:
         self.trip=False
 
     def trip_spacing(self):
-        return 2 if self.view.host.window(self.view.name).h>=17 else 1
+        return 2 if self.view.host.window(self.view.name).h>=19 else 1
 
     def lines(self,width):
         v=self.view
@@ -44,6 +44,7 @@ class HikeMenu:
                   'Weather   '+('Mist' if v.mist else 'Clear')]
             if not v.regional:rows+=['Visit river overlook','Pack tent' if v.tent else 'Pitch tent at camp',
                                     'Bigfoot story   '+('On' if v.story else 'Off')]
+            if not v.party:rows.append('Visit Mt Fremont lookout')
             rows.append('Back')
             if self.trip_spacing()==2:return tuple(line for row in rows for line in ('',row))
             return tuple(rows)
@@ -67,7 +68,11 @@ class HikeMenu:
             elif not v.regional and y==5:
                 v.story=not v.story
                 if v.story:v.tent=True;v.move_to_view(camp=True);return False
-            elif y==(3 if v.regional else 6):self.trip=False
+            elif not v.party and y==(3 if v.regional else 6):
+                if v.regional:v.visit_lookout();return False
+                self.trip=False
+                v.start_region(lookout_arrival=True)
+            elif y==(3 if v.regional else 6)+int(not v.party):self.trip=False
             return True
         if v.travel_job:return True
         if y==8:self.trip=True;return True

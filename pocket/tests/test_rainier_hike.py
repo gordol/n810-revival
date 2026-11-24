@@ -21,7 +21,7 @@ class HikeTests(TestCase):
     def test_camp_menu_controls_match_drawn_rows(self):
         for height in (14,38):
             visits=[]
-            view=SimpleNamespace(name='Walk',regional=False,travel_job=None,season=0,mist=False,
+            view=SimpleNamespace(name='Walk',party=None,regional=False,travel_job=None,season=0,mist=False,
                 tent=False,story=False,host=SimpleNamespace(window=lambda _:SimpleNamespace(h=height)),
                 move_to_view=lambda camp=False:visits.append(camp))
             menu=HikeMenu(view)
@@ -34,6 +34,30 @@ class HikeTests(TestCase):
             self.assertFalse(choose('Bigfoot'));self.assertTrue(view.story and view.tent)
             self.assertEqual(visits,[False,True])
             choose('Pack tent');self.assertFalse(view.story or view.tent)
+
+    def test_lookout_position_and_deck_match_the_mesh(self):
+        import fremont_lookout as lookout
+        from rainier_pixels import RainierView,surface
+        from geometry import Vec
+        field=self.field()
+        meta=dict(latitude_first=lookout.LATITUDE-.12,longitude_first=lookout.LONGITUDE-.24,
+                  latitude_step=.06,longitude_step=.08)
+        with patch('terrain_elevation.grid',return_value=(meta,field.values)):
+            x,z=lookout.location(field)
+        self.assertAlmostEqual(x,field.origin.x+3*field.dx)
+        self.assertAlmostEqual(z,field.origin.z+2*field.dz)
+        height=lambda i,j:surface(field,i,j)
+        level=lookout.base_level(height,x,z)
+        faces=[]
+        lookout.build(height,lambda a,b,c,color:faces.append((a,b,c)),x,z)
+        self.assertTrue(any(all(p.y==level+lookout.DECK for p in triangle) for triangle in faces))
+        view=SimpleNamespace(world=(field,Vec(0,0,0)),regional=True,lookout_site=(x,z,level))
+        RainierView.visit_lookout(view,deck=True)
+        px,pz=view.trip_pose[:2]
+        self.assertEqual(RainierView.eye_position(view,px,pz)[1],level+lookout.DECK+1.25)
+        RainierView.visit_lookout(view)
+        px,pz=view.trip_pose[:2]
+        self.assertEqual(RainierView.eye_position(view,px,pz)[1],height(px,pz)+1.25)
 
     def test_whole_field_and_summit_approach(self):
         field=self.field()
