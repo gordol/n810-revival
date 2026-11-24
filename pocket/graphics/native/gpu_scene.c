@@ -27,6 +27,7 @@ struct gpu_scene {
  unsigned window_budget;int window_budget_ready;
 #else
  struct wildlife_gl wildlife;
+ SDL_AudioDeviceID river_audio;int river_audio_failed,river_cue,river_note;unsigned river_seed;float river_low;
  GLuint rainier_buffer,rainier_indices,rainier_depth,rainier_program;unsigned rainier_w,rainier_h;
 #endif
 };
@@ -526,9 +527,12 @@ int pocket_scene_retained_draw(void *ptr,void *target,int x,int y,int width,int 
 }
 void pocket_scene_texture_free(void *ptr){struct scene_texture *image=ptr;if(image){Scene_DestroyTexture(image->texture);free(image);}}
 #ifndef POCKET_SCENE_GL
+int pocket_scene_river_sound(void *,int,int,float);
 void pocket_scene_rainier_release(void *ptr){
  struct gpu_scene *s=ptr;
- if(!s||!s->rainier_program)return;
+ if(!s)return;
+ pocket_scene_river_sound(s,0,0,0);s->river_audio_failed=0;
+ if(!s->rainier_program)return;
  SDL_RenderFlush(s->device);
  glDeleteProgram(s->rainier_program);glDeleteBuffers(1,&s->rainier_buffer);glDeleteBuffers(1,&s->rainier_indices);glDeleteRenderbuffers(1,&s->rainier_depth);
  s->rainier_program=s->rainier_buffer=s->rainier_indices=s->rainier_depth=0;
@@ -678,4 +682,5 @@ int pocket_scene_dma_stats(void *ptr,uint64_t out[2]){
 #ifndef POCKET_SCENE_GL
 #include "wildlife_scene.h"
 #include "rainier_scene.h"
+#include "river_sound.h"
 #endif

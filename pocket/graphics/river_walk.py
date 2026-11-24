@@ -8,6 +8,7 @@ import sys
 import zlib
 
 from geometry import HeightField, Vec
+from forest_floor import blade
 
 ASSETS=Path(__file__).parent/'assets'/'ohanapecosh'
 BUSHES=((-1.,5.),(2.,10.),(-1.,16.))
@@ -19,6 +20,7 @@ class BerryTrail:
         self.picked=set()
         self.fed=False
         self.guiding=False
+        self.free_look=False
 
     def target(self,x,z):
         return min((p for p in BUSHES if p not in self.picked),
@@ -38,8 +40,8 @@ class BerryTrail:
             dx,dz=x-owner.x,z-owner.z
             heading=math.atan2(dx,dz)
             turn=math.remainder(heading-owner.yaw,math.tau)
-            owner.yaw+=max(-2.5*dt,min(2.5*dt,turn))
-            if abs(turn)<.4:
+            if not self.free_look:owner.yaw+=max(-2.5*dt,min(2.5*dt,turn))
+            if self.free_look or abs(turn)<.4:
                 step=min(3.2*dt,math.hypot(dx,dz))
                 owner.x+=step*math.sin(heading)
                 owner.z+=step*math.cos(heading)
@@ -105,12 +107,13 @@ def blueberry_patch(x,z,height,face,rng,material):
         y=height(cx,cz)+rng.uniform(.38,.70)
         branch=Vec(cx,y,cz)
         face(Vec(x-.025,height(x,z),z),Vec(x+.025,height(x,z),z+.02),branch,(106,76,54))
-        for k in range(4):
-            angle=a+k*1.6
-            dx,dz=.25*math.cos(angle),.25*math.sin(angle)
-            tip=Vec(cx+dx,y+.05,cz+dz)
-            for side in (-1,1):
-                face(branch,Vec(cx+dx*.45-side*dz*.29,y+.08,cz+dz*.45+side*dx*.29),tip,(64+10*k,126+5*k,57))
+        foot=Vec(x,height(x,z),z)
+        for k in range(1,7):
+            t=k/7
+            stalk=Vec(foot.x+(cx-foot.x)*t,foot.y+(y-foot.y)*t,foot.z+(cz-foot.z)*t)
+            angle=a+2.4*k
+            blade(stalk,angle,rng.uniform(.09,.16),rng.uniform(.029,.051),
+                  rng.uniform(.008,.045),(55+4*k,111+4*k,54),face,serrated=True)
         # Plump blue clusters with a dark calyx, enlarged for a small screen.
         for offset in (0.,.105):
             bx=cx+offset;by=y+.07-offset*.5

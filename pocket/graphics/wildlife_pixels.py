@@ -1,6 +1,7 @@
 """Pixel presentation of the existing wildlife meshes on the SDL scene backend."""
 import math
 
+from pnw_species import REGIONAL,group
 from wildlife_app import Wildlife
 from wildlife_models import FOX_ASSETS, FOX_FRAMES, NAMES, pose
 
@@ -20,6 +21,14 @@ class PixelWildlife(Wildlife):
             self.next_poll=self.clock()+1/30
 
     def key(self,key):
+        if key=='group':
+            if not self._sync():return False
+            groups=('Mammals','Birds','Fish','Herps','Invertebrates')
+            category=lambda k:group(REGIONAL[k].form) if k in REGIONAL else {'eagle':'Birds','trout':'Fish'}.get(k,'Mammals')
+            target=groups[(groups.index(category(self.species))+1)%len(groups)]
+            self.species=next(k for k in REGIONAL if category(k)==target)
+            self.age=self.yaw=0.;self.zoom=1.;self.dirty=self.pixel_dirty=True
+            return True
         if key not in ('tab','\t'):return super().key(key)
         if not self._sync():return False
         species=list(NAMES)
@@ -29,7 +38,7 @@ class PixelWildlife(Wildlife):
         return True
 
     def controls(self):
-        return (('Animal','tab'),('Turn','right'),('Zoom','up'),('Pause' if self.playing else 'Play','space'))
+        return (('Animal','tab'),('Turn','right'),('Zoom','up'),('Pause' if self.playing else 'Play','space'),('Group','group'))
 
     def lines(self):
         controls=self.controls()
@@ -38,7 +47,7 @@ class PixelWildlife(Wildlife):
         return (NAMES[self.species],)+('',)*max(0,self.height-2)+(footer,)
 
     def help_pages(self):
-        return (('Wildlife',('Animal or Tab cycles through the animated species.',
+        return (('Wildlife',('Animal or Tab cycles through species. Group jumps to the next animal group.',
                             'Arrows turn and zoom. Space pauses motion. O toggles the obstacle.')),
                 ('Fox credits',('Model by PixelMannen (CC0). Rig and walk by tomkranis (CC BY 4.0).',
                                 'glTF conversion by AsoboStudio and scurest (CC BY 4.0).',

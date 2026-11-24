@@ -10,6 +10,7 @@ POCKET = Path(__file__).resolve().parents[1]
 for directory in ('graphics', 'shell', 'shell/apps/landscape-lab'):
     sys.path.insert(0, str(POCKET / directory))
 
+from pnw_species import REGIONAL
 from wildlife_pixels import FOX_ASSETS, FOX_FRAMES, NAMES, PixelWildlife, pose
 
 
@@ -24,10 +25,10 @@ class WildlifeInspectionTests(unittest.TestCase):
             self.assertEqual(app.species, species)
             self.assertTrue(app.pointer(30, app.height - 1, 100))
             self.assertGreater(app.yaw, 0)
-            self.assertTrue(app.pointer(60, app.height - 1, 100))
+            self.assertTrue(app.pointer(50, app.height - 1, 100))
             self.assertLess(app.zoom, 1)
             for playing in (False, True):
-                self.assertTrue(app.pointer(90, app.height - 1, 100))
+                self.assertTrue(app.pointer(70, app.height - 1, 100))
                 self.assertEqual(app.playing, playing)
             self.assertTrue(app.pointer(10, app.height - 1, 100))
         self.assertEqual(app.species, 'marmot')
@@ -35,13 +36,13 @@ class WildlifeInspectionTests(unittest.TestCase):
     def test_rainier_uses_regional_wildlife_meshes(self):
         from rainier_pixels import ENCOUNTERS, append_animals
 
-        self.assertEqual({entry[0] for entry in ENCOUNTERS}, set(NAMES) - {'arctic_fox'})
+        self.assertEqual({entry[0] for entry in ENCOUNTERS}, set(NAMES) - {'arctic_fox','coho_salmon','chinook_salmon'})
         vertices = array('f')
         indices, spans = append_animals(vertices)
         for (species, _, _, scale), (first, stride, frames, offset, count) in zip(ENCOUNTERS, spans):
             with self.subTest(species=species):
                 for frame in range(frames):
-                    points, faces = pose(species, frame, False)
+                    points, faces = pose(species, frame, False, species in REGIONAL)
                     self.assertEqual(count, len(faces) // 4 * 3)
                     for triangle in (0, len(faces) // 8, len(faces) // 4 - 1):
                         vertex, _, _, color = faces[4 * triangle:4 * triangle + 4]

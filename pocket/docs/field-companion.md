@@ -326,7 +326,12 @@ Ohanapecosh River. Tap anywhere in the view to follow the gold arrow to one
 blueberry bush. When you arrive, a berry turns blue in the counter and the
 bush loses its fruit. Tap again to find the next bush. After three, tap to
 bring the berries to the story fox. A heart means the fox has eaten. Tap
-again to play another round. Drag to wander or steer at any time. There is
+again to play another round. Each feeding adds a heart for this session.
+Drag the left side to walk and steer. Drag the right side to look around,
+including up and down. Tap **Walk** for continuous walking while you look,
+and **Stop** to stand still. You can also look around on a guided walk.
+Water sounds grow louder near the river, with a chime for each berry. Tap
+**Mute** for quiet play. There is
 no countdown. The fox is a game character. At Mount Rainier, watch wild
 animals from a distance and leave them their natural food.
 
@@ -341,7 +346,21 @@ walk still uses its original separately downloaded summit-area grid.
 [Mount Rainier fish](https://www.nps.gov/mora/learn/nature/fish.htm)
 
 In the Android graphical shell, **Apps → Wildlife** opens an animated hoary
-marmot. Tap **Animal** to cycle through the bald eagle, Townsend's chipmunk,
-Douglas squirrel, American pika, mountain goat, red fox, winter-coated Arctic fox, American black bear and rainbow trout. Tap **Turn** to inspect
-the silhouette, **Zoom** to see the markings, and **Pause** to hold a pose.
-Pocket renders all ten models offline.
+marmot. Tap **Animal** for the next animal or **Group** to jump to birds, fish,
+reptiles and amphibians, invertebrates, or mammals. **Turn**, **Zoom**, and
+**Pause** let you inspect a field mark. The offline catalog includes barred
+owls, American crows, newts, swallowtails and trout. Regional studies share
+body shapes across related species, with different size, coloration and marks.
+Encounter locations are game placements and imply no recorded sighting.
+
+**Stones** opens eight optional riverbank puzzles. Pick a fly, inspect a fin,
+or decide what to do at a closed lake. Each discovery earns a pebble. Tap
+**Back to the fox** whenever you want to walk again. The rules in these cards
+were checked November 24, 2026. For a trip, check the current park rules or the
+Washington rules and emergency updates for the specific water.
+
+- [Mount Rainier fishing and boating](https://www.nps.gov/mora/planyourvisit/fishing-and-boating.htm)
+- [Washington fishing rules and emergency updates](https://wdfw.wa.gov/fishing/regulations)
+- [Washington fish identification definitions](https://app.leg.wa.gov/wac/default.aspx?cite=220-300-160)
+- [Field investigation of Slippery Falls and Ohanapecosh fish passage, sections 2.5 and 4.2](https://www.morageology.com/pubs/356.pdf)
+- [CDC guidance on Giardia and drinking water](https://www.cdc.gov/giardia/prevention/index.html)

@@ -7,12 +7,15 @@ from functools import lru_cache
 from pathlib import Path
 from geometry import Mesh, Triangle, Vec, merge
 from marmot_art import ellipsoid
+from pnw_species import REGIONAL
+from pnw_mesh import study
 
 FOX_FRAMES=16
 FOX_ASSETS={'fox':'red_fox.mesh.gz','arctic_fox':'arctic_fox.mesh.gz'}
 
 NAMES={'marmot':'Hoary marmot','eagle':'Bald eagle','chipmunk':"Townsend's chipmunk",
        'squirrel':'Douglas squirrel','pika':'American pika','goat':'Mountain goat','fox':'Red fox','arctic_fox':'Arctic fox','bear':'American black bear','trout':'Rainbow trout'}
+NAMES.update((key,spec.name) for key,spec in REGIONAL.items())
 
 
 def skin(rings, paint):
@@ -420,9 +423,10 @@ def rainbow_trout(phase):
 
 
 @lru_cache(maxsize=FOX_FRAMES+3)
-def pose(species,index,obstacle):
+def pose(species,index,obstacle,low=False):
     builders={'eagle':raptor,'bear':black_bear,'trout':rainbow_trout}
-    model=builders[species](index) if species in builders else mammal(species,index)
+    if species in REGIONAL:model=study(REGIONAL[species],index,low)
+    else:model=builders[species](index) if species in builders else mammal(species,index)
     if obstacle:
         model=merge((model,ellipsoid(Vec(.13,.055,-.19) if species!='eagle' else Vec(-.45,-.95,-1.1),
                                      (.1,.065,.07) if species!='eagle' else (.22,.55,.12),'rock','rock')))

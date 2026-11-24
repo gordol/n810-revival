@@ -6,7 +6,10 @@ import math
 import random
 
 from geometry import Vec, cross, sub, unit
+from forest_floor import fern, snag, spruce_sprays
 from rainier_habitat import forest_sites
+from river_notebook import RiverNotebook
+from pnw_species import REGIONAL, group
 from river_walk import BUSHES, FOX, BerryTrail, blueberry_patch, river_mesh, site, wet
 from vegetation import ground_color, noise
 
@@ -28,6 +31,30 @@ ENCOUNTERS=(('marmot',-95.,153.,.78),('eagle',1.,17.,1.),
             ('pika',-82.,126.,.38),('goat',-117.,187.,1.45),('fox',*FOX,.86),('bear',40.,28.,1.4),('trout',15.,8.,.65))
 
 
+def regional_encounters():
+    _,segments=site()
+    # Distribute encounters back along the mapped watercourse and its banks.
+    reach=[seg for seg in segments if all(abs(v)<550 for v in seg[:2])]
+    sites=[]
+    for i,(key,spec) in enumerate(REGIONAL.items()):
+        if spec.form=='salmon':continue  # Slippery Falls lies below the playable reach.
+        a,b,u,v,length=reach[(i*7)%len(reach)]
+        along=length*((i%5+1)/7)
+        kind=group(spec.form)
+        across=0 if kind=='Fish' else (12+i%23)*(1 if i%2 else -1)
+        x=a+along*u+across*v;z=b+along*v-across*u
+        if key=='american_crow':x,z=-3.,12.
+        if key=='barred_owl':x,z=-4.,24.
+        if key=='western_tiger_swallowtail':x,z=1.2,9.
+        sites.append((key,x,z,spec.length))
+    return tuple(sites)
+
+
+ENCOUNTERS+=regional_encounters()
+PERCHES={'owl','tufted owl','crested','climber','woodpecker','kingfisher','tit','wren','finch','songbird'}
+
+
+
 class AnimalDraw(C.Structure):
     _fields_=[('first',C.c_uint),('second',C.c_uint),('index',C.c_uint),
               ('count',C.c_uint),('stride',C.c_uint),('blend',C.c_float),('x',C.c_float),
@@ -43,7 +70,7 @@ def append_animals(vertices):
         frames=FOX_FRAMES if species in FOX_ASSETS else 3
         first=len(vertices)//7
         offset=len(indices)
-        _,faces=pose(species,0,False)
+        _,faces=pose(species,0,False,species in REGIONAL)
         palette={}
         for i in range(0,len(faces),4):
             a,b,c,color=faces[i:i+4]
@@ -51,7 +78,7 @@ def append_animals(vertices):
                 key=(j,color)
                 indices.append(palette.setdefault(key,len(palette)))
         for frame in range(frames):
-            points,_=pose(species,frame,False)
+            points,_=pose(species,frame,False,species in REGIONAL)
             for j,color in palette:
                 x,y,z,light=points[j*4:j*4+4]
                 vertices.extend((x*scale,y*scale,z*scale,((color>>16)&255)*light/255,
@@ -60,9 +87,11 @@ def append_animals(vertices):
     return indices,spans
 
 
-def encounters(field,origin,spans,age,fed=False):
-    commands=(AnimalDraw*len(spans))()
+def encounters(field,origin,spans,age,fed=False,observer=(0.,0.)):
+    draws=[]
     for i,((species,x,z,_),(first,stride,frames,index,count)) in enumerate(zip(ENCOUNTERS,spans)):
+        distance=math.hypot(x-observer[0],z-observer[1])
+        if distance>230:continue
         heading=0.
         altitude=0.
         seconds=2.5
@@ -84,13 +113,25 @@ def encounters(field,origin,spans,age,fed=False):
             x+=.3*math.cos(age*.8)
             heading=-90 if math.cos(age*.8)>0 else 90
             altitude=.17+.32*max(0.,math.sin(age*2.1))**5
+        if species in REGIONAL:
+            spec=REGIONAL[species]
+            kind=group(spec.form)
+            heading=(i*137)%360
+            if spec.form in PERCHES:altitude=1.6
+            if kind=='Fish':altitude=.16+.22*max(0.,math.sin(age+i))**8
+            if spec.form in ('butterfly','swallowtail','bee','dragonfly','moth','bat','hummer'):
+                altitude=.68+.18*math.sin(age*2+i)
+                x+=.55*math.cos(age+i);z+=.35*math.sin(age+i)
         phase=(age/seconds)%frames
         frame=int(phase);blend=phase-frame
         if species!='fox':blend=blend*blend*(3-2*blend)
         y=surface(field,origin.x+x,origin.z+z)-origin.y+altitude
-        commands[i]=AnimalDraw(first+frame*stride,first+((frame+1)%frames)*stride,
+        draw=AnimalDraw(first+frame*stride,first+((frame+1)%frames)*stride,
                                index,count,stride,blend,x,y,z,heading)
-    return commands
+        draws.append((distance,draw))
+    draws.sort(key=lambda item:item[0])
+    visible=[draw for _,draw in draws[:48]]
+    return (AnimalDraw*len(visible))(*visible)
 
 
 def build_world():
@@ -150,6 +191,7 @@ def build_world():
             for i,p in enumerate(crown):
                 spread=rng.uniform(.60,.80) if i%2 else rng.uniform(1,1.18)
                 crown[i]=Vec(x+(p.x-x)*spread,p.y+h*(.034 if i%2 else -.025),z+(p.z-z)*spread)
+            if math.hypot(x,z)<55:spruce_sprays(x,y,z,h,t,angle,needles,face)
             for i,p in enumerate(crown):
                 face(apex,p,crown[(i+1)%tips],tuple(v*shade*(.78+.23*t) for v in needles))
     for dx,dz,h,near in forest_sites(rng):
@@ -157,8 +199,15 @@ def build_world():
         pine(origin.x+dx,origin.z+dz,h,near)
     def height(x,z):return surface(field,x,z)
     river_mesh(segments,height,face)
+    for key,x,z,_ in ENCOUNTERS:
+        if key in REGIONAL and REGIONAL[key].form in PERCHES:snag(x,height(x,z),z,1.6,face)
     for i,(x,z) in enumerate(BUSHES):
         blueberry_patch(x,z,height,face,rng,.08+i*.05)
+
+    for _ in range(38):
+        dx,dz=rng.uniform(-15,15),rng.uniform(-15,35)
+        if wet(dx,dz,segments,1) or abs(dx)<2:continue
+        fern(dx,dz,height(dx,dz),rng.uniform(.45,.85),face,rng)
 
     # Low plants and stones give the walker close-range parallax.
     for i in range(1100):
@@ -185,6 +234,10 @@ class RainierView:
     def __init__(self,host):
         self.host=host
         self.trail=BerryTrail()
+        self.cruise=False
+        self.sound=True
+        self.notebook=None
+        self.hearts=self.cue=0
         self.last_tick=None
         self.closed=False
         self.pixel_dirty=True
@@ -198,15 +251,32 @@ class RainierView:
     def lines(self):
         if self.error:return ('Rainier terrain could not open.',self.error)
         if self.world is None:return ('Opening Ohanapecosh River…',)
+        if self.notebook:return self.notebook.lines(self.host.window(self.name).w-2)
         trail=self.trail
-        if trail.fed:hint='Happy fox!  Tap to play again'
-        elif len(trail.picked)==3:hint='3/3   Tap to feed your fox'
-        else:hint=f'{len(trail.picked)}/3 blueberries   Tap to follow'
-        return ('',)*max(0,self.host.window(self.name).h-3)+(hint,)
+        if trail.fed:hint=f'{self.hearts} hearts / Again'
+        elif len(trail.picked)==3:hint='3/3 | Feed fox'
+        else:hint=f'{len(trail.picked)}/3 | Follow'
+        labels=('Stop' if self.cruise else 'Walk',hint,'Stones','Mute' if self.sound else 'Sound')
+        width=self.host.window(self.name).w-2
+        footer=''.join(label.center(end-start)[:end-start] for label,start,end in zip(labels,(0,width//5,width*3//5,width*4//5),(width//5,width*3//5,width*4//5,width)))
+        return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
+
+    def footer(self,x,width):
+        if x<width//5:
+            self.cruise=not self.cruise
+            self.trail.guiding=False
+        elif x>=width*4//5:self.sound=not self.sound
+        elif x>=width*3//5:
+            self.notebook=RiverNotebook()
+            self.trail.guiding=self.cruise=False
+        else:return self.guide()
+        return True
 
     def guide(self):
         if self.world is None:return False
         if self.trail.fed:self.trail=BerryTrail()
+        self.trail.free_look=False
+        self.cruise=False
         self.trail.guiding=True
         return True
 
@@ -238,7 +308,14 @@ class RainierView:
             except Exception as error:self.error=str(error);return
             finally:self.pool.shutdown(wait=False);self.pool=self.job=None
         now=owner.clock()
-        self.trail.advance(owner,min(.1,max(0.,now-(self.last_tick or now))))
+        dt=min(.1,max(0.,now-(self.last_tick or now)))
+        if self.cruise:owner._translate(1.,0.,dt*2.5)
+        before=len(self.trail.picked)
+        fed=self.trail.fed
+        self.trail.advance(owner,dt)
+        if self.trail.fed and not fed:
+            self.hearts+=1;self.cue=4;self.cruise=False
+        elif len(self.trail.picked)>before:self.cue=len(self.trail.picked)
         self.last_tick=now
         owner.x=max(-1000.,min(1000.,owner.x));owner.z=max(-1000.,min(1000.,owner.z))
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)
@@ -248,7 +325,7 @@ class RainierView:
 
     def draw_rainier(self,ctx):
         self.pixel_dirty=False
-        if self.world is None or self.camera is None:return ()
+        if self.world is None or self.camera is None or self.notebook:return ()
         field,origin,data,terrain_count,indices,spans=self.world
         x,z,yaw,pitch=self.camera
         eye=surface(field,x+origin.x,z+origin.z)-origin.y+1.25
@@ -256,17 +333,23 @@ class RainierView:
         ox,oy=self.host.origin
         rect=((wx+ox+1)*8,(wy+oy+1)*16,(w-2)*8,(h-3)*16)
         if min(rect[2:])<1:return ()
+        sound=ctx.lib.pocket_scene_river_sound
+        sound.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_float]
+        sound(ctx.handle,self.sound,self.cue,1. if wet(x,z,site()[1],10) else .30)
+        self.cue=0
         draw=ctx.lib.pocket_scene_rainier
-        commands=encounters(field,origin,spans,self.age,self.trail.fed)
+        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z))
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
                        C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int]
         target_x,target_z=self.trail.target(x,z)
         direction=math.atan2(target_x-x,target_z-z)-yaw
         mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
-        ctx.check(draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,len(data)//7,terrain_count,
-                       indices.buffer_info()[0] if self.upload else None,len(indices),commands,len(commands),
+        if self.upload:self.counts=len(data)//7,len(indices)
+        ctx.check(draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count,
+                       indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed))
         self.context=ctx
+        if self.upload:self.world=field,origin,None,terrain_count,None,spans
         self.upload=False
         self.pixel_jobs+=1;self.pixel_frames+=1
         return rect

@@ -34,3 +34,25 @@ class RiverTrailTests(unittest.TestCase):
         self.assertTrue(wet(15,8,segments))
         for x,z in ((0,0),*BUSHES,FOX):
             self.assertFalse(wet(x,z,segments))
+
+
+    def test_guided_walk_can_look_sideways(self):
+        trail=BerryTrail()
+        owner=SimpleNamespace(x=0.,z=0.,yaw=1.5)
+        trail.guiding=trail.free_look=True
+        for _ in range(80):trail.advance(owner,.05)
+        self.assertEqual(owner.yaw,1.5)
+        self.assertEqual(len(trail.picked),1)
+
+    def test_river_stones_round(self):
+        from river_notebook import CARDS,RiverNotebook
+        book=RiverNotebook()
+        for index,(_,_,correct,_) in enumerate(CARDS):
+            lines=book.lines(34)
+            self.assertTrue(all(len(line)<=34 for line in lines))
+            answer=next(row for row,action in book.actions.items() if action==correct)
+            self.assertTrue(book.tap(answer))
+            book.lines(34)
+            self.assertEqual(book.score,index+1)
+            advance=next(row for row,action in book.actions.items() if action==2)
+            self.assertEqual(book.tap(advance),index+1<len(CARDS))

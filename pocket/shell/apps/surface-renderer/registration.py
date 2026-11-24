@@ -99,18 +99,35 @@ def create_outdoors(host,*,pixel_scene=None,**options):
                 if released:
                     tap=not self.drag_moved
                     self.cancel_pointer()
-                    if tap and self.pixel_scene:return self.pixel_scene.guide()
+                    if tap and self.pixel_scene:
+                        book=getattr(self.pixel_scene,'notebook',None)
+                        if book:
+                            if not book.tap(y):self.pixel_scene.notebook=None
+                            self.pixel_scene.pixel_dirty=True
+                            return True
+                        if y>=self.host.window(self.name).h-3:return self.pixel_scene.footer(x,width)
+                        return self.pixel_scene.guide()
                     if tap:return self.key('left' if x<width//3 else 'right' if x>=2*width//3 else 'up')
                 else:
                     def axis(delta,reach):
                         magnitude=min(1.,max(0,abs(delta)-1)/reach)
                         return -magnitude if delta<0 else magnitude
-                    if self.pixel_scene and self.drag_moved:self.pixel_scene.trail.guiding=False
+                    if self.pixel_scene and self.drag_start[0]>=width/2:
+                        if self.drag_moved:
+                            self.pixel_scene.trail.free_look=True
+                            last_x,last_y=self.look_last
+                            self.yaw+=(x-last_x)*3./width
+                            self.pitch=max(-1.,min(1.,self.pitch+(y-last_y)*2./max(1,self.host.window(self.name).h)))
+                        self.look_last=(x,y)
+                        return True
+                    if self.pixel_scene and self.drag_moved:
+                        self.pixel_scene.trail.guiding=False
+                        self.pixel_scene.cruise=False
                     self.drag_axes=(axis(dy,max(3,(self.host.window(self.name).h-2)*.20)),
                                     axis(dx,max(4,width*.20)))
                 return True
             if button!=0:return False
-            self.drag_start=(x,y)
+            self.look_last=self.drag_start=(x,y)
             self.drag_time=self.clock()
             self.drag_axes=(0.,0.)
             self.drag_moved=False
