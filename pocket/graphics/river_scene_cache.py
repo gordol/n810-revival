@@ -40,7 +40,7 @@ def load(path,key,species_count):
         if archive.getinfo('scene').file_size>256*1024:raise ValueError('oversized scene metadata')
         meta=json.loads(archive.read('scene'))
         if meta['key']!=key:raise ValueError('scene changed')
-        vertices=read_array(archive,'vertices','f',2_000_000*28)
+        vertices=read_array(archive,'vertices','f',3_000_000*28)
         indices=read_array(archive,'indices','I',2_000_000*4)
         if archive.getinfo('canopy').file_size!=1024**2:raise ValueError('invalid canopy size')
         canopy=bytearray(archive.read('canopy'))

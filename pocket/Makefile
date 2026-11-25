@@ -73,7 +73,13 @@ termux-gui mobile:
 
 .PHONY: mobile
 mobile: override EXTRA += --mobile-shell
-mobile: mobile-map-deps
+mobile: mobile-map-deps mobile-api-deps
+
+.PHONY: mobile-api-deps
+mobile-api-deps:
+	@if ! command -v termux-vibrate >/dev/null; then \
+		pkg install -y termux-api || echo "Phone haptics unavailable. Retry with pkg install termux-api." >&2; \
+	fi
 
 .PHONY: mobile-update
 mobile-update:

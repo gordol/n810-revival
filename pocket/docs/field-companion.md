@@ -357,8 +357,10 @@ Tap **Lift rod!** at a rise. Ease the line during a run, then tap **Reel** in sp
 turns. High tension can break the line, and prolonged slack can lose the fish.
 Release native rainbow trout. A landed brook trout also offers **Keep brook**.
 The park permits brook trout retention in open streams without a minimum size.
-Android can pulse on bites and catches with Termux:API and `termux-vibrate`
-installed. Set `POCKET_HAPTICS=0` to disable pulses.
+On Android, install the Termux:API companion app from the same source as
+Termux. `make mobile` installs the `termux-api` command package when
+`termux-vibrate` is missing. Run `termux-vibrate -d 300` to feel a test
+pulse. Fishing pulses on bites and catches. Set `POCKET_HAPTICS=0` to disable pulses.
 Look down to see fish and
 stones through the water, or look along the river to see sky and conifer reflections.
 The pool and its fish are illustrative.

@@ -429,7 +429,7 @@ def build_world(high=True,plant_sites=None,regional=False):
         if plant_sites is not None and math.hypot(dx,dz)<70:plant_sites.append(("conifer",dx,dz))
         shade_tree(shadows,dx,dz,h,texel=2)
         pine(origin.x+dx,origin.z+dz,h,near)
-        if near and h>30 and floor_rng.random()<.16:
+        if near and h>30 and floor_rng.random()<(.50 if high else .16):
             # Fern colonies under older trees leave open ground between clumps.
             angle=floor_rng.uniform(0,math.tau)
             for _ in range(3):

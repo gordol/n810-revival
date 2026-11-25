@@ -17,7 +17,7 @@ class RiverDetailTests(unittest.TestCase):
     def test_profiles_fit_native_buffers_and_keep_encounters(self):
         for high in (False,True):
             _,_,vertices,terrain,indices,spans,base,mask=build_world(high)
-            self.assertLessEqual(len(vertices)//7,2_000_000)
+            self.assertLessEqual(len(vertices)//7,3_000_000 if high else 2_000_000)
             self.assertLessEqual(len(indices),2_000_000)
             from river_walk import channel
             water_count=6*(len(channel().rows)-1)
