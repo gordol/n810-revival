@@ -19,7 +19,7 @@ from forest_floor import blade, broadleaf_clump, fern, snag, spruce_sprays, trai
 from rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from rainier_hike import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from valley_map import ValleyMap
-from river_fishing import Fishing,vibration
+from river_fishing import Fishing,vibration,watch_rod
 from river_party import PartyMenu
 from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
 from river_notebook import DiscoveryBook
@@ -322,7 +322,9 @@ def build_world(high=True,plant_sites=None,regional=False):
                 n=unit(Vec(-sx,1,-sz))
                 point=(Vec(field.origin.x+ix*field.dx,field.values[k],field.origin.z+iz*field.dz)
                        if regional else mesh.vertices[k])
-                material=1.
+                # Reserve .98–1.0 for regional ground. The shader interpolates
+                # the DEM normal's vertical component across triangle edges.
+                material=.98+.02*n.y if regional else 1.
                 rgb=ground_color(point,n)
                 if not regional and channel().water_height(point.x,point.z) is not None:
                     rgb=(95,108,101)
@@ -810,6 +812,10 @@ class RainierView:
     def update_fishing(self,age):
         previous=self.fishing.state
         pulse=self.fishing.update(age)
+        if self.fishing.state=='bite':
+            if previous!='bite':self.fishing.lift=watch_rod()
+            elif self.fishing.lift and self.fishing.lift.is_set():
+                pulse=self.fishing.tap(age,self.camera[:2])
         if pulse:vibration(pulse)
         if previous!=self.fishing.state:
             self.photo_hint=self.fishing.note

@@ -1,5 +1,6 @@
 """A drifting dry fly and a catch-and-release fight at the trout pool."""
 from functools import lru_cache
+import json
 import math
 import os
 import random
@@ -31,10 +32,49 @@ def vibration(ms):
     threading.Thread(target=pulse,daemon=True).start()
 
 
+def rod_tilted(samples):
+    """Compare settled gravity directions so portrait and landscape both work."""
+    decoder=json.JSONDecoder()
+    baseline=None
+    tilted_samples=0
+    while samples.strip():
+        sample,end=decoder.raw_decode(samples.lstrip())
+        samples=samples.lstrip()[end:]
+        if not isinstance(sample,dict):continue
+        for reading in sample.values():
+            if not isinstance(reading,dict):continue
+            axes=reading.get('values',[])
+            if len(axes)<3:continue
+            xyz=axes[:3]
+            gravity=math.hypot(*xyz)
+            if not 7.5<gravity<12.:continue
+            direction=tuple(v/gravity for v in xyz)
+            if baseline is None:baseline=direction
+            tilted_samples=tilted_samples+1 if sum(a*b for a,b in zip(direction,baseline))<.91 else 0
+            if tilted_samples>=2:return True
+    return False
+
+
+def watch_rod():
+    if os.environ.get('POCKET_TERMUX')!='1' or os.environ.get('POCKET_MOTION_ROD')!='1':return None
+    command=shutil.which('termux-sensor')
+    if not command:return None
+    lifted=threading.Event()
+    def sample():
+        try:
+            read=subprocess.run([command,'-s','accelerometer','-d','80','-n','18'],
+                                capture_output=True,text=True,timeout=3,check=True)
+            if rod_tilted(read.stdout):lifted.set()
+        except (OSError,ValueError,TypeError,subprocess.SubprocessError):pass
+    threading.Thread(target=sample,daemon=True).start()
+    return lifted
+
+
 class Fishing:
     def __init__(self,rng=None):
         self.rng=rng or random.Random()
         self.kept_brook=False
+        self.lift=None
         self.target='trout'
         self.state='idle'
         self.note=''

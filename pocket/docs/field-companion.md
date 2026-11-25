@@ -361,6 +361,10 @@ Google Play Termux includes vibration support. For F-Droid Termux, install
 the Termux:API companion app from F-Droid. `make mobile` installs the `termux-api` command package when
 `termux-vibrate` is missing. Run `termux-vibrate -d 300` to feel a test
 pulse. Fishing pulses at a bite, during runs and on landing. Set `POCKET_HAPTICS=0` to disable pulses.
+For an optional motion hook-set, check that `termux-sensor -l` lists an
+accelerometer, then launch with `POCKET_MOTION_ROD=1 make mobile`. At a bite,
+tilt the phone about 30 degrees from its starting angle and hold briefly.
+The game samples for about 1.5 seconds. **Lift rod!** also works throughout.
 Look down to see fish and
 stones through the water, or look along the river to see sky and conifer reflections.
 The pool and its fish are illustrative.

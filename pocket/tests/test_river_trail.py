@@ -168,6 +168,16 @@ class RiverTrailTests(unittest.TestCase):
             self.assertEqual([entry[1] for entry in DiscoveryBook(view).entries],['trout'])
             self.assertIsNone(view.fishing.position(view.age))
 
+    def test_motion_rod_needs_a_sustained_tilt(self):
+        from river_fishing import rod_tilted
+        import json
+        def readings(*values):
+            return '\n'.join(json.dumps({'phone accelerometer':{'values':v}},indent=2) for v in values)
+        flat=(0,0,9.8)
+        up=(0,6.9,6.9)
+        self.assertFalse(rod_tilted(readings(flat,up,flat,(0,0,19))))
+        self.assertTrue(rod_tilted(readings(flat,up,up)))
+
     def test_brook_catch_and_photo_share_a_page_after_keep(self):
         from tempfile import TemporaryDirectory
         from unittest.mock import patch
