@@ -394,6 +394,9 @@ Wildlife encounters and shared family rooms are in the detailed valley.
 On the regional map, nearby terrain grows deterministic conifer stands below
 the treeline and grass clumps in open areas. Steep rock and the high summit
 stay bare. This vegetation illustrates elevation and slope on the USGS grid.
+In Ohanapecosh, saplings grow beneath a 25–54 m canopy, with occasional
+older conifers reaching about 77 m. Fern colonies and woody shrubs grow at
+walking height. Around Paradise, tree height falls toward timberline.
 Nearby trees cast longer shadows in low sun. Shadows change direction during
 the 12-minute light cycle, soften in mist and showers, and fade at night.
 The regional terrain represents mountain shape; it does not show climbing routes.

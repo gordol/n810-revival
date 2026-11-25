@@ -103,6 +103,20 @@ class RiverDetailTests(unittest.TestCase):
         self.assertEqual(view.trail.picked,{BUSHES[0]})
         self.assertFalse(view.trail.fed)
 
+    def test_valley_forest_has_multiple_height_layers_and_unsaturated_tall_crowns(self):
+        import random
+        from rainier_habitat import forest_sites
+        heights=[h for x,z,h,near in forest_sites(random.Random(3918))]
+        self.assertTrue(any(h<4 for h in heights))
+        self.assertGreater(sum(25<=h<=54 for h in heights),len(heights)//3)
+        self.assertGreater(max(heights),70)
+        peaks=[]
+        for h in (38,60,77):
+            mask=bytearray(64*64)
+            shade_tree(mask,0,0,h)
+            peaks.append(max(mask))
+        self.assertTrue(0<peaks[0]<peaks[1]<peaks[2]<255)
+
     def test_canopy_height_is_centered_on_the_tree(self):
         mask=bytearray(512*512)
         shade_tree(mask,0,0,14)

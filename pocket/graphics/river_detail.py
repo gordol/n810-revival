@@ -26,7 +26,7 @@ class RiverQuality:
 
 
 def shade_tree(mask,x,z,height,texel=1):
-    """Store the tallest conifer crown in each texel (8 units/m)."""
+    """Store the tallest conifer crown in each texel (3 units/m, up to 85 m)."""
     width=math.isqrt(len(mask))
     x=x/texel+width/2
     z=z/texel+width/2
@@ -36,4 +36,4 @@ def shade_tree(mask,x,z,height,texel=1):
             r=math.hypot(i+.5-x,j+.5-z)/radius
             if r<1:
                 k=j*width+i
-                mask[k]=max(mask[k],min(255,round(8*height*(1.-.72*r))))
+                mask[k]=max(mask[k],min(255,round(3*height*(1.-.72*r))))

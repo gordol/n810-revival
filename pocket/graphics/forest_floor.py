@@ -55,7 +55,7 @@ def broadleaf_clump(x,y,z,height,color,face,rng):
             base=Vec(x+(tip.x-x)*t,y+(tip.y-y)*t,z+(tip.z-z)*t)
             a=heading+(-1 if i%2 else 1)*rng.uniform(.65,1.65)
             dx,dz=math.cos(a),math.sin(a)
-            length=height*rng.uniform(.30,.56)
+            length=rng.uniform(.085,.17)
             mid=Vec(base.x+.52*length*dx,base.y+.19*length,base.z+.52*length*dz)
             end=Vec(base.x+length*dx,base.y+.08*length,base.z+length*dz)
             for side in (-1,1):
@@ -81,17 +81,17 @@ def snag(x,y,z,height,face):
     for i,p in enumerate(rings[-1]):face(p,Vec(x,y+height,z),rings[-1][i-1],(162,138,100))
 
 
-def spruce_sprays(x,y,z,h,t,angle,needles,face,rng):
+def spruce_sprays(x,y,z,h,t,angle,needles,face,rng,crown_base,breadth):
     """Layered lateral shoots on the outer silhouette of nearby conifers."""
     shoots=rng.randint(5,9)
     for j in range(shoots):
         a=angle+(j+rng.uniform(-.38,.38))*math.tau/shoots
         u,v=math.cos(a),math.sin(a)
-        reach=h*(.24-.19*t)*rng.uniform(.65,1.18)
+        reach=h*breadth*(.24-.19*t)*rng.uniform(.65,1.18)
         for k in range(1,5):
             f=k/5
             bx,bz=x+reach*f*u,z+reach*f*v
-            by=y+h*(.30+.66*t)-reach*f*.37
+            by=y+h*(crown_base+.12+(.84-crown_base)*t)-reach*f*.37
             tip=Vec(bx+reach*.42*u,by-reach*.06,bz+reach*.42*v)
             for side in (-1,1):
                 width=reach*(1-f*.75)*.24*side

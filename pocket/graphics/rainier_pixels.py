@@ -362,27 +362,33 @@ def build_world(high=True,plant_sites=None,regional=False):
             return [Vec(x+math.cos(angle+i*math.tau/count)*radius,y+height,
                         z+math.sin(angle+i*math.tau/count)*radius) for i in range(count)]
         sides=(12 if high else 5) if near else 3
-        bottom=ring(0,h*.023,0,sides);top=ring(h*.88,h*.009,0,sides)
+        radius=h*(.017 if h>=25 else .022)
+        bottom=ring(0,radius*1.4,0,sides)
+        shoulder=ring(min(2.,h*.13),radius,0,sides) if near else None
+        top=ring(h*.88,radius*.30,0,sides)
+        trunk=((bottom,shoulder),(shoulder,top)) if shoulder else ((bottom,top),)
         for i in range(sides):
             j=(i+1)%sides
-            face(bottom[i],top[i],bottom[j],(106,85,66),.48)
-            face(bottom[j],top[i],top[j],(106,85,66),.48)
+            for lo,hi in trunk:
+                face(lo[i],hi[i],lo[j],(106,85,66),.48)
+                face(lo[j],hi[i],hi[j],(106,85,66),.48)
         shade=rng.uniform(.82,1.13)
         layers=rng.choice((5,7)) if near else 3
         needles=rng.choice(((37,75,58),(52,91,66),(64,98,76),(48,82,76)))
-        breadth=rng.uniform(.8,1.24)
+        breadth=rng.uniform(.8,1.24)*(.70 if h>=25 else 1.)
+        crown_base=.33 if h>=25 else .16
         tips=(20 if high else 10) if near else 5
         lean_x,lean_z=(rng.uniform(-.085,.085)*h for _ in range(2))
         for layer in range(layers):
             t=layer/layers;angle=rng.random()*math.tau
-            apex=Vec(x+lean_x*(.5+.5*t),y+h*(.50+.50*t),z+lean_z*(.5+.5*t))
-            crown=ring(h*(.16+.76*t),breadth*h*(.23-.18*t),angle,tips)
+            apex=Vec(x+lean_x*(.5+.5*t),y+h*(.58+.42*layer/(layers-1)),z+lean_z*(.5+.5*t))
+            crown=ring(h*(crown_base+(.92-crown_base)*t),breadth*h*(.23-.18*t),angle,tips)
             for i,p in enumerate(crown):
                 spread=rng.uniform(.60,.80) if i%2 else rng.uniform(1,1.18)
                 crown[i]=Vec(x+lean_x*t+(p.x-x)*spread,p.y+h*rng.uniform(-.048,.04),z+lean_z*t+(p.z-z)*spread)
             if high and math.hypot(x,z)<55:
                 target=detail
-                spruce_sprays(x,y,z,h,t,angle,needles,face,branch_rng)
+                spruce_sprays(x,y,z,h,t,angle,needles,face,branch_rng,crown_base,breadth)
                 target=triangles
             for i,p in enumerate(crown):
                 face(apex,p,crown[(i+1)%tips],tuple(v*shade*(.78+.23*t) for v in needles))
@@ -407,6 +413,7 @@ def build_world(high=True,plant_sites=None,regional=False):
     for tx,tz in (*BUSHES,FOX):
         length=math.hypot(tx-bx,tz-bz)
         sightlines.append(((tx-bx)/length,(tz-bz)/length,length,(surface(field,tx,tz)+.5-eye)/length))
+    floor_rng=random.Random(3152)
     for dx,dz,h,near in forest_sites(random.Random(3918)):
         if wet(dx,dz,segments,2) or min(centerline_distances_sq(dx,dz,corridors))<(1.5+.09*h)**2:continue
         if math.hypot(dx-bx,dz-bz)<130:
@@ -422,6 +429,16 @@ def build_world(high=True,plant_sites=None,regional=False):
         if plant_sites is not None and math.hypot(dx,dz)<70:plant_sites.append(("conifer",dx,dz))
         shade_tree(shadows,dx,dz,h,texel=2)
         pine(origin.x+dx,origin.z+dz,h,near)
+        if near and h>30 and floor_rng.random()<.16:
+            # Fern colonies under older trees leave open ground between clumps.
+            angle=floor_rng.uniform(0,math.tau)
+            for _ in range(3):
+                angle+=floor_rng.uniform(.24,.91)
+                reach=floor_rng.uniform(2.,4.5)
+                px,pz=dx+reach*math.cos(angle),dz+reach*math.sin(angle)
+                if wet(px,pz,segments) or min(centerline_distances_sq(px,pz,corridors))<1.8**2:continue
+                fern(px,pz,surface(field,px,pz),floor_rng.uniform(.95,1.55),face,floor_rng,compact=True)
+                if plant_sites is not None:plant_sites.append(('fern',px,pz))
     def height(x,z):return surface(field,x,z)
     water=array('f')
     def water_vertex(p,side,station):
@@ -436,7 +453,7 @@ def build_world(high=True,plant_sites=None,regional=False):
         offset=trail_rng.choice((-1,1))*trail_rng.uniform(1.6,3.3)
         px,pz=x+.5*length*u+offset*v,z+.5*length*v-offset*u
         if not wet(px,pz,segments):
-            fern(px,pz,height(px,pz),trail_rng.uniform(.55,.92),face,trail_rng,compact=True)
+            fern(px,pz,height(px,pz),trail_rng.uniform(.95,1.6),face,trail_rng,compact=True)
             if plant_sites is not None:plant_sites.append(('fern',px,pz))
     campsite(height,face)
     river_stones(channel(),face,height)
@@ -454,15 +471,14 @@ def build_world(high=True,plant_sites=None,regional=False):
         if wet(x,z,segments,.5):continue
         y=surface(field,x,z)
         radius=math.hypot(x,z)
-        if high and i%29==0 and fern_count<32:
-            target=detail
-            fern(x,z,y,size*2.2,face,grass_rng)
+        if i%29==0 and fern_count<32:
+            fern(x,z,y,.8+size*2.0,face,grass_rng,compact=not high or radius>24)
             if plant_sites is not None:plant_sites.append(("fern",x,z))
             fern_count+=1
             target=triangles
             continue
         if i%12==1:
-            broadleaf_clump(x,y,z,size*1.4,color,face,grass_rng)
+            broadleaf_clump(x,y,z,.45+size*2.3,color,face,grass_rng)
         elif i%9==0:
             sides=11 if high else 6
             outline=[(size*math.cos(t*math.tau/sides),.7*size*math.sin(t*math.tau/sides)) for t in range(sides)]

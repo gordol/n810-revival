@@ -15,7 +15,12 @@ def forest_sites(rng):
                 if 0<z<85 and abs(x+6-4*math.sin(z*.13))<11+.06*z:
                     if rng.random()<.87 or math.hypot(x+6,z-15)<7:continue
                 if rng.random()<.19+.14*math.sin(.08*x+.06*z):continue
-                yield x,z,rng.uniform(4,20),distance<65
+                # Closed valley forest has several canopy layers and a few emergent trees.
+                age=rng.random()
+                if age<.28:height=6+age/.28*15
+                elif age<.93:height=25+(age-.28)/.65*29
+                else:height=56+(age-.93)/.07*21
+                yield x,z,height,distance<65
                 if rng.random()<.16:
                     # Regeneration beside a mature tree breaks up the even spacing.
                     sx,sz=x+rng.uniform(-3,3),z+rng.uniform(-3,3)
@@ -60,6 +65,11 @@ def ridge_grass(height,face,rng,cx,cz):
                 face(base,tip,edge,(rng.randrange(110,147),rng.randrange(122,147),76))
 
 
+def parkland_height(rng,fraction):
+    # Open-grown mountain conifers taper to wind-pruned trees at timberline.
+    return rng.uniform(12.,43.)*(.25+.75*fraction)
+
+
 def regional_stand(field,base_y,cx,cz,surface,lookout,meadow=None):
     """Stable world-grid trees and meadow clumps within walking distance."""
     from array import array
@@ -102,9 +112,9 @@ def regional_stand(field,base_y,cx,cz,surface,lookout,meadow=None):
                 in_meadow|=0<dz<64 and abs(dx+.31*dz)<7+.10*dz
             has_tree=rng.random()<density*fraction and not in_meadow
             if has_tree:
-                h=rng.uniform(5,21)*(.4+.6*fraction)
+                h=parkland_height(rng,fraction)
                 ground=y-base_y
-                cone(x,ground-.2,z,h*.032,h*.8,(.36,.28,.19),angle,4)
+                cone(x,ground-.2,z,h*.020,h*.93,(.36,.28,.19),angle,4)
                 shade=rng.uniform(.8,1.1)
                 tone=(.18*shade,.34*shade,.24*shade)
                 lean_x,lean_z=rng.uniform(-.08,.08)*h,rng.uniform(-.08,.08)*h
@@ -159,7 +169,7 @@ def regional_stand(field,base_y,cx,cz,surface,lookout,meadow=None):
                 line=1990+100*math.sin(x*.0017)+55*math.cos(z*.0021)
                 fraction=max(0.,min(1.,(line-y)/190))
                 if rng.random()>=fraction*(.76+.19*math.sin(x*.036+math.sin(z*.024))):continue
-                h=rng.uniform(8.,24.)*(.48+.52*fraction)
+                h=parkland_height(rng,fraction)
                 distant.append((x,y-base_y,z,h,rng.uniform(.17,.26)*h,rng.random()*math.pi))
     slots=(250000-len(vertices)//7)//12
     visible=min(slots,len(distant))
