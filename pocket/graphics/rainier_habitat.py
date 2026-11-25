@@ -70,13 +70,11 @@ def regional_stand(field,base_y,cx,cz,surface,lookout,meadow=None):
     canopy=bytearray(512*512)
     east=field.origin.x+(field.nx-1)*field.dx
     north=field.origin.z+(field.nz-1)*field.dz
-    def cone(x,y,z,r,h,tone,angle,sides,foliage=False):
+    def cone(x,y,z,r,h,tone,angle,sides):
         ring=[]
         for i in range(sides):
             a=angle+i*math.tau/sides
-            spread=r*(.81+.25*math.sin(2*a+angle)) if foliage else r
-            drop=-.19*r if foliage and i%2 else 0.
-            ring.append((x+spread*math.cos(a),y+drop,z+spread*math.sin(a)))
+            ring.append((x+r*math.cos(a),y,z+r*math.sin(a)))
         for i,p in enumerate(ring):
             light=.80+.16*math.cos(angle+(i+.5)*math.tau/sides)
             color=tuple(c*light for c in tone)+(0.,)
@@ -97,21 +95,46 @@ def regional_stand(field,base_y,cx,cz,surface,lookout,meadow=None):
             density=.66+.23*math.sin(x*.021+math.cos(z*.03))
             fraction=max(0.,min(1.,(treeline-y)/250))
             angle=rng.random()*math.tau
-            in_meadow=meadow and math.hypot(x-meadow[0],(z-meadow[1]-9)/.8)<53
-            if rng.random()<density*fraction and not in_meadow:
+            in_meadow=meadow and math.hypot(x-meadow[0],(z-meadow[1]-9)/.8)<18
+            if meadow:
+                dx,dz=x-meadow[0],z-meadow[1]
+                # Keep the uphill sightline open; forest islands frame the summit.
+                in_meadow|=0<dz<64 and abs(dx+.31*dz)<7+.10*dz
+            has_tree=rng.random()<density*fraction and not in_meadow
+            if has_tree:
                 h=rng.uniform(5,21)*(.4+.6*fraction)
                 ground=y-base_y
                 cone(x,ground-.2,z,h*.032,h*.8,(.36,.28,.19),angle,4)
                 shade=rng.uniform(.8,1.1)
                 tone=(.18*shade,.34*shade,.24*shade)
                 lean_x,lean_z=rng.uniform(-.08,.08)*h,rng.uniform(-.08,.08)*h
-                for rise,width in ((.18,.22),(.35,.20),(.52,.17),(.68,.12),(.81,.075)):
-                    level=rise+rng.uniform(-.04,.04)
-                    cone(x+lean_x*rise,ground+h*level,z+lean_z*rise,h*width,h*min(.33,1-level),
-                         tone,angle+rng.uniform(-1,1),8,True)
+                # Individual sloping boughs leave windows of sky and exposed trunk.
+                tiers=rng.randint(5,7)
+                for tier in range(tiers):
+                    rise=.16+.81*tier/tiers
+                    hub=(x+lean_x*rise,ground+h*rise,z+lean_z*rise)
+                    angle+=2.4
+                    for branch in range(5):
+                        a=angle+branch*math.tau/5+rng.uniform(-.24,.24)
+                        u,v=math.cos(a),math.sin(a)
+                        reach=h*(1-rise)*rng.uniform(.20,.36)
+                        width=rng.uniform(.25,.48)*reach
+                        mx,my,mz=hub[0]+.56*u*reach,hub[1]-.03*h,hub[2]+.56*v*reach
+                        left=(mx-v*width,my-.12*reach,mz+u*width)
+                        right=(mx+v*width,my-.17*reach,mz-u*width)
+                        tip=(hub[0]+reach*u,my-.20*reach,hub[2]+reach*v)
+                        ridge=(mx,my+.16*reach,mz)
+                        light=.85+.24*math.cos(a-.6)
+                        for tri,lit in (((hub,left,ridge),light),((ridge,left,tip),light),
+                                        ((hub,ridge,right),light*.73),((ridge,tip,right),light*.73)):
+                            color=tuple(c*lit for c in tone)
+                            for point in tri:
+                                edge=.514 if point in (left,right,tip) else .5
+                                vertices.extend((*point,*color,edge))
+                cone(x+lean_x,ground+h*.89,z+lean_z,h*.044,h*.11,tone,angle,5)
                 shade_tree(canopy,x-cx,z-cz,h)
             if rng.random()<.82:
-                for _ in range(10):
+                for _ in range(4 if has_tree else 10):
                     px=x+rng.uniform(-3.1,3.1)
                     pz=z+rng.uniform(-3.1,3.1)
                     ground=surface(field,px,pz)-base_y

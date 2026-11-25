@@ -330,7 +330,9 @@ def build_world(high=True,plant_sites=None,regional=False):
             ridge_grass(ridge_height,face,random.Random(1934),*position)
         clearing=lookout.location(field,paradise.LATITUDE,paradise.LONGITUDE)
         if clearing:
-            paradise.meadow(lambda x,z:surface(field,x,z),face,*clearing)
+            def meadow_height(x,z):return surface(field,x,z)
+            paradise.meadow(meadow_height,face,*clearing)
+            paradise.groundcover(meadow_height,face,*clearing)
         count=len(triangles)//7
         return field,origin,triangles,count,array('I',[0]),(),count,None
 
@@ -838,7 +840,7 @@ class RainierView:
     def visit_meadow(self):
         if self.meadow_site:
             x,z=self.meadow_site
-            self.trip_pose=(x,z,-.30,.12)
+            self.trip_pose=(x,z,-.30,-.035)
             self.destination=None
             self.cruise=self.binoculars=self.lens=False
             self.zoom=1.

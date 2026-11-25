@@ -88,3 +88,55 @@ def meadow(height,face,cx,cz):
                 h=rng.uniform(.08,.24)
                 face(Vec(x-.018*v,y,z+.018*u),Vec(x+.018*v,y,z-.018*u),
                      Vec(x+.65*h*u,y+h,z+.65*h*v),(104,rng.randrange(129,158),74),.88)
+
+
+def groundcover(height,face,cx,cz):
+    """Low woody cover and glacial stones in irregular drifts across the opening."""
+    rng=random.Random(7131)
+    for _ in range(165):
+        x,z=cx+rng.uniform(-47,47),cz+rng.uniform(-28,55)
+        reach=rng.uniform(.9,3.2)
+        # Nearby shrubs share leaf color through the season.
+        tone=.5+.5*math.sin(.18*x+.8*math.cos(.23*z))
+        for _ in range(24):
+            px,pz=x+rng.gauss(0,reach),z+rng.gauss(0,reach*.55)
+            y=height(px,pz)
+            h=rng.uniform(.10,.37)
+            for j in range(4):
+                a=rng.random()*math.tau
+                u,v=math.cos(a),math.sin(a)
+                base=Vec(px,y,pz)
+                tip=Vec(px+.65*h*u,y+h,pz+.65*h*v)
+                foot=Vec(px+.009*v,y,pz-.009*u)
+                face(base,foot,tip,(97,71,54),.84)
+                for leaf in range(3):
+                    t=.32+leaf*.23
+                    side=1 if leaf%2 else -1
+                    stem=Vec(px+t*.65*h*u,y+t*h,pz+t*.65*h*v)
+                    ex,ez=.08*u-side*.07*v,.08*v+side*.07*u
+                    end=Vec(stem.x+ex,stem.y+.057,stem.z+ez)
+                    left=Vec(stem.x+.45*ex-.21*ez,stem.y+.031,stem.z+.45*ez+.21*ex)
+                    right=Vec(stem.x+.45*ex+.21*ez,stem.y+.018,stem.z+.45*ez-.21*ex)
+                    color=(74+36*tone,98+rng.uniform(-12,22),56)
+                    face(stem,left,end,color,.83)
+                    face(end,right,stem,color,.83)
+    for _ in range(165):
+        x,z=cx+rng.uniform(-46,46),cz+rng.uniform(-26,65)
+        y=height(x,z)
+        r=rng.uniform(.12,.57)
+        angle=rng.random()*math.tau
+        top=Vec(x+r*.18,y+r*.54,z)
+        ring=[]
+        for j in range(7):
+            a=angle+j*math.tau/7
+            ring.append(Vec(x+math.cos(a)*r*rng.uniform(.77,1.2),y+r*rng.uniform(.07,.26),
+                            z+.75*r*math.sin(a)))
+        for j,p in enumerate(ring):
+            q=ring[j-1]
+            grey=rng.uniform(115,148)
+            color=(grey,grey*.98,grey*.91)
+            foot=Vec(p.x,height(p.x,p.z)-.03,p.z)
+            end=Vec(q.x,height(q.x,q.z)-.03,q.z)
+            face(p,q,top,color)
+            face(foot,p,q,color)
+            face(end,foot,q,color)
