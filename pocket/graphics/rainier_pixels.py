@@ -308,9 +308,11 @@ def build_world(high=True,plant_sites=None,regional=False):
         for p in (a,b,c):target.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z,*rgb,material))
 
     def terrain(field,omit_summit=False):
-        mesh=field.mesh()
+        mesh=None if regional else field.mesh()
         colors=[]
+        previous=[]
         for iz in range(field.nz):
+            if regional:colors=[]
             for ix in range(field.nx):
                 k=iz*field.nx+ix
                 ax,bx=max(0,ix-1),min(field.nx-1,ix+1)
@@ -318,20 +320,28 @@ def build_world(high=True,plant_sites=None,regional=False):
                 sx=(field.values[iz*field.nx+bx]-field.values[iz*field.nx+ax])/((bx-ax)*field.dx)
                 sz=(field.values[bz*field.nx+ix]-field.values[az*field.nx+ix])/((bz-az)*field.dz)
                 n=unit(Vec(-sx,1,-sz))
-                point=mesh.vertices[k]
+                point=(Vec(field.origin.x+ix*field.dx,field.values[k],field.origin.z+iz*field.dz)
+                       if regional else mesh.vertices[k])
                 material=1.
                 rgb=ground_color(point,n)
                 if not regional and channel().water_height(point.x,point.z) is not None:
                     rgb=(95,108,101)
                     material=.94
                 light=.55+.45*max(0,n.y*.75-n.x*.51-n.z*.42)
-                colors.append(vertex(mesh.vertices[k],tuple(c*light for c in rgb),material))
+                colors.append(vertex(point,tuple(c*light for c in rgb),material))
+            if regional:
+                # The regional field is a regular grid. Only two shaded rows
+                # are needed to emit its triangles, including the summit inset.
+                if previous:
+                    for ix in range(field.nx-1):
+                        if (omit_summit and summit_detail.WEST<=ix<summit_detail.WEST+summit_detail.CELLS and
+                            summit_detail.SOUTH<=iz-1<summit_detail.SOUTH+summit_detail.CELLS):continue
+                        a,b=previous[ix],previous[ix+1]
+                        c,d=colors[ix],colors[ix+1]
+                        for v in (a,c,b,b,c,d):triangles.extend(v)
+                previous=colors
+        if regional:return
         for a,b,c,material,_ in mesh.triangles:
-            if omit_summit:
-                ix=min(a%field.nx,b%field.nx,c%field.nx)
-                iz=min(a//field.nx,b//field.nx,c//field.nx)
-                if (summit_detail.WEST<=ix<summit_detail.WEST+summit_detail.CELLS and
-                    summit_detail.SOUTH<=iz<summit_detail.SOUTH+summit_detail.CELLS):continue
             if material=='terrain':
                 for i in (a,b,c):triangles.extend(colors[i])
             else:face(mesh.vertices[a],mesh.vertices[b],mesh.vertices[c],(46,80,62))

@@ -14,4 +14,5 @@ if os.environ.get('POCKET_TERMUX') == '1' and not {'--headless','--help','-h'}.i
         control=TouchInput()
         control.apply()
         print(control.message,file=sys.stderr,flush=True)
-os.execv(sys.executable,[sys.executable,str(here/'run.py'),*sys.argv[1:]])
+options=['-X','faulthandler'] if '--mobile-shell' in sys.argv else []
+os.execv(sys.executable,[sys.executable,*options,str(here/'run.py'),*sys.argv[1:]])

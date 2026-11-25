@@ -71,6 +71,23 @@ class HikeTests(TestCase):
         px,pz=view.trip_pose[:2]
         self.assertEqual(RainierView.eye_position(view,px,pz)[1],height(px,pz)+1.25)
 
+    def test_regional_builder_streams_the_same_grid_triangles(self):
+        from array import array
+        from geometry import HeightField
+        from rainier_pixels import build_world
+        field=self.field()
+        mesh=field.mesh()
+        with patch('rainier_pixels.region_field',return_value=field),patch('fremont_lookout.location',return_value=None),patch.object(
+                HeightField,'mesh',side_effect=AssertionError('materialized regional mesh')):
+            _,origin,vertices,*_=build_world(False,regional=True)
+        expected=array('f')
+        for triangle in mesh.triangles:
+            for i in triangle[:3]:
+                p=mesh.vertices[i]
+                expected.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z))
+        for axis in range(3):
+            self.assertEqual(vertices[axis::7],expected[axis::3])
+
     def test_whole_field_and_summit_approach(self):
         field=self.field()
         west,east,south,north=bounds(field)

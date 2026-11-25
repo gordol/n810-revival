@@ -250,6 +250,15 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
    SDL_SetError("Insufficient graphics memory for Rainier geometry");result=-2;goto done;
   }
  }
+ if(grove && grove_count){
+  if(!s->rainier_grove)glGenBuffers(1,&s->rainier_grove);
+  glBindBuffer(GL_ARRAY_BUFFER,s->rainier_grove);
+  GLsizeiptr bytes=(GLsizeiptr)grove_count*7*sizeof(float);
+  glBufferData(GL_ARRAY_BUFFER,bytes,grove,GL_DYNAMIC_DRAW);
+  GLint allocated=0;glGetBufferParameteriv(GL_ARRAY_BUFFER,GL_BUFFER_SIZE,&allocated);
+  glBindBuffer(GL_ARRAY_BUFFER,s->rainier_buffer);
+  s->rainier_grove_count=allocated==bytes?grove_count:0;
+ }
  if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
   glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT16,s->width,s->height);
  if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE){
@@ -304,15 +313,19 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
   int canopy_size=lens<0?512:1024;
+  /* SDL texture updates can leave a row pitch for a different image. */
+  glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
+  glPixelStorei(GL_UNPACK_ALIGNMENT,1);glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
+  glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);glPixelStorei(GL_UNPACK_SKIP_ROWS,0);
   glTexImage2D(GL_TEXTURE_2D,0,GL_LUMINANCE,canopy_size,canopy_size,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,shadows);
+  glPopClientAttrib();
  }else glBindTexture(GL_TEXTURE_2D,s->rainier_shadow);
  glUniform1i(glGetUniformLocation(s->rainier_program,"highDetail"),high);
  glUniform1i(glGetUniformLocation(s->rainier_program,"animal"),0);
  glUniform1f(blend,0.f);river_draw_land(s,terrain_count,water_count,east,eye,north,yaw,pitch,(float)w/h);
- if(grove_count){
-  if(!s->rainier_grove)glGenBuffers(1,&s->rainier_grove);
+ if(grove_count && grove_count==s->rainier_grove_count){
   glBindBuffer(GL_ARRAY_BUFFER,s->rainier_grove);
-  if(grove)glBufferData(GL_ARRAY_BUFFER,(size_t)grove_count*7*sizeof(float),grove,GL_DYNAMIC_DRAW);
   glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);
   glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
   glDrawArrays(GL_TRIANGLES,0,(GLsizei)grove_count);
