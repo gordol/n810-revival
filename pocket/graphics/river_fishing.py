@@ -79,20 +79,41 @@ class Fishing:
                     fz+=.5
                 if math.hypot(x-fx,z-fz)<1.65:
                     self.state='bite'
-                    self.bite=now
+                    self.bite=self.last_pulse=now
                     self.note='A rise! Lift the rod'
-                    return 100
-        elif self.state=='bite' and now-self.bite>3.5:self.finish('The trout let go')
+                    return 220
+        elif self.state=='bite':
+            if now-self.bite>3.5:self.finish('The trout let go')
+            elif now-self.last_pulse>=1.:
+                self.last_pulse=now
+                return 140
         elif self.state=='fight':
-            dt=max(0.,now-self.last)
-            self.tension=max(0.,self.tension-.19*dt)
+            dt=min(.25,max(0.,now-self.last))
             self.last=now
-            if self.pulling(now):self.remaining=min(1.,self.remaining+.024*min(dt,.25))
+            run=self.pulling(now)
+            if self.reeling:
+                self.turn=now
+                self.remaining=max(0.,self.remaining-dt*(.04 if run else .17))
+                self.tension=min(1.,self.tension+dt*(.55 if run else -.09))
+            else:
+                self.remaining=min(1.,self.remaining+dt*(.04 if run else 0.))
+                self.tension-=.38*dt
+            self.tension=max(0.,self.tension)
+            if self.tension>=1.:
+                self.finish('Line broke - trout away')
+                return 300
+            if self.remaining<=0.:
+                self.state='landed'
+                self.note='Brook trout' if self.target!='trout' else 'Native rainbow - release'
+                return 350
             if now-self.turn>8:self.finish('Slack line - trout away')
+            elif run and now-self.last_pulse>=.8:
+                self.last_pulse=now
+                return 240
         return 0
 
     def label(self,now):
-        if self.state=='fight':return 'Ease line' if self.pulling(now) else 'Reel'
+        if self.state=='fight':return 'Ease line' if self.reeling else 'Reel'
         return {'idle':'Cast fly','drift':'Fly drifting','bite':'Lift rod!',
                 'landed':'Release trout','over':'Cast again'}[self.state]
 
@@ -118,28 +139,15 @@ class Fishing:
             scale=min(1.,2.5/max(.01,math.hypot(dx,dz)))
             self.bank=dx*scale,dz*scale
             self.state='fight'
-            self.hook=self.last=self.turn=now
+            self.hook=self.last=self.turn=self.last_pulse=now
+            self.reeling=False
             self.tension=.42
             self.note='Fish running - ease the line'
             return 130
         elif self.state=='fight':
-            if now-self.turn<.32:return 0
+            self.reeling=not self.reeling
             self.turn=now
-            if self.pulling(now):
-                self.tension*=.55
-                self.note='Let it run'
-            else:
-                self.tension+=.39
-                if self.tension>=1:
-                    self.finish('Line broke - trout away')
-                    return 90
-                self.remaining=max(0.,self.remaining-.21)
-                self.note='Steady turns'
-                if self.remaining==0:
-                    self.state='landed'
-                    self.note='Brook trout' if self.target!='trout' else 'Native rainbow - release'
-                    return 160
-                return 35
+            self.note='Reeling in' if self.reeling else 'Let it run'
         elif self.state=='landed':
             self.state='idle'
             self.note='Trout released'

@@ -797,6 +797,20 @@ class RainierView:
         self.destination=self.review_key=None
         self.lens=self.binoculars=self.cruise=self.trail.guiding=False
 
+    def update_fishing(self,age):
+        previous=self.fishing.state
+        pulse=self.fishing.update(age)
+        if pulse:vibration(pulse)
+        if previous!=self.fishing.state:
+            self.photo_hint=self.fishing.note
+            self.hint_until=age+2.
+            if self.fishing.state=='landed':
+                from river_notebook import record_catch
+                try:record_catch(self.fishing.target)
+                except OSError:self.photo_hint+=' - guidebook save failed'
+                else:self.photo_hint+=' - in guidebook'
+                self.hint_until=age+4.
+
     def fish(self):
         pulse=self.fishing.tap(self.age,self.camera[:2])
         if pulse:vibration(pulse)
@@ -970,12 +984,7 @@ class RainierView:
         if self.fishing.state!='idle':
             if self.regional or math.dist(camera[:2],TROUT_POOL)>12:self.fishing.state='idle'
             else:
-                previous=self.fishing.state
-                pulse=self.fishing.update(age)
-                if pulse:vibration(pulse)
-                if previous!=self.fishing.state:
-                    self.photo_hint=self.fishing.note
-                    self.hint_until=age+2.
+                self.update_fishing(age)
         if self.camera!=camera or age-self.age>=1/20:
             self.camera=camera;self.age=age;self.pixel_dirty=True
 
@@ -1150,6 +1159,7 @@ class RainierView:
                     bend=min(1.,self.fishing.tension+(.32 if self.fishing.pulling(self.age) else 0.))
                     ctx.check(rod(ctx.handle,*rect,u,v,bend))
                 if self.fishing.state=='fight':
+                    ink.label(1,6,'Fish running - ease line' if self.fishing.pulling(self.age) else 'Fish resting - reel',0xFFF6DA)
                     ink.label(1,7,f'Reeled {round(100*(1-self.fishing.remaining))}%   Tension',0xFFF6DA)
                     ink.fill((1,8.1,18,.36),0x283832FF)
                     ink.fill((1,8.1,18*self.fishing.tension,.36),0xFD996EFF)

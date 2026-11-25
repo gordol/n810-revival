@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import unittest
 
 root=Path(__file__).resolve().parents[1]
-sys.path[:0]=[str(root/'graphics'),str(root/'shell')]
+sys.path[:0]=[str(root/'graphics'),str(root/'shell'),str(root/'shell/apps/landscape-lab')]
 from river_walk import BUSHES, FOX, BerryTrail, nearby_calls, river_gain, site, wet
 
 
@@ -150,19 +150,50 @@ class RiverTrailTests(unittest.TestCase):
         for j in range(90):
             view.age+=.1
             if view.fishing.update(view.age):break
-        with patch('rainier_pixels.vibration') as pulse:
+        from tempfile import TemporaryDirectory
+        from river_notebook import DiscoveryBook
+        with TemporaryDirectory() as data,patch.dict('os.environ',XDG_DATA_HOME=data),patch('rainier_pixels.vibration') as pulse:
             tap('Lift rod!')
             pulse.assert_called_with(130)
-            # Let the trout run; take a measured turn per second when calm.
+            # One tap starts continuous winding, another eases off for a run.
             for j in range(300):
                 view.age+=.1
-                view.fishing.update(view.age)
-                if j%11==0:tap(view.fishing.label(view.age))
+                view.update_fishing(view.age)
                 if view.fishing.state=='landed':break
+                if view.fishing.reeling==view.fishing.pulling(view.age):tap(view.fishing.label(view.age))
             self.assertEqual(view.fishing.state,'landed')
             self.assertNotIn('keep',[a for a,_,_ in view.walk_tools(42,32)])
+            self.assertGreater(sum(call.args==(240,) for call in pulse.call_args_list),1)
             tap('Release trout')
+            self.assertEqual([entry[1] for entry in DiscoveryBook(view).entries],['trout'])
             self.assertIsNone(view.fishing.position(view.age))
+
+    def test_brook_catch_and_photo_share_a_page_after_keep(self):
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        from data_paths import rainier_cache
+        from rainier_pixels import RainierView
+        from river_notebook import DiscoveryBook
+        with TemporaryDirectory() as data,patch.dict('os.environ',XDG_DATA_HOME=data):
+            view=RainierView(None)
+            fish=view.fishing
+            fish.state='fight'
+            fish.target='brook_trout#1'
+            fish.reeling=True
+            fish.remaining=.001
+            fish.hook=fish.turn=fish.last_pulse=0.
+            fish.last=2.
+            view.update_fishing(2.1)
+            self.assertEqual(fish.state,'landed')
+            self.assertEqual(DiscoveryBook(view).entries,[('Brook trout','brook_trout','Landed at the trout pool.')])
+            fish.keep()
+            photos=rainier_cache()/'photos'
+            photos.mkdir()
+            photo=photos/'brook_trout-123.png'
+            photo.touch()
+            book=DiscoveryBook(view)
+            self.assertEqual(len(book.entries),1)
+            self.assertEqual(book.preview,photo)
 
     def test_line_break_slack_missed_bite_and_species_retention(self):
         from river_fishing import Fishing
@@ -182,9 +213,8 @@ class RiverTrailTests(unittest.TestCase):
         self.assertEqual(game.state,'over')
         game,t=strike()
         game.tap(t,(9,7))
-        for dt in (1.5,1.85,2.2,2.55):
-            game.update(t+dt)
-            if game.state=='fight':game.tap(t+dt,(9,7))
+        game.tap(t+.01,(9,7))
+        for j in range(1,16):game.update(t+j*.1)
         self.assertEqual(game.note,'Line broke - trout away')
         game,t=strike()
         game.tap(t,(9,7))

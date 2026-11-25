@@ -353,14 +353,14 @@ Across the meadows, distant slopes carry simpler conifer crowns out to roughly
 
 Choose **Hike → Fish at trout pool** for a bank-side view of several rainbow trout.
 Tap **Cast fly**. The fly drifts downstream, and some drifts pass without a bite.
-Tap **Lift rod!** at a rise. Ease the line during a run, then tap **Reel** in spaced
-turns. High tension can break the line, and prolonged slack can lose the fish.
+Tap **Lift rod!** at a rise. Tap **Reel** once to wind continuously. Tap **Ease line** when the fish runs,
+then **Reel** when it rests. Landing a trout adds its species to the guidebook. High tension can break the line, and prolonged slack can lose the fish.
 Release native rainbow trout. A landed brook trout also offers **Keep brook**.
 The park permits brook trout retention in open streams without a minimum size.
-On Android, install the Termux:API companion app from the same source as
-Termux. `make mobile` installs the `termux-api` command package when
+Google Play Termux includes vibration support. For F-Droid Termux, install
+the Termux:API companion app from F-Droid. `make mobile` installs the `termux-api` command package when
 `termux-vibrate` is missing. Run `termux-vibrate -d 300` to feel a test
-pulse. Fishing pulses on bites and catches. Set `POCKET_HAPTICS=0` to disable pulses.
+pulse. Fishing pulses at a bite, during runs and on landing. Set `POCKET_HAPTICS=0` to disable pulses.
 Look down to see fish and
 stones through the water, or look along the river to see sky and conifer reflections.
 The pool and its fish are illustrative.

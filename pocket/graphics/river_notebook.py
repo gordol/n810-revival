@@ -85,6 +85,18 @@ def record_plant(key):
     (folder/key).touch(exist_ok=True)
 
 
+FISH={'trout','brook_trout'}
+
+
+def record_catch(target):
+    from data_paths import rainier_cache
+    species=target.partition('#')[0]
+    if species not in FISH:raise ValueError('Unknown catch')
+    folder=rainier_cache()/'catches'
+    folder.mkdir(parents=True,exist_ok=True)
+    (folder/species).touch(exist_ok=True)
+
+
 class DiscoveryBook:
     def __init__(self,view):
         from data_paths import rainier_cache
@@ -94,7 +106,9 @@ class DiscoveryBook:
         self.photos=photo_paths()
         animals={p.stem.rsplit('-',1)[0] for p in self.photos}
         plants=rainier_cache()/'plants'
-        self.entries=sorted([(NAMES[k],k,'[ See my photograph ]') for k in animals if k in NAMES]+
+        caught={k for k in FISH if (rainier_cache()/'catches'/k).is_file()}
+        self.entries=sorted([(NAMES[k],k,'Landed at the trout pool.' if k in caught else '[ See my photograph ]')
+                             for k in animals|caught if k in NAMES]+
                             [(name,k,clue) for k,(name,clue) in PLANTS.items() if (plants/k).is_file()])
         self.page=0
         self.damaged=set()

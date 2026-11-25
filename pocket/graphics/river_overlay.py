@@ -80,7 +80,7 @@ def draw_book(ink,book,width,height,photo):
         name,key,clue=book.entries[book.page]
     else:
         key=None
-        name,clue='First discovery','Take a wildlife photo or walk up to a plant.'
+        name,clue='First discovery','Land a fish, photograph wildlife or walk up to a plant.'
     lines=textwrap.wrap(name,max(1,w-4))
     for i,line in enumerate(lines):ink.label(x+2,y+1.6+i,line,0x243B31)
     start=y+2+len(lines)
