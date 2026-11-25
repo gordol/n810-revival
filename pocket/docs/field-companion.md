@@ -352,8 +352,14 @@ Across the meadows, distant slopes carry simpler conifer crowns out to roughly
 2.4 km. Tree locations and shrub patches are illustrative.
 
 Choose **Hike → Fish at trout pool** for a bank-side view of several rainbow trout.
-Tap **Cast fly** and watch the gold fly drift until a trout rises. Tap **Reel in!**,
-then **Release trout**. If it gets away, **Cast again**. Look down to see fish and
+Tap **Cast fly**. The fly drifts downstream, and some drifts pass without a bite.
+Tap **Lift rod!** at a rise. Ease the line during a run, then tap **Reel** in spaced
+turns. High tension can break the line, and prolonged slack can lose the fish.
+Release native rainbow trout. A landed brook trout also offers **Keep brook**.
+The park permits brook trout retention in open streams without a minimum size.
+Android can pulse on bites and catches with Termux:API and `termux-vibrate`
+installed. Set `POCKET_HAPTICS=0` to disable pulses.
+Look down to see fish and
 stones through the water, or look along the river to see sky and conifer reflections.
 The pool and its fish are illustrative.
 

@@ -138,16 +138,67 @@ class RiverTrailTests(unittest.TestCase):
         def tap(label):
             _,_,(x,y,w,h)=next(tool for tool in view.walk_tools(42,32) if tool[1]==label)
             self.assertTrue(view.scene_tap(x+w/2,y+h/2,42,32))
+        from unittest.mock import Mock,patch
+        view.fishing.rng=Mock()
+        view.fishing.rng.uniform.return_value=0.
+        view.fishing.rng.random.side_effect=(.99,.8,.1,.8)
         tap('Cast fly')
-        self.assertIsNotNone(view.fly_position())
-        tap('Fly drifting')
-        view.age+=10
-        self.assertIsNone(view.fly_position())
+        self.assertIsNotNone(view.fishing.position(0))
+        self.assertEqual(view.fishing.update(10),0)
+        view.age=10
         tap('Cast again')
-        view.age+=3
-        tap('Reel in!')
-        tap('Release trout')
-        self.assertIsNone(view.fly_position())
+        for j in range(90):
+            view.age+=.1
+            if view.fishing.update(view.age):break
+        with patch('rainier_pixels.vibration') as pulse:
+            tap('Lift rod!')
+            pulse.assert_called_with(130)
+            # Let the trout run; take a measured turn per second when calm.
+            for j in range(300):
+                view.age+=.1
+                view.fishing.update(view.age)
+                if j%11==0:tap(view.fishing.label(view.age))
+                if view.fishing.state=='landed':break
+            self.assertEqual(view.fishing.state,'landed')
+            self.assertNotIn('keep',[a for a,_,_ in view.walk_tools(42,32)])
+            tap('Release trout')
+            self.assertIsNone(view.fishing.position(view.age))
+
+    def test_line_break_slack_missed_bite_and_species_retention(self):
+        from river_fishing import Fishing
+        from unittest.mock import Mock
+        def strike():
+            rng=Mock()
+            rng.uniform.return_value=0.
+            rng.random.return_value=.05
+            game=Fishing(rng)
+            game.tap(0,(9,7))
+            for j in range(90):
+                t=j/10
+                if game.update(t):return game,t
+            self.fail('expected brook trout to take the fly')
+        game,t=strike()
+        game.update(t+4)
+        self.assertEqual(game.state,'over')
+        game,t=strike()
+        game.tap(t,(9,7))
+        for dt in (1.5,1.85,2.2,2.55):
+            game.update(t+dt)
+            if game.state=='fight':game.tap(t+dt,(9,7))
+        self.assertEqual(game.note,'Line broke - trout away')
+        game,t=strike()
+        game.tap(t,(9,7))
+        game.update(t+9)
+        self.assertEqual(game.note,'Slack line - trout away')
+        game,t=strike()
+        game.state='landed'
+        game.keep()
+        self.assertTrue(game.kept_brook)
+        game.tap(t+1,(9,7))
+        self.assertEqual(game.target,'trout')
+        game.state='landed'
+        game.keep()
+        self.assertEqual(game.state,'landed')
 
     def test_gather_supplies_once_and_build_at_camp(self):
         from rainier_pixels import RainierView

@@ -19,6 +19,7 @@ from forest_floor import blade, broadleaf_clump, fern, snag, spruce_sprays, trai
 from rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from rainier_hike import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from valley_map import ValleyMap
+from river_fishing import Fishing,vibration
 from river_party import PartyMenu
 from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
 from river_notebook import DiscoveryBook
@@ -103,6 +104,7 @@ def populate(homes):
     return tuple(extras)
 
 ENCOUNTERS+=populate(ENCOUNTERS)
+ENCOUNTERS+=(('brook_trout#1',TROUT_POOL[0]+.65,TROUT_POOL[1]+.5,REGIONAL['brook_trout'].length),)
 PERCHES={'owl','tufted owl','crested','climber','woodpecker','kingfisher','tit','wren','finch','songbird'}
 
 
@@ -186,9 +188,10 @@ def bird_excursion(age,index):
     return dx,dz,(3.+index%4)*math.sin(angle/2)**2,heading,True
 
 
-def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,optics=None,hatch=False,fly=None):
+def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,optics=None,hatch=False,fly=None,fish_key='trout',kept_brook=False):
     draws=[]
     for i,((key,x,z,_),(first,stride,frames,index,count)) in enumerate(zip(ENCOUNTERS,spans)):
+        if kept_brook and key=='brook_trout#1':continue
         species,_,individual=key.partition('#')
         local_age=age+2.9*int(individual or 0)
         heading=altitude=0.
@@ -221,12 +224,6 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
             x+=.3*math.cos(local_age*.8)
             heading=-90 if math.cos(local_age*.8)>0 else 90
             altitude=0.
-            if fly and key=='trout':
-                fx,fz,t=fly
-                approach=min(1.,t/2.)
-                heading=-math.degrees(math.atan2(fz-z,fx-x))
-                x+=(fx-x)*approach
-                z+=(fz-z)*approach
         if species in REGIONAL:
             spec=REGIONAL[species]
             heading=(i*137)%360
@@ -246,6 +243,12 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
             if spec.form in ('butterfly','swallowtail','bee','dragonfly','moth','bat','hummer'):
                 altitude=.68+.18*math.sin(age*2+i)
                 x+=.55*math.cos(age+i);z+=.35*math.sin(age+i)
+        if fly and key==fish_key:
+            fx,fz,t=fly
+            approach=min(1.,t/2.)
+            heading=-math.degrees(math.atan2(fz-z,fx-x))
+            x+=(fx-x)*approach
+            z+=(fz-z)*approach
         distance=math.hypot(x-observer[0],z-observer[1])
         if distance>230*(optics[2] if optics else 1.):continue
         phase=(age/seconds)%frames if moving else 0.
@@ -264,7 +267,7 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
         else:
             hold=max(bed+.025,level-.53)
             rise=trout_rise(local_age,hatch) if species=='trout' else 0.
-            if fly and key=='trout':
+            if fly and key==fish_key:
                 rise=0.
                 hold+=(level-.16-hold)*min(1.,fly[2]/2.)
             y=hold+(level+.20-hold)*rise-origin.y
@@ -517,8 +520,7 @@ class RainierView:
         self.supplies=0
         self.camp_built=False
         self.gathering=False
-        self.cast_time=None
-        self.hooked=False
+        self.fishing=Fishing()
         self.trail=BerryTrail()
         self.cruise=False
         self.cruise_heading=None
@@ -650,6 +652,10 @@ class RainierView:
                 self.destination=None
                 self.zoom=8.
             elif action=='fish':self.fish()
+            elif action=='keep':
+                self.fishing.keep()
+                self.photo_hint=self.fishing.note
+                self.hint_until=self.age+2.
             elif action.startswith('gather'):
                 self.supplies|=1<<int(action[-1])
                 self.photo_hint='Camp supplies '+str(self.supplies.bit_count())+'/3'
@@ -744,8 +750,7 @@ class RainierView:
         self.album_book=None
         self.album_loaded=None
         self.frame_camera=self.destination=self.shutter=None
-        self.cast_time=None
-        self.hooked=False
+        self.fishing=Fishing()
         self.age=0.
         self.next_call=0.
         self.stand_center=None
@@ -776,48 +781,23 @@ class RainierView:
         self.destination=self.review_key=None
         self.lens=self.binoculars=self.cruise=self.trail.guiding=False
 
-    def fly_position(self):
-        if self.cast_time is None:return None
-        elapsed=self.age-self.cast_time
-        if elapsed>9 and not self.hooked:return None
-        fx,fz=TROUT_POOL
-        if self.hooked:
-            # Bring the trout to the near side of the pool to release it.
-            fx-=1.8*min(1.,self.age-self.reel_time)
-        return fx,fz+.8-.16*min(9.,elapsed),elapsed
-
-    def fishing_label(self):
-        if self.hooked:return 'Release trout'
-        if self.cast_time is None:return 'Cast fly'
-        elapsed=self.age-self.cast_time
-        if elapsed<2:return 'Fly drifting'
-        if elapsed<=9:return 'Reel in!'
-        return 'Cast again'
-
     def fish(self):
-        label=self.fishing_label()
-        if self.hooked:
-            self.hooked=False
-            self.cast_time=None
-            self.photo_hint='Trout released'
-        elif label=='Reel in!':
-            self.hooked=True
-            self.reel_time=self.age
-            self.photo_hint='Rainbow trout!'
-        elif label!='Fly drifting':
-            self.cast_time=self.age
-            self.photo_hint='Watch the fly'
-        self.hint_until=self.age+1.8
+        pulse=self.fishing.tap(self.age,self.camera[:2])
+        if pulse:vibration(pulse)
+        self.photo_hint=self.fishing.note
+        self.hint_until=self.age+2.
 
     def walk_tools(self,width,height):
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
         if not self.regional and self.camera and not (self.lens or self.binoculars):
             position=self.camera[:2]
             if math.dist(position,TROUT_POOL)<=12:
-                buttons.append(('fish',self.fishing_label(),(width-15,height-4,14,3)))
+                buttons.append(('fish',self.fishing.label(self.age),(width-15,height-4,14,3)))
             nearby=[(math.dist(position,(x,z)),i,name) for i,(name,x,z) in enumerate(SUPPLIES)
                     if not self.supplies & (1<<i) and math.dist(position,(x,z))<=4.5]
-            if nearby:
+            if self.fishing.state=='landed' and self.fishing.target=='brook_trout#1':
+                buttons.append(('keep','Keep brook',(1,height-4,14,3)))
+            elif nearby:
                 _,i,name=min(nearby)
                 buttons.append((f'gather{i}','Gather '+name,(1,height-4,15,3)))
             elif self.supplies==7 and not self.camp_built and math.dist(position,CAMP)<6:
@@ -970,10 +950,16 @@ class RainierView:
         west,east,south,north=bounds(self.world[0])
         owner.x=max(west,min(east,owner.x));owner.z=max(south,min(north,owner.z))
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)
-        if self.cast_time is not None and (self.regional or math.dist(camera[:2],TROUT_POOL)>12):
-            self.cast_time=None
-            self.hooked=False
         age=owner.clock()-owner.started-owner.paused_total
+        if self.fishing.state!='idle':
+            if self.regional or math.dist(camera[:2],TROUT_POOL)>12:self.fishing.state='idle'
+            else:
+                previous=self.fishing.state
+                pulse=self.fishing.update(age)
+                if pulse:vibration(pulse)
+                if previous!=self.fishing.state:
+                    self.photo_hint=self.fishing.note
+                    self.hint_until=age+2.
         if self.camera!=camera or age-self.age>=1/20:
             self.camera=camera;self.age=age;self.pixel_dirty=True
 
@@ -1034,7 +1020,9 @@ class RainierView:
         optics=(*self.frame_camera,self.zoom) if self.binoculars or self.lens else None
         daylight=(1.,.43,.04,.52+.48*math.cos(self.age*math.tau/720))[self.time_mode]
         hatch=self.weather==0 and self.season in (0,3) and daylight>.35
-        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics,hatch,self.fly_position())
+        fly=self.fishing.position(self.age)
+        chasing=(*fly[:2],self.age-self.fishing.bite) if self.fishing.state in ('bite','fight','landed') else None
+        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics,hatch,chasing,self.fishing.target,self.fishing.kept_brook)
         voices=nearby_calls(self.subjects,x,eye,z)
         voice=0
         if self.sound and self.age>=self.next_call and voices:
@@ -1135,14 +1123,20 @@ class RainierView:
                 print_photo(path,(rect[0]+bx*8,rect[1]+by*16,bw*8,bh*16))
             draw_book(ink,self.notebook,w-2,h-3,picture)
         else:
-            fly=self.fly_position()
             if fly and not self.regional and not (self.binoculars or self.lens):
                 fx,fz,_=fly
                 fy=channel().water_height(fx,fz)
                 point=project_subject(self.frame_camera[0],self.frame_camera[1],1.,('',fx,fy-origin.y+.03,fz,.3))
                 if point:
                     u,v,_=point
-                    ink.fill((u*(w-2)-.28,v*(h-3)-.13,.56,.26),0xFFDF83FF)
+                    rod=ctx.lib.pocket_scene_fishing_rod
+                    rod.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_float]*3
+                    bend=min(1.,self.fishing.tension+(.32 if self.fishing.pulling(self.age) else 0.))
+                    ctx.check(rod(ctx.handle,*rect,u,v,bend))
+                if self.fishing.state=='fight':
+                    ink.label(1,7,f'Reeled {round(100*(1-self.fishing.remaining))}%   Tension',0xFFF6DA)
+                    ink.fill((1,8.1,18,.36),0x283832FF)
+                    ink.fill((1,8.1,18*self.fishing.tension,.36),0xFD996EFF)
             for _,label,box in self.walk_tools(w-2,h-3):ink.button(box,label)
             if self.age<self.hint_until and self.photo_hint:
                 ink.label(1,5,self.photo_hint[:w-2],0xFFF6DA)

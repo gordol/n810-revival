@@ -566,3 +566,39 @@ int pocket_scene_plant_sketch(void *ptr,int x,int y,int w,int h,int kind){
  }
  return 0;
 }
+
+/* First-person rod, bowed fly line and floating fly in the walk viewport. */
+int pocket_scene_fishing_rod(void *ptr,int x,int y,int w,int h,float u,float v,float bend){
+ struct gpu_scene *s=ptr;
+ if(!s||scene_target(s,s->canvas))return -1;
+ SDL_Renderer *r=s->device;
+ SDL_Rect old,clip={x,y,w,h};
+ SDL_bool clipped=SDL_RenderIsClipEnabled(r);
+ SDL_RenderGetClipRect(r,&old);
+ SDL_RenderSetClipRect(r,&clip);
+ float bx=x+w*.60f,by=y+h,tx=x+w*.54f,ty=y+h*(.42f+.12f*bend);
+ float ax=bx,ay=by;
+ for(int i=1;i<=18;i++){
+  float t=i/18.f,px=bx+(tx-bx)*t+.08f*w*sinf(t*3.14159f),py=by+(ty-by)*t;
+  SDL_SetRenderDrawColor(r,i<5?195:95,i<5?148:84,i<5?86:66,255);
+  for(int j=0;j<1+(int)(4*(1-t));j++)SDL_RenderDrawLineF(r,ax+j,ay,px+j,py);
+  ax=px;ay=py;
+ }
+ /* The reel sits just above the cork grip. */
+ float rx=bx+.010f*w,ry=by-.07f*h,radius=fminf(w,h)*.015f;
+ SDL_SetRenderDrawColor(r,179,163,121,255);
+ for(int i=0;i<14;i++){
+  float a=i*.448799f,b=a+.448799f;
+  SDL_RenderDrawLineF(r,rx+radius*cosf(a),ry+radius*sinf(a),rx+radius*cosf(b),ry+radius*sinf(b));
+  if(i%3==0)SDL_RenderDrawLineF(r,rx,ry,rx+radius*cosf(a),ry+radius*sinf(a));
+ }
+ for(int i=1;i<=18;i++){
+  float t=i/18.f,px=tx+(x+w*u-tx)*t,py=ty+(y+h*v-ty)*t+.064f*h*(1-bend)*sinf(t*3.14159f);
+  SDL_SetRenderDrawColor(r,223,225,193,225);
+  SDL_RenderDrawLineF(r,ax,ay,px,py);ax=px;ay=py;
+ }
+ SDL_SetRenderDrawColor(r,255,210,94,255);
+ SDL_FRect fly={ax-3,ay-2,6,4};SDL_RenderFillRectF(r,&fly);
+ SDL_RenderSetClipRect(r,clipped?&old:NULL);
+ return 0;
+}
