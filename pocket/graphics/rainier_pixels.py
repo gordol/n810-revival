@@ -11,7 +11,6 @@ import zlib
 from geometry import Vec, cross, sub, unit
 import fremont_lookout as lookout
 import paradise_meadow as paradise
-import summit_detail
 from river_channel import TROUT_POOL
 from river_camp import CAMP, OVERLOOK, SUPPLIES, camp_materials, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
@@ -34,7 +33,7 @@ def surface(field,x,z):
     inset=getattr(field,'inset',None)
     if inset and (inset.origin.x<=x<=inset.origin.x+(inset.nx-1)*inset.dx and
                   inset.origin.z<=z<=inset.origin.z+(inset.nz-1)*inset.dz):
-        field=inset
+        return surface(inset,x,z)
     fx=max(0.,min(field.nx-1.,(x-field.origin.x)/field.dx))
     fz=max(0.,min(field.nz-1.,(z-field.origin.z)/field.dz))
     i,j=min(int(fx),field.nx-2),min(int(fz),field.nz-2)
@@ -307,7 +306,16 @@ def build_world(high=True,plant_sites=None,regional=False):
         rgb=tuple(max(0,min(255,v*light))/255 for v in color)
         for p in (a,b,c):target.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z,*rgb,material))
 
-    def terrain(field,omit_summit=False):
+    patch=getattr(getattr(field,'inset',None),'inset',None) if regional else None
+    distant_patch=array('f')
+
+    def terrain(field):
+        child=getattr(field,'inset',None)
+        if child:
+            west=round((child.origin.x-field.origin.x)/field.dx)
+            south=round((child.origin.z-field.origin.z)/field.dz)
+            east=west+round((child.nx-1)*child.dx/field.dx)
+            north=south+round((child.nz-1)*child.dz/field.dz)
         mesh=None if regional else field.mesh()
         colors=[]
         previous=[]
@@ -336,20 +344,22 @@ def build_world(high=True,plant_sites=None,regional=False):
                 # are needed to emit its triangles, including the summit inset.
                 if previous:
                     for ix in range(field.nx-1):
-                        if (omit_summit and summit_detail.WEST<=ix<summit_detail.WEST+summit_detail.CELLS and
-                            summit_detail.SOUTH<=iz-1<summit_detail.SOUTH+summit_detail.CELLS):continue
+                        output=triangles
+                        if child and west<=ix<east and south<=iz-1<north:
+                            if child is not patch:continue
+                            output=distant_patch
                         a,b=previous[ix],previous[ix+1]
                         c,d=colors[ix],colors[ix+1]
-                        for v in (a,c,b,b,c,d):triangles.extend(v)
+                        for v in (a,c,b,b,c,d):output.extend(v)
                 previous=colors
-        if regional:return
+        if regional:
+            if child and child is not patch:terrain(child)
+            return
         for a,b,c,material,_ in mesh.triangles:
             if material=='terrain':
                 for i in (a,b,c):triangles.extend(colors[i])
             else:face(mesh.vertices[a],mesh.vertices[b],mesh.vertices[c],(46,80,62))
-    inset=getattr(field,'inset',None)
-    terrain(field,inset is not None)
-    if inset:terrain(inset)
+    terrain(field)
 
     if regional:
         position=lookout.location(field)
@@ -362,8 +372,27 @@ def build_world(high=True,plant_sites=None,regional=False):
             def meadow_height(x,z):return surface(field,x,z)
             paradise.meadow(meadow_height,face,*clearing)
             paradise.groundcover(meadow_height,face,*clearing)
+        triangles.extend(distant_patch)
+        base_count=len(triangles)//7
+        if patch:
+            terrain(patch)
+            # Low fragments lie along the slope, with open snow between outcrops.
+            rng=random.Random(3299)
+            for _ in range(1300):
+                x=patch.origin.x+rng.uniform(1,(patch.nx-1)*patch.dx-1)
+                z=patch.origin.z+rng.uniform(1,(patch.nz-1)*patch.dz-1)
+                y=surface(patch,x,z)
+                if noise(x,z,24)<.50 or math.hypot(surface(patch,x+1,z)-y,surface(patch,x,z+1)-y)<.48:continue
+                r=rng.uniform(.13,.66)
+                tip=Vec(x+.16*r,y+.43*r,z-.12*r)
+                ring=[]
+                for j in range(5):
+                    a=(j+rng.uniform(-.19,.19))*math.tau/5
+                    px,pz=x+r*math.cos(a),z+.73*r*math.sin(a)
+                    ring.append(Vec(px,surface(patch,px,pz)-.04,pz))
+                for j,v in enumerate(ring):face(v,tip,ring[j-1],(107,101,102))
         count=len(triangles)//7
-        return field,origin,triangles,count,array('I',[0]),(),count,None
+        return field,origin,triangles,count,array('I',[0]),(),base_count,None
 
     rng=random.Random(3918)
     branch_rng=random.Random(911)
@@ -1076,7 +1105,7 @@ class RainierView:
         sound(ctx.handle,self.sound and not self.regional,self.cue,river_gain(x,z,site()[1]),voice,gain)
         self.cue=0
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint,C.c_uint]
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint,C.c_uint,C.c_uint,C.c_uint]
         target_x,target_z=self.trail.target(x,z)
         direction=math.atan2(target_x-x,target_z-z)-yaw
         mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
@@ -1133,10 +1162,18 @@ class RainierView:
                 self.stand_count=len(stand)//7
                 self.stand_center=center
                 upload_shade=True
-        result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high else base_count,
+        omit_first=omit_end=0
+        if self.regional and base_count<terrain_count:
+            import summit_approach
+            patch=field.inset.inset
+            west,east,south,north=bounds(patch)
+            near=math.hypot(max(west-x,0.,x-east),max(south-z,0.,z-north))<600.
+            if near:omit_first,omit_end=base_count-6*summit_approach.COLUMNS*summit_approach.ROWS,base_count
+            else:omit_first,omit_end=base_count,terrain_count
+        result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high or self.regional else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1))
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()

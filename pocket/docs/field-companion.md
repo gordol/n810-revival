@@ -391,7 +391,13 @@ The guided berry stops keep their usual pace.
 For a mountain hike, tap **Hike → Download Rainier & hike**. Pocket fetches
 the regional USGS elevation grid once. On later visits choose **Open summit
 approach**. Start about 2.2 km south of the highest sampled point and head
-north uphill. The whole grid is walkable, about 52 km east–west by 59 km
+north uphill. On first regional travel Pocket requests a finer USGS 3DEP
+export for the 470 × 917 m approach and caches it for offline visits.
+Its sample spacing is 2.8 × 3.2 m. At the reported viewpoint USGS identifies
+the Mount Rainier 2008 NED 1/9-arc-second survey (published in 2010).
+Walking and rendering use the same triangles, including shallow illustrative
+wind ridges. Small rock fragments are illustrative. If acquisition fails,
+the existing summit terrain remains walkable. The whole grid is walkable, about 52 km east–west by 59 km
 north–south, with elevation samples roughly 200–230 m apart. The altitude
 in the footer follows the ground underfoot. **Map** opens a north-up relief
 map. Tap a spot to start walking there, or tap **Back** to stay put.

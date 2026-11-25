@@ -112,7 +112,11 @@ static GLuint rainier_program(void){
   "float light=clamp(dot(tint.rgb,vec3(.30,.59,.11)),0.,1.);"
   "vec3 rock=mix(vec3(.21,.22,.27),vec3(.48,.43,.42),seams)*(.89+.22*noise(wind*.9));"
   "vec3 snow=mix(vec3(.63,.73,.84),vec3(.96,.97,.98),smoothstep(.22,.85,light));"
-  "snow+=vec3(.021*ripple+.033*grain+.045*(seams-.5));"
+  "vec2 crust=vec2(wind.x+.38*pos.y,wind.y-.61*pos.y);"
+  "float flecks=(noise(crust*32.)-.5)*(1.-smoothstep(.008,.045,length(fwidth(crust))));"
+  "float grit=(noise(crust*6.)-.5)*(1.-smoothstep(.04,.24,length(fwidth(crust))));"
+  "rock*=1.+.31*grit+.17*flecks;"
+  "snow+=vec3(.021*ripple+.033*grain+.045*(seams-.5)+.040*flecks);"
   "col=mix(col,mix(rock,snow,smoothstep(.78,.94,retention)),smoothstep(2350.,2750.,elev));}"
   "col*=mix(vec3(1.),vec3(.52,.63,.72),castShade);"
   "float haze=1.-exp(-distanceToEye*hazeDensity);vec3 lit=col*mix(vec3(.24,.32,.47),vec3(1.),daylight);gl_FragColor=vec4(mix(mix(lit,reflected,reflection),horizon(),haze),alpha);}";
@@ -216,11 +220,11 @@ static void river_hiker_band(float bottom,float top,float base,float rim,float r
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
-                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh,const float *marker,const float *ripple,int lens,unsigned char *photo,int photo_animal,float focal,int camp,int season,int weather,float originY,float daylight,float sun_angle,float center_x,float center_z,const float *grove,unsigned grove_count,unsigned water_count){
+                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh,const float *marker,const float *ripple,int lens,unsigned char *photo,int photo_animal,float focal,int camp,int season,int weather,float originY,float daylight,float sun_angle,float center_x,float center_z,const float *grove,unsigned grove_count,unsigned water_count,unsigned omit_first,unsigned omit_end){
  struct gpu_scene *s=ptr;
  if(!s||w<1||h<1||count<3||count>3000000||(!vertices&&!s->rainier_buffer))
   return SDL_SetError("Invalid Rainier scene");
- if(water_count>terrain_count||grove_count>250000||nh>7||(nh&&!hikers)||terrain_count>count||ni>2000000||na>64||(!animals&&na)||
+ if(omit_first>omit_end||omit_end>terrain_count||(omit_end&&water_count)||water_count>terrain_count||grove_count>250000||nh>7||(nh&&!hikers)||terrain_count>count||ni>2000000||na>64||(!animals&&na)||
     (!!vertices!=!!indices)||(!indices&&!s->rainier_indices))return SDL_SetError("Invalid Rainier wildlife buffers");
  for(unsigned i=0;i<na;i++){
   const struct rainier_animal *a=animals+i;
@@ -330,7 +334,9 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  }else glBindTexture(GL_TEXTURE_2D,s->rainier_shadow);
  glUniform1i(glGetUniformLocation(s->rainier_program,"highDetail"),high);
  glUniform1i(glGetUniformLocation(s->rainier_program,"animal"),0);
- glUniform1f(blend,0.f);river_draw_land(s,terrain_count,water_count,east,eye,north,yaw,pitch,(float)w/h);
+ glUniform1f(blend,0.f);
+ if(omit_end)river_draw_land(s,omit_first,0,east,eye,north,yaw,pitch,(float)w/h);
+ if(omit_end<terrain_count)river_draw_land(s,terrain_count,omit_end?omit_end:water_count,east,eye,north,yaw,pitch,(float)w/h);
  if(grove_count && grove_count==s->rainier_grove_count){
   glBindBuffer(GL_ARRAY_BUFFER,s->rainier_grove);
   glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);

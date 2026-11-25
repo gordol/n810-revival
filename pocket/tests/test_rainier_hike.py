@@ -167,6 +167,23 @@ class HikeTests(TestCase):
         self.assertEqual(set(counts),{.815,.86,.88})
         self.assertLess(sum(counts.values()),350_000)
 
+    def test_close_approach_uses_parent_edges_and_fine_walking_triangles(self):
+        from array import array
+        from geometry import HeightField,Vec
+        from rainier_pixels import surface
+        import summit_approach as p
+        from summit_detail import attach_approach
+        parent=HeightField(145,104,Vec(-4300,0,1150),34,38,
+                           tuple(3000+i*.25+j*.5 for j in range(104) for i in range(145)),'meters')
+        field=attach_approach(parent,array('f',[3400.])*(p.WIDTH*p.HEIGHT))
+        patch=field.inset
+        for i,j in ((0,25),(42,0),(p.WIDTH-1,81),(115,p.HEIGHT-1)):
+            x,z=patch.origin.x+i*patch.dx,patch.origin.z+j*patch.dz
+            self.assertAlmostEqual(surface(field,x,z),surface(parent,x,z),places=3)
+        x,z=patch.origin.x+28.2*patch.dx,patch.origin.z+40.1*patch.dz
+        self.assertAlmostEqual(surface(field,x,z),surface(patch,x,z))
+        self.assertGreater(surface(field,x,z)-surface(parent,x,z),300.)
+
     def test_summit_inset_registered_to_terrain_and_walk_height(self):
         import summit_detail
         from rainier_pixels import surface
