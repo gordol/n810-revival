@@ -147,5 +147,24 @@ class HikeTests(TestCase):
             self.assertGreaterEqual(min(a.y,b.y,c.y),9.98)
             counts[material]=counts.get(material,0)+3
         meadow.meadow(lambda x,z:10.,face,*view.meadow_site)
-        self.assertEqual(set(counts),{.86,.88})
-        self.assertLess(sum(counts.values()),300_000)
+        self.assertEqual(set(counts),{.815,.86,.88})
+        self.assertLess(sum(counts.values()),350_000)
+
+    def test_summit_inset_registered_to_terrain_and_walk_height(self):
+        import summit_detail
+        from rainier_pixels import surface
+        from geometry import HeightField,Vec
+        field=HeightField(257,257,Vec(-12800,0,-12800),100.,100.,tuple(
+            1800+x-z for z in range(257) for x in range(257)),'meters')
+        meta=dict(longitude_first=-122.1+.68/514,latitude_first=46.53+.53/514,
+                  longitude_step=.68/257,latitude_step=.53/257)
+        terrain=summit_detail.attach(field,meta)
+        fine=terrain.inset
+        self.assertGreater(max(fine.values),4300)
+        for i in (0,1,13,97,200,252):
+            for col,row in ((0,i),(252,i),(i,0),(i,252)):
+                x,z=fine.origin.x+col*fine.dx,fine.origin.z+row*fine.dz
+                self.assertAlmostEqual(surface(terrain,x,z),surface(field,x,z))
+        x,z=fine.origin.x+118.31*fine.dx,fine.origin.z+139.57*fine.dz
+        self.assertAlmostEqual(surface(terrain,x,z),surface(fine,x,z))
+        self.assertIs(summit_detail.attach(field,dict(meta,latitude_first=46.2)),field)

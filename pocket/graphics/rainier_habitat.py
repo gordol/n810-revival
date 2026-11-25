@@ -144,4 +144,31 @@ def regional_stand(field,base_y,cx,cz,surface,lookout,meadow=None):
                         u,v=math.cos(a),math.sin(a)
                         for vx,vy,vz in ((-.04*v,0,.04*u),(.04*v,0,-.04*u),(.65*h*u,h,.65*h*v)):
                             vertices.extend((px+vx,ground+vy,pz+vz,.40,.47,.25,0.))
+    # Crossed crowns are visible edge-on as the player turns. Use progressively
+    # wider cells for distant stands and retain a sample across every bearing.
+    distant=[]
+    for inner,outer,spacing in ((128,480,16),(480,1200,30),(1200,2400,56)):
+        for j in range(math.floor(max(field.origin.z,cz-outer)/spacing),math.ceil(min(north,cz+outer)/spacing)):
+            for i in range(math.floor(max(field.origin.x,cx-outer)/spacing),math.ceil(min(east,cx+outer)/spacing)):
+                rng=random.Random((i*73856093)^(j*19349663)^spacing)
+                x=(i+rng.random())*spacing
+                z=(j+rng.random())*spacing
+                if not (field.origin.x<x<east and field.origin.z<z<north):continue
+                if not inner<=max(abs(x-cx),abs(z-cz))<outer:continue
+                y=surface(field,x,z)
+                line=1990+100*math.sin(x*.0017)+55*math.cos(z*.0021)
+                fraction=max(0.,min(1.,(line-y)/190))
+                if rng.random()>=fraction*(.76+.19*math.sin(x*.036+math.sin(z*.024))):continue
+                h=rng.uniform(8.,24.)*(.48+.52*fraction)
+                distant.append((x,y-base_y,z,h,rng.uniform(.17,.26)*h,rng.random()*math.pi))
+    slots=(250000-len(vertices)//7)//12
+    visible=min(slots,len(distant))
+    for k in range(visible):
+        x,y,z,h,r,a=distant[k*len(distant)//visible]
+        for heading,light in ((a,.9),(a+math.pi/2,1.05)):
+            u,v=math.cos(heading),math.sin(heading)
+            for rise,width,peak in ((.09,1.,.76),(.44,.63,1.)):
+                for side,level in ((-1,rise),(0,peak),(1,rise+.04)):
+                    vertices.extend((x+side*r*width*u,y+h*level,z+side*r*width*v,
+                                     (1+side)*.5,.28*light,.21*light,.54+.02*level))
     return vertices,canopy

@@ -14,7 +14,9 @@ def region_field():
     lat=meta['latitude_first']+(nz-1)*meta['latitude_step']/2
     dx=6371000*math.radians(meta['longitude_step'])*math.cos(math.radians(lat))
     dz=6371000*math.radians(meta['latitude_step'])
-    return HeightField(nx,nz,Vec(-(nx-1)*dx/2,0,-(nz-1)*dz/2),dx,dz,values,'meters')
+    from summit_detail import attach
+    field=HeightField(nx,nz,Vec(-(nx-1)*dx/2,0,-(nz-1)*dz/2),dx,dz,values,'meters')
+    return attach(field,meta)
 
 
 def bounds(field):

@@ -1,0 +1,13 @@
+{
+  "source": "USGS 3DEP Elevation ImageServer",
+  "request": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?bbox=-121.81578469520103%2C46.80513942931258%2C-121.70421530479896%2C46.892097924773026&size=253%2C253&bboxSR=4326&imageSR=4326&adjustAspectRatio=false&format=tiff&pixelType=F32&interpolation=RSP_BilinearInterpolation&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&f=image",
+  "accessed": "2026-11-25",
+  "size": 253,
+  "units": "meters",
+  "order": "south to north, west to east; little-endian signed int16",
+  "base_cell": [
+    107,
+    133
+  ],
+  "subdivisions": 6
+}

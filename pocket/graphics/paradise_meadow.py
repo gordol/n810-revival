@@ -79,7 +79,7 @@ def meadow(height,face,cx,cz):
                     face(l,tip,rgt,(173,154,236) if lupine else (248,91,155),mat)
 
         # Short sedges fill the gaps between flower stems on the coarse DEM.
-        for _ in range(38):
+        for _ in range(70):
             x,z=cx+dx+rng.gauss(0,1.4),cz+dz+rng.gauss(0,1.)
             y=height(x,z)
             for _ in range(5):
@@ -87,14 +87,17 @@ def meadow(height,face,cx,cz):
                 u,v=math.cos(a),math.sin(a)
                 h=rng.uniform(.08,.24)
                 face(Vec(x-.018*v,y,z+.018*u),Vec(x+.018*v,y,z-.018*u),
-                     Vec(x+.65*h*u,y+h,z+.65*h*v),(104,rng.randrange(129,158),74),.88)
+                     Vec(x+.65*h*u,y+h,z+.65*h*v),(104,rng.randrange(129,158),74),.815)
 
 
 def groundcover(height,face,cx,cz):
     """Low woody cover and glacial stones in irregular drifts across the opening."""
     rng=random.Random(7131)
-    for _ in range(165):
-        x,z=cx+rng.uniform(-47,47),cz+rng.uniform(-28,55)
+    for patch in range(225):
+        if patch<60:
+            x,z=cx+rng.uniform(-13,13),cz+rng.uniform(-5,20)
+        else:
+            x,z=cx+rng.uniform(-47,47),cz+rng.uniform(-28,55)
         reach=rng.uniform(.9,3.2)
         # Nearby shrubs share leaf color through the season.
         tone=.5+.5*math.sin(.18*x+.8*math.cos(.23*z))

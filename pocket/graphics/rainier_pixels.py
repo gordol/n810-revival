@@ -11,6 +11,7 @@ import zlib
 from geometry import Vec, cross, sub, unit
 import fremont_lookout as lookout
 import paradise_meadow as paradise
+import summit_detail
 from river_channel import TROUT_POOL
 from river_camp import CAMP, OVERLOOK, SUPPLIES, camp_materials, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
@@ -29,6 +30,10 @@ from vegetation import ground_color, noise
 
 def surface(field,x,z):
     """Height on the two actual rendered triangles in this DEM cell."""
+    inset=getattr(field,'inset',None)
+    if inset and (inset.origin.x<=x<=inset.origin.x+(inset.nx-1)*inset.dx and
+                  inset.origin.z<=z<=inset.origin.z+(inset.nz-1)*inset.dz):
+        field=inset
     fx=max(0.,min(field.nx-1.,(x-field.origin.x)/field.dx))
     fz=max(0.,min(field.nz-1.,(z-field.origin.z)/field.dz))
     i,j=min(int(fx),field.nx-2),min(int(fz),field.nz-2)
@@ -299,28 +304,37 @@ def build_world(high=True,plant_sites=None,regional=False):
         rgb=tuple(max(0,min(255,v*light))/255 for v in color)
         for p in (a,b,c):target.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z,*rgb,material))
 
-    mesh=field.mesh()
-    colors=[]
-    for iz in range(field.nz):
-        for ix in range(field.nx):
-            k=iz*field.nx+ix
-            ax,bx=max(0,ix-1),min(field.nx-1,ix+1)
-            az,bz=max(0,iz-1),min(field.nz-1,iz+1)
-            sx=(field.values[iz*field.nx+bx]-field.values[iz*field.nx+ax])/((bx-ax)*field.dx)
-            sz=(field.values[bz*field.nx+ix]-field.values[az*field.nx+ix])/((bz-az)*field.dz)
-            n=unit(Vec(-sx,1,-sz))
-            point=mesh.vertices[k]
-            material=1.
-            rgb=ground_color(point,n)
-            if not regional and channel().water_height(point.x,point.z) is not None:
-                rgb=(95,108,101)
-                material=.94
-            light=.55+.45*max(0,n.y*.75-n.x*.51-n.z*.42)
-            colors.append(vertex(mesh.vertices[k],tuple(c*light for c in rgb),material))
-    for a,b,c,material,_ in mesh.triangles:
-        if material=='terrain':
-            for i in (a,b,c):triangles.extend(colors[i])
-        else:face(mesh.vertices[a],mesh.vertices[b],mesh.vertices[c],(46,80,62))
+    def terrain(field,omit_summit=False):
+        mesh=field.mesh()
+        colors=[]
+        for iz in range(field.nz):
+            for ix in range(field.nx):
+                k=iz*field.nx+ix
+                ax,bx=max(0,ix-1),min(field.nx-1,ix+1)
+                az,bz=max(0,iz-1),min(field.nz-1,iz+1)
+                sx=(field.values[iz*field.nx+bx]-field.values[iz*field.nx+ax])/((bx-ax)*field.dx)
+                sz=(field.values[bz*field.nx+ix]-field.values[az*field.nx+ix])/((bz-az)*field.dz)
+                n=unit(Vec(-sx,1,-sz))
+                point=mesh.vertices[k]
+                material=1.
+                rgb=ground_color(point,n)
+                if not regional and channel().water_height(point.x,point.z) is not None:
+                    rgb=(95,108,101)
+                    material=.94
+                light=.55+.45*max(0,n.y*.75-n.x*.51-n.z*.42)
+                colors.append(vertex(mesh.vertices[k],tuple(c*light for c in rgb),material))
+        for a,b,c,material,_ in mesh.triangles:
+            if omit_summit:
+                ix=min(a%field.nx,b%field.nx,c%field.nx)
+                iz=min(a//field.nx,b//field.nx,c//field.nx)
+                if (summit_detail.WEST<=ix<summit_detail.WEST+summit_detail.CELLS and
+                    summit_detail.SOUTH<=iz<summit_detail.SOUTH+summit_detail.CELLS):continue
+            if material=='terrain':
+                for i in (a,b,c):triangles.extend(colors[i])
+            else:face(mesh.vertices[a],mesh.vertices[b],mesh.vertices[c],(46,80,62))
+    inset=getattr(field,'inset',None)
+    terrain(field,inset is not None)
+    if inset:terrain(inset)
 
     if regional:
         position=lookout.location(field)

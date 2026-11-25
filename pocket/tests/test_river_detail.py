@@ -117,6 +117,7 @@ class RiverDetailTests(unittest.TestCase):
         trees,mask=regional_stand(field,900,0,0,ground,None)
         other,adjacent=regional_stand(field,900,96,0,ground,None)
         self.assertTrue(trees and other)
+        self.assertGreater(max(trees[::7]),400)  # Beyond the detailed near stand.
         self.assertLess(len(trees)//7,250000)
         overlap=[(z+256)*512+x+256 for z in range(-70,70) for x in range(10,75)]
         self.assertTrue(any(mask[k] for k in overlap))

@@ -346,6 +346,11 @@ and white avalanche lilies. Approach a patch to add the flower to **Guidebook**.
 The spring setting shows the snowmelt lilies. The flower patches are illustrative,
 and their bloom follows the game's seasons. [Mount Rainier wildflowers](https://www.nps.gov/mora/learn/nature/wildflowers.htm)
 
+The regional summit uses a bundled USGS 3DEP elevation inset with roughly
+34 × 38 metre sample spacing. Walking and rendering use the same surface.
+Across the meadows, distant slopes carry simpler conifer crowns out to roughly
+2.4 km. Tree locations and shrub patches are illustrative.
+
 Choose **Hike → Fish at trout pool** for a bank-side view of several rainbow trout.
 Tap **Cast fly** and watch the gold fly drift until a trout rises. Tap **Reel in!**,
 then **Release trout**. If it gets away, **Cast again**. Look down to see fish and
