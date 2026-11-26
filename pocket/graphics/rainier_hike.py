@@ -59,7 +59,7 @@ class HikeMenu:
         outings=('Fish at trout pool','Gather camp supplies','Hot Springs Trail','Silver Falls Loop Trail')
         if v.regional:
             world=getattr(v,'world',None)
-            detail=world and getattr(getattr(world[0],'inset',None),'inset',None)
+            detail=world and getattr(world[0],'inset',None)
             outings=('Put on skis',) if detail else ()
         return ('Hike','','Pace   '+v.pace_name,'',switch,'','Back to walk','Paradise meadows' if not v.party else '','Camp & sky','Debug overlay   '+('On' if v.debug_overlay else 'Off'),*outings,v.travel_error[:width])
 

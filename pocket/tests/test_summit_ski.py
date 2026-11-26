@@ -34,3 +34,32 @@ class SkiTests(unittest.TestCase):
             for _ in range(26):pose=run.advance(.05,ground)
         self.assertEqual(run.mode,'ready')
         self.assertEqual(pose[:2],location(0.))
+
+    def test_long_courses_jump_bypass_and_brake_on_landing(self):
+        from summit_ski import COURSES
+        game=SkiRun()
+        for course in COURSES[1:]:
+            game.action('course')
+            self.assertIs(game.course,course)
+            lip,lane=course.jumps[0]
+            def height(x,z):return 3000.
+            for offset,expected in ((0,1),(7,0)):
+                game.reset()
+                game.action('brake')
+                game.distance=lip-2
+                game.lane=lane+offset
+                game.speed=8
+                airborne=False
+                for _ in range(80):
+                    game.advance(.05,height)
+                    if game.air_y is not None and not airborne:
+                        self.assertGreater(game.lift,0.)
+                        game.action('brake')
+                        airborne=True
+                self.assertEqual(game.landings,expected)
+                self.assertEqual(game.mode,'braked' if expected else 'ski')
+                self.assertEqual(game.lift,0.)
+            game.distance=course.length-.01
+            game.advance(.1,height)
+            self.assertEqual(game.mode,'bottom')
+            self.assertEqual(game.finish_action,'reset')

@@ -1,4 +1,5 @@
 """A fictional ski and ice traverse on the registered summit approach DEM."""
+from dataclasses import dataclass
 import json
 import math
 import os
@@ -18,8 +19,47 @@ def location(distance,lane=0.):
     return -90.-SIDE*(distance+lane),4390.+SIDE*(lane-distance)
 
 
+@dataclass(frozen=True)
+class Course:
+    name:str
+    length:float
+    start:tuple
+    heading:float
+    gates:tuple
+    jumps:tuple
+    bends:int=0
+
+    def bearing(self,d):
+        phase=self.bends*math.tau*d/self.length
+        return self.heading+math.atan(12.*self.bends*math.tau/self.length*math.sin(phase))
+
+    def location(self,d,lane=0.):
+        u,v=math.sin(self.heading),math.cos(self.heading)
+        bend=12.*(1.-math.cos(self.bends*math.tau*d/self.length))
+        angle=self.bearing(d)
+        return (self.start[0]+u*d+v*bend+math.cos(angle)*lane,
+                self.start[1]+v*d-u*bend-math.sin(angle)*lane)
+
+
+def slalom(length):
+    return tuple((d,(-5.,3.,6.,-3.)[i%4]) for i,d in enumerate(range(55,length-50,90)))
+
+
+COURSES=(
+    Course('150 m',LENGTH,location(0),HEADING,GATES,()),
+    Course('1.2 km',1200.,(-2000.,4600.),HEADING,slalom(1200),((120.,0.),(510.,5.),(920.,-4.)),2),
+    Course('2.6 km',2600.,(1500.,6100.),math.radians(75),slalom(2600),
+           ((160.,0.),(480.,-4.),(870.,5.),(1330.,0.),(1820.,-5.),(2260.,4.)),5),
+)
+RAMP_LENGTH=8.
+LIP_HEIGHT=1.55
+HALF_WIDTH=2.8
+
+
 class SkiRun:
-    def __init__(self):
+    def __init__(self,courses=COURSES):
+        self.courses=courses
+        self.course=courses[0]
         self.assist=True
         self.tilt=None
         self.reset()
@@ -27,7 +67,10 @@ class SkiRun:
     def reset(self):
         self.mode='ready'
         self.distance=self.lane=self.steer=self.speed=self.angle=0.
-        self.score=0
+        self.score=self.landings=0
+        self.lift=self.vertical=0.
+        self.air_y=None
+        self.brake_on_landing=False
         self.tracks=[]
         self.left=True
         self.grip_uv=None
@@ -35,9 +78,16 @@ class SkiRun:
         self.goal=0.
         self.climb_lane=0.
 
+    @property
+    def finish_action(self):
+        return 'climb' if self.course==COURSES[0] else 'reset'
+
     def controls(self,w,h):
         half=w//2
         buttons=[('leave','Walk',(0,0,9,3)),('reset','Reset',(w-9,0,9,3))]
+        if self.mode in ('ready','bottom'):
+            label='Course '+self.course.name
+            buttons.append(('course',label,((w-len(label)-2)//2,3,len(label)+2,3)))
         if self.mode=='climb':
             x=2 if self.left else w-14
             y=max(5,h//2-2)
@@ -45,7 +95,9 @@ class SkiRun:
                 x=max(0,min(w-12,round(w*self.grip_uv[0])-6))
                 y=max(6,min(h-4,round(h*self.grip_uv[1])-2))
             buttons.append(('reach','Left grip' if self.left else 'Right grip',(x,y,12,4)))
-        elif self.mode=='bottom':buttons.append(('climb','Climb back',(half-7,h-5,14,4)))
+        elif self.mode=='bottom':
+            label='Climb back' if self.finish_action=='climb' else 'Ride again'
+            buttons.append((self.finish_action,label,(half-7,h-5,14,4)))
         else:
             buttons.extend([('brake','Brake' if self.mode=='ski' else 'Glide',(half,h-5,w-half,5)),
                             ('assist','Assist '+('on' if self.assist else 'off'),(0,h-5,half,5))])
@@ -53,11 +105,17 @@ class SkiRun:
 
     def action(self,key):
         if key=='reset':self.reset()
+        elif key=='course' and self.mode in ('ready','bottom'):
+            self.course=self.courses[(self.courses.index(self.course)+1)%len(self.courses)]
+            self.reset()
         elif key=='assist':self.assist=not self.assist
         elif key=='brake' and self.mode in ('ready','ski','braked'):
+            if self.air_y is not None:
+                self.brake_on_landing=True
+                return
             self.mode='braked' if self.mode=='ski' else 'ski'
             self.speed=0.
-        elif key=='climb' and self.mode=='bottom':
+        elif key=='climb' and self.mode=='bottom' and self.course==COURSES[0]:
             self.mode='climb'
             self.goal=self.distance
             self.climb_lane=self.lane
@@ -72,35 +130,56 @@ class SkiRun:
             turn=self.steer
             if self.tilt and abs(turn)<.04:turn=self.tilt.turn
             self.angle+=(turn*.73-self.angle)*min(1.,dt*4.)
-            ahead=min(LENGTH,d+1.)
-            grade=(height(*location(d,self.lane))-height(*location(ahead,self.lane)))/max(.01,ahead-d)
+            ahead=min(self.course.length,d+1.)
+            grade=(height(*self.course.location(d,self.lane))-height(*self.course.location(ahead,self.lane)))/max(.01,ahead-d)
             cap=8. if self.assist else 15.
             acceleration=9.81*grade/math.hypot(1.,grade)-.25-.014*self.speed**2
             self.speed=min(cap,max(1.2,self.speed+dt*acceleration))
-            if d>120:self.speed=min(self.speed,math.sqrt(2.*1.3*(LENGTH-d))+.35)
-            self.distance=min(LENGTH,d+self.speed*dt*math.cos(self.angle))
+            if d>self.course.length-30:self.speed=min(self.speed,math.sqrt(2.*1.3*(self.course.length-d))+.35)
+            self.distance=min(self.course.length,d+self.speed*dt*math.cos(self.angle))
             self.lane=max(-10.,min(10.,self.lane+self.speed*dt*math.sin(self.angle)))
-            for gate,side in GATES:
+            for gate,side in self.course.gates:
                 if d<gate<=self.distance and abs(self.lane-side)<2.7:self.score+=1
-            if not self.tracks or self.distance-self.tracks[-1][0]>=1.5:self.tracks.append((self.distance,self.lane))
-            if self.distance>=LENGTH:self.mode='bottom';self.speed=0.
+            ground=height(*self.course.location(self.distance,self.lane))
+            self.lift=0.
+            for lip,lane in self.course.jumps:
+                if abs(self.lane-lane)>HALF_WIDTH:continue
+                if lip-RAMP_LENGTH<=self.distance<=lip:
+                    self.lift=LIP_HEIGHT*(1.+(self.distance-lip)/RAMP_LENGTH)
+                if d<lip<=self.distance and self.air_y is None:
+                    self.air_y=height(*self.course.location(lip,self.lane))+LIP_HEIGHT
+                    self.vertical=1.8+self.speed*(LIP_HEIGHT/RAMP_LENGTH)
+            if self.air_y is not None:
+                self.air_y+=self.vertical*dt-.5*9.81*dt*dt
+                self.vertical-=9.81*dt
+                self.lift=max(0.,self.air_y-ground)
+                if self.lift==0.:
+                    self.air_y=None
+                    self.landings+=1
+                    if self.brake_on_landing:
+                        self.mode='braked'
+                        self.speed=0.
+                        self.brake_on_landing=False
+            if self.air_y is None and (not self.tracks or self.distance-self.tracks[-1][0]>=1.5):self.tracks.append((self.distance,self.lane))
+            if self.distance>=self.course.length:self.mode='bottom';self.speed=0.
         elif self.mode=='climb':
             self.distance=max(self.goal,d-9.*dt)
-            fraction=self.distance/LENGTH
+            fraction=self.distance/self.course.length
             self.lane=self.climb_lane*fraction+9.*math.sin(fraction*math.pi)
             if self.distance<=0.:self.reset()
-        x,z=location(self.distance,self.lane)
+        x,z=self.course.location(self.distance,self.lane)
         uphill=self.mode in ('bottom','climb')
-        yaw=HEADING+(math.pi if uphill else self.angle)
-        ahead=location(max(0.,self.distance-2.) if uphill else min(LENGTH,self.distance+2.),self.lane)
+        yaw=self.course.bearing(self.distance)+(math.pi if uphill else self.angle)
+        ahead=self.course.location(max(0.,self.distance-2.) if uphill else min(self.course.length,self.distance+2.),self.lane)
         pitch=math.atan2(height(x,z)-height(*ahead),2.)*.75+.08
         return x,z,yaw,pitch
 
     def draw(self,ink,w,h,camera,aspect,height):
         # Ground marks project through the same camera as the slope.
         for d,lane in self.tracks:
+            if abs(d-self.distance)>65:continue
             for side in (-.22,.22):
-                x,z=location(d,lane+side)
+                x,z=self.course.location(d,lane+side)
                 uv=project_subject(camera,aspect,1.,('',x,height(x,z)+.035,z,.3))
                 if uv and 0<uv[0]<1 and 0<uv[1]<1:
                     ink.fill((uv[0]*w,uv[1]*h,.16,.10),0x90ADC0CC)
@@ -114,7 +193,7 @@ class SkiRun:
                     ink.fill((x+.12,h-8+t*3,.12,.46),0x3F5662FF)
         if self.mode=='climb':
             d=max(0.,self.distance-10.)
-            x,z=location(d,9.*math.sin(d*math.pi/LENGTH))
+            x,z=self.course.location(d,9.*math.sin(d*math.pi/self.course.length))
             side=-1 if self.left else 1
             x+=side*1.25
             z-=side*.48
@@ -122,8 +201,12 @@ class SkiRun:
         label=(f'{round(self.speed*3.6)} km/h   {self.score}/4 gates' if self.mode=='ski'
                else 'Runout   '+str(self.score)+'/4 gates' if self.mode=='bottom'
                else f'{self.hold}/15 grips' if self.mode=='climb' else 'Drag to carve')
-        ink.fill((.6,3.7,len(label)+.8,1.5),0x243E42E8)
-        ink.label(1,4,label,0xFFF4D7)
+        if self.course.jumps:
+            label=(f'{round(self.distance)}/{int(self.course.length)} m   '+('Air!' if self.air_y is not None else f'{self.landings} jumps'))
+            if self.mode=='bottom':label=f'{self.score}/{len(self.course.gates)} gates   {self.landings} jumps'
+        y=7 if self.mode in ('ready','bottom') else 4
+        ink.fill((.6,y-.3,len(label)+.8,1.5),0x243E42E8)
+        ink.label(1,y,label,0xFFF4D7)
 
 
 class TiltSteering:

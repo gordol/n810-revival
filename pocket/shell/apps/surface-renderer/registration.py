@@ -309,7 +309,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def key_event(self,key,kind,now):
             ski=getattr(self.pixel_scene,'ski',None)
-            if ski and key in ('left','right','up','space',' ','enter','r','R'):
+            if ski and key in ('left','right','up','space',' ','enter','r','R','c','C'):
                 if kind=='press':self.key(key,now)
                 elif kind=='release' and key in ('left','right'):ski.steer=0.
                 return True
@@ -321,8 +321,9 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                 if key in ('left','right'):ski.steer=-1. if key=='left' else 1.
                 elif key=='up':ski.steer=0.
                 elif key in (' ','space','enter','\r'):
-                    ski.action({'bottom':'climb','climb':'reach'}.get(ski.mode,'brake'))
+                    ski.action({'bottom':ski.finish_action,'climb':'reach'}.get(ski.mode,'brake'))
                 elif key.lower()=='r':ski.action('reset')
+                elif key.lower()=='c':ski.action('course')
                 else:return False
                 return True
             if self.pixel_scene and key=='?' and self.pixel_scene.world is not None:

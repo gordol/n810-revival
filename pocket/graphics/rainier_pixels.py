@@ -372,6 +372,31 @@ def build_world(high=True,plant_sites=None,regional=False):
             def meadow_height(x,z):return surface(field,x,z)
             paradise.meadow(meadow_height,face,*clearing)
             paradise.groundcover(meadow_height,face,*clearing)
+        if getattr(field,'inset',None):
+            from summit_ski import COURSES,RAMP_LENGTH,LIP_HEIGHT,HALF_WIDTH
+            for course in COURSES[1:]:
+                for gate,lane in (*course.gates,(course.length,0.)):
+                    for offset in (-2.7,2.7):
+                        x,z=course.location(gate,lane+offset)
+                        y=surface(field,x,z)
+                        face(Vec(x-.11,y-.1,z),Vec(x+.11,y-.1,z),Vec(x,y+2.,z),(200,112,35))
+                        face(Vec(x,y+2.,z),Vec(x,y+1.3,z),Vec(x+.85,y+1.7,z-.65),
+                             (236,116,51) if gate<course.length else (65,172,135))
+                for lip,lane in course.jumps:
+                    previous=None
+                    for j in range(9):
+                        edge=[]
+                        for offset in (-HALF_WIDTH,HALF_WIDTH):
+                            x,z=course.location(lip-RAMP_LENGTH+j,lane+offset)
+                            edge.append(Vec(x,surface(field,x,z)+.025+j*LIP_HEIGHT/RAMP_LENGTH,z))
+                        if previous:
+                            color=(101,188,206) if j==8 else (201,224,232)
+                            face(previous[0],previous[1],edge[0],color)
+                            face(edge[0],previous[1],edge[1],color)
+                        previous=edge
+                    feet=[Vec(v.x,surface(field,v.x,v.z),v.z) for v in edge]
+                    face(edge[0],edge[1],feet[0],(124,174,191))
+                    face(feet[0],edge[1],feet[1],(124,174,191))
         triangles.extend(distant_patch)
         base_count=len(triangles)//7
         if patch:
@@ -828,8 +853,8 @@ class RainierView:
         return True
 
     def start_ski(self):
-        from summit_ski import SkiRun,start_tilt
-        self.ski=SkiRun()
+        from summit_ski import COURSES,SkiRun,start_tilt
+        self.ski=SkiRun(COURSES if getattr(self.world[0].inset,"inset",None) else COURSES[1:])
         self.ski.tilt=start_tilt()
         self.cruise=self.binoculars=self.lens=False
         self.destination=self.trip_pose=None
@@ -1092,6 +1117,7 @@ class RainierView:
                 bottom=surface(field,cx,cz-7.4)
                 step=min(14,int((z-cz+7.4)/.3)+1)
                 ground=bottom+(base+lookout.DECK-bottom)*step/14
+        if getattr(self,"ski",None):ground+=self.ski.lift
         return x,ground-origin.y+1.25,z
 
     def draw_rainier(self,ctx):

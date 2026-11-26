@@ -532,10 +532,16 @@ the two-story lookout and wraparound balcony at the NPS site coordinates.
 and [site location](https://parkplanning.nps.gov/showFile.cfm?projectID=95553&sfid=478470).
 
 **Summit ski loop.** From the regional Hike menu choose **Put on skis** after
-the close-up summit patch downloads. Tap **Glide** and drag sideways to carve
+the regional terrain opens. Tap **Course** (keyboard **C**) before gliding
+or at the finish to choose a distance. The 150 m practice loop uses the
+close-up summit patch. The 1.2 km and 2.6 km descents use the broader summit
+terrain and have three and six snow ramps respectively. Cross a blue lip to
+launch automatically, or carve around it. Braking in the air takes effect
+on landing. At the long-course finish, **Ride again** restarts that course.
+Tap **Glide** and drag sideways to carve
 between the orange flags. **Brake** stops the skis until you tap Glide again.
 Assist caps speed at 8 m/s. Turn it off for a faster line. The green flags
-mark the runout. Choose **Climb back**, then tap alternating grips to traverse
+mark the runout. On the practice loop choose **Climb back**, then tap alternating grips to traverse
 uphill to the start. **Reset** returns to the top and **Walk** removes the skis.
 On a keyboard, left/right set the carve, up straightens, space operates the
 brake or next grip, and R resets. On Termux installations with a working
