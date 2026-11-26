@@ -36,10 +36,17 @@ class WildlifeInspectionTests(unittest.TestCase):
     def test_rainier_uses_regional_wildlife_meshes(self):
         from rainier_pixels import ENCOUNTERS, append_animals
 
-        self.assertEqual({entry[0] for entry in ENCOUNTERS}, set(NAMES) - {'arctic_fox','coho_salmon','chinook_salmon'})
+        self.assertEqual({entry[0].partition('#')[0] for entry in ENCOUNTERS}, set(NAMES) - {'arctic_fox','coho_salmon','chinook_salmon'})
         vertices = array('f')
         indices, spans = append_animals(vertices)
-        for (species, _, _, scale), (first, stride, frames, offset, count) in zip(ENCOUNTERS, spans):
+        models = {}
+        for (key, _, _, scale), span in zip(ENCOUNTERS, spans):
+            species = key.partition('#')[0]
+            if species in models:
+                self.assertEqual(span, models[species])
+                continue
+            models[species] = span
+            first, stride, frames, offset, count = span
             with self.subTest(species=species):
                 for frame in range(frames):
                     points, faces = pose(species, frame, False, species in REGIONAL)

@@ -566,12 +566,12 @@ support two to eight players on the same Wi-Fi and use UDP port 43818.
 **Climb summit ice.** Open the summit approach, then choose **Hike → Climb
 summit ice** to start on the final slope. Tap the highlighted grip, wait for
 the pull, and reach with the opposite hand. On a keyboard, press Space for each
-reach. After ten grips, tap **Raise flag** to lift an orange pennant and look
-back over the mountain. **Walk** leaves you on the snow where you stopped.
+reach. After ten grips, tap **Raise flag** to hoist a string of colored pennants. A red fox and a hoary marmot
+take turns hopping across the snow for eight seconds. Tap **Dance again** to replay. **Walk** leaves you on the snow where you stopped.
 The 80 m climb is a fictional game route ending at the highest sample in the
 summit terrain inset. Its elevation comes from that grid.
 
-On clear days, raising the summit flag opens a magnified view toward Puget
+On clear days, the celebration ends with a magnified view toward Puget
 Sound. Tap **Next view** or press Space to turn toward the Olympics, Mount St. Helens, Mount
 Hood and Mount Adams. Intervening ridges can hide parts of a view, and mist or
 showers shorten visibility.

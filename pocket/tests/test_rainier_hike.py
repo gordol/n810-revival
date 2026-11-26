@@ -49,6 +49,10 @@ class HikeTests(TestCase):
         climb.advance(20,field.height)
         self.assertNotIn('vista',[a for a,*_ in climb.controls(40,30)])
         climb.reach()
+        self.assertTrue(climb.dancing)
+        climb.advance(climb.dance_seconds,field.height)
+        self.assertFalse(climb.dancing)
+        self.assertIn('encore',[a for a,*_ in climb.controls(40,30)])
         headings=[]
         for _ in climb.vistas:
             headings.append(math.degrees(climb.advance(.1,field.height)[2])%360)
@@ -57,6 +61,26 @@ class HikeTests(TestCase):
         self.assertTrue(300<headings[0]<330)
         self.assertTrue(150<headings[-1]<180)
         self.assertIn('vista',[a for a,*_ in climb.controls(40,30)])
+
+    def test_summit_dancers_alternate_hops_and_stop_at_the_panorama(self):
+        from geometry import HeightField,Vec
+        from rainier_hike import SummitClimb
+        from rainier_pixels import summit_dancers
+        field=HeightField(3,3,Vec(-100,0,-100),100,100,(0,0,0,0,1,0,0,0,0))
+        climb=SummitClimb(field)
+        spans=((0,10,16,0,12),(160,8,3,12,9))
+        climb.wave=.25
+        climb.raised=False
+        self.assertFalse(summit_dancers(climb,field,field.origin,spans))
+        climb.raised=True
+        fox,marmot=summit_dancers(climb,field,field.origin,spans)
+        self.assertGreater(fox.y,marmot.y)
+        climb.wave+=.5/.92
+        fox,marmot=summit_dancers(climb,field,field.origin,spans)
+        self.assertGreater(marmot.y,fox.y)
+        self.assertGreaterEqual(marmot.first,160)
+        climb.wave=climb.dance_seconds
+        self.assertFalse(summit_dancers(climb,field,field.origin,spans))
 
     def test_horizon_joins_the_walking_grid_and_curves_below_sea_level(self):
         from array import array

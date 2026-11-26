@@ -190,7 +190,14 @@ class SummitClimb:
             ('Mount St Helens',46.19,-122.19),('Mount Hood',45.37,-121.70),
             ('Mount Adams',46.20,-121.49))
 
+    dance_seconds=8.
+
+    @property
+    def dancing(self):
+        return self.raised and self.wave<self.dance_seconds
+
     def next_vista(self):
+        self.wave=max(self.wave,self.dance_seconds)
         self.vista=(self.vista+1)%len(self.vistas)
 
     def __init__(self,detail,panorama=False):
@@ -225,6 +232,10 @@ class SummitClimb:
         x,z=self.x-remaining*dx,self.z-remaining*dz
         if self.raised:
             self.wave+=dt
+            if self.dancing:
+                yaw=self.heading+math.pi
+                tx,tz=x+4*math.sin(yaw),z+4*math.cos(yaw)
+                return x,z,yaw,math.atan2(height(x,z)+1.25-height(tx,tz)-.40,4)
             if self.panorama:
                 _,lat,lon=self.vistas[self.vista]
                 yaw=math.atan2((lon+121.7603)*math.cos(math.radians(46.8523)),lat-46.8523)
@@ -236,7 +247,8 @@ class SummitClimb:
     def controls(self,w,h):
         buttons=[('exit_climb','Walk',(0,0,9,3))]
         if self.raised:
-            if self.panorama:buttons.append(('vista','Next view',(w-13,h-5,13,5)))
+            if not self.dancing:buttons.append(('encore','Dance again',(0,h-5,min(13,w//2),5)))
+            if self.panorama:buttons.append(('vista','Next view',(w-min(13,w//2),h-5,min(13,w//2),5)))
             return buttons
         if self.arrived:
             buttons.append(('reach','Raise flag',(w//2-7,h-6,14,5)))
@@ -262,16 +274,23 @@ class SummitClimb:
             label=f'{self.grips} / {self.pitches}'
             ink.label(w-len(label)-1,1,label,0xFFF6DA)
             return
-        # The pennant rises in the foreground, leaving the downhill view open.
-        x,y=w*.18,h*.68-min(1.,self.wave)*h*.12
-        ink.fill((x,y,.42,h-y),0x654A33FF)
-        for i in range(16):
-            flutter=.22*math.sin(i*.5-self.wave*5)
-            ink.fill((x+.4+i*.5,y+flutter,.52,3*(1-i/16)),0xEC8141FF)
+        # Each pennant hangs from the same sagging cord. A gust travels along it.
+        colors=(0xE77447FF,0x46A8A2FF,0xF1BF54FF,0xBB577BFF,0x668FD1FF)
+        count=11
+        width=w/count
+        for i in range(count):
+            for j in range(7):
+                u=(i+j/7)/count
+                y=h*.20+math.sin(math.pi*u)*1.8+(1-min(1.,self.wave))*2
+                ink.fill((w*u,y,width/7+.03,.14),0x615444FF)
+                if j in (0,6):continue
+                length=(3-abs(j-3))*.54
+                flutter=math.sin(self.wave*4-i*.63)*length*.15
+                ink.fill((w*u+flutter,y+.12,width/7+.05,length),colors[i%len(colors)])
         title=f'Summit!  {self.elevation} m'
         ink.fill(((w-len(title))/2-1,2,len(title)+2,2),0x244B4CE8)
         ink.label((w-len(title))/2,2.5,title,0xFFF2CC)
-        if self.panorama:
+        if self.panorama and not self.dancing:
             label=self.vistas[self.vista][0]
             ink.fill(((w-len(label))/2-1,4,len(label)+2,1.7),0x244B4CE8)
             ink.label((w-len(label))/2,4.2,label,0xFFF2CC)

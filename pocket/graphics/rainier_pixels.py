@@ -114,13 +114,16 @@ class AnimalDraw(C.Structure):
               ('y',C.c_float),('z',C.c_float),('heading',C.c_float),('shadow',C.c_float),('slope_x',C.c_float),('slope_z',C.c_float)]
 
 
-def append_animals(vertices,high=False):
+SUMMIT_DANCERS=(('fox',0.,0.,1.),('marmot',0.,0.,.9))
+
+
+def append_animals(vertices,high=False,animals=ENCOUNTERS):
     """Store each (vertex, material) once per pose, sharing indices across poses."""
     from wildlife_models import FOX_ASSETS, FOX_FRAMES, pose
     indices=array('I')
     spans=[]
     models={}
-    for key,x,z,scale in ENCOUNTERS:
+    for key,x,z,scale in animals:
         species=key.split('#')[0]
         if species in models:
             spans.append(models[species])
@@ -145,6 +148,25 @@ def append_animals(vertices,high=False):
         models[species]=(first,len(palette),frames,offset,len(indices)-offset)
         spans.append(models[species])
     return indices,spans
+
+
+def summit_dancers(climb,field,origin,spans):
+    if not climb or not climb.dancing:return (AnimalDraw*0)()
+    yaw=climb.heading+math.pi
+    dx,dz=math.sin(yaw),math.cos(yaw)
+    dancers=[]
+    for i,(first,stride,frames,index,count) in enumerate(spans):
+        beat=climb.wave*math.tau*.92+i*math.pi
+        side=(i-.5)*1.36+.17*math.sin(beat)
+        depth=3.8+.12*math.cos(beat)
+        x,z=climb.x+dx*depth+dz*side,climb.z+dz*depth-dx*side
+        hop=max(0.,math.sin(beat))**2*.22
+        cycle=climb.wave*1.3*frames+i
+        frame=int(cycle)%frames
+        turn=math.degrees(yaw)+24*math.sin(beat)+(165 if i else 12)
+        dancers.append(AnimalDraw(first+frame*stride,first+(frame+1)%frames*stride,
+            index,count,stride,cycle%1,x,surface(field,x,z)-origin.y+hop,z,turn,0,0,0))
+    return (AnimalDraw*len(dancers))(*dancers)
 
 
 def trout_rise(age,hatch):
@@ -450,7 +472,8 @@ def build_world(high=True,plant_sites=None,regional=False):
                     ring.append(Vec(px,surface(patch,px,pz)-.04,pz))
                 for j,v in enumerate(ring):face(v,tip,ring[j-1],(107,101,102))
         count=len(triangles)//7
-        return field,origin,triangles,count,array('I',[0]),(),base_count,None
+        indices,spans=append_animals(triangles,animals=SUMMIT_DANCERS) if getattr(field,'inset',None) else (array('I',[0]),())
+        return field,origin,triangles,count,indices,spans,base_count,None
 
     rng=random.Random(3918)
     branch_rng=random.Random(911)
@@ -766,6 +789,7 @@ class RainierView:
                 if action=='leave':self.stop_ski()
                 elif action=='family':self.notebook=PartyMenu(self,ski=True)
                 else:self.ski.action(action)
+            elif action=='encore':self.climb.wave=0.
             elif action=='vista':self.climb.next_vista()
             elif action=='exit_climb':self.climb=None
             elif action=='reach' and self.climb:self.climb.reach()
@@ -1205,7 +1229,8 @@ class RainierView:
         hatch=self.weather==0 and self.season in (0,3) and daylight>.35
         fly=self.fishing.position(self.age)
         chasing=(*fly[:2],self.age-self.fishing.bite) if self.fishing.state in ('bite','fight','landed') else None
-        commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics,hatch,chasing,self.fishing.target,self.fishing.kept_brook)
+        if self.regional:commands=summit_dancers(self.climb,field,origin,spans)
+        else:commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics,hatch,chasing,self.fishing.target,self.fishing.kept_brook)
         if self.regional:
             speed=self.ski.speed/28. if self.ski else 0.
             wind=.46+.15*self.weather+.30*speed
@@ -1258,11 +1283,10 @@ class RainierView:
         # Compose the keepsake from the player's real eye position. A short
         # telephoto view gives small birds and insects enough pixels to see.
         focal=self.zoom if self.lens or self.binoculars else 1.
-        if self.climb and self.climb.raised and self.climb.panorama:focal=2.5
+        if self.climb and self.climb.raised and self.climb.panorama and not self.climb.dancing:focal=2.5
         spotting=self.subjects
         if self.binoculars and not self.regional:
-            if self.climb and self.climb.raised and self.climb.panorama:focal=2.5
-        spotting=self.subjects+[(f'Berries {i+1}',bx,surface(field,bx,bz)-origin.y+.48,bz,1.2)
+            spotting=self.subjects+[(f'Berries {i+1}',bx,surface(field,bx,bz)-origin.y+.48,bz,1.2)
                 for i,(bx,bz) in enumerate(BUSHES) if (bx,bz) not in self.trail.picked]
         if self.lens or self.binoculars:
             self.focus_key=sighting(self.frame_camera[0],.5,.5,self.frame_camera[1],spotting,
