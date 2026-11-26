@@ -6,7 +6,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 pocket=Path(__file__).resolve().parents[1]
-sys.path[:0]=[str(pocket/'graphics'),str(pocket/'shell'),str(pocket/'shell/apps/surface-renderer')]
+sys.path[:0]=[str(pocket/'graphics'),str(pocket/'shell'),str(pocket/'shell/apps/surface-renderer'),str(pocket/'shell/apps/landscape-lab')]
 from rainier_hike import HikeMenu,ReliefMap,bounds,region_field,summit_start
 from river_explore import ground_target,walk_to
 
@@ -151,6 +151,15 @@ class HikeTests(TestCase):
         self.assertEqual(view.shutter,'marmot')
         self.assertEqual(view.fishing.state,'idle')
         view.controller_button(1)
+        self.assertTrue(view.lens)
+        view.notebook.entries=['fox','marmot']
+        view.controller_button(14)
+        self.assertEqual(view.notebook.page,1)
+        view.controller_button(13)
+        self.assertEqual(view.notebook.page,0)
+        view.controller_button(1)
+        self.assertIsNone(view.notebook)
+        view.controller_button(2)
         self.assertFalse(view.lens or view.binoculars)
         view.controller_button(0)
         self.assertEqual(view.fishing.state,'drift')
@@ -166,6 +175,7 @@ class HikeTests(TestCase):
         view.fishing.target='trout'
         view.controller_button(1)
         self.assertFalse(view.fishing.kept_brook)
+        view.controller_button(1)
         view.controller_button(0)
         self.assertEqual(view.fishing.state,'idle')
         view.fishing.state='landed'

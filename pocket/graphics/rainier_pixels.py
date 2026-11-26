@@ -774,7 +774,11 @@ class RainierView:
         return True
 
     def field_action(self,action):
-        if action=='fish':self.fish()
+        if action=='book':
+            self.destination=None
+            self.cruise=self.trail.guiding=False
+            self.notebook=DiscoveryBook(self)
+        elif action=='fish':self.fish()
         elif action=='keep':
             self.fishing.keep()
             self.photo_hint=self.fishing.note
@@ -834,7 +838,7 @@ class RainierView:
                 self.cruise=self.trail.guiding=False
                 self.destination=None
                 self.zoom=8.
-            elif action in ('camera','binoculars','zoom','shutter','fish','keep'):self.field_action(action)
+            elif action in ('camera','binoculars','zoom','shutter','fish','keep','book'):self.field_action(action)
             elif action.startswith('gather'):
                 self.supplies|=1<<int(action[-1])
                 self.photo_hint='Camp supplies '+str(self.supplies.bit_count())+'/3'
@@ -850,10 +854,6 @@ class RainierView:
                 self.destination=None
                 self.cruise=self.trail.guiding=False
                 self.album_loaded=None
-            elif action=='book':
-                self.destination=None
-                self.cruise=self.trail.guiding=False
-                self.notebook=DiscoveryBook(self)
             self.pixel_dirty=True
             return True
         if self.ski:
@@ -917,6 +917,12 @@ class RainierView:
 
     def controller_button(self,button):
         # SDL standard face buttons (south/east) and D-pad left/right.
+        if self.notebook:
+            if isinstance(self.notebook,DiscoveryBook):
+                if button==1:self.notebook=None
+                elif button in (13,14):self.notebook.turn_page(-1 if button==13 else 1)
+                self.pixel_dirty=True
+            return
         if self.glider:
             if button in (13,14):self.glider.steer(-1 if button==13 else 1)
             elif button==0:self.glider.descending=not self.glider.descending
@@ -929,11 +935,13 @@ class RainierView:
 
         elif self.world and not self.ski and not self.album and not self.notebook:
             if button==0:action='shutter' if self.lens else 'fish'
-            elif button==1:action='camera' if self.lens else 'binoculars' if self.binoculars else 'keep'
+            elif button==1:action='book'
             else:action={2:'camera',3:'binoculars',10:'zoom'}.get(button)
             if not action:return
             window=self.host.window(self.name)
-            if any(tool==action for tool,_,_ in self.walk_tools(window.w-2,window.h-3)):
+            available={tool for tool,_,_ in self.walk_tools(window.w-2,window.h-3)}
+            if button==1 and 'keep' in available:action='keep'
+            if action in available:
                 self.field_action(action)
 
     def walk_with_controller(self,owner,dt):

@@ -603,8 +603,8 @@ Use touch or the mouse to choose the outing from the Hike menu.
 with the right stick. The north button (Y / Triangle) raises the binoculars.
 The west button (X / Square) equips the wildlife camera in Ohanapecosh.
 The right shoulder button (RB / R1) cycles magnification. Aim near an animal
-and press the south button (A / Cross) to take its photo. The east button
-(B / Circle) puts the optics away.
+and press the south button (A / Cross) to take its photo. Press the equipped tool’s button again to put it away.
+B / Circle opens and closes the guidebook. D-pad left and right turn the pages.
 
 At **Hike → Fish at trout pool**, put away the optics and press A / Cross to
 cast. Press it again when **Lift rod!** appears, then tap it to alternate

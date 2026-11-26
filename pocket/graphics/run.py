@@ -45,7 +45,7 @@ class DesktopWindow(Window):
         form=getattr(host,'app_forms',{}).get(host.focus)
         form=getattr(form,'owner',form)
         scene=getattr(form,'pixel_scene',None)
-        if hasattr(scene,'controller_button') and not scene.notebook and not scene.album and form._active():return scene
+        if hasattr(scene,'controller_button') and not scene.album and form._active():return scene
         return None
 
     def events(self):
@@ -118,6 +118,7 @@ class DesktopWindow(Window):
                 yield {'action':'cancel-input'}
             elif kind==8:yield dict(action='resize',width=x,height=y)
         scene=self.controller_scene()
+        if scene and scene.notebook:scene=None
         previous=getattr(self,'pad_scene',None)
         if previous is not None and previous is not scene:
             previous.pad_sticks=(0.,0.,0.,0.)
