@@ -818,6 +818,8 @@ class RainierView:
                 elif action=='family':self.notebook=PartyMenu(self,ski=True)
                 else:self.ski.action(action)
             elif action=='launch':self.start_glide()
+            elif action=='motor':self.glider.toggle_motor()
+            elif action=='chase':self.glider.chase=not self.glider.chase
             elif action=='descend':self.glider.descending=not self.glider.descending
             elif action in ('glide_left','glide_right'):self.glider.steer(-1 if action=='glide_left' else 1)
             elif action=='encore':self.climb.wave=0.
@@ -925,6 +927,8 @@ class RainierView:
             return
         if self.glider:
             if button in (13,14):self.glider.steer(-1 if button==13 else 1)
+            elif button==3:self.glider.chase=not self.glider.chase
+            elif button==2 and self.glider.powered:self.glider.toggle_motor()
             elif button==0:self.glider.descending=not self.glider.descending
         elif self.climb:
             if button==0:
@@ -956,10 +960,10 @@ class RainierView:
             scale=3.2*dt/max(1.,math.hypot(sideways,back))
             owner._translate(-back,sideways,scale)
 
-    def start_glide(self):
+    def start_glide(self,powered=False):
         from rainier_hike import HangGlider
         if not self.climb:self.start_climb()
-        self.glider=HangGlider(self.climb,self.walk_height)
+        self.glider=HangGlider(self.climb,self.walk_height,powered)
         self.climb=None
         self.cruise=False
         self.destination=None
@@ -1269,6 +1273,14 @@ class RainierView:
         high=self.quality.high and not self.regional
         x,z,yaw,pitch=self.camera
         _,eye,_=self.eye_position(x,z)
+        aircraft=None
+        if self.glider and self.glider.chase:
+            flight=self.glider
+            aircraft=(C.c_float*6)(x,flight.altitude-origin.y,z,math.degrees(yaw),flight.bank,flight.powered)
+            x-=14*math.sin(yaw)
+            z-=14*math.cos(yaw)
+            eye=max(eye+4.,self.walk_height(x,z)-origin.y+2.)
+            pitch=math.atan2(eye-aircraft[1]-2.,14.)
         wx,wy,w,h=self.host.bounds(self.host.window(self.name))
         ox,oy=self.host.origin
         rect=((wx+ox+1)*8,(wy+oy+1)*16,(w-2)*8,(h-3)*16)
@@ -1329,7 +1341,7 @@ class RainierView:
             sound(ctx.handle,self.sound,self.cue,river_gain(x,z,site()[1]),voice,gain)
         self.cue=0
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint,C.c_uint,C.c_uint,C.c_uint]
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint,C.c_uint,C.c_uint,C.c_uint,C.POINTER(C.c_float)]
         target_x,target_z=self.trail.target(x,z)
         direction=math.atan2(target_x-x,target_z-z)-yaw
         mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
@@ -1401,7 +1413,7 @@ class RainierView:
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high or self.regional else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end,aircraft)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()

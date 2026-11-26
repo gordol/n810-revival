@@ -60,7 +60,7 @@ class HikeMenu:
         if v.regional:
             world=getattr(v,'world',None)
             detail=world and getattr(world[0],'inset',None)
-            outings=('Put on skis','Climb summit ice','Hang glide') if detail else ()
+            outings=('Put on skis','Climb summit ice','Hang glide','Paramotor') if detail else ()
         return ('Hike','','Pace   '+v.pace_name,'',switch,'','Back to walk','Paradise meadows' if not v.party else '','Camp & sky','Debug overlay   '+('On' if v.debug_overlay else 'Off'),*outings,v.travel_error[:width])
 
     def tap_xy(self,x,y):
@@ -94,6 +94,9 @@ class HikeMenu:
             return False
         if v.regional and y==12 and 'Hang glide' in self.lines(40):
             v.start_glide()
+            return False
+        if v.regional and y==13 and 'Paramotor' in self.lines(40):
+            v.start_glide(powered=True)
             return False
         if not v.regional and 10<=y<=13:
             if y==10:v.move_to_view(pool=True)
@@ -301,7 +304,10 @@ class SummitClimb:
 
 
 class HangGlider:
-    def __init__(self,climb,height):
+    def __init__(self,climb,height,powered=False):
+        self.powered=powered
+        self.motor=powered
+        self.chase=powered
         self.x,self.z=climb.x,climb.z
         self.altitude=height(self.x,self.z)+6.
         self.heading=climb.heading+math.pi
@@ -309,6 +315,10 @@ class HangGlider:
         self.stick=self.bank=0.
         self.descending=self.landed=False
         self.clearance=6.
+
+    def toggle_motor(self):
+        self.motor=not self.motor
+        self.descending=False
 
     def steer(self,direction):
         self.target+=direction*math.radians(18)
@@ -324,24 +334,30 @@ class HangGlider:
         z=self.z+22*dt*math.cos(self.heading)
         self.x=max(west,min(east,x))
         self.z=max(south,min(north,z))
-        self.altitude-=dt*(12. if self.descending or (x,z)!=(self.x,self.z) else 2.3)
+        if self.motor and not self.descending and (x,z)==(self.x,self.z):
+            self.altitude=min(5500.,self.altitude+dt*4.)
+        else:self.altitude-=dt*(12. if self.descending or (x,z)!=(self.x,self.z) else 2.3)
         ground=height(self.x,self.z)
         self.clearance=max(0.,self.altitude-ground)
         if not self.clearance:self.landed=True
         return self.x,self.z,self.heading,.14+.08*self.descending
 
     def controls(self,w,h):
-        return [('glide_left','<',(0,h-5,w//4,5)),
+        top=[('chase','Pilot view' if self.chase else 'Chase view',(w-12,0,12,3))]
+        if self.powered:top.append(('motor','Power off' if self.motor else 'Power on',(0,0,12,3)))
+        return top+[('glide_left','<',(0,h-5,w//4,5)),
                 ('descend','Glide' if self.descending else 'Descend',(w//2-5,h-5,10,5)),
                 ('glide_right','>',(w-w//4,h-5,w//4,5))]
 
     def draw(self,ink,w,h):
+        ink.label(1,3,f'{round(self.clearance)} m above ground',0xFFF4DC)
+        if self.chase:return
         # Leading edges and suspension wires bank with the turn.
         for side in (-1,1):
             for i in range(24):
                 t=i/24
                 x=w*(.5+side*t*.51)
-                y=h*(.12-t*.10+side*t*self.bank*.09)
+                profile=.035+.095*t*t if self.powered else .12-t*.10
+                y=h*(profile+side*t*self.bank*.09)
                 ink.fill((x,y,w*.024,.70+.36*t),0xEFA34BFF if i%8<6 else 0x376F79FF)
                 if i%2==0:ink.fill((w*(.5+side*(.13+.36*t)),h*(.85-.82*t+side*t*self.bank*.09),.18,.42),0x547077FF)
-        ink.label(1,1,f'{round(self.clearance)} m above ground',0xFFF4DC)

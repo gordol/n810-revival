@@ -309,6 +309,9 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def flight_key(self,key):
             flight=getattr(self.pixel_scene,'glider',None)
+            if flight and key.lower()=='v':flight.chase=not flight.chase;return True
+            if flight and flight.powered and key.lower()=='p':
+                flight.toggle_motor();return True
             if flight and key in ('left','right','space',' ','enter','\r'):
                 if key in ('left','right'):flight.steer(-1 if key=='left' else 1)
                 else:flight.descending=not flight.descending
@@ -316,7 +319,8 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             return False
 
         def key_event(self,key,kind,now):
-            if getattr(self.pixel_scene,'glider',None) and key in ('left','right','space',' ','enter'):
+            flight=getattr(self.pixel_scene,'glider',None)
+            if flight and (key in ('left','right','space',' ','enter','v','V') or (flight.powered and key.lower()=='p')):
                 if kind=='press':self.flight_key(key)
                 return True
             if getattr(self.pixel_scene,'climb',None) and key in ('space',' ','enter'):

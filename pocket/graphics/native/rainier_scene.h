@@ -220,7 +220,7 @@ static void river_hiker_band(float bottom,float top,float base,float rim,float r
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
-                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh,const float *marker,const float *ripple,int lens,unsigned char *photo,int photo_animal,float focal,int camp,int season,int weather,float originY,float daylight,float sun_angle,float center_x,float center_z,const float *grove,unsigned grove_count,unsigned water_count,unsigned omit_first,unsigned omit_end){
+                         float east,float eye,float north,float yaw,float pitch,float age,int picked,float direction,int fed,int high,const unsigned char *shadows,const float *hikers,unsigned nh,const float *marker,const float *ripple,int lens,unsigned char *photo,int photo_animal,float focal,int camp,int season,int weather,float originY,float daylight,float sun_angle,float center_x,float center_z,const float *grove,unsigned grove_count,unsigned water_count,unsigned omit_first,unsigned omit_end,const float *aircraft){
  struct gpu_scene *s=ptr;
  if(!s||w<1||h<1||count<3||count>3000000||(!vertices&&!s->rainier_buffer))
   return SDL_SetError("Invalid Rainier scene");
@@ -379,6 +379,37 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  }
  /* Small rain jackets and knit caps stand out against the dark conifers. */
  glUseProgram(0);
+ if(aircraft){
+  glPushMatrix();glTranslatef(aircraft[0],aircraft[1],aircraft[2]);
+  glRotatef(aircraft[3],0,1,0);glRotatef(-aircraft[4]*32.f,0,0,1);
+  river_hiker_band(0,.55f,.20f,.26f,.16f,.22f,.28f);
+  river_hiker_band(.55f,1.1f,.26f,.19f,.92f,.36f,.12f);
+  river_hiker_band(1.1f,1.45f,.17f,.14f,.92f,.80f,.48f);
+  int powered=aircraft[5]>.5f;
+  for(int panel=-8;panel<8;panel++){
+   glColor3f(panel%4==0?.15f:.96f,panel%4==0?.55f:.57f,panel%4==0?.61f:.16f);
+   glBegin(GL_TRIANGLE_STRIP);
+   for(int rib=0;rib<=5;rib++)for(int k=0;k<=1;k++){
+    float u=(panel+k)/8.f,v=rib/5.f;
+    float y=powered?4.7f-1.25f*u*u+.32f*sinf(v*3.14159f):2.4f-.4f*fabsf(u);
+    float z=powered?1.f-2.f*v-.6f*u*u:2.4f-3.5f*fabsf(u)-2.3f*v*(1.f-fabsf(u));
+    glVertex3f(4.6f*u,y,z);
+   }
+   glEnd();
+  }
+  glColor3f(.19f,.23f,.27f);glBegin(GL_LINES);
+  for(int k=-3;k<=3;k+=2){
+   float u=k/3.f;
+   glVertex3f(.25f*u,.8f,0);glVertex3f(4.6f*u,powered?4.7f-1.25f*u*u:2.4f-.4f*fabsf(u),powered?-.6f*u*u:2.4f-3.5f*fabsf(u));
+  }
+  glEnd();
+  if(powered){
+   glBegin(GL_LINE_LOOP);
+   for(int j=0;j<32;j++)glVertex3f(.67f*cosf(j*.19635f),.68f+.67f*sinf(j*.19635f),-.48f);
+   glEnd();
+  }
+  glPopMatrix();
+ }
  static const float coats[][3]={{.93f,.47f,.12f},{.12f,.66f,.67f},{.75f,.28f,.40f},
   {.42f,.48f,.81f},{.85f,.67f,.18f},{.50f,.63f,.27f},{.68f,.38f,.65f}};
  for(unsigned i=0;i<nh;i++){

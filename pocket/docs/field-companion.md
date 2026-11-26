@@ -611,3 +611,9 @@ cast. Press it again when **Lift rod!** appears, then tap it to alternate
 between reeling and easing the line during the fight. After landing a fish,
 A / Cross releases it. B / Circle keeps a brook trout when **Keep brook**
 appears. The usual catch and guidebook rules apply.
+
+**Powered paragliding.** Choose **Hike → Paramotor** in the summit region for
+a fictional flight over the terrain. You start behind the pilot with the motor
+running. Tap **Power off** to coast or **Power on** to climb again (X / Square
+or P). **Descend** takes priority over motor lift. Both the hang glider and
+paramotor have **Pilot view** and **Chase view** (Y / Triangle or V).

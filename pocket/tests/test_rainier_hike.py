@@ -121,6 +121,22 @@ class HikeTests(TestCase):
         self.assertTrue(flight.landed)
         self.assertEqual(flight.clearance,0)
 
+    def test_paramotor_climbs_coasts_and_lands_in_either_view(self):
+        from rainier_hike import HangGlider
+        floor=lambda x,z:4200.
+        limits=(-1000,1000,-1000,1000)
+        flight=HangGlider(SimpleNamespace(x=0,z=0,heading=0),floor,powered=True)
+        self.assertTrue(flight.chase)
+        flight.advance(1,floor,limits)
+        self.assertEqual(flight.clearance,10.)
+        flight.toggle_motor()
+        flight.chase=False
+        flight.advance(1,floor,limits)
+        self.assertAlmostEqual(flight.clearance,7.7)
+        flight.descending=True
+        flight.advance(1,floor,limits)
+        self.assertTrue(flight.landed)
+
     def test_controller_launches_from_flag_and_hike_offers_direct_flight(self):
         from rainier_pixels import RainierView
         view=RainierView(None)
