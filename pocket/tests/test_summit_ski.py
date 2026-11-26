@@ -84,3 +84,21 @@ class SkiTests(unittest.TestCase):
         released=gentle.lane
         for _ in range(20):gentle.advance(.05,ground)
         self.assertLess(gentle.lane-released,.15)
+
+    def test_taps_start_retarget_and_resume(self):
+        run=SkiRun()
+        ground=lambda x,z:3000.
+        run.tap_slope(.8,.5)
+        self.assertEqual(run.mode,'ski')
+        for _ in range(30):run.advance(.05,ground)
+        self.assertGreater(run.lane,0.)
+        run.tap_slope(.1,.5)
+        for _ in range(70):run.advance(.05,ground)
+        self.assertLess(run.lane,0.)
+        run.action('brake')
+        run.tap_slope(.5,.4)
+        self.assertEqual(run.mode,'ski')
+        self.assertEqual(run.tap_lane,run.lane)
+        run.steer=1.
+        run.advance(.05,ground)
+        self.assertIsNone(run.tap_lane)

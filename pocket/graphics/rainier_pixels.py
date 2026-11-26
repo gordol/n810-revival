@@ -801,7 +801,10 @@ class RainierView:
                 if not self.shutter:self.photo_hint='Aim at wildlife';self.hint_until=self.age+2.
             self.pixel_dirty=True
             return True
-        if self.ski:return True
+        if self.ski:
+            self.ski.tap_slope((x+.5)/width,(y+.5)/height)
+            self.pixel_dirty=True
+            return True
         if self.frame_camera is None:return False
         u,v=(x+.5)/width,(y+.5)/height
         camera,aspect=self.frame_camera
@@ -1288,7 +1291,14 @@ class RainierView:
                     ink.fill((1,8.1,18,.36),0x283832FF)
                     ink.fill((1,8.1,18*self.fishing.tension,.36),0xFD996EFF)
             if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y)
-            for _,label,box in self.walk_tools(w-2,h-3):ink.button(box,label)
+            for action,label,box in self.walk_tools(w-2,h-3):
+                ink.button(box,label)
+                if self.ski and action=='brake':
+                    bx,by,bw,bh=box
+                    if self.ski.mode=='ski':
+                        for offset in (.7,1.6):ink.fill((bx+offset,by+bh/2-.6,.55,1.2),0xFFE3AAFF)
+                    else:
+                        for i in range(4):ink.fill((bx+.7+i*.3,by+bh/2-.6+i*.12,.32,1.2-i*.24),0xD3EDD5FF)
             if self.age<self.hint_until and self.photo_hint:
                 ink.label(1,5,self.photo_hint[:w-2],0xFFF6DA)
             elif (self.lens or self.binoculars) and self.focus_key:

@@ -68,6 +68,8 @@ class SkiRun:
         self.mode='ready'
         self.distance=self.lane=self.steer=self.speed=self.angle=0.
         self.side_speed=0.
+        self.tap_lane=self.tap_point=None
+        self.cue_time=0.
         self.score=self.landings=0
         self.lift=self.vertical=0.
         self.air_y=None
@@ -125,11 +127,23 @@ class SkiRun:
             self.left=not self.left
             self.hold+=1
 
+    def tap_slope(self,u,v):
+        if self.mode not in ('ready','ski','braked'):return
+        if self.mode!='ski':self.action('brake')
+        offset=2.*u-1.
+        self.tap_lane=max(-10.,min(10.,self.lane+10.*offset))
+        self.tap_point=(u,v)
+        self.cue_time=0.
+
     def advance(self,dt,height):
+        self.cue_time+=dt
         d=self.distance
         if self.mode=='ski':
             turn=self.steer
-            if self.tilt and abs(turn)<.04:turn=self.tilt.turn
+            if abs(turn)>.04:self.tap_lane=None
+            if self.tap_lane is not None:
+                turn=max(-1.,min(1.,(self.tap_lane-self.lane)*.55))
+            elif self.tilt and abs(turn)<.04:turn=self.tilt.turn
             ahead=min(self.course.length,d+1.)
             grade=(height(*self.course.location(d,self.lane))-height(*self.course.location(ahead,self.lane)))/max(.01,ahead-d)
             acceleration=9.81*grade/math.hypot(1.,grade)-.25-.0035*self.speed**2
@@ -147,6 +161,8 @@ class SkiRun:
                 self.side_speed=self.speed*math.sin(self.angle)
             self.distance=min(self.course.length,d+self.speed*dt*math.cos(self.angle))
             self.lane=max(-10.,min(10.,self.lane+self.speed*dt*math.sin(self.angle)))
+            if self.tap_lane is not None and abs(self.tap_lane-self.lane)<.25:
+                self.angle=self.side_speed=0.
             for gate,side in self.course.gates:
                 if d<gate<=self.distance and abs(self.lane-side)<2.7:self.score+=1
             ground=height(*self.course.location(self.distance,self.lane))
@@ -200,6 +216,22 @@ class SkiRun:
                     x=w*(.5+side*(.075+.055*t))+.6*self.angle*(1-t)
                     ink.fill((x,h-8+t*3,.48+.32*t,.46),0xE7AA54FF)
                     ink.fill((x+.12,h-8+t*3,.12,.46),0x3F5662FF)
+        if self.mode in ('ready','braked') or (self.mode=='ski' and self.tap_point and self.cue_time<.65):
+            demo=self.mode!='ski'
+            phase=self.cue_time%1.5 if demo else self.cue_time
+            u,v=(.53,.47) if demo else self.tap_point
+            x,y=u*w,v*h
+            radius=.6+min(1.,phase/.65)*1.6
+            for i in range(24):
+                a=i*math.tau/24
+                ink.fill((x+radius*math.cos(a),y+.5*radius*math.sin(a),.28,.17),0x168EACFF)
+            if demo:
+                # Pixel-art pointing hand. Move the fingertip onto the ripple.
+                step=max(0.,phase-.65)*1.8
+                for row,bits in enumerate(('0110000','0110000','0110000','0111110','1111111','1111111','0111111','0011110')):
+                    for col,bit in enumerate(bits):
+                        if bit=='1':
+                            ink.fill((x+(col-1)*.46+step,y+row*.24+step,.48,.26),0x253C4AFF)
         if self.mode=='climb':
             d=max(0.,self.distance-10.)
             x,z=self.course.location(d,9.*math.sin(d*math.pi/self.course.length))
@@ -209,10 +241,11 @@ class SkiRun:
             self.grip_uv=project_subject(camera,aspect,1.,('',x,height(x,z)+.26,z,.8))
         label=(f'{round(self.speed*3.6)} km/h   {self.score}/4 gates' if self.mode=='ski'
                else 'Runout   '+str(self.score)+'/4 gates' if self.mode=='bottom'
-               else f'{self.hold}/15 grips' if self.mode=='climb' else 'Drag to carve')
+               else f'{self.hold}/15 grips' if self.mode=='climb' else 'Tap snow to ski')
         if self.course.jumps:
             label=(f'{round(self.distance)}/{int(self.course.length)} m   '+('Air!' if self.air_y is not None else f'{self.landings} jumps'))
             if self.mode=='bottom':label=f'{self.score}/{len(self.course.gates)} gates   {self.landings} jumps'
+        if self.mode in ('ready','braked'):label='Tap snow to ski'
         y=7 if self.mode in ('ready','bottom') else 4
         ink.fill((.6,y-.3,len(label)+.8,1.5),0x243E42E8)
         ink.label(1,y,label,0xFFF4D7)
