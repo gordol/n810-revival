@@ -150,6 +150,47 @@ class HikeTests(TestCase):
         self.assertFalse(flight.keys)
         self.assertEqual(flight.drag,(0.,0.))
 
+    def test_flight_exits_restart_and_map_teleport(self):
+        from rainier_pixels import RainierView
+        from rainier_hike import HangGlider
+        from summit_detail import RegionalTerrain
+        from dataclasses import replace
+        host=SimpleNamespace(window=lambda name:SimpleNamespace(w=52,h=35))
+        view=RainierView(host)
+        field=self.field()
+        field=replace(field,values=tuple(4000-abs(i-2)-abs(j-2) for j in range(field.nz) for i in range(field.nx)))
+        view.world=(RegionalTerrain(field.nx,field.nz,field.origin,field.dx,field.dz,field.values,inset=field),)
+        view.regional=True
+        for x in (3,13,25,46):
+            flight=view.glider=HangGlider(SimpleNamespace(x=20,z=40,heading=0),
+                                          lambda x,z:100.,True)
+            view.footer(x,50)
+            if x==13:
+                self.assertIsNot(view.glider,flight)
+                self.assertTrue(view.glider.powered)
+                self.assertIsNone(view.trip_pose)
+            else:
+                self.assertIsNone(view.glider)
+                self.assertEqual(view.trip_pose[:2],(20,40))
+            if x==25:self.assertIsInstance(view.notebook,HikeMenu)
+            if x==46:
+                self.assertIsInstance(view.notebook,ReliefMap)
+                self.assertFalse(view.notebook.tap_xy(24,15))
+                self.assertIsNotNone(view.map_position)
+
+    def test_horizon_concentrates_real_samples_and_preserves_old_cache(self):
+        import tempfile,zlib
+        import summit_horizon as h
+        self.assertEqual([h.offset(i) for i in (-128,-32,0,32,64,128)],
+                         [-128,-16,0,16,32,128])
+        with tempfile.TemporaryDirectory() as tmp,patch('data_paths.rainier_cache',return_value=Path(tmp)):
+            old=Path(tmp)/'horizon-terrarium-v1.i16.zlib'
+            old.write_bytes(zlib.compress(bytes(h.SIZE*h.SIZE*2)))
+            with patch.object(h,'urlopen',side_effect=OSError('offline')):
+                values,graded=h.samples()
+            self.assertFalse(graded)
+            self.assertEqual(len(values),h.SIZE*h.SIZE)
+
     def test_bike_grade_brake_resume_and_closed_track(self):
         import math
         from rainier_hike import BikeLoop

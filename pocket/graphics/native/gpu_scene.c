@@ -98,6 +98,9 @@ int pocket_scene_size(void *ptr,unsigned width,unsigned height){
  if(!base||!canvas){if(base)Scene_DestroyTexture(base);if(canvas)Scene_DestroyTexture(canvas);return -1;}
 #ifdef POCKET_SCENE_GL
  s->device->presented_target=NULL;s->device->previous_room_valid=0;
+#else
+ if(getenv("POCKET_TERMUX") && !strcmp(getenv("POCKET_TERMUX"),"1"))
+  SDL_SetTextureScaleMode(canvas,SDL_ScaleModeLinear);
 #endif
  if(s->base){Scene_DestroyTexture(s->base);}if(s->canvas){Scene_DestroyTexture(s->canvas);}s->base=base;s->canvas=canvas;s->width=width;s->height=height;return 0;
 }

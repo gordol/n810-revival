@@ -405,7 +405,7 @@ def build_world(high=True,plant_sites=None,regional=False):
             except (OSError,ValueError,ImportError,zlib.error,subprocess.SubprocessError) as error:
                 print(f'Using local Rainier horizon: {error}')
             else:
-                summit_horizon.append_mesh(triangles,field,origin.y,horizon)
+                summit_horizon.append_mesh(triangles,field,origin.y,*horizon)
                 field=replace(field,panorama=True)
             from summit_ski import COURSES,RAMP_LENGTH,LIP_HEIGHT,HALF_WIDTH
             for course in COURSES[1:]:
@@ -730,7 +730,7 @@ class RainierView:
             field=self.world[0]
             elevation=round(surface(field,*self.camera[:2])) if self.camera else 0
             labels=(labels[0],f'{elevation} m','Hike','Mute' if self.sound else 'Sound','Map')
-            if self.glider:labels=('',f'{round(self.glider.altitude)} m','',labels[3],'')
+            if self.glider:labels=('Land','Restart','Hike',labels[3],'Map')
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
@@ -742,7 +742,19 @@ class RainierView:
             self.landing_sound=False
             self.pixel_dirty=True
             return True
-        if self.glider:return True
+        if self.glider:
+            if x<width//6:self.end_flight()
+            elif x<width*3//7:
+                powered=self.glider.powered
+                self.end_flight()
+                self.start_glide(powered)
+            else:
+                self.end_flight()
+                if x>=width*3//4:
+                    self.notebook=ReliefMap(self)
+                    self.album_loaded=None
+                else:self.notebook=HikeMenu(self)
+            return True
         self.bike=None
         self.climb=None
         if self.ski:self.stop_ski()
@@ -939,7 +951,8 @@ class RainierView:
             if button==1:self.bike=None
             return
         if self.glider:
-            if button==3:self.glider.fast=not self.glider.fast
+            if button==1:self.end_flight()
+            elif button==3:self.glider.fast=not self.glider.fast
             elif button==2 and self.glider.powered:self.glider.toggle_motor()
             elif button==0:self.glider.descending=not self.glider.descending
         elif self.climb:
@@ -978,6 +991,15 @@ class RainierView:
         self.destination=self.trip_pose=self.map_position=None
         self.lens=self.binoculars=self.cruise=self.trail.guiding=False
         self.zoom=1.
+
+    def end_flight(self):
+        flight=self.glider
+        flight.cancel_input()
+        self.trip_pose=(flight.x,flight.z,flight.heading,-.12)
+        self.glider=None
+        self.photo_hint='Back on the trail'
+        self.hint_until=self.age+3.
+        self.pixel_dirty=True
 
     def start_glide(self,powered=False):
         from rainier_hike import HangGlider

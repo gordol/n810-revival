@@ -577,10 +577,11 @@ Hood and Mount Adams. Intervening ridges can hide parts of a view, and mist or
 showers shorten visibility.
 
 Opening the registered summit region downloads a wider elevation grid once.
-Pocket caches it locally for offline use. This distant scenery uses roughly
-1.6 × 1.8 km samples, with water at sea level and a correction for Earth’s
-curvature. The original regional grid still sets the walking boundary. If the
-overview download is unavailable, the climb works with the local terrain.
+Pocket caches it locally for offline use. The panorama samples the nearer ridges at roughly
+0.8 × 0.9 km spacing and the farthest scenery at 2.4 × 2.7 km, with water at sea level and a correction for Earth’s
+curvature. The original regional grid still sets the walking boundary. If the overview download is unavailable, Pocket uses a previous cached panorama
+or the local terrain. Station Map’s PNW overview stores elevation bands and
+water classes. Rainier Walk needs the elevation in metres at each sample.
 [Mapzen terrain tile sources and attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) ·
 [Terrain Tiles on AWS](https://registry.opendata.aws/terrain-tiles/)
 
@@ -595,8 +596,11 @@ D-pad left and right also sustain a turn while held.
 Tap **Flight** to open the action wheel. **Fast** increases cruise speed from
 79 to 166 km/h. A full dive at that setting approaches 209 km/h. Y / Triangle
 or F switches cruise speed. **Descend** (A / Cross or Space) loses altitude
-quickly. The HUD shows speed and height above ground, and the footer shows
-altitude above sea level. Touching ground ends the flight.
+quickly. The HUD shows speed, height above ground (AGL) and altitude above sea level
+(ASL). Tap **Land** to walk directly below the aircraft (B / Circle also lands),
+**Restart** to relaunch the same aircraft at the summit, **Hike** to land and
+choose an outing, or **Map** to land and tap a destination. Touching ground
+also ends the flight.
 
 G launches from the raised flag. On a controller, A / Cross reaches for
 a grip, raises the flag, then launches on the next press. At the flag,

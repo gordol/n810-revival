@@ -388,9 +388,10 @@ class HangGlider:
         return None
 
     def draw(self,ink,w,h):
-        ink.fill((.5,.6,12,2.6),0x203837DC)
+        ink.fill((.5,.6,13,3.6),0x203837DC)
         ink.label(1,1,f'{round(self.speed*3.6)} km/h',0xFFF4DC)
         ink.label(1,2,f'{round(self.clearance)} m AGL',0xFFF4DC)
+        ink.label(1,3,f'{round(self.altitude)} m ASL',0xFFF4DC)
         if self.menu:
             for _,_,angle in self.wheel_items():
                 ink.sector(w/2,h/2,self.radius(w,h),angle)
