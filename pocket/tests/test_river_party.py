@@ -56,6 +56,43 @@ class FamilyWalkTests(unittest.TestCase):
         self.assertTrue(all(len(client.roster)==8 for client in guests[:7]))
         self.assertFalse(guests[-1].roster)
 
+    def test_family_descent_waits_for_everyone_and_keeps_the_finish_open(self):
+        from summit_ski import SkiRun
+        from unittest.mock import patch
+        host,guest=SkiRun(),SkiRun()
+        room=RiverParty(True,5432,port=0,ski=True)
+        host.enter_room(room)
+        guest.enter_room(RiverParty(False,5432,'127.0.0.1',room.sock.getsockname()[1],ski=True))
+        for run in (host,guest):self.addCleanup(run.leave_room)
+        clock=0.
+        def ground(x,z):return 3200+.24*(x+z)
+        def tick():
+            nonlocal clock
+            clock+=.1
+            for run in (guest,host):run.advance(.1,ground)
+        with patch('river_party.time.monotonic',side_effect=lambda:clock):
+            host.room.ready=True
+            for _ in range(12):tick()
+            host.tap_slope(.5,.5)
+            self.assertEqual((host.mode,guest.mode),('ready','ready'))
+            self.assertEqual(len(guest.room.roster),2)
+            guest.room.ready=True
+            for _ in range(12):tick()
+            self.assertEqual((host.mode,guest.mode),('ski','ski'))
+            guest.action('brake')
+            for _ in range(4000):
+                tick()
+                if host.mode=='bottom':break
+            self.assertEqual((host.mode,guest.mode),('bottom','braked'))
+            guest.action('brake')
+            for _ in range(4000):
+                tick()
+                if guest.mode=='bottom':break
+            for _ in range(8):tick()
+            for run in (host,guest):
+                self.assertEqual([d for d,_ in run.room.roster.values()],[12000,12000])
+                self.assertEqual(len(list(run.family_positions())),1)
+
     def test_touch_keypad(self):
         from unittest.mock import patch
         view=SimpleNamespace(party=None)

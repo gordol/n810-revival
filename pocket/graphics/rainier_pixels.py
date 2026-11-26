@@ -753,6 +753,7 @@ class RainierView:
             if not hit(box,x,y):continue
             if self.ski:
                 if action=='leave':self.stop_ski()
+                elif action=='family':self.notebook=PartyMenu(self,ski=True)
                 else:self.ski.action(action)
             elif action=='berry_view':
                 bx,bz=BERRY_BLUFF
@@ -871,6 +872,7 @@ class RainierView:
 
     def stop_ski(self):
         self.landing_sound=False
+        if self.ski and self.ski.room:self.ski.leave_room()
         if self.ski and self.ski.tilt:self.ski.tilt.stop.set()
         self.ski=None
 
@@ -1211,6 +1213,9 @@ class RainierView:
                 if uid!=self.party.ident:
                     hx,hz=px/10,pz/10
                     hikers.extend((hx,self.walk_height(hx+origin.x,hz+origin.z)-origin.y,hz))
+        if self.ski and self.ski.room:
+            for hx,hz in self.ski.family_positions():
+                hikers.extend((hx,self.walk_height(hx,hz)-origin.y,hz))
         hikers_buffer=(C.c_float*len(hikers))(*hikers)
         marker=(C.c_float*3)() if self.destination is not None else None
         if marker is not None:

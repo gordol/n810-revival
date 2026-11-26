@@ -553,3 +553,12 @@ accelerometer, launch with `POCKET_SKI_TILT=1 make mobile` and hold the phone
 upright and level when putting on skis. Summit wind continues while you stand still or jump. On snow, the skis hiss
 with speed and carve angle. Listen for a soft thump on landing. Tap **Mute**
 beside **Map** to silence the sound while skiing. The course and ice grips are fictional.
+
+**Ski together.** On each device, put on skis and tap **Family** at the top of
+the slope. One player taps **Host on this Wi-Fi**. The others tap **Join with a
+code** and enter the host's four digits. Wait until the room count includes
+everyone, then each player taps **Ready to ski**. The shared 1.2 km run starts
+when everyone in the room is ready. Assist steers through the flags. Each skier
+can brake and resume independently. At the finish, face uphill to watch the
+others arrive. Tap **Room → Leave room** to return to solo skiing. Ski rooms
+support two to eight players on the same Wi-Fi and use UDP port 43818.

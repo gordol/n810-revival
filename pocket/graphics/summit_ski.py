@@ -71,6 +71,7 @@ class SkiRun:
     def __init__(self,courses=COURSES):
         self.courses=courses
         self.course=courses[0]
+        self.room=None
         self.assist=True
         self.tilt=None
         self.reset()
@@ -93,6 +94,24 @@ class SkiRun:
         self.goal=0.
         self.climb_lane=0.
 
+    def enter_room(self,room):
+        self.course=COURSES[1]
+        self.reset()
+        self.room=room
+
+    def leave_room(self):
+        self.room.close()
+        self.room=None
+        self.reset()
+
+    def family_positions(self):
+        roster=self.room.roster
+        if self.room.ident not in roster:return
+        my_slot=list(roster).index(self.room.ident)
+        for slot,(uid,(distance,lane)) in enumerate(roster.items()):
+            if uid!=self.room.ident:
+                yield self.course.location(distance/10,lane/10+1.25*(slot-my_slot))
+
     @property
     def finish_action(self):
         return 'climb' if self.course==COURSES[0] else 'reset'
@@ -100,7 +119,12 @@ class SkiRun:
     def controls(self,w,h):
         half=w//2
         buttons=[('leave','Walk',(0,0,9,3)),('reset','Reset',(w-9,0,9,3))]
-        if self.mode in ('ready','bottom'):
+        if self.room:
+            buttons=[buttons[0],('family','Room',(w-9,0,9,3))]
+            if not self.room.running or self.mode=='bottom':return buttons
+        elif self.mode=='ready':
+            buttons.append(('family','Family',(half-5,0,10,3)))
+        if not self.room and self.mode in ('ready','bottom'):
             label='Course '+self.course.name
             buttons.append(('course',label,((w-len(label)-2)//2,3,len(label)+2,3)))
         if self.mode=='climb':
@@ -119,6 +143,7 @@ class SkiRun:
         return buttons
 
     def action(self,key):
+        if self.room and (not self.room.running or key in ('course','reset')):return
         if key=='reset':self.reset()
         elif key=='course' and self.mode in ('ready','bottom'):
             self.course=self.courses[(self.courses.index(self.course)+1)%len(self.courses)]
@@ -140,6 +165,7 @@ class SkiRun:
             self.hold+=1
 
     def tap_slope(self,u,v):
+        if self.room and not self.room.running:return
         if self.mode not in ('ready','ski','braked'):return
         starting=self.mode!='ski'
         if starting:self.action('brake')
@@ -151,6 +177,10 @@ class SkiRun:
         self.cue_time=0.
 
     def advance(self,dt,height):
+        if self.room:
+            self.room.step(self.distance,self.lane)
+            if self.room.running and self.mode=='ready':self.action('brake')
+            elif not self.room.running and self.mode!='ready':self.reset()
         self.cue_time+=dt
         d=self.distance
         if self.mode=='ski':
@@ -272,6 +302,11 @@ class SkiRun:
             if self.mode=='bottom':label=f'{self.score}/{len(self.course.gates)} gates   {self.landings} jumps'
         if self.mode in ('ready','braked'):label='Tap snow to ski'
         y=7 if self.mode in ('ready','bottom') else 4
+        if self.room and not self.room.running:
+            label=f'Room {self.room.code} - waiting for family' if self.room.ready else 'Tap Room to get ready'
+        elif self.room and self.mode=='bottom':
+            finished=sum(d>=self.course.length*10 for d,_ in self.room.roster.values())
+            label=f'{finished}/{len(self.room.roster)} at the finish'
         ink.fill((.6,y-.3,len(label)+.8,1.5),0x243E42E8)
         ink.label(1,y,label,0xFFF4D7)
 
