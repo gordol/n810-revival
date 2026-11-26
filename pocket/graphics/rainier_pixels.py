@@ -633,6 +633,7 @@ def build_world(high=True,plant_sites=None,regional=False):
 
 class RainierView:
     glider=climb=None
+    pad_sticks=(0.,0.,0.,0.)
     name='Rainier walk'
     paces=(('Walk',1.),('Brisk',2.),('Explore',8.))
 
@@ -772,6 +773,27 @@ class RainierView:
         else:return self.guide()
         return True
 
+    def field_action(self,action):
+        if action=='fish':self.fish()
+        elif action=='keep':
+            self.fishing.keep()
+            self.photo_hint=self.fishing.note
+            self.hint_until=self.age+2.
+        elif action=='zoom':
+            self.zoom=next((level for level in (2.,4.,8.) if level>self.zoom+.01),1.)
+        elif action in ('camera','binoculars'):
+            self.lens=action=='camera' and not self.lens
+            self.binoculars=action=='binoculars' and not self.binoculars
+            self.zoom=4. if self.binoculars else 1.
+            self.focus_key=None
+            self.review_key=self.destination=None
+            self.hint_until=0.
+            self.trail.guiding=self.cruise=False
+        elif action=='shutter' and self.frame_camera:
+            self.shutter=self.focus_key
+            if not self.shutter:self.photo_hint='Aim at wildlife';self.hint_until=self.age+2.
+        self.pixel_dirty=True
+
     def scene_tap(self,x,y,width,height):
         if self.album:
             action=next((a for a,_,box in album_tools(width,height) if hit(box,x,y)),None)
@@ -812,11 +834,7 @@ class RainierView:
                 self.cruise=self.trail.guiding=False
                 self.destination=None
                 self.zoom=8.
-            elif action=='fish':self.fish()
-            elif action=='keep':
-                self.fishing.keep()
-                self.photo_hint=self.fishing.note
-                self.hint_until=self.age+2.
+            elif action in ('camera','binoculars','zoom','shutter','fish','keep'):self.field_action(action)
             elif action.startswith('gather'):
                 self.supplies|=1<<int(action[-1])
                 self.photo_hint='Camp supplies '+str(self.supplies.bit_count())+'/3'
@@ -836,19 +854,6 @@ class RainierView:
                 self.destination=None
                 self.cruise=self.trail.guiding=False
                 self.notebook=DiscoveryBook(self)
-            elif action=='zoom':
-                self.zoom=next((level for level in (2.,4.,8.) if level>self.zoom+.01),1.)
-            elif action in ('camera','binoculars'):
-                self.lens=action=='camera' and not self.lens
-                self.binoculars=action=='binoculars' and not self.binoculars
-                self.zoom=4. if self.binoculars else 1.
-                self.focus_key=None
-                self.review_key=self.destination=None
-                self.hint_until=0.
-                self.trail.guiding=self.cruise=False
-            elif self.frame_camera:
-                self.shutter=self.focus_key
-                if not self.shutter:self.photo_hint='Aim at wildlife';self.hint_until=self.age+2.
             self.pixel_dirty=True
             return True
         if self.ski:
@@ -910,7 +915,7 @@ class RainierView:
         self.trail.guiding=True
         return True
 
-    def summit_button(self,button):
+    def controller_button(self,button):
         # SDL standard face buttons (south/east) and D-pad left/right.
         if self.glider:
             if button in (13,14):self.glider.steer(-1 if button==13 else 1)
@@ -921,6 +926,27 @@ class RainierView:
                 else:self.climb.reach()
             elif button==14 and self.climb.raised and self.climb.panorama:self.climb.next_vista()
             elif button==1 and self.climb.raised:self.climb.wave=0.
+
+        elif self.world and not self.ski and not self.album and not self.notebook:
+            if button==0:action='shutter' if self.lens else 'fish'
+            elif button==1:action='camera' if self.lens else 'binoculars' if self.binoculars else 'keep'
+            else:action={2:'camera',3:'binoculars',10:'zoom'}.get(button)
+            if not action:return
+            window=self.host.window(self.name)
+            if any(tool==action for tool,_,_ in self.walk_tools(window.w-2,window.h-3)):
+                self.field_action(action)
+
+    def walk_with_controller(self,owner,dt):
+        sideways,back,turn,look=self.pad_sticks
+        if turn or look:
+            self.trail.free_look=True
+            owner.yaw+=turn*dt*1.6/self.zoom
+            owner.pitch=max(-1.,min(1.,owner.pitch+look*dt/self.zoom))
+        if sideways or back:
+            self.destination=None
+            self.cruise=self.trail.guiding=False
+            scale=3.2*dt/max(1.,math.hypot(sideways,back))
+            owner._translate(-back,sideways,scale)
 
     def start_glide(self):
         from rainier_hike import HangGlider
@@ -1155,6 +1181,8 @@ class RainierView:
             self.valley_pose=None
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
+        if any(self.pad_sticks) and not (self.ski or self.climb or self.glider or self.notebook or self.album):
+            self.walk_with_controller(owner,dt)
         if self.glider:
             owner.x,owner.z,owner.yaw,owner.pitch=self.glider.advance(dt,self.walk_height,bounds(self.world[0]))
             if self.glider.landed:

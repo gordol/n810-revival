@@ -39,13 +39,13 @@ class DesktopWindow(Window):
         if getattr(self,'captured_target',None) is view:self.release_capture()
         control=getattr(self,'controls',{}).pop(view,None)
         if control is not None:control.clear(time.monotonic())
-    def summit_scene(self):
+    def controller_scene(self):
         host=getattr(getattr(self,'platform',None),'host',None)
         if not host or host.launcher_lines:return None
         form=getattr(host,'app_forms',{}).get(host.focus)
         form=getattr(form,'owner',form)
         scene=getattr(form,'pixel_scene',None)
-        if hasattr(scene,'summit_button') and not scene.notebook and form._active():return scene
+        if hasattr(scene,'controller_button') and not scene.notebook and not scene.album and form._active():return scene
         return None
 
     def events(self):
@@ -62,8 +62,8 @@ class DesktopWindow(Window):
             if self.captured and getattr(self,'captured_target',None) is not target:self.release_capture()
             if kind==1:yield {'action':'quit'}
             elif kind==10:
-                scene=self.summit_scene()
-                if scene:scene.summit_button(x)
+                scene=self.controller_scene()
+                if scene:scene.controller_button(x)
             elif kind in (2,9):
                 if not self.captured and (repeat or target is None):
                     host=self.platform.host
@@ -117,10 +117,17 @@ class DesktopWindow(Window):
                 for control in getattr(self,'controls',{}).values():control.clear(time.monotonic())
                 yield {'action':'cancel-input'}
             elif kind==8:yield dict(action='resize',width=x,height=y)
-        scene=self.summit_scene()
-        if scene and scene.glider:
-            axis=self.lib.pocket_window_pad_axis()/32768.
-            scene.glider.stick=math.copysign(max(0.,abs(axis)-.18)/.82,axis)
+        scene=self.controller_scene()
+        previous=getattr(self,'pad_scene',None)
+        if previous is not None and previous is not scene:
+            previous.pad_sticks=(0.,0.,0.,0.)
+            if previous.glider:previous.glider.stick=0.
+        self.pad_scene=scene
+        if scene:
+            axes=(C.c_int*4)()
+            self.lib.pocket_window_pad_sticks(axes)
+            scene.pad_sticks=tuple(math.copysign(max(0.,abs(v/32768.)-.18)/.82,v) for v in axes)
+            if scene.glider:scene.glider.stick=scene.pad_sticks[0]
 
 def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)

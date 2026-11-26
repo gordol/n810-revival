@@ -130,8 +130,51 @@ class HikeTests(TestCase):
         with patch.object(view,'start_glide') as launch:
             self.assertFalse(menu.tap_xy(0,menu.lines(40).index('Hang glide')))
             view.climb=SimpleNamespace(raised=True)
-            view.summit_button(0)
+            view.controller_button(0)
             self.assertEqual(launch.call_count,2)
+
+    def test_pad_shutter_and_pool_actions_follow_equipped_tool(self):
+        from rainier_pixels import RainierView
+        from river_channel import TROUT_POOL
+        host=SimpleNamespace(window=lambda name:SimpleNamespace(w=42,h=32))
+        view=RainierView(host)
+        view.world=(True,)
+        view.camera=(*TROUT_POOL,0,0)
+        view.frame_camera=(view.camera,1.)
+        view.controller_button(3)
+        view.controller_button(10)
+        self.assertTrue(view.binoculars)
+        self.assertEqual(view.zoom,8)
+        view.controller_button(2)
+        view.focus_key='marmot'
+        view.controller_button(0)
+        self.assertEqual(view.shutter,'marmot')
+        self.assertEqual(view.fishing.state,'idle')
+        view.controller_button(1)
+        self.assertFalse(view.lens or view.binoculars)
+        view.controller_button(0)
+        self.assertEqual(view.fishing.state,'drift')
+        view.fishing.state='bite'
+        with patch('rainier_pixels.vibration'):
+            view.controller_button(0)
+        self.assertEqual(view.fishing.state,'fight')
+        view.controller_button(0)
+        self.assertTrue(view.fishing.reeling)
+        view.controller_button(0)
+        self.assertFalse(view.fishing.reeling)
+        view.fishing.state='landed'
+        view.fishing.target='trout'
+        view.controller_button(1)
+        self.assertFalse(view.fishing.kept_brook)
+        view.controller_button(0)
+        self.assertEqual(view.fishing.state,'idle')
+        view.fishing.state='landed'
+        view.fishing.target='brook_trout#1'
+        view.controller_button(1)
+        self.assertTrue(view.fishing.kept_brook)
+        view.camera=(100,100,0,0)
+        view.controller_button(0)
+        self.assertEqual(view.fishing.state,'idle')
 
     def test_camp_menu_controls_match_drawn_rows(self):
         for height in (14,38):
