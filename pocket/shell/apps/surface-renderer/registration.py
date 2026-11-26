@@ -38,6 +38,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             self.drag_axes=(0.,0.)
             self.drag_moved=False
             self.contacts={}
+            self.ski_contacts={}
             self.optic_fingers={}
             self.pinch=None
             self.grab=None
@@ -120,8 +121,27 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             angles=self.grab.aim(width*8/(height*16),self.yaw)
             if angles:self.yaw,self.pitch=angles
 
+        def ski_touch(self,slot,x,y,width,height,released):
+            scene=self.pixel_scene
+            start=self.ski_contacts.setdefault(slot,(x,y,False))
+            dx=x-start[0]
+            moved=start[2] or abs(dx)>1 or abs(y-start[1])>1
+            if released:
+                del self.ski_contacts[slot]
+                if moved:scene.ski.steer=0.
+                elif y>=height:scene.footer(x,width)
+                else:scene.scene_tap(x,y,width,height)
+            elif moved:
+                scene.ski.steer=max(-1.,min(1.,dx/max(2,width*.22)))
+                self.ski_contacts[slot]=(start[0],start[1],True)
+            return True
+
         def world_touch(self,slot,x,y,width,height,button,released):
             scene=self.pixel_scene
+            if getattr(scene,'ski',None) and not scene.notebook:
+                if slot not in self.ski_contacts and (button or released or not (0<=x<width and 0<=y<height)):
+                    return False
+                return self.ski_touch(slot,x,y,width,height,released)
             optics=getattr(scene,'lens',False) or getattr(scene,'binoculars',False)
             if slot and (slot in self.optic_fingers or (optics and not button and not released
                     and not scene.notebook and not scene.album and 0<=x<width and 0<=y<height)):
@@ -178,6 +198,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
         def cancel_pointer(self):
             self.grab=None
             self.contacts.clear()
+            self.ski_contacts.clear()
             self.optic_fingers.clear()
             self.pinch=None
             self.touch_walk=(0.,0.)
@@ -206,6 +227,9 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             if self.needs_grid:
                 return self.key('d') if not released and button==0 and y==2 else False
             if not self._sync():return False
+            if getattr(self.pixel_scene,'ski',None) and not self.pixel_scene.notebook:
+                self.drag_start=None if released else (x,y)
+                return self.ski_touch(-1,x,y,width,self.host.window(self.name).h-3,released)
             if released or button==32:
                 if not self.pointer_captured:return False
                 self.advance_drag()
@@ -283,7 +307,24 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             if self.download_pool:self.download_pool.shutdown(wait=False,cancel_futures=True)
             super().close()
 
+        def key_event(self,key,kind,now):
+            ski=getattr(self.pixel_scene,'ski',None)
+            if ski and key in ('left','right','up','space',' ','enter','r','R'):
+                if kind=='press':self.key(key,now)
+                elif kind=='release' and key in ('left','right'):ski.steer=0.
+                return True
+            return super().key_event(key,kind,now)
+
         def key(self,key,now=None):
+            ski=getattr(self.pixel_scene,'ski',None)
+            if ski:
+                if key in ('left','right'):ski.steer=-1. if key=='left' else 1.
+                elif key=='up':ski.steer=0.
+                elif key in (' ','space','enter','\r'):
+                    ski.action({'bottom':'climb','climb':'reach'}.get(ski.mode,'brake'))
+                elif key.lower()=='r':ski.action('reset')
+                else:return False
+                return True
             if self.pixel_scene and key=='?' and self.pixel_scene.world is not None:
                 from river_notebook import RiverNotebook
                 self.pixel_scene.notebook=RiverNotebook()

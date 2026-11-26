@@ -80,6 +80,7 @@ class RiverDetailTests(unittest.TestCase):
         from rainier_pixels import RainierView,surface
         from river_walk import BERRY_BLUFF,BUSHES,FOX,BerryTrail,channel,site
         view=RainierView.__new__(RainierView)
+        view.ski=None
         view.lens=view.regional=False
         view.binoculars=True
         view.album=[]

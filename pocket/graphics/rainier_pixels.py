@@ -376,6 +376,30 @@ def build_world(high=True,plant_sites=None,regional=False):
         base_count=len(triangles)//7
         if patch:
             terrain(patch)
+            from summit_ski import GATES,location
+            for gate,lane in (*GATES,(150.,0.)):
+                for offset in (-2.7,2.7):
+                    x,z=location(gate,lane+offset)
+                    y=surface(patch,x,z)
+                    for dx,dz in ((.08,0),(0,.08)):
+                        face(Vec(x-dx,y-.1,z-dz),Vec(x+dx,y-.1,z+dz),Vec(x,y+1.8,z),(238,170,65))
+                    face(Vec(x,y+1.8,z),Vec(x,y+1.23,z),Vec(x+.65,y+1.57,z-.65),
+                         (228,119,54) if gate<150 else (63,176,144))
+            # Blue ice outcrops mark the game's uphill traverse.
+            for step in range(1,16):
+                d=150.-step*10.
+                x,z=location(d,9.*math.sin(d*math.pi/150))
+                for side in (-1,1):
+                    px=x+side*1.25
+                    pz=z-side*.48
+                    ring=[]
+                    for i in range(6):
+                        a=i*math.tau/6
+                        sx,sz=px+2.1*math.cos(a),pz+1.2*math.sin(a)
+                        ring.append(Vec(sx,surface(patch,sx,sz)-.06,sz))
+                    tip=Vec(px,surface(patch,px,pz)+.26,pz)
+                    for i,v in enumerate(ring):
+                        face(v,tip,ring[i-1],(149,202,219))
             # Low fragments lie along the slope, with open snow between outcrops.
             rng=random.Random(3299)
             for _ in range(1300):
@@ -562,6 +586,7 @@ class RainierView:
 
     def __init__(self,host):
         self.host=host
+        self.ski=None
         self.quality=RiverQuality()
         self.pace_index=0
         self.regional=False
@@ -648,6 +673,7 @@ class RainierView:
         return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
 
     def footer(self,x,width):
+        if self.ski:self.stop_ski()
         if self.album:
             if x<width*.22:self.album_index=(self.album_index-1)%len(self.album)
             elif x>width*.82:self.album_index=(self.album_index+1)%len(self.album)
@@ -694,7 +720,10 @@ class RainierView:
             return True
         for action,_,box in self.walk_tools(width,height):
             if not hit(box,x,y):continue
-            if action=='berry_view':
+            if self.ski:
+                if action=='leave':self.stop_ski()
+                else:self.ski.action(action)
+            elif action=='berry_view':
                 bx,bz=BERRY_BLUFF
                 stops=[p for p in BUSHES if p not in self.trail.picked]+[FOX]
                 at_bluff=self.camera and math.hypot(self.camera[0]-bx,self.camera[1]-bz)<1
@@ -747,6 +776,7 @@ class RainierView:
                 if not self.shutter:self.photo_hint='Aim at wildlife';self.hint_until=self.age+2.
             self.pixel_dirty=True
             return True
+        if self.ski:return True
         if self.frame_camera is None:return False
         u,v=(x+.5)/width,(y+.5)/height
         camera,aspect=self.frame_camera
@@ -797,7 +827,20 @@ class RainierView:
         self.trail.guiding=True
         return True
 
+    def start_ski(self):
+        from summit_ski import SkiRun,start_tilt
+        self.ski=SkiRun()
+        self.ski.tilt=start_tilt()
+        self.cruise=self.binoculars=self.lens=False
+        self.destination=self.trip_pose=None
+        self.zoom=1.
+
+    def stop_ski(self):
+        if self.ski and self.ski.tilt:self.ski.tilt.stop.set()
+        self.ski=None
+
     def release(self):
+        self.stop_ski()
         if self.context and self.context.handle:
             release=self.context.lib.pocket_scene_rainier_release
             release.argtypes=[C.c_void_p];release.restype=None
@@ -863,6 +906,7 @@ class RainierView:
         self.hint_until=self.age+2.
 
     def walk_tools(self,width,height):
+        if self.ski:return self.ski.controls(width,height)
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
         if not self.regional and self.camera and not (self.lens or self.binoculars):
             position=self.camera[:2]
@@ -995,6 +1039,7 @@ class RainierView:
             self.valley_pose=None
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
+        if self.ski:owner.x,owner.z,owner.yaw,owner.pitch=self.ski.advance(dt,self.walk_height)
         if self.destination is not None:self.destination=walk_to(owner,self.destination,dt,face_path=not self.trail.free_look,speed=3.2*self.pace)
         if self.cruise:owner._translate(1.,0.,dt*2.5,self.cruise_heading)
         for plant,px,pz in (self.flower_sites if self.regional else self.plant_sites):
@@ -1216,6 +1261,7 @@ class RainierView:
                     ink.label(1,7,f'Reeled {round(100*(1-self.fishing.remaining))}%   Tension',0xFFF6DA)
                     ink.fill((1,8.1,18,.36),0x283832FF)
                     ink.fill((1,8.1,18*self.fishing.tension,.36),0xFD996EFF)
+            if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y)
             for _,label,box in self.walk_tools(w-2,h-3):ink.button(box,label)
             if self.age<self.hint_until and self.photo_hint:
                 ink.label(1,5,self.photo_hint[:w-2],0xFFF6DA)

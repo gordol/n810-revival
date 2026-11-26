@@ -530,3 +530,14 @@ Rainier, **Binoculars** for a closer look, or **Step down** to explore on foot.
 the two-story lookout and wraparound balcony at the NPS site coordinates.
 [National Park Service lookout history](https://www.nps.gov/places/mount-fremont-fire-lookout.htm)
 and [site location](https://parkplanning.nps.gov/showFile.cfm?projectID=95553&sfid=478470).
+
+**Summit ski loop.** From the regional Hike menu choose **Put on skis** after
+the close-up summit patch downloads. Tap **Glide** and drag sideways to carve
+between the orange flags. **Brake** stops the skis until you tap Glide again.
+Assist caps speed at 8 m/s. Turn it off for a faster line. The green flags
+mark the runout. Choose **Climb back**, then tap alternating grips to traverse
+uphill to the start. **Reset** returns to the top and **Walk** removes the skis.
+On a keyboard, left/right set the carve, up straightens, space operates the
+brake or next grip, and R resets. On Termux installations with a working
+accelerometer, launch with `POCKET_SKI_TILT=1 make mobile` and hold the phone
+upright and level when putting on skis. The course and ice grips are fictional.

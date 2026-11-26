@@ -67,6 +67,17 @@ class ViewpointTests(unittest.TestCase):
    view.world=True;view.album=[];view.notebook=None
    taps=[]
    view.scene_tap=lambda x,y,w,h:taps.append((x,y))
+   view.ski=SimpleNamespace(steer=0.)
+   app.world_touch(1,9,8,42,15,0,False)
+   app.world_touch(1,17,8,42,15,32,False)
+   self.assertGreater(view.ski.steer,.5)
+   app.world_touch(2,36,12,42,15,0,False)
+   app.world_touch(2,36,12,42,15,0,True)
+   self.assertEqual(taps,[(36,12)])
+   app.world_touch(1,17,8,42,15,0,True)
+   self.assertEqual(view.ski.steer,0.)
+   view.ski=None
+   taps.clear()
    view.destination=(0.,20.)
    app.world_touch(1,9,8,42,15,0,False)
    app.world_touch(1,9.2,8.1,42,15,0,True)
