@@ -60,7 +60,7 @@ class HikeMenu:
         if v.regional:
             world=getattr(v,'world',None)
             detail=world and getattr(world[0],'inset',None)
-            outings=('Put on skis','Climb summit ice') if detail else ()
+            outings=('Put on skis','Climb summit ice','Hang glide') if detail else ()
         return ('Hike','','Pace   '+v.pace_name,'',switch,'','Back to walk','Paradise meadows' if not v.party else '','Camp & sky','Debug overlay   '+('On' if v.debug_overlay else 'Off'),*outings,v.travel_error[:width])
 
     def tap_xy(self,x,y):
@@ -91,6 +91,9 @@ class HikeMenu:
             return False
         if v.regional and y==11 and 'Climb summit ice' in self.lines(40):
             v.start_climb()
+            return False
+        if v.regional and y==12 and 'Hang glide' in self.lines(40):
+            v.start_glide()
             return False
         if not v.regional and 10<=y<=13:
             if y==10:v.move_to_view(pool=True)
@@ -247,6 +250,7 @@ class SummitClimb:
     def controls(self,w,h):
         buttons=[('exit_climb','Walk',(0,0,9,3))]
         if self.raised:
+            buttons.append(('launch','Hang glide',(w-12,0,12,3)))
             if not self.dancing:buttons.append(('encore','Dance again',(0,h-5,min(13,w//2),5)))
             if self.panorama:buttons.append(('vista','Next view',(w-min(13,w//2),h-5,min(13,w//2),5)))
             return buttons
@@ -294,3 +298,50 @@ class SummitClimb:
             label=self.vistas[self.vista][0]
             ink.fill(((w-len(label))/2-1,4,len(label)+2,1.7),0x244B4CE8)
             ink.label((w-len(label))/2,4.2,label,0xFFF2CC)
+
+
+class HangGlider:
+    def __init__(self,climb,height):
+        self.x,self.z=climb.x,climb.z
+        self.altitude=height(self.x,self.z)+6.
+        self.heading=climb.heading+math.pi
+        self.target=self.heading
+        self.stick=self.bank=0.
+        self.descending=self.landed=False
+        self.clearance=6.
+
+    def steer(self,direction):
+        self.target+=direction*math.radians(18)
+
+    def advance(self,dt,height,limits):
+        self.target+=self.stick*dt*.7
+        error=(self.target-self.heading+math.pi)%math.tau-math.pi
+        turn=max(-.7,min(.7,error*2))
+        self.bank+=(turn-self.bank)*(-math.expm1(-4*dt))
+        self.heading+=turn*dt
+        west,east,south,north=limits
+        x=self.x+22*dt*math.sin(self.heading)
+        z=self.z+22*dt*math.cos(self.heading)
+        self.x=max(west,min(east,x))
+        self.z=max(south,min(north,z))
+        self.altitude-=dt*(12. if self.descending or (x,z)!=(self.x,self.z) else 2.3)
+        ground=height(self.x,self.z)
+        self.clearance=max(0.,self.altitude-ground)
+        if not self.clearance:self.landed=True
+        return self.x,self.z,self.heading,.14+.08*self.descending
+
+    def controls(self,w,h):
+        return [('glide_left','<',(0,h-5,w//4,5)),
+                ('descend','Glide' if self.descending else 'Descend',(w//2-5,h-5,10,5)),
+                ('glide_right','>',(w-w//4,h-5,w//4,5))]
+
+    def draw(self,ink,w,h):
+        # Leading edges and suspension wires bank with the turn.
+        for side in (-1,1):
+            for i in range(24):
+                t=i/24
+                x=w*(.5+side*t*.51)
+                y=h*(.12-t*.10+side*t*self.bank*.09)
+                ink.fill((x,y,w*.024,.70+.36*t),0xEFA34BFF if i%8<6 else 0x376F79FF)
+                if i%2==0:ink.fill((w*(.5+side*(.13+.36*t)),h*(.85-.82*t+side*t*self.bank*.09),.18,.42),0x547077FF)
+        ink.label(1,1,f'{round(self.clearance)} m above ground',0xFFF4DC)

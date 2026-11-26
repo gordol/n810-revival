@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 """Full Pocket model, direct native pixel rendering and an SDL window."""
-import argparse,importlib.util,json,signal,sys,time,ctypes as C,os
+import argparse,importlib.util,json,math,signal,sys,time,ctypes as C,os
 from pathlib import Path
 DEVELOPMENT = True  # Removed by the release exporter.
 HERE=Path(__file__).resolve().parent
@@ -39,6 +39,15 @@ class DesktopWindow(Window):
         if getattr(self,'captured_target',None) is view:self.release_capture()
         control=getattr(self,'controls',{}).pop(view,None)
         if control is not None:control.clear(time.monotonic())
+    def summit_scene(self):
+        host=getattr(getattr(self,'platform',None),'host',None)
+        if not host or host.launcher_lines:return None
+        form=getattr(host,'app_forms',{}).get(host.focus)
+        form=getattr(form,'owner',form)
+        scene=getattr(form,'pixel_scene',None)
+        if hasattr(scene,'summit_button') and not scene.notebook and form._active():return scene
+        return None
+
     def events(self):
         raw=(C.c_int*6)()
         names={1073741904:'left',1073741903:'right',1073741906:'up',1073741905:'down',
@@ -52,6 +61,9 @@ class DesktopWindow(Window):
             room=self.active_room();target=self.active_pointer()
             if self.captured and getattr(self,'captured_target',None) is not target:self.release_capture()
             if kind==1:yield {'action':'quit'}
+            elif kind==10:
+                scene=self.summit_scene()
+                if scene:scene.summit_button(x)
             elif kind in (2,9):
                 if not self.captured and (repeat or target is None):
                     host=self.platform.host
@@ -105,6 +117,10 @@ class DesktopWindow(Window):
                 for control in getattr(self,'controls',{}).values():control.clear(time.monotonic())
                 yield {'action':'cancel-input'}
             elif kind==8:yield dict(action='resize',width=x,height=y)
+        scene=self.summit_scene()
+        if scene and scene.glider:
+            axis=self.lib.pocket_window_pad_axis()/32768.
+            scene.glider.stick=math.copysign(max(0.,abs(axis)-.18)/.82,axis)
 
 def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)

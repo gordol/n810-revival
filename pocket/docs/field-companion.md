@@ -583,3 +583,18 @@ curvature. The original regional grid still sets the walking boundary. If the
 overview download is unavailable, the climb works with the local terrain.
 [Mapzen terrain tile sources and attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) ·
 [Terrain Tiles on AWS](https://registry.opendata.aws/terrain-tiles/)
+
+**Hang glide.** In the summit region, choose **Hike → Hang glide** for a running
+start from the crest. You can also tap **Hang glide** after raising the flag.
+The wing glides straight on its own. Tap either side of the view or its arrow
+to turn a little. Tap **Descend** to lose height faster and **Glide** to resume
+the shallow descent. The readout shows metres above the ground. Touching the
+terrain puts you back on foot where you landed.
+
+On a keyboard, G launches from the raised flag. Left and right turn, and Space
+switches descent rate. If SDL recognizes your gamepad, the south face button
+(A on Xbox, Cross on PlayStation) reaches for a climbing grip, raises the flag,
+then launches on the next press. In flight the left stick steers, D-pad left
+and right make small turns, and the south button toggles descent. At the flag,
+D-pad right changes the view and the east face button replays the wildlife dance.
+Use touch or the mouse to choose the outing from the Hike menu.

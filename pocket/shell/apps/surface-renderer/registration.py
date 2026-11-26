@@ -307,7 +307,18 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             if self.download_pool:self.download_pool.shutdown(wait=False,cancel_futures=True)
             super().close()
 
+        def flight_key(self,key):
+            flight=getattr(self.pixel_scene,'glider',None)
+            if flight and key in ('left','right','space',' ','enter','\r'):
+                if key in ('left','right'):flight.steer(-1 if key=='left' else 1)
+                else:flight.descending=not flight.descending
+                return True
+            return False
+
         def key_event(self,key,kind,now):
+            if getattr(self.pixel_scene,'glider',None) and key in ('left','right','space',' ','enter'):
+                if kind=='press':self.flight_key(key)
+                return True
             if getattr(self.pixel_scene,'climb',None) and key in ('space',' ','enter'):
                 if kind=='press':self.pixel_scene.climb.reach()
                 return True
@@ -319,7 +330,11 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             return super().key_event(key,kind,now)
 
         def key(self,key,now=None):
+            if self.flight_key(key):return True
             climb=getattr(self.pixel_scene,'climb',None)
+            if climb and climb.raised and key.lower()=='g':
+                self.pixel_scene.start_glide()
+                return True
             if climb and key in (' ','space','enter','\r'):
                 climb.reach()
                 return True

@@ -632,7 +632,7 @@ def build_world(high=True,plant_sites=None,regional=False):
 
 
 class RainierView:
-    climb=None
+    glider=climb=None
     name='Rainier walk'
     paces=(('Walk',1.),('Brisk',2.),('Explore',8.))
 
@@ -726,6 +726,7 @@ class RainierView:
             field=self.world[0]
             elevation=round(surface(field,*self.camera[:2])) if self.camera else 0
             labels=(labels[0],f'{elevation} m','Hike','Mute' if self.sound else 'Sound','Map')
+            if self.glider:labels=('',f'{round(self.glider.altitude)} m','',labels[3],'')
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
@@ -737,6 +738,7 @@ class RainierView:
             self.landing_sound=False
             self.pixel_dirty=True
             return True
+        if self.glider:return True
         self.climb=None
         if self.ski:self.stop_ski()
         if self.album:
@@ -789,6 +791,9 @@ class RainierView:
                 if action=='leave':self.stop_ski()
                 elif action=='family':self.notebook=PartyMenu(self,ski=True)
                 else:self.ski.action(action)
+            elif action=='launch':self.start_glide()
+            elif action=='descend':self.glider.descending=not self.glider.descending
+            elif action in ('glide_left','glide_right'):self.glider.steer(-1 if action=='glide_left' else 1)
             elif action=='encore':self.climb.wave=0.
             elif action=='vista':self.climb.next_vista()
             elif action=='exit_climb':self.climb=None
@@ -850,6 +855,10 @@ class RainierView:
             self.ski.tap_slope((x+.5)/width,(y+.5)/height)
             self.pixel_dirty=True
             return True
+        if self.glider:
+            if x<width*.4:self.glider.steer(-1)
+            elif x>width*.6:self.glider.steer(1)
+            return True
         if self.climb:return True
         if self.frame_camera is None:return False
         u,v=(x+.5)/width,(y+.5)/height
@@ -901,6 +910,26 @@ class RainierView:
         self.trail.guiding=True
         return True
 
+    def summit_button(self,button):
+        # SDL standard face buttons (south/east) and D-pad left/right.
+        if self.glider:
+            if button in (13,14):self.glider.steer(-1 if button==13 else 1)
+            elif button==0:self.glider.descending=not self.glider.descending
+        elif self.climb:
+            if button==0:
+                if self.climb.raised:self.start_glide()
+                else:self.climb.reach()
+            elif button==14 and self.climb.raised and self.climb.panorama:self.climb.next_vista()
+            elif button==1 and self.climb.raised:self.climb.wave=0.
+
+    def start_glide(self):
+        from rainier_hike import HangGlider
+        if not self.climb:self.start_climb()
+        self.glider=HangGlider(self.climb,self.walk_height)
+        self.climb=None
+        self.cruise=False
+        self.destination=None
+
     def start_climb(self):
         from rainier_hike import SummitClimb
         self.stop_ski()
@@ -924,7 +953,7 @@ class RainierView:
         self.ski=None
 
     def release(self):
-        self.climb=None
+        self.glider=self.climb=None
         self.stop_ski()
         if self.context and self.context.handle:
             release=self.context.lib.pocket_scene_rainier_release
@@ -991,6 +1020,7 @@ class RainierView:
         self.hint_until=self.age+2.
 
     def walk_tools(self,width,height):
+        if self.glider:return self.glider.controls(width,height)
         if self.ski:return self.ski.controls(width,height)
         if self.climb:return self.climb.controls(width,height)
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
@@ -1125,6 +1155,13 @@ class RainierView:
             self.valley_pose=None
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
+        if self.glider:
+            owner.x,owner.z,owner.yaw,owner.pitch=self.glider.advance(dt,self.walk_height,bounds(self.world[0]))
+            if self.glider.landed:
+                self.glider=None
+                owner.cancel_keys()
+                self.photo_hint='Back on the trail'
+                self.hint_until=self.age+3
         if self.climb:
             owner.x,owner.z,owner.yaw,owner.pitch=self.climb.advance(dt,self.walk_height)
         if self.ski:
@@ -1183,6 +1220,7 @@ class RainierView:
                 bottom=surface(field,cx,cz-7.4)
                 step=min(14,int((z-cz+7.4)/.3)+1)
                 ground=bottom+(base+lookout.DECK-bottom)*step/14
+        if self.glider:ground=self.glider.altitude
         if getattr(self,"ski",None):ground+=self.ski.lift
         return x,ground-origin.y+1.25,z
 
@@ -1234,6 +1272,7 @@ class RainierView:
         if self.regional:
             speed=self.ski.speed/28. if self.ski else 0.
             wind=.46+.15*self.weather+.30*speed
+            if self.glider:wind+=.21+.06*abs(self.glider.bank)
             skis=0.
             if self.ski and self.ski.mode=='ski' and self.ski.air_y is None:
                 skis=math.sqrt(speed)*(.65+.45*abs(math.sin(self.ski.angle)))
@@ -1369,6 +1408,7 @@ class RainierView:
                     ink.label(1,7,f'Reeled {round(100*(1-self.fishing.remaining))}%   Tension',0xFFF6DA)
                     ink.fill((1,8.1,18,.36),0x283832FF)
                     ink.fill((1,8.1,18*self.fishing.tension,.36),0xFD996EFF)
+            if self.glider:self.glider.draw(ink,w-2,h-3)
             if self.climb:self.climb.draw(ink,w-2,h-3)
             if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y)
             for action,label,box in self.walk_tools(w-2,h-3):

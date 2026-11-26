@@ -2,7 +2,9 @@
 #define pocket_window_open pocket_base_window_open
 #define pocket_window_present pocket_base_window_present
 #define pocket_window_event pocket_base_window_event
+#define pocket_window_close pocket_base_window_close
 #include "window.c"
+#undef pocket_window_close
 #undef pocket_window_open
 #undef pocket_window_present
 #undef pocket_window_event
@@ -15,12 +17,27 @@ static int dynamic_canvas;
 static int mobile_input;
 static struct {int active,primary; SDL_TouchID device; SDL_FingerID finger;} contacts[10];
 
+static SDL_GameController *pad;
+static void find_pad(void){
+ for(int i=0;!pad && i<SDL_NumJoysticks();i++)
+  if(SDL_IsGameController(i))pad=SDL_GameControllerOpen(i);
+}
+int pocket_window_pad_axis(void){
+ if(!pad || !input_window || SDL_GetKeyboardFocus()!=input_window->window)return 0;
+ return SDL_GameControllerGetAxis(pad,SDL_CONTROLLER_AXIS_LEFTX);
+}
+int pocket_window_close(void *ptr){
+ if(pad){SDL_GameControllerClose(pad);pad=NULL;}
+ input_window=NULL;
+ return pocket_base_window_close(ptr);
+}
 static void *desktop_open(int fd,int mobile){
  mobile_input=mobile;memset(contacts,0,sizeof contacts);
  if(mobile){SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS,"0");SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS,"0");}
  void *window=pocket_window_create(fd,0,mobile);
  if(window){
   input_window=window;SDL_StopTextInput();
+  if(SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER)==0)find_pad();
   SDL_SetWindowResizable(input_window->window,SDL_TRUE);
   SDL_SetWindowMinimumSize(input_window->window,400,240);
   SDL_RenderSetLogicalSize(input_window->renderer,800,480);
@@ -71,6 +88,16 @@ int pocket_window_event(int out[6]){
  SDL_Event e;
  while(SDL_PollEvent(&e)){
   memset(out,0,6*sizeof(int));
+  if(e.type==SDL_CONTROLLERDEVICEADDED){find_pad();continue;}
+  if(e.type==SDL_CONTROLLERDEVICEREMOVED){
+   if(pad && !SDL_GameControllerGetAttached(pad)){SDL_GameControllerClose(pad);pad=NULL;find_pad();}
+   continue;
+  }
+  if(e.type==SDL_CONTROLLERBUTTONDOWN && pad && input_window &&
+     SDL_GetKeyboardFocus()==input_window->window &&
+     e.cbutton.which==SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad))){
+   out[0]=10;out[1]=e.cbutton.button;return 1;
+  }
   if(e.type==SDL_QUIT){out[0]=1;return 1;}
   if(e.type==SDL_WINDOWEVENT){
    if(e.window.event==SDL_WINDOWEVENT_FOCUS_GAINED)SDL_StopTextInput();

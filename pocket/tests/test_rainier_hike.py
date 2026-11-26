@@ -37,7 +37,7 @@ class HikeTests(TestCase):
         self.assertEqual(climb.controls(40,30)[-1][1],'Raise flag')
         climb.reach()
         self.assertTrue(climb.raised)
-        self.assertEqual(len(climb.controls(40,30)),1)
+        self.assertIn('launch',[action for action,*_ in climb.controls(40,30)])
 
     def test_summit_views_follow_geographic_bearings_and_wrap(self):
         from geometry import HeightField,Vec
@@ -99,6 +99,39 @@ class HikeTests(TestCase):
             if x==-102400 and z==0:far_y.append(y)
         self.assertEqual(edge,{(x,200) for x in range(-12800,12801,100)})
         self.assertAlmostEqual(far_y[0],-100-102400**2/(2*6371000),places=3)
+
+    def test_hang_glide_steering_dead_straight_then_landing(self):
+        from rainier_hike import HangGlider
+        import math
+        climb=SimpleNamespace(x=0,z=0,heading=math.pi)
+        height=lambda x,z:100-.4*z
+        flight=HangGlider(climb,height)
+        limits=(-500,500,-500,500)
+        for _ in range(20):flight.advance(.1,height,limits)
+        self.assertAlmostEqual(flight.x,0)
+        self.assertGreater(flight.clearance,10)
+        flight.steer(1)
+        for _ in range(20):flight.advance(.1,height,limits)
+        self.assertGreater(flight.x,5)
+        self.assertLessEqual(flight.heading%math.tau,math.radians(18))
+        flight.descending=True
+        for _ in range(200):
+            flight.advance(.1,height,limits)
+            if flight.landed:break
+        self.assertTrue(flight.landed)
+        self.assertEqual(flight.clearance,0)
+
+    def test_controller_launches_from_flag_and_hike_offers_direct_flight(self):
+        from rainier_pixels import RainierView
+        view=RainierView(None)
+        view.regional=True
+        view.world=(SimpleNamespace(inset=True),)
+        menu=HikeMenu(view)
+        with patch.object(view,'start_glide') as launch:
+            self.assertFalse(menu.tap_xy(0,menu.lines(40).index('Hang glide')))
+            view.climb=SimpleNamespace(raised=True)
+            view.summit_button(0)
+            self.assertEqual(launch.call_count,2)
 
     def test_camp_menu_controls_match_drawn_rows(self):
         for height in (14,38):
