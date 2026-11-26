@@ -18,6 +18,27 @@ class HikeTests(TestCase):
         with patch('rainier_data.download'),patch('terrain_elevation.grid',return_value=(meta,values)):
             return region_field()
 
+    def test_ice_grips_deliver_the_climber_to_the_peak_before_flag_raise(self):
+        from geometry import HeightField,Vec
+        from rainier_hike import SummitClimb
+        heights=tuple(4000-abs(i-10)-abs(j-10) for j in range(21) for i in range(21))
+        field=HeightField(21,21,Vec(-100,0,-100),10,10,heights)
+        climb=SummitClimb(field)
+        x,z,*_=climb.advance(0,field.height)
+        self.assertLess(field.height(x,z),4000)
+        for grip in range(1,11):
+            climb.reach()
+            climb.reach()
+            self.assertEqual(climb.grips,grip)
+            x,z,*_=climb.advance(1,field.height)
+        self.assertEqual((x,z),(0,0))
+        self.assertTrue(climb.arrived)
+        self.assertFalse(climb.raised)
+        self.assertEqual(climb.controls(40,30)[-1][1],'Raise flag')
+        climb.reach()
+        self.assertTrue(climb.raised)
+        self.assertEqual(len(climb.controls(40,30)),1)
+
     def test_camp_menu_controls_match_drawn_rows(self):
         for height in (14,38):
             visits=[]

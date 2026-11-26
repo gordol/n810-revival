@@ -308,6 +308,9 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             super().close()
 
         def key_event(self,key,kind,now):
+            if getattr(self.pixel_scene,'climb',None) and key in ('space',' ','enter'):
+                if kind=='press':self.pixel_scene.climb.reach()
+                return True
             ski=getattr(self.pixel_scene,'ski',None)
             if ski and key in ('left','right','up','space',' ','enter','r','R','c','C'):
                 if kind=='press':self.key(key,now)
@@ -316,6 +319,10 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             return super().key_event(key,kind,now)
 
         def key(self,key,now=None):
+            climb=getattr(self.pixel_scene,'climb',None)
+            if climb and key in (' ','space','enter','\r'):
+                climb.reach()
+                return True
             ski=getattr(self.pixel_scene,'ski',None)
             if ski:
                 if key in ('left','right'):ski.steer=-1. if key=='left' else 1.

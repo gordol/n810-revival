@@ -60,7 +60,7 @@ class HikeMenu:
         if v.regional:
             world=getattr(v,'world',None)
             detail=world and getattr(world[0],'inset',None)
-            outings=('Put on skis',) if detail else ()
+            outings=('Put on skis','Climb summit ice') if detail else ()
         return ('Hike','','Pace   '+v.pace_name,'',switch,'','Back to walk','Paradise meadows' if not v.party else '','Camp & sky','Debug overlay   '+('On' if v.debug_overlay else 'Off'),*outings,v.travel_error[:width])
 
     def tap_xy(self,x,y):
@@ -88,6 +88,9 @@ class HikeMenu:
         if v.travel_job:return True
         if v.regional and y==10 and 'Put on skis' in self.lines(40):
             v.start_ski()
+            return False
+        if v.regional and y==11 and 'Climb summit ice' in self.lines(40):
+            v.start_climb()
             return False
         if not v.regional and 10<=y<=13:
             if y==10:v.move_to_view(pool=True)
@@ -175,3 +178,79 @@ class ReliefMap:
             self.view.map_position=(west+(east-west)*(px-left)/rw,north-(north-south)*(py-top)/rh)
             return False
         return True
+
+
+class SummitClimb:
+    """A fictional final pitch ending at the highest sample of the summit inset."""
+    pitches=10
+    stride=8.
+
+    def __init__(self,detail):
+        peak=max(range(len(detail.values)),key=detail.values.__getitem__)
+        self.x=detail.origin.x+(peak%detail.nx)*detail.dx
+        self.z=detail.origin.z+(peak//detail.nx)*detail.dz
+        length=self.pitches*self.stride
+        headings=[a*math.pi/4 for a in range(8)]
+        self.elevation=round(detail.values[peak])
+        self.heading=min(headings,key=lambda a:detail.height(
+            self.x-length*math.sin(a),self.z-length*math.cos(a)))
+        self.grips=0
+        self.distance=0.
+        self.raised=False
+        self.wave=0.
+
+    @property
+    def arrived(self):
+        return self.distance>=self.pitches*self.stride
+
+    def reach(self):
+        if self.arrived:self.raised=True
+        elif self.distance>=self.grips*self.stride:self.grips+=1
+
+    def advance(self,dt,height):
+        self.distance=min(self.grips*self.stride,self.distance+dt*10.)
+        remaining=self.pitches*self.stride-self.distance
+        dx,dz=math.sin(self.heading),math.cos(self.heading)
+        x,z=self.x-remaining*dx,self.z-remaining*dz
+        if self.raised:
+            self.wave+=dt
+            return x,z,self.heading+math.pi,.08
+        pitch=-math.atan2(height(x+dx*2,z+dz*2)-height(x,z),2.)
+        return x,z,self.heading,pitch*.75
+
+    def controls(self,w,h):
+        buttons=[('exit_climb','Walk',(0,0,9,3))]
+        if self.raised:return buttons
+        if self.arrived:
+            buttons.append(('reach','Raise flag',(w//2-7,h-6,14,5)))
+        else:
+            right=self.grips%2
+            buttons.append(('reach','Grip >' if right else '< Grip',
+                            (w-15 if right else 1,h//2,14,5)))
+        return buttons
+
+    def draw(self,ink,w,h):
+        if not self.raised:
+            # The planted pick stays high while the other hand swings forward.
+            progress=1-(self.grips*self.stride-self.distance)/self.stride
+            for side in (0,1):
+                active=side==self.grips%2
+                x=w*(.2 if side==0 else .8)
+                y=h*(.72+.08*math.cos(math.pi*progress) if active else .78)
+                lean=1 if side==0 else -1
+                for j in range(10):
+                    ink.fill((x+lean*j*.13,y+j*.43,.52,.52),0xD88642FF)
+                ink.fill((x-1.5,y-.18,3.4,.4),0x617987FF)
+                ink.fill((x+lean*1.4,y+.16,.42,.48),0x8CA7B5FF)
+            label=f'{self.grips} / {self.pitches}'
+            ink.label(w-len(label)-1,1,label,0xFFF6DA)
+            return
+        # The pennant rises in the foreground, leaving the downhill view open.
+        x,y=w*.18,h*.68-min(1.,self.wave)*h*.12
+        ink.fill((x,y,.42,h-y),0x654A33FF)
+        for i in range(16):
+            flutter=.22*math.sin(i*.5-self.wave*5)
+            ink.fill((x+.4+i*.5,y+flutter,.52,3*(1-i/16)),0xEC8141FF)
+        title=f'Summit!  {self.elevation} m'
+        ink.fill(((w-len(title))/2-1,2,len(title)+2,2),0x244B4CE8)
+        ink.label((w-len(title))/2,2.5,title,0xFFF2CC)

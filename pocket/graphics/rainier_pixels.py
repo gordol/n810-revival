@@ -600,6 +600,7 @@ def build_world(high=True,plant_sites=None,regional=False):
 
 
 class RainierView:
+    climb=None
     name='Rainier walk'
     paces=(('Walk',1.),('Brisk',2.),('Explore',8.))
 
@@ -611,7 +612,7 @@ class RainierView:
 
     def __init__(self,host):
         self.host=host
-        self.ski=None
+        self.ski=self.climb=None
         self.quality=RiverQuality()
         self.pace_index=0
         self.regional=False
@@ -704,6 +705,7 @@ class RainierView:
             self.landing_sound=False
             self.pixel_dirty=True
             return True
+        self.climb=None
         if self.ski:self.stop_ski()
         if self.album:
             if x<width*.22:self.album_index=(self.album_index-1)%len(self.album)
@@ -755,6 +757,8 @@ class RainierView:
                 if action=='leave':self.stop_ski()
                 elif action=='family':self.notebook=PartyMenu(self,ski=True)
                 else:self.ski.action(action)
+            elif action=='exit_climb':self.climb=None
+            elif action=='reach' and self.climb:self.climb.reach()
             elif action=='berry_view':
                 bx,bz=BERRY_BLUFF
                 stops=[p for p in BUSHES if p not in self.trail.picked]+[FOX]
@@ -812,6 +816,7 @@ class RainierView:
             self.ski.tap_slope((x+.5)/width,(y+.5)/height)
             self.pixel_dirty=True
             return True
+        if self.climb:return True
         if self.frame_camera is None:return False
         u,v=(x+.5)/width,(y+.5)/height
         camera,aspect=self.frame_camera
@@ -862,6 +867,14 @@ class RainierView:
         self.trail.guiding=True
         return True
 
+    def start_climb(self):
+        from rainier_hike import SummitClimb
+        self.stop_ski()
+        self.climb=SummitClimb(self.world[0].inset)
+        self.destination=self.trip_pose=self.map_position=None
+        self.cruise=self.binoculars=self.lens=False
+        self.zoom=1.
+
     def start_ski(self):
         from summit_ski import COURSES,SkiRun,start_tilt
         self.ski=SkiRun(COURSES if getattr(self.world[0].inset,"inset",None) else COURSES[1:])
@@ -877,6 +890,7 @@ class RainierView:
         self.ski=None
 
     def release(self):
+        self.climb=None
         self.stop_ski()
         if self.context and self.context.handle:
             release=self.context.lib.pocket_scene_rainier_release
@@ -944,6 +958,7 @@ class RainierView:
 
     def walk_tools(self,width,height):
         if self.ski:return self.ski.controls(width,height)
+        if self.climb:return self.climb.controls(width,height)
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
         if not self.regional and self.camera and not (self.lens or self.binoculars):
             position=self.camera[:2]
@@ -1076,6 +1091,8 @@ class RainierView:
             self.valley_pose=None
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
+        if self.climb:
+            owner.x,owner.z,owner.yaw,owner.pitch=self.climb.advance(dt,self.walk_height)
         if self.ski:
             before_landing=self.ski.landings
             owner.x,owner.z,owner.yaw,owner.pitch=self.ski.advance(dt,self.walk_height)
@@ -1316,6 +1333,7 @@ class RainierView:
                     ink.label(1,7,f'Reeled {round(100*(1-self.fishing.remaining))}%   Tension',0xFFF6DA)
                     ink.fill((1,8.1,18,.36),0x283832FF)
                     ink.fill((1,8.1,18*self.fishing.tension,.36),0xFD996EFF)
+            if self.climb:self.climb.draw(ink,w-2,h-3)
             if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y)
             for action,label,box in self.walk_tools(w-2,h-3):
                 ink.button(box,label)
