@@ -15,12 +15,14 @@ static float animal_call(int voice,int sample,float noise){
  return env*env*note*fminf(1.f,(22050-sample)/882.f);
 }
 
-int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river,int voice,float gain){
+static int walk_sound(void *ptr,int enabled,int cue,float river,int voice,float gain,
+                      float wind,float skis,int landed){
  struct gpu_scene *s=ptr;
  if(!s)return -1;
  if(!enabled){
   if(s->river_audio){SDL_CloseAudioDevice(s->river_audio);s->river_audio=0;}
-  s->river_cue=s->river_note=s->animal_voice=0;return 0;
+  s->river_cue=s->river_note=s->animal_voice=0;
+  s->wind_low=s->wind_gust=s->snow_gain=s->landing_env=0.f;return 0;
  }
  if(!s->river_audio){
   if(s->river_audio_failed)return -1;
@@ -31,7 +33,8 @@ int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river,int voice
   SDL_PauseAudioDevice(s->river_audio,0);
  }
  if(voice>=1&&voice<=4){s->animal_voice=voice;s->animal_sample=0;}
- if(cue){s->river_cue=cue;s->river_note=0;}
+ if(landed)s->landing_env=1.f;
+ if(cue>=1&&cue<=4){s->river_cue=cue;s->river_note=0;}
  while(SDL_GetQueuedAudioSize(s->river_audio)<6144){
   int16_t samples[1024];
   for(unsigned i=0;i<1024;i++){
@@ -39,6 +42,16 @@ int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river,int voice
    float noise=((int)(s->river_seed>>16)-32768)/32768.f;
    s->river_low+=.065f*(noise-s->river_low);
    float signal=river*(s->river_low*.40f+noise*.0325f);
+   if(wind>0.f){
+    s->wind_low+=.024f*(noise-s->wind_low);
+    s->wind_gust+=.00010f*(noise-s->wind_gust);
+    float gust=.65f+fminf(.7f,55.f*fabsf(s->wind_gust));
+    signal+=wind*gust*(.85f*s->wind_low+.19f*s->river_low);
+    s->snow_gain+=.0025f*(skis-s->snow_gain);
+    signal+=s->snow_gain*(.17f*(noise-s->river_low)+.38f*s->river_low);
+    signal+=s->landing_env*(1.6f*s->river_low+.08f*noise);
+    s->landing_env*=.9993f;
+   }
    if(s->animal_voice){
     signal+=.24f*gain*animal_call(s->animal_voice,s->animal_sample,noise);
     if(++s->animal_sample>=22050)s->animal_voice=0;
@@ -51,9 +64,17 @@ int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river,int voice
     signal+=.13f*sinf(6.2831853f*hz*t)*expf(-22.f*t)*fminf(1.f,t*140.f);
     if(++s->river_note>=3308*(s->river_cue==4?4:1)){s->river_cue=0;s->river_note=0;}
    }
-   samples[i]=(int16_t)(signal*32767.f);
+   samples[i]=(int16_t)(fmaxf(-1.f,fminf(1.f,signal))*32767.f);
   }
   if(SDL_QueueAudio(s->river_audio,samples,sizeof(samples))<0)return -1;
  }
  return 0;
+}
+
+int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river,int voice,float gain){
+ return walk_sound(ptr,enabled,cue,river,voice,gain,0.f,0.f,0);
+}
+
+int pocket_scene_summit_sound(void *ptr,int enabled,float wind,float skis,int landed){
+ return walk_sound(ptr,enabled,0,0.f,0,0.f,wind,skis,landed);
 }

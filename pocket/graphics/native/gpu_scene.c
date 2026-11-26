@@ -28,6 +28,7 @@ struct gpu_scene {
 #else
  struct wildlife_gl wildlife;
  SDL_AudioDeviceID river_audio;int river_audio_failed,river_cue,river_note,animal_voice,animal_sample;unsigned river_seed;float river_low;
+ float wind_low,wind_gust,snow_gain,landing_env;
  struct river_bounds {float x,y,z,r;} *river_blocks;
  SDL_Texture *river_print;int print_w,print_h;
  GLuint rainier_shadow,rainier_bloom,rainier_color;int bloom_w,bloom_h,rainier_bloom_failed;

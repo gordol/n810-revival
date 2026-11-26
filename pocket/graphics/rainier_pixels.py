@@ -632,6 +632,7 @@ class RainierView:
         self.cruise=False
         self.cruise_heading=None
         self.sound=True
+        self.landing_sound=False
         self.notebook=None
         self.lens=self.binoculars=False
         self.zoom=1.
@@ -691,13 +692,18 @@ class RainierView:
         if self.regional:
             field=self.world[0]
             elevation=round(surface(field,*self.camera[:2])) if self.camera else 0
-            labels=(labels[0],f'{elevation} m','Hike',self.pace_name,'Map')
+            labels=(labels[0],f'{elevation} m','Hike','Mute' if self.sound else 'Sound','Map')
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
         return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
 
     def footer(self,x,width):
+        if self.regional and not self.album and width*4//7<=x<width*3//4:
+            self.sound=not self.sound
+            self.landing_sound=False
+            self.pixel_dirty=True
+            return True
         if self.ski:self.stop_ski()
         if self.album:
             if x<width*.22:self.album_index=(self.album_index-1)%len(self.album)
@@ -864,6 +870,7 @@ class RainierView:
         self.zoom=1.
 
     def stop_ski(self):
+        self.landing_sound=False
         if self.ski and self.ski.tilt:self.ski.tilt.stop.set()
         self.ski=None
 
@@ -1067,7 +1074,10 @@ class RainierView:
             self.valley_pose=None
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
-        if self.ski:owner.x,owner.z,owner.yaw,owner.pitch=self.ski.advance(dt,self.walk_height)
+        if self.ski:
+            before_landing=self.ski.landings
+            owner.x,owner.z,owner.yaw,owner.pitch=self.ski.advance(dt,self.walk_height)
+            if self.sound and self.ski.landings>before_landing:self.landing_sound=True
         if self.destination is not None:self.destination=walk_to(owner,self.destination,dt,face_path=not self.trail.free_look,speed=3.2*self.pace)
         if self.cruise:owner._translate(1.,0.,dt*2.5,self.cruise_heading)
         for plant,px,pz in (self.flower_sites if self.regional else self.plant_sites):
@@ -1167,16 +1177,27 @@ class RainierView:
         fly=self.fishing.position(self.age)
         chasing=(*fly[:2],self.age-self.fishing.bite) if self.fishing.state in ('bite','fight','landed') else None
         commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics,hatch,chasing,self.fishing.target,self.fishing.kept_brook)
-        voices=nearby_calls(self.subjects,x,eye,z)
-        voice=0
-        if self.sound and self.age>=self.next_call and voices:
-            key,voice,_=next((v for v in voices if v[0]>self.last_caller),voices[0])
-            self.last_caller=key
-            self.next_call=self.age+4.5+.3*voice
-        gain=next((gain for key,_,gain in voices if key==self.last_caller),0.)
-        sound=ctx.lib.pocket_scene_river_sound
-        sound.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_float,C.c_int,C.c_float]
-        sound(ctx.handle,self.sound and not self.regional,self.cue,river_gain(x,z,site()[1]),voice,gain)
+        if self.regional:
+            speed=self.ski.speed/28. if self.ski else 0.
+            wind=.46+.15*self.weather+.30*speed
+            skis=0.
+            if self.ski and self.ski.mode=='ski' and self.ski.air_y is None:
+                skis=math.sqrt(speed)*(.65+.45*abs(math.sin(self.ski.angle)))
+            sound=ctx.lib.pocket_scene_summit_sound
+            sound.argtypes=[C.c_void_p,C.c_int,C.c_float,C.c_float,C.c_int]
+            sound(ctx.handle,self.sound,wind,skis,self.landing_sound)
+            self.landing_sound=False
+        else:
+            voices=nearby_calls(self.subjects,x,eye,z)
+            voice=0
+            if self.sound and self.age>=self.next_call and voices:
+                key,voice,_=next((v for v in voices if v[0]>self.last_caller),voices[0])
+                self.last_caller=key
+                self.next_call=self.age+4.5+.3*voice
+            gain=next((gain for key,_,gain in voices if key==self.last_caller),0.)
+            sound=ctx.lib.pocket_scene_river_sound
+            sound.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_float,C.c_int,C.c_float]
+            sound(ctx.handle,self.sound,self.cue,river_gain(x,z,site()[1]),voice,gain)
         self.cue=0
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
                        C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint,C.c_uint,C.c_uint,C.c_uint]

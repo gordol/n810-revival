@@ -550,4 +550,6 @@ uphill to the start. **Reset** returns to the top and **Walk** removes the skis.
 On a keyboard, left/right set the carve, up straightens, space operates the
 brake or next grip, and R resets. On Termux installations with a working
 accelerometer, launch with `POCKET_SKI_TILT=1 make mobile` and hold the phone
-upright and level when putting on skis. The course and ice grips are fictional.
+upright and level when putting on skis. Summit wind continues while you stand still or jump. On snow, the skis hiss
+with speed and carve angle. Listen for a soft thump on landing. Tap **Mute**
+beside **Map** to silence the sound while skiing. The course and ice grips are fictional.
