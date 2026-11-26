@@ -185,7 +185,17 @@ class SummitClimb:
     pitches=10
     stride=8.
 
-    def __init__(self,detail):
+    # Bearings from Columbia Crest to the central Sound and neighboring ranges.
+    vistas=(('Puget Sound',47.31,-122.50),('Olympics',47.80,-123.71),
+            ('Mount St Helens',46.19,-122.19),('Mount Hood',45.37,-121.70),
+            ('Mount Adams',46.20,-121.49))
+
+    def next_vista(self):
+        self.vista=(self.vista+1)%len(self.vistas)
+
+    def __init__(self,detail,panorama=False):
+        self.panorama=panorama
+        self.vista=0
         peak=max(range(len(detail.values)),key=detail.values.__getitem__)
         self.x=detail.origin.x+(peak%detail.nx)*detail.dx
         self.z=detail.origin.z+(peak//detail.nx)*detail.dz
@@ -204,7 +214,8 @@ class SummitClimb:
         return self.distance>=self.pitches*self.stride
 
     def reach(self):
-        if self.arrived:self.raised=True
+        if self.raised and self.panorama:self.next_vista()
+        elif self.arrived:self.raised=True
         elif self.distance>=self.grips*self.stride:self.grips+=1
 
     def advance(self,dt,height):
@@ -214,13 +225,19 @@ class SummitClimb:
         x,z=self.x-remaining*dx,self.z-remaining*dz
         if self.raised:
             self.wave+=dt
+            if self.panorama:
+                _,lat,lon=self.vistas[self.vista]
+                yaw=math.atan2((lon+121.7603)*math.cos(math.radians(46.8523)),lat-46.8523)
+                return x,z,yaw,.042
             return x,z,self.heading+math.pi,.08
         pitch=-math.atan2(height(x+dx*2,z+dz*2)-height(x,z),2.)
         return x,z,self.heading,pitch*.75
 
     def controls(self,w,h):
         buttons=[('exit_climb','Walk',(0,0,9,3))]
-        if self.raised:return buttons
+        if self.raised:
+            if self.panorama:buttons.append(('vista','Next view',(w-13,h-5,13,5)))
+            return buttons
         if self.arrived:
             buttons.append(('reach','Raise flag',(w//2-7,h-6,14,5)))
         else:
@@ -254,3 +271,7 @@ class SummitClimb:
         title=f'Summit!  {self.elevation} m'
         ink.fill(((w-len(title))/2-1,2,len(title)+2,2),0x244B4CE8)
         ink.label((w-len(title))/2,2.5,title,0xFFF2CC)
+        if self.panorama:
+            label=self.vistas[self.vista][0]
+            ink.fill(((w-len(label))/2-1,4,len(label)+2,1.7),0x244B4CE8)
+            ink.label((w-len(label))/2,4.2,label,0xFFF2CC)

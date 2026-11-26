@@ -16,6 +16,7 @@ SIZE=CELLS*DIVISIONS+1
 @dataclass(frozen=True)
 class RegionalTerrain(HeightField):
     inset: HeightField=None
+    panorama: bool=False
 
 
 def attach(field,meta,*,approach=False):

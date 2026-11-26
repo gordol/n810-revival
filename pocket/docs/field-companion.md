@@ -570,3 +570,16 @@ reach. After ten grips, tap **Raise flag** to lift an orange pennant and look
 back over the mountain. **Walk** leaves you on the snow where you stopped.
 The 80 m climb is a fictional game route ending at the highest sample in the
 summit terrain inset. Its elevation comes from that grid.
+
+On clear days, raising the summit flag opens a magnified view toward Puget
+Sound. Tap **Next view** or press Space to turn toward the Olympics, Mount St. Helens, Mount
+Hood and Mount Adams. Intervening ridges can hide parts of a view, and mist or
+showers shorten visibility.
+
+Opening the registered summit region downloads a wider elevation grid once.
+Pocket caches it locally for offline use. This distant scenery uses roughly
+1.6 × 1.8 km samples, with water at sea level and a correction for Earth’s
+curvature. The original regional grid still sets the walking boundary. If the
+overview download is unavailable, the climb works with the local terrain.
+[Mapzen terrain tile sources and attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) ·
+[Terrain Tiles on AWS](https://registry.opendata.aws/terrain-tiles/)

@@ -39,6 +39,43 @@ class HikeTests(TestCase):
         self.assertTrue(climb.raised)
         self.assertEqual(len(climb.controls(40,30)),1)
 
+    def test_summit_views_follow_geographic_bearings_and_wrap(self):
+        from geometry import HeightField,Vec
+        from rainier_hike import SummitClimb
+        import math
+        field=HeightField(3,3,Vec(-100,0,-100),100,100,(0,0,0,0,100,0,0,0,0))
+        climb=SummitClimb(field,panorama=True)
+        climb.grips=climb.pitches
+        climb.advance(20,field.height)
+        self.assertNotIn('vista',[a for a,*_ in climb.controls(40,30)])
+        climb.reach()
+        headings=[]
+        for _ in climb.vistas:
+            headings.append(math.degrees(climb.advance(.1,field.height)[2])%360)
+            climb.next_vista()
+        self.assertEqual(climb.vista,0)
+        self.assertTrue(300<headings[0]<330)
+        self.assertTrue(150<headings[-1]<180)
+        self.assertIn('vista',[a for a,*_ in climb.controls(40,30)])
+
+    def test_horizon_joins_the_walking_grid_and_curves_below_sea_level(self):
+        from array import array
+        from geometry import HeightField,Vec
+        import summit_horizon as h
+        field=HeightField(257,257,Vec(-12800,0,-12800),100,100,(300,)*(257**2))
+        vertices=array('f')
+        h.append_mesh(vertices,field,100,[-40]*(h.SIZE**2))
+        self.assertEqual(len(vertices)%21,0)
+        edge=set()
+        far_y=[]
+        for index in range(0,len(vertices),7):
+            x,y,z=vertices[index:index+3]
+            self.assertGreaterEqual(max(abs(x),abs(z)),12800)
+            if z==-12800 and abs(x)<=12800:edge.add((x,y))
+            if x==-102400 and z==0:far_y.append(y)
+        self.assertEqual(edge,{(x,200) for x in range(-12800,12801,100)})
+        self.assertAlmostEqual(far_y[0],-100-102400**2/(2*6371000),places=3)
+
     def test_camp_menu_controls_match_drawn_rows(self):
         for height in (14,38):
             visits=[]

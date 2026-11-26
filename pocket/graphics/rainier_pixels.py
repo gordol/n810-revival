@@ -373,6 +373,15 @@ def build_world(high=True,plant_sites=None,regional=False):
             paradise.meadow(meadow_height,face,*clearing)
             paradise.groundcover(meadow_height,face,*clearing)
         if getattr(field,'inset',None):
+            import subprocess
+            from dataclasses import replace
+            import summit_horizon
+            try:horizon=summit_horizon.samples()
+            except (OSError,ValueError,ImportError,zlib.error,subprocess.SubprocessError) as error:
+                print(f'Using local Rainier horizon: {error}')
+            else:
+                summit_horizon.append_mesh(triangles,field,origin.y,horizon)
+                field=replace(field,panorama=True)
             from summit_ski import COURSES,RAMP_LENGTH,LIP_HEIGHT,HALF_WIDTH
             for course in COURSES[1:]:
                 for gate,lane in (*course.gates,(course.length,0.)):
@@ -757,6 +766,7 @@ class RainierView:
                 if action=='leave':self.stop_ski()
                 elif action=='family':self.notebook=PartyMenu(self,ski=True)
                 else:self.ski.action(action)
+            elif action=='vista':self.climb.next_vista()
             elif action=='exit_climb':self.climb=None
             elif action=='reach' and self.climb:self.climb.reach()
             elif action=='berry_view':
@@ -870,7 +880,7 @@ class RainierView:
     def start_climb(self):
         from rainier_hike import SummitClimb
         self.stop_ski()
-        self.climb=SummitClimb(self.world[0].inset)
+        self.climb=SummitClimb(self.world[0].inset,panorama=self.world[0].panorama)
         self.destination=self.trip_pose=self.map_position=None
         self.cruise=self.binoculars=self.lens=False
         self.zoom=1.
@@ -1248,9 +1258,11 @@ class RainierView:
         # Compose the keepsake from the player's real eye position. A short
         # telephoto view gives small birds and insects enough pixels to see.
         focal=self.zoom if self.lens or self.binoculars else 1.
+        if self.climb and self.climb.raised and self.climb.panorama:focal=2.5
         spotting=self.subjects
         if self.binoculars and not self.regional:
-            spotting=self.subjects+[(f'Berries {i+1}',bx,surface(field,bx,bz)-origin.y+.48,bz,1.2)
+            if self.climb and self.climb.raised and self.climb.panorama:focal=2.5
+        spotting=self.subjects+[(f'Berries {i+1}',bx,surface(field,bx,bz)-origin.y+.48,bz,1.2)
                 for i,(bx,bz) in enumerate(BUSHES) if (bx,bz) not in self.trail.picked]
         if self.lens or self.binoculars:
             self.focus_key=sighting(self.frame_camera[0],.5,.5,self.frame_camera[1],spotting,

@@ -297,7 +297,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glMatrixMode(GL_PROJECTION);glPushMatrix();glLoadIdentity();
  /* 58 degree vertical FOV; target texture row zero is the upper screen row. */
  double half=.2*.5543/fmaxf(1.f,focal),wide=half*w/h;
- glFrustum(-wide,wide,half,-half,.2,85000.);
+ glFrustum(-wide,wide,half,-half,.2,lens<0?330000.:85000.);
  glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
  glScalef(1,1,-1);glRotatef(-pitch*57.29578f,1,0,0);glRotatef(-yaw*57.29578f,0,1,0);
  glTranslatef(-east,-eye,-north);
@@ -306,7 +306,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);
  glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
  GLint blend=glGetUniformLocation(s->rainier_program,"poseBlend");
- glUniform1f(glGetUniformLocation(s->rainier_program,"hazeDensity"),(lens<0?.000055f:.00042f)*(weather?5.f:1.f));
+ glUniform1f(glGetUniformLocation(s->rainier_program,"hazeDensity"),(lens<0?(weather?.00018f:.000008f):.00042f*(weather?5.f:1.f)));
  glUniform1i(glGetUniformLocation(s->rainier_program,"camp"),camp&3);
  glUniform4f(glGetUniformLocation(s->rainier_program,"supplies"),(camp>>2)&1,(camp>>3)&1,(camp>>4)&1,(camp>>5)&1);
  glUniform1i(glGetUniformLocation(s->rainier_program,"season"),season);
