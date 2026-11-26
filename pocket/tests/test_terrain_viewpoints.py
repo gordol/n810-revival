@@ -67,6 +67,28 @@ class ViewpointTests(unittest.TestCase):
    view.world=True;view.album=[];view.notebook=None
    taps=[]
    view.scene_tap=lambda x,y,w,h:taps.append((x,y))
+   sys.path.insert(0,str(ROOT/"graphics"))
+   from rainier_hike import HangGlider
+   view.glider=HangGlider(SimpleNamespace(x=0,z=0,heading=0),lambda x,z:4500,True)
+   for use_mouse in (False,True):
+    def event(x,y,button,released=False):
+     if use_mouse:return app.pointer(x,y,42,button,released)
+     return app.world_touch(1,x,y,42,15,button,released)
+    self.assertTrue(event(12,8,0))
+    self.assertTrue(event(14,7,32))
+    self.assertTrue(all(0<value<1 for value in view.glider.drag))
+    self.assertTrue(app.pointer_captured)
+    app.advance_drag()
+    self.assertIsNone(app.drag_start)
+    self.assertTrue(event(14,7,0,True))
+    self.assertFalse(app.pointer_captured)
+    self.assertEqual(view.glider.drag,(0.,0.))
+    self.assertEqual(taps,[])
+   app.key_event('right','press',now[0])
+   self.assertIn('right',view.glider.keys)
+   app.key_event('right','release',now[0])
+   self.assertFalse(view.glider.keys)
+   view.glider=None
    view.ski=SimpleNamespace(steer=0.)
    app.world_touch(1,9,8,42,15,0,False)
    app.world_touch(1,17,8,42,15,32,False)

@@ -246,6 +246,27 @@ int pocket_scene_rect(void *ptr,float x,float y,float width,float height,uint32_
  if(Scene_SetRenderDrawBlendMode(s->device,c.a==255?Scene_BLENDMODE_NONE:Scene_BLENDMODE_BLEND))return -1;
  return Scene_RenderGeometry(s->device,NULL,s->vertices,6,NULL,0);
 }
+/* A radial control uses the same clockwise angle convention as touch input. */
+int pocket_scene_wheel_sector(void *ptr,float x,float y,float radius,float angle){
+ struct gpu_scene *s=ptr;
+ if(!s || radius<=0 || scene_target(s,s->canvas) ||
+    Scene_SetRenderDrawBlendMode(s->device,Scene_BLENDMODE_BLEND))return -1;
+ Scene_Vertex vertices[16*6];
+ unsigned count=0;
+ for(unsigned i=0;i<16;i++){
+  Scene_Vertex corners[4];
+  for(unsigned j=0;j<4;j++){
+   float a=angle-.76f+1.52f*(i+(j>=2))/16.f;
+   int outer=j==1 || j==2;
+   float r=radius*(outer?1.f:.26f);
+   Scene_Color color=outer?(Scene_Color){45,79,76,236}:(Scene_Color){20,43,44,244};
+   corners[j]=(Scene_Vertex){{x+r*cosf(a),y+r*sinf(a)},color,{0,0}};
+  }
+  const unsigned order[6]={0,1,2,0,2,3};
+  for(unsigned j=0;j<6;j++)vertices[count++]=corners[order[j]];
+ }
+ return Scene_RenderGeometry(s->device,NULL,vertices,(int)count,NULL,0);
+}
 /* Immutable glyph-run sources. Copy the installed coverage only when the
  * text changes; GPU sampling/blending still performs composition. Cache keys
  * compare every code point and are reset when the font changes. */

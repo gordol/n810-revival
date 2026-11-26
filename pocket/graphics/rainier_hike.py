@@ -311,12 +311,15 @@ class HangGlider:
     def __init__(self,climb,height,powered=False):
         self.powered=powered
         self.motor=powered
-        self.chase=powered
+        self.fast=self.menu=False
         self.x,self.z=climb.x,climb.z
         self.altitude=height(self.x,self.z)+6.
         self.heading=climb.heading+math.pi
-        self.target=self.heading
-        self.stick=self.bank=0.
+        self.stick=self.pitch_stick=self.bank=self.pitch=0.
+        self.speed=22.
+        self.drag=(0.,0.)
+        self.contact=None
+        self.keys=set()
         self.descending=self.landed=False
         self.clearance=6.
 
@@ -324,47 +327,73 @@ class HangGlider:
         self.motor=not self.motor
         self.descending=False
 
-    def steer(self,direction):
-        self.target+=direction*math.radians(18)
+    def cancel_input(self):
+        self.contact=None
+        self.drag=(0.,0.)
+        self.keys.clear()
+        self.stick=self.pitch_stick=0.
 
     def advance(self,dt,height,limits):
-        self.target+=self.stick*dt*.7
-        error=(self.target-self.heading+math.pi)%math.tau-math.pi
-        turn=max(-.7,min(.7,error*2))
-        self.bank+=(turn-self.bank)*(-math.expm1(-4*dt))
-        self.heading+=turn*dt
+        def axis(pad,drag,positive,negative):
+            value=pad+drag+(positive in self.keys)-(negative in self.keys)
+            return max(-1.,min(1.,value))
+        roll=axis(self.stick,self.drag[0],'right','left')
+        dive=axis(self.pitch_stick,self.drag[1],'up','down')
+        blend=-math.expm1(-4*dt)
+        self.bank+=(roll*abs(roll)**.45-self.bank)*blend
+        self.pitch+=(dive-self.pitch)*blend
+        self.heading+=self.bank*.95*dt
+        cruise=46. if self.fast else 22.
+        self.speed+=(cruise+12*self.pitch-self.speed)*(-math.expm1(-dt))
         west,east,south,north=limits
-        x=self.x+22*dt*math.sin(self.heading)
-        z=self.z+22*dt*math.cos(self.heading)
+        x=self.x+self.speed*dt*math.sin(self.heading)
+        z=self.z+self.speed*dt*math.cos(self.heading)
         self.x=max(west,min(east,x))
         self.z=max(south,min(north,z))
-        if self.motor and not self.descending and (x,z)==(self.x,self.z):
-            self.altitude=min(5500.,self.altitude+dt*4.)
-        else:self.altitude-=dt*(12. if self.descending or (x,z)!=(self.x,self.z) else 2.3)
+        if (x,z)!=(self.x,self.z) or self.descending:vertical=-12.
+        elif self.motor:vertical=4.
+        else:vertical=-2.3
+        self.altitude+=dt*(vertical-10*max(0.,self.pitch)-1.5*min(0.,self.pitch))
         ground=height(self.x,self.z)
         self.clearance=max(0.,self.altitude-ground)
         if not self.clearance:self.landed=True
-        return self.x,self.z,self.heading,.14+.08*self.descending
+        return self.x,self.z,self.heading,.14+.08*self.descending+.4*self.pitch
+
+    def wheel_items(self):
+        items=[('descend','Glide' if self.descending else 'Descend',0.),
+                ('wheel','Close',math.pi/2),
+                ('fast','Cruise' if self.fast else 'Fast',-math.pi/2)]
+        if self.powered:items.append(('motor','Power off' if self.motor else 'Power on',math.pi))
+        return items
+
+    def radius(self,w,h):
+        return min(122.,w*3.8,h*7.4)
 
     def controls(self,w,h):
-        top=[('chase','Pilot view' if self.chase else 'Chase view',(w-12,0,12,3))]
-        if self.powered:top.append(('motor','Power off' if self.motor else 'Power on',(0,0,12,3)))
-        return top+[('glide_left','<',(0,h-5,w//4,5)),
-                ('descend','Glide' if self.descending else 'Descend',(w//2-5,h-5,10,5)),
-                ('glide_right','>',(w-w//4,h-5,w//4,5))]
+        if not self.menu:return [('wheel','Flight',(w-11,0,11,3))]
+        buttons=[]
+        for action,label,angle in self.wheel_items():
+            r=self.radius(w,h)*.65
+            x=w/2+r*math.cos(angle)/8
+            y=h/2+r*math.sin(angle)/16
+            buttons.append((action,label,(x-5,y-1,10,2)))
+        return buttons
+
+    def wheel_choice(self,x,y,w,h):
+        dx,dy=(x-w/2)*8,(y-h/2)*16
+        if not self.radius(w,h)*.26<=math.hypot(dx,dy)<=self.radius(w,h):return None
+        angle=math.atan2(dy,dx)
+        for action,_,center in self.wheel_items():
+            if abs(math.remainder(angle-center,math.tau))<=math.pi/4:return action
+        return None
 
     def draw(self,ink,w,h):
-        ink.label(1,3,f'{round(self.clearance)} m above ground',0xFFF4DC)
-        if self.chase:return
-        # Leading edges and suspension wires bank with the turn.
-        for side in (-1,1):
-            for i in range(24):
-                t=i/24
-                x=w*(.5+side*t*.51)
-                profile=.035+.095*t*t if self.powered else .12-t*.10
-                y=h*(profile+side*t*self.bank*.09)
-                ink.fill((x,y,w*.024,.70+.36*t),0xEFA34BFF if i%8<6 else 0x376F79FF)
-                if i%2==0:ink.fill((w*(.5+side*(.13+.36*t)),h*(.85-.82*t+side*t*self.bank*.09),.18,.42),0x547077FF)
+        ink.fill((.5,.6,12,2.6),0x203837DC)
+        ink.label(1,1,f'{round(self.speed*3.6)} km/h',0xFFF4DC)
+        ink.label(1,2,f'{round(self.clearance)} m AGL',0xFFF4DC)
+        if self.menu:
+            for _,_,angle in self.wheel_items():
+                ink.sector(w/2,h/2,self.radius(w,h),angle)
 
 
 class BikeLoop:

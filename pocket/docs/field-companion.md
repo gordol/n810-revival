@@ -586,16 +586,20 @@ overview download is unavailable, the climb works with the local terrain.
 
 **Hang glide.** In the summit region, choose **Hike → Hang glide** for a running
 start from the crest. You can also tap **Hang glide** after raising the flag.
-The wing glides straight on its own. Tap either side of the view or its arrow
-to turn a little. Tap **Descend** to lose height faster and **Glide** to resume
-the shallow descent. The readout shows metres above the ground. Touching the
-terrain puts you back on foot where you landed.
+Drag from anywhere on the landscape. Hold a small sideways displacement for a
+gentle turn, or drag farther for a tighter circle. Slide up to dive and gain
+speed, down to flare and slow, and release to level out on your new heading.
+The controller’s left stick and the keyboard arrows work the same way.
+D-pad left and right also sustain a turn while held.
 
-On a keyboard, G launches from the raised flag. Left and right turn, and Space
-switches descent rate. If SDL recognizes your gamepad, the south face button
-(A on Xbox, Cross on PlayStation) reaches for a climbing grip, raises the flag,
-then launches on the next press. In flight the left stick steers, D-pad left
-and right make small turns, and the south button toggles descent. At the flag,
+Tap **Flight** to open the action wheel. **Fast** increases cruise speed from
+79 to 166 km/h. A full dive at that setting approaches 209 km/h. Y / Triangle
+or F switches cruise speed. **Descend** (A / Cross or Space) loses altitude
+quickly. The HUD shows speed and height above ground, and the footer shows
+altitude above sea level. Touching ground ends the flight.
+
+G launches from the raised flag. On a controller, A / Cross reaches for
+a grip, raises the flag, then launches on the next press. At the flag,
 D-pad right changes the view and the east face button replays the wildlife dance.
 Use touch or the mouse to choose the outing from the Hike menu.
 
@@ -613,15 +617,14 @@ A / Cross releases it. B / Circle keeps a brook trout when **Keep brook**
 appears. The usual catch and guidebook rules apply.
 
 **Powered paragliding.** Choose **Hike → Paramotor** in the summit region for
-a fictional flight over the terrain. You start behind the pilot with the motor
-running. Tap **Power off** to coast or **Power on** to climb again (X / Square
-or P). **Descend** takes priority over motor lift. Both the hang glider and
-paramotor have **Pilot view** and **Chase view** (Y / Triangle or V).
+a fictional flight over the terrain. You start in first person with the motor running. In the flight
+wheel, **Power off** coasts and **Power on** resumes climbing (X / Square or P).
+For a finer image on Android, launch with `make mobile EXTRA=--ui-scale=1`.
+This also makes the shell controls smaller. Plain `make mobile` restores the
+usual larger touch targets.
 
-**Third person on the ground.** While hiking, fishing or skiing, tap **Third
-person**, press V, or click the right stick to follow your character. Use the
-same control to switch back. Raising the binoculars or wildlife camera brings
-you to eye level. Lower them to return to the follow view.
+The motor can climb past 5,500 m. Descend takes priority over power, and the
+edge of the playable terrain still forces a descent.
 
 **Mountain bike loop.** Choose **Hike → Mountain bike loop** in the summit
 region. The bike follows a fictional gravel figure eight near Paradise, slowing

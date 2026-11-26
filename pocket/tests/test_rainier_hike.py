@@ -110,16 +110,45 @@ class HikeTests(TestCase):
         for _ in range(20):flight.advance(.1,height,limits)
         self.assertAlmostEqual(flight.x,0)
         self.assertGreater(flight.clearance,10)
-        flight.steer(1)
+        flight.stick=1.
         for _ in range(20):flight.advance(.1,height,limits)
         self.assertGreater(flight.x,5)
-        self.assertLessEqual(flight.heading%math.tau,math.radians(18))
+        for _ in range(80):flight.advance(.1,height,limits)
+        self.assertGreater(flight.heading,2*math.tau)
+        flight.stick=0.
+        for _ in range(30):flight.advance(.1,height,limits)
+        course=flight.heading
+        flight.advance(.1,height,limits)
+        self.assertAlmostEqual(course,flight.heading,places=5)
         flight.descending=True
         for _ in range(200):
             flight.advance(.1,height,limits)
             if flight.landed:break
         self.assertTrue(flight.landed)
         self.assertEqual(flight.clearance,0)
+
+    def test_flight_wheel_speed_and_two_axis_control(self):
+        from rainier_hike import HangGlider
+        from rainier_pixels import RainierView
+        view=RainierView(None)
+        view.world=(True,)
+        floor=lambda x,z:0.
+        flight=view.glider=HangGlider(SimpleNamespace(x=0,z=0,heading=0),floor,True)
+        flight.altitude=1000.
+        for choice in ('wheel','fast'):
+            _,_,(x,y,w,h)=next(row for row in view.walk_tools(40,32) if row[0]==choice)
+            view.scene_tap(x+w/2,y+h/2,40,32)
+        self.assertTrue(flight.fast)
+        self.assertFalse(flight.menu)
+        flight.drag=(.25,1.)
+        for _ in range(80):flight.advance(.1,floor,(-2000,2000,-2000,2000))
+        self.assertGreater(flight.speed,57.)
+        self.assertLess(flight.altitude,1000.)
+        self.assertTrue(0<flight.bank<.25)
+        flight.keys.add('left')
+        flight.cancel_input()
+        self.assertFalse(flight.keys)
+        self.assertEqual(flight.drag,(0.,0.))
 
     def test_bike_grade_brake_resume_and_closed_track(self):
         import math
@@ -139,32 +168,28 @@ class HikeTests(TestCase):
         self.assertGreater(downhill.angle,stopped)
         self.assertLess(math.dist(uphill.position(0),uphill.position(math.tau)),1e-9)
 
-    def test_chase_toggle_and_dismount_use_active_play_controls(self):
+    def test_first_person_bike_brake_and_dismount(self):
         from rainier_pixels import RainierView
         view=RainierView(None)
         view.world=(True,)
         view.meadow_site=(1.,2.)
         view.start_bike()
-        self.assertTrue(view.ground_chase)
         view.controller_button(8)
-        self.assertFalse(view.ground_chase)
+        self.assertFalse(any(action=="ground_view" for action,_,_ in view.walk_tools(40,32)))
         view.controller_button(0)
         self.assertFalse(view.bike.pedaling)
         view.controller_button(1)
         self.assertIsNone(view.bike)
         view.controller_button(8)
-        self.assertTrue(view.ground_chase)
 
-    def test_paramotor_climbs_coasts_and_lands_in_either_view(self):
+    def test_paramotor_climbs_coasts_and_lands_above_former_ceiling(self):
         from rainier_hike import HangGlider
-        floor=lambda x,z:4200.
+        floor=lambda x,z:5500.
         limits=(-1000,1000,-1000,1000)
         flight=HangGlider(SimpleNamespace(x=0,z=0,heading=0),floor,powered=True)
-        self.assertTrue(flight.chase)
         flight.advance(1,floor,limits)
         self.assertEqual(flight.clearance,10.)
         flight.toggle_motor()
-        flight.chase=False
         flight.advance(1,floor,limits)
         self.assertAlmostEqual(flight.clearance,7.7)
         flight.descending=True

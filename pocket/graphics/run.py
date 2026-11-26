@@ -122,13 +122,15 @@ class DesktopWindow(Window):
         previous=getattr(self,'pad_scene',None)
         if previous is not None and previous is not scene:
             previous.pad_sticks=(0.,0.,0.,0.)
-            if previous.glider:previous.glider.stick=0.
+            if previous.glider:previous.glider.cancel_input()
         self.pad_scene=scene
         if scene:
             axes=(C.c_int*4)()
             self.lib.pocket_window_pad_sticks(axes)
             scene.pad_sticks=tuple(math.copysign(max(0.,abs(v/32768.)-.18)/.82,v) for v in axes)
-            if scene.glider:scene.glider.stick=scene.pad_sticks[0]
+            if scene.glider:
+                scene.glider.stick=self.lib.pocket_window_flight_dpad() or scene.pad_sticks[0]
+                scene.glider.pitch_stick=-scene.pad_sticks[1]
 
 def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)

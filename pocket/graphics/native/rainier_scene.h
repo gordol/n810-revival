@@ -48,7 +48,13 @@ static GLuint rainier_program(void){
   "if(season==1)turf=mix(vec3(.31,.19,.16),vec3(.55,.43,.23),drift);"
   "col=mix(col,turf*(.79+.41*blades),.72*meadow*(1.-smoothstep(90.,380.,distanceToEye)));"
   "float stand=(1.-smoothstep(line-230.,line,elev))*smoothstep(.26,.69,noise(p*.018));"
-  "col=mix(col,col*vec3(.48,.71,.54),stand*smoothstep(65.,170.,distanceToEye));}"
+  // Seen from flight, resolve patches of crowns, then merge them into
+  // larger stands as the screen footprint outgrows an individual tree.
+  "float footprintM=length(fwidth(p));"
+  "float crowns=(noise(p*.16)-.5)*(1.-smoothstep(2.,9.,footprintM));"
+  "float standLight=.85+.24*noise(p*.0035)+.32*crowns;"
+  "vec3 canopy=col*vec3(.48,.71,.54)*standLight;"
+  "col=mix(col,canopy,stand*smoothstep(65.,170.,distanceToEye));}"
   "float footprint=regional!=0?512.:2048.;vec2 uv=(p-shadeCenter)/footprint+.5;"
   "if(daylight>.12 && distanceToEye<340. && max(abs(uv.x-.5),abs(uv.y-.5))<.46){"
   "vec3 n=cross(dFdx(pos),dFdy(pos));float slope=abs(n.y)>.001?dot(n.xz/n.y,shadowStep):0.;"

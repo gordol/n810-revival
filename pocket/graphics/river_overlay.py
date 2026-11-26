@@ -44,6 +44,11 @@ class Ink:
         data=text.encode('utf-32-le')
         self.ctx.check(self.ctx.lib.pocket_scene_text(self.ctx.handle,self.x+x*8,self.y+y*16,C.c_char_p(data),len(text),color))
 
+    def sector(self,x,y,radius,angle):
+        draw=self.ctx.lib.pocket_scene_wheel_sector
+        draw.argtypes=[C.c_void_p]+[C.c_float]*4
+        self.ctx.check(draw(self.ctx.handle,self.x+x*8,self.y+y*16,radius,angle))
+
     def button(self,box,text):
         x,y,w,h=box
         self.fill((x+.08,y+.04,w-.16,h-.08),0x274A40F5)

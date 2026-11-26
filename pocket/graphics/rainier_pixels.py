@@ -636,7 +636,6 @@ def build_world(high=True,plant_sites=None,regional=False):
 
 class RainierView:
     bike=glider=climb=None
-    ground_chase=False
     pad_sticks=(0.,0.,0.,0.)
     name='Rainier walk'
     paces=(('Walk',1.),('Brisk',2.),('Explore',8.))
@@ -817,19 +816,22 @@ class RainierView:
             self.pixel_dirty=True
             return True
         for action,_,box in self.walk_tools(width,height):
-            if not hit(box,x,y):continue
-            if action=='ground_view':self.ground_chase=not self.ground_chase
-            elif action=='pedal':self.bike.pedaling=not self.bike.pedaling
+            if self.glider and self.glider.menu:
+                if self.glider.wheel_choice(x,y,width,height)!=action:continue
+            elif not hit(box,x,y):continue
+            if action=='pedal':self.bike.pedaling=not self.bike.pedaling
             elif action=='dismount':self.bike=None
             elif self.ski:
                 if action=='leave':self.stop_ski()
                 elif action=='family':self.notebook=PartyMenu(self,ski=True)
                 else:self.ski.action(action)
             elif action=='launch':self.start_glide()
-            elif action=='motor':self.glider.toggle_motor()
-            elif action=='chase':self.glider.chase=not self.glider.chase
-            elif action=='descend':self.glider.descending=not self.glider.descending
-            elif action in ('glide_left','glide_right'):self.glider.steer(-1 if action=='glide_left' else 1)
+            elif self.glider:
+                flight=self.glider
+                if action=='motor':flight.toggle_motor()
+                elif action=='fast':flight.fast=not flight.fast
+                elif action=='descend':flight.descending=not flight.descending
+                flight.menu=action=='wheel' and not flight.menu
             elif action=='encore':self.climb.wave=0.
             elif action=='vista':self.climb.next_vista()
             elif action=='exit_climb':self.climb=None
@@ -871,8 +873,7 @@ class RainierView:
             self.pixel_dirty=True
             return True
         if self.glider:
-            if x<width*.4:self.glider.steer(-1)
-            elif x>width*.6:self.glider.steer(1)
+            self.glider.menu=False
             return True
         if self.climb or self.bike:return True
         if self.frame_camera is None:return False
@@ -933,16 +934,12 @@ class RainierView:
                 elif button in (13,14):self.notebook.turn_page(-1 if button==13 else 1)
                 self.pixel_dirty=True
             return
-        if button==8 and not (self.glider or self.climb or self.album):
-            self.ground_chase=not self.ground_chase
-            return
         if self.bike:
             if button==0:self.bike.pedaling=not self.bike.pedaling
             if button==1:self.bike=None
             return
         if self.glider:
-            if button in (13,14):self.glider.steer(-1 if button==13 else 1)
-            elif button==3:self.glider.chase=not self.glider.chase
+            if button==3:self.glider.fast=not self.glider.fast
             elif button==2 and self.glider.powered:self.glider.toggle_motor()
             elif button==0:self.glider.descending=not self.glider.descending
         elif self.climb:
@@ -981,12 +978,13 @@ class RainierView:
         self.destination=self.trip_pose=self.map_position=None
         self.lens=self.binoculars=self.cruise=self.trail.guiding=False
         self.zoom=1.
-        self.ground_chase=True
 
     def start_glide(self,powered=False):
         from rainier_hike import HangGlider
         if not self.climb:self.start_climb()
         self.glider=HangGlider(self.climb,self.walk_height,powered)
+        self.photo_hint='Drag to turn • Up to dive • Flight for speed'
+        self.hint_until=self.age+7.
         self.climb=None
         self.cruise=False
         self.destination=None
@@ -1082,10 +1080,9 @@ class RainierView:
 
     def walk_tools(self,width,height):
         if self.glider:return self.glider.controls(width,height)
-        view=('ground_view','First person' if self.ground_chase else 'Third person',(width-14,6,13,2))
-        if self.bike:return [view,('dismount','Dismount',(0,0,11,3)),
+        if self.bike:return [('dismount','Dismount',(0,0,11,3)),
                             ('pedal','Brake' if self.bike.pedaling else 'Pedal',(width//2-6,height-4,12,4))]
-        if self.ski:return self.ski.controls(width,height)+[view]
+        if self.ski:return self.ski.controls(width,height)
         if self.climb:return self.climb.controls(width,height)
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
         if not self.regional and self.camera and not (self.lens or self.binoculars):
@@ -1109,7 +1106,6 @@ class RainierView:
             if math.hypot(x-cx,z-cz)<35:
                 on_deck=max(abs(x-cx),abs(z-cz))<=3.2
                 buttons.append(('ground' if on_deck else 'deck','Step down' if on_deck else 'Up to deck',(1,3,12,2)))
-        if not (self.lens or self.binoculars):buttons.append(view)
         return buttons
 
     def visit_lookout(self,deck=False):
@@ -1301,25 +1297,6 @@ class RainierView:
         high=self.quality.high and not self.regional
         x,z,yaw,pitch=self.camera
         _,eye,_=self.eye_position(x,z)
-        aircraft=None
-        if self.glider and self.glider.chase:
-            flight=self.glider
-            aircraft=(C.c_float*6)(x,flight.altitude-origin.y,z,math.degrees(yaw),flight.bank,flight.powered)
-            x-=14*math.sin(yaw)
-            z-=14*math.cos(yaw)
-            eye=max(eye+4.,self.walk_height(x,z)-origin.y+2.)
-            pitch=math.atan2(eye-aircraft[1]-2.,14.)
-        elif self.ground_chase and not (self.climb or self.glider or self.lens or self.binoculars):
-            mode=5 if self.bike else 3 if self.ski else 4 if self.fishing.state not in ('idle','over') else 2
-            actor_y=eye-1.25
-            aircraft=(C.c_float*10)(x,actor_y,z,math.degrees(yaw),0.,mode)
-            distance=4.8
-            shoulder=1.7 if self.bike else .85
-            x+=shoulder*math.cos(yaw)-distance*math.sin(yaw)
-            z-=shoulder*math.sin(yaw)+distance*math.cos(yaw)
-            yaw-=math.atan2(shoulder,distance)
-            eye=max(eye+1.25,self.walk_height(x+origin.x,z+origin.z)-origin.y+1.2)
-            pitch=math.atan2(eye-actor_y-1.,distance)+pitch*.45
         wx,wy,w,h=self.host.bounds(self.host.window(self.name))
         ox,oy=self.host.origin
         rect=((wx+ox+1)*8,(wy+oy+1)*16,(w-2)*8,(h-3)*16)
@@ -1353,10 +1330,6 @@ class RainierView:
         daylight=(1.,.43,.04,.52+.48*math.cos(self.age*math.tau/720))[self.time_mode]
         hatch=self.weather==0 and self.season in (0,3) and daylight>.35
         fly=self.fishing.position(self.age)
-        if aircraft is not None and fly and aircraft[5]==4:
-            fx,fz,_=fly
-            level=channel().water_height(fx,fz)
-            if level is not None:aircraft[6:]=fx,level-origin.y+.03,fz,1.
         chasing=(*fly[:2],self.age-self.fishing.bite) if self.fishing.state in ('bite','fight','landed') else None
         if self.regional:commands=summit_dancers(self.climb,field,origin,spans)
         else:commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics,hatch,chasing,self.fishing.target,self.fishing.kept_brook)
@@ -1456,7 +1429,7 @@ class RainierView:
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high or self.regional else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end,aircraft)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end,None)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()
@@ -1488,7 +1461,7 @@ class RainierView:
                 fx,fz,_=fly
                 fy=channel().water_height(fx,fz)
                 point=project_subject(self.frame_camera[0],self.frame_camera[1],1.,('',fx,fy-origin.y+.03,fz,.3))
-                if point and not self.ground_chase:
+                if point:
                     u,v,_=point
                     rod=ctx.lib.pocket_scene_fishing_rod
                     rod.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_float]*3
@@ -1501,9 +1474,12 @@ class RainierView:
                     ink.fill((1,8.1,18*self.fishing.tension,.36),0xFD996EFF)
             if self.glider:self.glider.draw(ink,w-2,h-3)
             if self.climb:self.climb.draw(ink,w-2,h-3)
-            if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y,third_person=self.ground_chase)
+            if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y)
             for action,label,box in self.walk_tools(w-2,h-3):
-                ink.button(box,label)
+                if self.glider and self.glider.menu:
+                    bx,by,bw,bh=box
+                    ink.label(bx+(bw-len(label))/2,by+(bh-1)/2,label,0xFFF6DA)
+                else:ink.button(box,label)
                 if self.ski and action=='brake':
                     bx,by,bw,bh=box
                     if self.ski.mode=='ski':
