@@ -109,6 +109,10 @@ def regional_stand(field,base_y,cx,cz,surface,lookout,meadow=None):
             if meadow:
                 dx,dz=x-meadow[0],z-meadow[1]
                 # Keep the uphill sightline open; forest islands frame the summit.
+                if abs(dx)<73:
+                    t=max(-1.,min(1.,dx/70))
+                    crossing=90*t*math.sqrt(1-t*t)
+                    in_meadow|=abs(abs(dz)-abs(crossing))<4.
                 in_meadow|=0<dz<64 and abs(dx+.31*dz)<7+.10*dz
             has_tree=rng.random()<density*fraction and not in_meadow
             if has_tree:

@@ -254,7 +254,7 @@ class SkiRun:
         self.view_pitch=pitch
         return x,z,yaw,pitch
 
-    def draw(self,ink,w,h,camera,aspect,height):
+    def draw(self,ink,w,h,camera,aspect,height,third_person=False):
         # Ground marks project through the same camera as the slope.
         for d,lane in self.tracks:
             if abs(d-self.distance)>65:continue
@@ -263,7 +263,7 @@ class SkiRun:
                 uv=project_subject(camera,aspect,1.,('',x,height(x,z)+.035,z,.3))
                 if uv and 0<uv[0]<1 and 0<uv[1]<1:
                     ink.fill((uv[0]*w,uv[1]*h,.16,.10),0x90ADC0CC)
-        if self.mode in ('ski','ready','braked'):
+        if not third_person and self.mode in ('ski','ready','braked'):
             # Foreshortened ski tips, with the edges banking into the carve.
             for side in (-1,1):
                 for j in range(9):

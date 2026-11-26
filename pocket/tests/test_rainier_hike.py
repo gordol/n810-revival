@@ -121,6 +121,40 @@ class HikeTests(TestCase):
         self.assertTrue(flight.landed)
         self.assertEqual(flight.clearance,0)
 
+    def test_bike_grade_brake_resume_and_closed_track(self):
+        import math
+        from rainier_hike import BikeLoop
+        uphill,downhill=BikeLoop((20.,30.)),BikeLoop((20.,30.))
+        for _ in range(12):
+            uphill.advance(.1,lambda x,z:.2*z)
+            downhill.advance(.1,lambda x,z:-.2*z)
+        self.assertGreater(downhill.speed,uphill.speed)
+        downhill.pedaling=False
+        for _ in range(20):downhill.advance(.1,lambda x,z:0.)
+        stopped=downhill.angle
+        downhill.advance(.1,lambda x,z:0.)
+        self.assertEqual(stopped,downhill.angle)
+        downhill.pedaling=True
+        downhill.advance(.1,lambda x,z:0.)
+        self.assertGreater(downhill.angle,stopped)
+        self.assertLess(math.dist(uphill.position(0),uphill.position(math.tau)),1e-9)
+
+    def test_chase_toggle_and_dismount_use_active_play_controls(self):
+        from rainier_pixels import RainierView
+        view=RainierView(None)
+        view.world=(True,)
+        view.meadow_site=(1.,2.)
+        view.start_bike()
+        self.assertTrue(view.ground_chase)
+        view.controller_button(8)
+        self.assertFalse(view.ground_chase)
+        view.controller_button(0)
+        self.assertFalse(view.bike.pedaling)
+        view.controller_button(1)
+        self.assertIsNone(view.bike)
+        view.controller_button(8)
+        self.assertTrue(view.ground_chase)
+
     def test_paramotor_climbs_coasts_and_lands_in_either_view(self):
         from rainier_hike import HangGlider
         floor=lambda x,z:4200.

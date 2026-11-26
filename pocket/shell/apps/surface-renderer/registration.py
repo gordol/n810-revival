@@ -307,6 +307,17 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             if self.download_pool:self.download_pool.shutdown(wait=False,cancel_futures=True)
             super().close()
 
+        def ground_key(self,key):
+            scene=self.pixel_scene
+            if not hasattr(scene,'ground_chase') or scene.notebook or scene.album or scene.climb or scene.glider:return False
+            if key.lower()=='v':
+                scene.ground_chase=not scene.ground_chase
+                return True
+            if scene.bike and key in ('space',' ','enter','\r'):
+                scene.bike.pedaling=not scene.bike.pedaling
+                return True
+            return False
+
         def flight_key(self,key):
             flight=getattr(self.pixel_scene,'glider',None)
             if flight and key.lower()=='v':flight.chase=not flight.chase;return True
@@ -319,6 +330,9 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             return False
 
         def key_event(self,key,kind,now):
+            scene=self.pixel_scene
+            if scene and not getattr(scene,'glider',None) and (key.lower()=='v' or (getattr(scene,'bike',None) and key in ('space',' ','enter'))):
+                if kind=='press' and self.ground_key(key):return True
             flight=getattr(self.pixel_scene,'glider',None)
             if flight and (key in ('left','right','space',' ','enter','v','V') or (flight.powered and key.lower()=='p')):
                 if kind=='press':self.flight_key(key)
@@ -334,7 +348,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             return super().key_event(key,kind,now)
 
         def key(self,key,now=None):
-            if self.flight_key(key):return True
+            if self.flight_key(key) or self.ground_key(key):return True
             climb=getattr(self.pixel_scene,'climb',None)
             if climb and climb.raised and key.lower()=='g':
                 self.pixel_scene.start_glide()

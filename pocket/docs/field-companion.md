@@ -617,3 +617,13 @@ a fictional flight over the terrain. You start behind the pilot with the motor
 running. Tap **Power off** to coast or **Power on** to climb again (X / Square
 or P). **Descend** takes priority over motor lift. Both the hang glider and
 paramotor have **Pilot view** and **Chase view** (Y / Triangle or V).
+
+**Third person on the ground.** While hiking, fishing or skiing, tap **Third
+person**, press V, or click the right stick to follow your character. Use the
+same control to switch back. Raising the binoculars or wildlife camera brings
+you to eye level. Lower them to return to the follow view.
+
+**Mountain bike loop.** Choose **Hike → Mountain bike loop** in the summit
+region. The bike follows a fictional gravel figure eight near Paradise, slowing
+on the climbs and picking up speed downhill. Tap **Brake** or **Pedal** (Space
+or A / Cross), and **Dismount** (B / Circle) to explore on foot at that spot.

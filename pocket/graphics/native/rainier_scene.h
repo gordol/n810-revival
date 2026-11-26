@@ -217,6 +217,56 @@ static void river_hiker_band(float bottom,float top,float base,float rim,float r
  glEnd();
 }
 
+/* A cylinder pitched in the rider's sagittal plane, for limbs and frame tubes. */
+static void trail_tube(float x,float y,float z,float dy,float dz,float r,float red,float green,float blue){
+ glPushMatrix();glTranslatef(x,y,z);glRotatef(atan2f(dz,dy)*57.29578f,1,0,0);
+ river_hiker_band(0,hypotf(dy,dz),r,r,red,green,blue);glPopMatrix();
+}
+
+static void trail_player(const float *p){
+ int mode=(int)p[5],bike=mode==5,ski=mode==3;
+ glPushMatrix();glTranslatef(p[0],p[1],p[2]);glRotatef(p[3],0,1,0);
+ if(bike){
+  for(int end=-1;end<=1;end+=2){
+   glColor3f(.10f,.13f,.13f);glBegin(GL_QUAD_STRIP);
+   for(int j=0;j<=32;j++){
+    float a=j*.19635f;
+    for(int k=0;k<2;k++){float r=.31f+k*.055f;glVertex3f(0,.365f+r*sinf(a),end*.61f+r*cosf(a));}
+   }
+   glEnd();
+   glColor3f(.53f,.57f,.56f);glBegin(GL_LINES);
+   for(int j=0;j<8;j++){
+    float a=j*.7854f;
+    glVertex3f(0,.365f,end*.61f);glVertex3f(0,.365f+.31f*sinf(a),end*.61f+.31f*cosf(a));
+   }
+   glEnd();
+   trail_tube(0,.365f,end*.61f,.45f,-end*.6f,.047f,.10f,.62f,.60f);
+  }
+  trail_tube(0,.365f,-.61f,.02f,.61f,.038f,.12f,.52f,.55f);
+  trail_tube(0,.39f,0,.52f,.47f,.043f,.12f,.52f,.55f);
+  trail_tube(0,.365f,.61f,.72f,-.15f,.035f,.16f,.22f,.23f);
+ }
+ for(int side=-1;side<=1;side+=2){
+  float stride=mode==2?.19f*sinf(p[0]*2+p[2]*2)*side:0;
+  float foot=bike?.39f:.08f,knee=bike?.68f:.47f;
+  trail_tube(side*.12f,foot,stride,knee-foot,.12f-stride,.086f,.19f,.23f,.27f);
+  trail_tube(side*.12f,knee,.12f,.86f-knee,-.13f,.10f,.16f,.21f,.26f);
+  if(ski)trail_tube(side*.17f,.055f,-.72f,.04f,1.65f,.065f,.16f,.58f,.71f);
+  trail_tube(side*.23f,1.27f,.02f,-.31f,bike?.42f:.13f-stride,.064f,.83f,.37f,.13f);
+ }
+ river_hiker_band(.83f,1.23f,.20f,.25f,.88f,.38f,.14f);
+ river_hiker_band(1.23f,1.38f,.25f,.13f,.78f,.32f,.13f);
+ river_hiker_band(1.38f,1.61f,.127f,.14f,.61f,.42f,.29f);
+ river_hiker_band(1.57f,1.71f,.16f,.10f,.16f,.46f,.52f);
+ if(mode==4)trail_tube(.23f,.96f,.15f,.93f,1.22f,.018f,.34f,.27f,.17f);
+ glPopMatrix();
+ if(mode==4 && p[9]){
+  float a=p[3]*.01745329f;
+  glColor3f(.82f,.83f,.68f);glBegin(GL_LINES);
+  glVertex3f(p[0]+.23f*cosf(a)+1.37f*sinf(a),p[1]+1.89f,p[2]-.23f*sinf(a)+1.37f*cosf(a));
+  glVertex3fv(p+6);glEnd();
+ }
+}
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
@@ -379,7 +429,8 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  }
  /* Small rain jackets and knit caps stand out against the dark conifers. */
  glUseProgram(0);
- if(aircraft){
+ if(aircraft && aircraft[5]>=2.f)trail_player(aircraft);
+ else if(aircraft){
   glPushMatrix();glTranslatef(aircraft[0],aircraft[1],aircraft[2]);
   glRotatef(aircraft[3],0,1,0);glRotatef(-aircraft[4]*32.f,0,0,1);
   river_hiker_band(0,.55f,.20f,.26f,.16f,.22f,.28f);

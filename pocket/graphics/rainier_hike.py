@@ -61,6 +61,7 @@ class HikeMenu:
             world=getattr(v,'world',None)
             detail=world and getattr(world[0],'inset',None)
             outings=('Put on skis','Climb summit ice','Hang glide','Paramotor') if detail else ()
+            if detail and getattr(v,'meadow_site',None):outings+=('Mountain bike loop',)
         return ('Hike','','Pace   '+v.pace_name,'',switch,'','Back to walk','Paradise meadows' if not v.party else '','Camp & sky','Debug overlay   '+('On' if v.debug_overlay else 'Off'),*outings,v.travel_error[:width])
 
     def tap_xy(self,x,y):
@@ -97,6 +98,9 @@ class HikeMenu:
             return False
         if v.regional and y==13 and 'Paramotor' in self.lines(40):
             v.start_glide(powered=True)
+            return False
+        if v.regional and y==14 and 'Mountain bike loop' in self.lines(40):
+            v.start_bike()
             return False
         if not v.regional and 10<=y<=13:
             if y==10:v.move_to_view(pool=True)
@@ -361,3 +365,43 @@ class HangGlider:
                 y=h*(profile+side*t*self.bank*.09)
                 ink.fill((x,y,w*.024,.70+.36*t),0xEFA34BFF if i%8<6 else 0x376F79FF)
                 if i%2==0:ink.fill((w*(.5+side*(.13+.36*t)),h*(.85-.82*t+side*t*self.bank*.09),.18,.42),0x547077FF)
+
+
+class BikeLoop:
+    """Assisted family circuit on the regional terrain."""
+    def __init__(self,center):
+        self.center=center
+        self.angle=self.speed=0.
+        self.pedaling=True
+
+    def position(self,a):
+        x,z=self.center
+        return x+70*math.sin(a),z+45*math.sin(2*a)
+
+    def build_track(self,height,face):
+        previous=None
+        for i in range(361):
+            a=i*math.tau/360
+            x,z=self.position(a)
+            yaw=math.atan2(70*math.cos(a),90*math.cos(2*a))
+            edge=[]
+            for width in (-1.3,1.3):
+                px,pz=x+width*math.cos(yaw),z-width*math.sin(yaw)
+                edge.append(Vec(px,height(px,pz)+.04,pz))
+            if previous:
+                face(previous[0],edge[0],previous[1],(151,139,116),.53)
+                face(edge[0],edge[1],previous[1],(151,139,116),.53)
+            previous=edge
+
+    def advance(self,dt,height):
+        x,z=self.position(self.angle)
+        tx,tz=self.position(self.angle+.01)
+        segment=math.hypot(tx-x,tz-z)
+        grade=(height(tx,tz)-height(x,z))/segment
+        target=max(2.,min(11.,6.-8.*grade)) if self.pedaling else 0.
+        self.speed+=(target-self.speed)*(-math.expm1(-dt*(1.4 if self.pedaling else 5.)))
+        if not self.pedaling and self.speed<.05:self.speed=0.
+        self.angle=(self.angle+.01*dt*self.speed/segment)%math.tau
+        x,z=self.position(self.angle)
+        tx,tz=self.position(self.angle+.01)
+        return x,z,math.atan2(tx-x,tz-z),.10
