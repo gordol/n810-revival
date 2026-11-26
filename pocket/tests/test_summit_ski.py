@@ -17,7 +17,7 @@ class SkiTests(unittest.TestCase):
         run.steer=.8
         for _ in range(100):run.advance(.05,ground)
         self.assertGreater(run.lane,0)
-        self.assertLessEqual(run.speed,5.5)
+        self.assertGreater(run.speed,5.5)
         run.action('brake')
         d=run.distance
         run.advance(.1,ground)
@@ -66,17 +66,18 @@ class SkiTests(unittest.TestCase):
 
     def test_assisted_small_drags_and_release(self):
         ground=lambda x,z:3200+.4*(x+z)
-        def glide(assist,steer):
+        def glide(assist,steer,speed=5.5):
             run=SkiRun()
             run.assist=assist
             run.action('brake')
-            run.speed=5.5
+            run.speed=speed
             run.steer=steer
             for _ in range(20):run.advance(.05,ground)
             return run
         self.assertEqual(glide(True,.10).lane,0.)
         gentle=glide(True,.45)
         self.assertGreater(gentle.lane,0.)
+        self.assertAlmostEqual(gentle.lane,glide(True,.45,25.).lane)
         self.assertLess(gentle.lane,glide(False,.45).lane*.35)
         self.assertGreater(glide(True,1.).lane,3*gentle.lane)
         gentle.steer=0.

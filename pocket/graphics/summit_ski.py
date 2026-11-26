@@ -67,6 +67,7 @@ class SkiRun:
     def reset(self):
         self.mode='ready'
         self.distance=self.lane=self.steer=self.speed=self.angle=0.
+        self.side_speed=0.
         self.score=self.landings=0
         self.lift=self.vertical=0.
         self.air_y=None
@@ -129,20 +130,21 @@ class SkiRun:
         if self.mode=='ski':
             turn=self.steer
             if self.tilt and abs(turn)<.04:turn=self.tilt.turn
-            if self.assist:
-                # Ignore resting-thumb jitter, then ease into a deliberate carve.
-                travel=max(0.,(abs(turn)-.12)/.88)
-                target=math.copysign(.50*travel*(.45+.55*travel),turn)
-                response=7. if target==0. else 3.
-                self.angle+=(target-self.angle)*(-math.expm1(-response*dt))
-            else:
-                self.angle+=(turn*.73-self.angle)*min(1.,dt*4.)
             ahead=min(self.course.length,d+1.)
             grade=(height(*self.course.location(d,self.lane))-height(*self.course.location(ahead,self.lane)))/max(.01,ahead-d)
-            cap=5.5 if self.assist else 15.
-            acceleration=9.81*grade/math.hypot(1.,grade)-.25-.014*self.speed**2
-            self.speed=min(cap,max(1.2,self.speed+dt*acceleration))
-            if d>self.course.length-30:self.speed=min(self.speed,math.sqrt(2.*1.3*(self.course.length-d))+.35)
+            acceleration=9.81*grade/math.hypot(1.,grade)-.25-.0035*self.speed**2
+            self.speed=min(28.,max(1.2,self.speed+dt*acceleration))
+            self.speed=min(self.speed,math.sqrt(2.*1.3*(self.course.length-d))+.35)
+            if self.assist:
+                # Small drags command a lateral speed, independent of downhill speed.
+                travel=max(0.,(abs(turn)-.12)/.88)
+                target=math.copysign(2.*travel+4.*travel**3,turn)
+                response=7. if target==0. else 3.
+                self.side_speed+=(target-self.side_speed)*(-math.expm1(-response*dt))
+                self.angle=math.asin(max(-.48,min(.48,self.side_speed/self.speed)))
+            else:
+                self.angle+=(turn*.73-self.angle)*min(1.,dt*4.)
+                self.side_speed=self.speed*math.sin(self.angle)
             self.distance=min(self.course.length,d+self.speed*dt*math.cos(self.angle))
             self.lane=max(-10.,min(10.,self.lane+self.speed*dt*math.sin(self.angle)))
             for gate,side in self.course.gates:
