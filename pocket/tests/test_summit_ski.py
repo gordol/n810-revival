@@ -74,7 +74,7 @@ class SkiTests(unittest.TestCase):
             run.steer=steer
             for _ in range(20):run.advance(.05,ground)
             return run
-        self.assertEqual(glide(True,.10).lane,0.)
+        self.assertEqual(glide(True,.10).lane,glide(True,0.).lane)
         gentle=glide(True,.45)
         self.assertGreater(gentle.lane,0.)
         self.assertAlmostEqual(gentle.lane,glide(True,.45,25.).lane)
@@ -82,7 +82,7 @@ class SkiTests(unittest.TestCase):
         self.assertGreater(glide(True,1.).lane,3*gentle.lane)
         gentle.steer=0.
         released=gentle.lane
-        for _ in range(20):gentle.advance(.05,ground)
+        for _ in range(12):gentle.advance(.05,ground)
         self.assertLess(gentle.lane-released,.15)
 
     def test_taps_start_retarget_and_resume(self):
@@ -90,6 +90,7 @@ class SkiTests(unittest.TestCase):
         ground=lambda x,z:3000.
         run.tap_slope(.8,.5)
         self.assertEqual(run.mode,'ski')
+        run.tap_slope(.8,.5)
         for _ in range(30):run.advance(.05,ground)
         self.assertGreater(run.lane,0.)
         run.tap_slope(.1,.5)
@@ -98,7 +99,17 @@ class SkiTests(unittest.TestCase):
         run.action('brake')
         run.tap_slope(.5,.4)
         self.assertEqual(run.mode,'ski')
-        self.assertEqual(run.tap_lane,run.lane)
+        self.assertIsNone(run.tap_lane)
         run.steer=1.
         run.advance(.05,ground)
         self.assertIsNone(run.tap_lane)
+
+    def test_one_tap_follows_every_gate_with_assist(self):
+        from summit_ski import COURSES
+        for course in COURSES:
+            run=SkiRun((course,))
+            run.tap_slope(.92,.35)
+            for _ in range(10000):
+                run.advance(.09,lambda x,z:3500.-x*math.sin(course.heading)-z*math.cos(course.heading))
+                if run.mode=='bottom':break
+            self.assertEqual((run.mode,run.score),('bottom',len(course.gates)))

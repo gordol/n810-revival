@@ -29,6 +29,17 @@ class Course:
     jumps:tuple
     bends:int=0
 
+    def gate_line(self,d):
+        """Lane and lateral slope of a smooth carve through each gate centre."""
+        start,lane=0.,0.
+        for end,next_lane in (*self.gates,(self.length,0.)):
+            if d<=end:
+                t=(d-start)/(end-start)
+                delta=next_lane-lane
+                return lane+delta*t*t*(3.-2.*t),delta*6.*t*(1.-t)/(end-start)
+            start,lane=end,next_lane
+        return 0.,0.
+
     def bearing(self,d):
         phase=self.bends*math.tau*d/self.length
         return self.heading+math.atan(12.*self.bends*math.tau/self.length*math.sin(phase))
@@ -68,8 +79,9 @@ class SkiRun:
         self.mode='ready'
         self.distance=self.lane=self.steer=self.speed=self.angle=0.
         self.side_speed=0.
+        self.view_pitch=None
         self.tap_lane=self.tap_point=None
-        self.cue_time=0.
+        self.cue_time=self.manual_time=0.
         self.score=self.landings=0
         self.lift=self.vertical=0.
         self.air_y=None
@@ -129,9 +141,12 @@ class SkiRun:
 
     def tap_slope(self,u,v):
         if self.mode not in ('ready','ski','braked'):return
-        if self.mode!='ski':self.action('brake')
+        starting=self.mode!='ski'
+        if starting:self.action('brake')
         offset=2.*u-1.
         self.tap_lane=max(-10.,min(10.,self.lane+10.*offset))
+        if self.assist and starting:self.tap_lane=None
+        self.manual_time=0. if starting else 1.5
         self.tap_point=(u,v)
         self.cue_time=0.
 
@@ -140,7 +155,11 @@ class SkiRun:
         d=self.distance
         if self.mode=='ski':
             turn=self.steer
-            if abs(turn)>.04:self.tap_lane=None
+            self.manual_time=max(0.,self.manual_time-dt)
+            if abs(turn)>.12:
+                self.tap_lane=None
+                self.manual_time=.65
+            if self.assist and self.manual_time==0.:self.tap_lane=None
             if self.tap_lane is not None:
                 turn=max(-1.,min(1.,(self.tap_lane-self.lane)*.55))
             elif self.tilt and abs(turn)<.04:turn=self.tilt.turn
@@ -153,6 +172,9 @@ class SkiRun:
                 # Small drags command a lateral speed, independent of downhill speed.
                 travel=max(0.,(abs(turn)-.12)/.88)
                 target=math.copysign(2.*travel+4.*travel**3,turn)
+                if self.manual_time==0. and abs(turn)<=.12:
+                    lane,slope=self.course.gate_line(d)
+                    target=max(-14.,min(14.,self.speed*slope+2.5*(lane-self.lane)))
                 response=7. if target==0. else 3.
                 self.side_speed+=(target-self.side_speed)*(-math.expm1(-response*dt))
                 self.angle=math.asin(max(-.48,min(.48,self.side_speed/self.speed)))
@@ -161,7 +183,7 @@ class SkiRun:
                 self.side_speed=self.speed*math.sin(self.angle)
             self.distance=min(self.course.length,d+self.speed*dt*math.cos(self.angle))
             self.lane=max(-10.,min(10.,self.lane+self.speed*dt*math.sin(self.angle)))
-            if self.tap_lane is not None and abs(self.tap_lane-self.lane)<.25:
+            if not self.assist and self.tap_lane is not None and abs(self.tap_lane-self.lane)<.25:
                 self.angle=self.side_speed=0.
             for gate,side in self.course.gates:
                 if d<gate<=self.distance and abs(self.lane-side)<2.7:self.score+=1
@@ -197,6 +219,9 @@ class SkiRun:
         yaw=self.course.bearing(self.distance)+(math.pi if uphill else self.angle)
         ahead=self.course.location(max(0.,self.distance-2.) if uphill else min(self.course.length,self.distance+2.),self.lane)
         pitch=math.atan2(height(x,z)-height(*ahead),2.)*.75+.08
+        if self.mode=='ski' and self.view_pitch is not None:
+            pitch=self.view_pitch+(pitch-self.view_pitch)*(-math.expm1(-5.*dt))
+        self.view_pitch=pitch
         return x,z,yaw,pitch
 
     def draw(self,ink,w,h,camera,aspect,height):

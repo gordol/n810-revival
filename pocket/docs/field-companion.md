@@ -538,7 +538,8 @@ close-up summit patch. The 1.2 km and 2.6 km descents use the broader summit
 terrain and have three and six snow ramps respectively. Cross a blue lip to
 launch automatically, or carve around it. Braking in the air takes effect
 on landing. At the long-course finish, **Ride again** restarts that course.
-Tap the snow to start skiing. Tap left or right to carve toward that side.
+With Assist on, tap the snow once to ski through the gates hands-free. A tap
+or drag during the run lets you steer briefly, then Assist resumes. Tap left or right to carve toward that side.
 Tap the middle to straighten. You can also tap **Glide** and drag sideways to carve
 between the orange flags. **Brake** stops the skis until you tap Glide again.
 Both steering modes can reach 28 m/s downhill. Assist ignores tiny movements
