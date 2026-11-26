@@ -540,7 +540,9 @@ launch automatically, or carve around it. Braking in the air takes effect
 on landing. At the long-course finish, **Ride again** restarts that course.
 Tap **Glide** and drag sideways to carve
 between the orange flags. **Brake** stops the skis until you tap Glide again.
-Assist caps speed at 8 m/s. Turn it off for a faster line. The green flags
+Assist ignores tiny steering movements and caps speed at 5.5 m/s. Drag farther
+for a wider carve. Lift your finger to straighten out. Turn assist off for
+quicker steering and a faster line. The green flags
 mark the runout. On the practice loop choose **Climb back**, then tap alternating grips to traverse
 uphill to the start. **Reset** returns to the top and **Walk** removes the skis.
 On a keyboard, left/right set the carve, up straightens, space operates the

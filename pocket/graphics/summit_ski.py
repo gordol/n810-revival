@@ -129,10 +129,17 @@ class SkiRun:
         if self.mode=='ski':
             turn=self.steer
             if self.tilt and abs(turn)<.04:turn=self.tilt.turn
-            self.angle+=(turn*.73-self.angle)*min(1.,dt*4.)
+            if self.assist:
+                # Ignore resting-thumb jitter, then ease into a deliberate carve.
+                travel=max(0.,(abs(turn)-.12)/.88)
+                target=math.copysign(.50*travel*(.45+.55*travel),turn)
+                response=7. if target==0. else 3.
+                self.angle+=(target-self.angle)*(-math.expm1(-response*dt))
+            else:
+                self.angle+=(turn*.73-self.angle)*min(1.,dt*4.)
             ahead=min(self.course.length,d+1.)
             grade=(height(*self.course.location(d,self.lane))-height(*self.course.location(ahead,self.lane)))/max(.01,ahead-d)
-            cap=8. if self.assist else 15.
+            cap=5.5 if self.assist else 15.
             acceleration=9.81*grade/math.hypot(1.,grade)-.25-.014*self.speed**2
             self.speed=min(cap,max(1.2,self.speed+dt*acceleration))
             if d>self.course.length-30:self.speed=min(self.speed,math.sqrt(2.*1.3*(self.course.length-d))+.35)
