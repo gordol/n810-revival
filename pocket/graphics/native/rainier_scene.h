@@ -69,15 +69,41 @@ static GLuint rainier_program(void){
   "if(highDetail!=0 && tint.a>.46 && tint.a<.50){float bark=noise(vec2((pos.x+pos.z)*21.,pos.y*2.6));col*=.68+.6*bark;}"
   "if(highDetail!=0 && tint.a>.06 && tint.a<.20){vec3 n=normalize(cross(dFdx(pos),dFdy(pos)));"
   "float wax=pow(abs(dot(n,normalize(vec3(-.42,.79,-.44)))),14.);col+=vec3(.28,.34,.43)*wax;}"
+  "if(animal==0 && tint.a>.020 && tint.a<.040){"
+  "vec2 wood=vec2(pos.x+.61*pos.z,2.7*pos.y-.18*pos.z);"
+  "float patch=.66*noise(wood*2.4)+.34*noise(wood*7.);"
+  "float grain=noise(vec2(wood.x*2.7,wood.y*16.)+patch);"
+  "float moss=smoothstep(.16,.46,(tint.a-.030)/.009+.96*(patch-.52));"
+  "vec3 cushion=mix(vec3(.15,.23,.075),vec3(.44,.52,.19),patch+ .28*(grain-.5));"
+  "col=mix(col*(.6+.62*grain),cushion,moss);}"
+  // Cascade tiers repeat at two scales: a sweeping bough, then its sprays.
+  // Interpolated local coordinates keep the pattern fixed to each tree.
+  "if(animal==0 && tint.a>=.639 && tint.a<=.650){"
+  "float h=clamp((tint.a-.640)/.009,0.,1.);float side=2.*tint.r-1.;"
+  "float span=.055+.945*pow(1.-h,.73);float outboard=abs(side)/span;"
+  "float bend=noise(pos.xz*.36+pos.y*.11);"
+  "float phase=h*10.+outboard*.62+.48*bend+.16*side;"
+  "float tiers=.5+.5*cos(6.283*phase);"
+  "float sprays=noise(vec2(side*16.,h*39.)+bend);"
+  "float edge=.41+.49*tiers+.25*(sprays-.40);"
+  "if(outboard>edge)discard;"
+  "float sun=.71+.21*tiers+.28*sprays+.13*side;"
+  "col=vec3(.53*tint.g,tint.g,tint.b)*sun;}"
   // Distant crown vertices encode lateral position in red and height in alpha.
   "if(regional!=0 && tint.a>.539 && tint.a<.561){float h=(tint.a-.54)*50.;"
   "float whorl=fract(h*7.+.18*sin(pos.x+pos.z));float side=abs(2.*tint.r-1.);"
   "if(side>(1.-h)*(.68+.75*whorl)+.08)discard;"
   "float light=.78+.27*whorl+.16*noise(pos.xz*1.4);col=vec3(.55*tint.g,tint.g,tint.b)*light;}"
-  "if(regional!=0 && tint.a>=.499 && tint.a<.516){"
-  "float sprays=noise(pos.xz*4.+pos.y*vec2(1.4,3.6));float needles=noise(pos.xz*15.+pos.y*5.);"
-  "if(tint.a>.509 && sprays+.21*needles<.44)discard;"
-  "col*=.71+.48*sprays+.16*needles;}"
+  // World-space clusters, shoots and needle tips. Fade subpixel octaves
+  // toward their mean so distant foliage holds together during camera motion.
+  "if(animal==0 && tint.a>=.499 && tint.a<.516){"
+  "vec2 uv=vec2(.77*pos.x+.63*pos.z,pos.y*1.35+.35*pos.z);"
+  "float footprint=length(fwidth(uv));float cluster=noise(uv*.82);"
+  "float shoot=mix(noise(uv*2.9+cluster),.5,smoothstep(.12,.45,footprint));"
+  "float tips=mix(noise(uv*9.7+shoot),.5,smoothstep(.035,.14,footprint));"
+  "float cover=.55*cluster+.31*shoot+.14*tips;"
+  "if(tint.a>.509 && cover<.42-.14*smoothstep(.4,1.8,footprint))discard;"
+  "col*=.68+.65*cover;col+=vec3(.028,.047,.013)*smoothstep(.45,.77,cover);}"
   "if(regional!=0 && abs(tint.a-.815)<.003){if(season==2)discard;if(season==1)col*=vec3(1.35,.98,.70);}"
   "if(regional!=0 && abs(tint.a-.83)<.005){float drift=.65*noise(pos.xz*.13)+.35*noise(pos.xz*.46);"
   "if(season==1){vec3 leaves=mix(vec3(.30,.085,.13),vec3(.69,.16,.20),smoothstep(.26,.54,drift));"
@@ -223,56 +249,79 @@ static void river_hiker_band(float bottom,float top,float base,float rim,float r
  glEnd();
 }
 
-/* A cylinder pitched in the rider's sagittal plane, for limbs and frame tubes. */
-static void trail_tube(float x,float y,float z,float dy,float dz,float r,float red,float green,float blue){
- glPushMatrix();glTranslatef(x,y,z);glRotatef(atan2f(dz,dy)*57.29578f,1,0,0);
- river_hiker_band(0,hypotf(dy,dz),r,r,red,green,blue);glPopMatrix();
+/* Pilot-relative equipment pass. The central view stays open for navigation. */
+static void flight_sail_vertex(int powered,float u,float chord,float puff,float light){
+ float side=fabsf(u),profile=sqrtf(fmaxf(0,1-u*u));
+ float depth=powered?3.7f-.55f*u*u:4.25f-1.35f*side;
+ float length=powered?.26f+.95f*profile:1.45f*(1-.85f*side);
+ float height=powered?2.60f-.99f*u*u:2.84f-1.24f*side;
+ float camber=sinf(chord*3.14159f);
+ height+=.09f*camber-(powered?.085f:.016f)*puff*camber-.10f*chord;
+ float red=.86f,green=.34f,blue=.14f;
+ if(chord>.72f || side>.85f){red=.12f;green=.37f;blue=.41f;}
+ else if(chord>.52f){red=.91f;green=.76f;blue=.50f;}
+ if(!powered){
+  red=.83f;green=.85f;blue=.78f;
+  if(chord<.2f){red=.91f;green=.59f;blue=.13f;}
+  if(side>.72f+.13f*chord || side<.025f){red=.15f;green=.37f;blue=.39f;}
+ }
+ glColor3f(red*light,green*light,blue*light);
+ glVertex3f(3.65f*u,height,-depth+chord*length);
 }
 
-static void trail_player(const float *p){
- int mode=(int)p[5],bike=mode==5,ski=mode==3;
- glPushMatrix();glTranslatef(p[0],p[1],p[2]);glRotatef(p[3],0,1,0);
- if(bike){
-  for(int end=-1;end<=1;end+=2){
-   glColor3f(.10f,.13f,.13f);glBegin(GL_QUAD_STRIP);
-   for(int j=0;j<=32;j++){
-    float a=j*.19635f;
-    for(int k=0;k<2;k++){float r=.31f+k*.055f;glVertex3f(0,.365f+r*sinf(a),end*.61f+r*cosf(a));}
-   }
-   glEnd();
-   glColor3f(.53f,.57f,.56f);glBegin(GL_LINES);
-   for(int j=0;j<8;j++){
-    float a=j*.7854f;
-    glVertex3f(0,.365f,end*.61f);glVertex3f(0,.365f+.31f*sinf(a),end*.61f+.31f*cosf(a));
-   }
-   glEnd();
-   trail_tube(0,.365f,end*.61f,.45f,-end*.6f,.047f,.10f,.62f,.60f);
-  }
-  trail_tube(0,.365f,-.61f,.02f,.61f,.038f,.12f,.52f,.55f);
-  trail_tube(0,.39f,0,.52f,.47f,.043f,.12f,.52f,.55f);
-  trail_tube(0,.365f,.61f,.72f,-.15f,.035f,.16f,.22f,.23f);
- }
+static void flight_equipment(const float *flight,int w,int h){
+ int powered=flight[0]>.5f;
+ float aspect=(float)w/h;
+ glMatrixMode(GL_PROJECTION);glLoadIdentity();
+ glFrustum(-.91,.91,.91/aspect,-.91/aspect,1.,12.);
+ glMatrixMode(GL_MODELVIEW);glLoadIdentity();
+ /* Keep the overhead equipment in view with a tall phone viewport. */
+ glScalef(1,1/aspect,1);
+ glRotatef(-7.f*flight[1],0,0,1);
+ glTranslatef(0,.17f*flight[2],0);
+ glDisable(GL_DEPTH_TEST);glUseProgram(0);
  for(int side=-1;side<=1;side+=2){
-  float stride=mode==2?.19f*sinf(p[0]*2+p[2]*2)*side:0;
-  float foot=bike?.39f:.08f,knee=bike?.68f:.47f;
-  trail_tube(side*.12f,foot,stride,knee-foot,.12f-stride,.086f,.19f,.23f,.27f);
-  trail_tube(side*.12f,knee,.12f,.86f-knee,-.13f,.10f,.16f,.21f,.26f);
-  if(ski)trail_tube(side*.17f,.055f,-.72f,.04f,1.65f,.065f,.16f,.58f,.71f);
-  trail_tube(side*.23f,1.27f,.02f,-.31f,bike?.42f:.13f-stride,.064f,.83f,.37f,.13f);
+  if(powered){
+   glColor3f(.32f,.33f,.29f);glBegin(GL_LINES);
+   for(int line=0;line<5;line++){
+    float u=.30f+.15f*line;
+    glVertex3f(side*1.38f,-.08f,-1.72f);
+    glVertex3f(side*3.65f*u,2.60f-.99f*u*u,-3.7f+.55f*u*u);
+   }
+   glEnd();
+   glColor3f(.15f,.19f,.18f);glBegin(GL_QUADS);
+   glVertex3f(side*1.35f,-.08f,-1.72f);glVertex3f(side*1.41f,-.08f,-1.72f);
+   glVertex3f(side*1.63f,-.75f,-1.72f);glVertex3f(side*1.54f,-.75f,-1.72f);glEnd();
+  }else{
+   glBegin(GL_QUAD_STRIP);
+   for(int i=0;i<=8;i++){
+    float a=i*.785398f,c=cosf(a),sn=sinf(a),shine=.65f+.25f*c;
+    glColor3f(shine*.88f,shine*.95f,shine);
+    glVertex3f(side*.28f+.032f*c,2.75f,-3.8f+.032f*sn);
+    glVertex3f(side*1.58f+.032f*c,-1.20f,-1.55f+.032f*sn);
+   }
+   glEnd();
+  }
  }
- river_hiker_band(.83f,1.23f,.20f,.25f,.88f,.38f,.14f);
- river_hiker_band(1.23f,1.38f,.25f,.13f,.78f,.32f,.13f);
- river_hiker_band(1.38f,1.61f,.127f,.14f,.61f,.42f,.29f);
- river_hiker_band(1.57f,1.71f,.16f,.10f,.16f,.46f,.52f);
- if(mode==4)trail_tube(.23f,.96f,.15f,.93f,1.22f,.018f,.34f,.27f,.17f);
- glPopMatrix();
- if(mode==4 && p[9]){
-  float a=p[3]*.01745329f;
-  glColor3f(.82f,.83f,.68f);glBegin(GL_LINES);
-  glVertex3f(p[0]+.23f*cosf(a)+1.37f*sinf(a),p[1]+1.89f,p[2]-.23f*sinf(a)+1.37f*cosf(a));
-  glVertex3fv(p+6);glEnd();
+ const int ribs=powered?32:14;
+ for(int rib=0;rib<ribs;rib++){
+  for(int strip=0;strip<4;strip++){
+   glBegin(GL_TRIANGLE_STRIP);
+   for(int i=0;i<=10;i++){
+    float chord=i*.1f;
+    for(int k=0;k<2;k++){
+     float t=(strip+k)*.25f,puff=sinf(t*3.14159f);
+     float u=2.f*(rib+t)/ribs-1.f;
+     float light=.77f+(powered?.18f:.045f)*puff+.09f*sinf(chord*3.14159f)-.07f*u;
+     if(powered && i==0)light*=.50f;
+     flight_sail_vertex(powered,u,chord,puff,light);
+    }
+   }
+   glEnd();
+  }
  }
 }
+
 int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices,unsigned count,
                          unsigned terrain_count,const unsigned *indices,unsigned ni,
                          const struct rainier_animal *animals,unsigned na,
@@ -435,38 +484,6 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  }
  /* Small rain jackets and knit caps stand out against the dark conifers. */
  glUseProgram(0);
- if(aircraft && aircraft[5]>=2.f)trail_player(aircraft);
- else if(aircraft){
-  glPushMatrix();glTranslatef(aircraft[0],aircraft[1],aircraft[2]);
-  glRotatef(aircraft[3],0,1,0);glRotatef(-aircraft[4]*32.f,0,0,1);
-  river_hiker_band(0,.55f,.20f,.26f,.16f,.22f,.28f);
-  river_hiker_band(.55f,1.1f,.26f,.19f,.92f,.36f,.12f);
-  river_hiker_band(1.1f,1.45f,.17f,.14f,.92f,.80f,.48f);
-  int powered=aircraft[5]>.5f;
-  for(int panel=-8;panel<8;panel++){
-   glColor3f(panel%4==0?.15f:.96f,panel%4==0?.55f:.57f,panel%4==0?.61f:.16f);
-   glBegin(GL_TRIANGLE_STRIP);
-   for(int rib=0;rib<=5;rib++)for(int k=0;k<=1;k++){
-    float u=(panel+k)/8.f,v=rib/5.f;
-    float y=powered?4.7f-1.25f*u*u+.32f*sinf(v*3.14159f):2.4f-.4f*fabsf(u);
-    float z=powered?1.f-2.f*v-.6f*u*u:2.4f-3.5f*fabsf(u)-2.3f*v*(1.f-fabsf(u));
-    glVertex3f(4.6f*u,y,z);
-   }
-   glEnd();
-  }
-  glColor3f(.19f,.23f,.27f);glBegin(GL_LINES);
-  for(int k=-3;k<=3;k+=2){
-   float u=k/3.f;
-   glVertex3f(.25f*u,.8f,0);glVertex3f(4.6f*u,powered?4.7f-1.25f*u*u:2.4f-.4f*fabsf(u),powered?-.6f*u*u:2.4f-3.5f*fabsf(u));
-  }
-  glEnd();
-  if(powered){
-   glBegin(GL_LINE_LOOP);
-   for(int j=0;j<32;j++)glVertex3f(.67f*cosf(j*.19635f),.68f+.67f*sinf(j*.19635f),-.48f);
-   glEnd();
-  }
-  glPopMatrix();
- }
  static const float coats[][3]={{.93f,.47f,.12f},{.12f,.66f,.67f},{.75f,.28f,.40f},
   {.42f,.48f,.81f},{.85f,.67f,.18f},{.50f,.63f,.27f},{.68f,.38f,.65f}};
  for(unsigned i=0;i<nh;i++){
@@ -549,6 +566,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   glReadPixels(x,y,w,h,GL_RGB,GL_UNSIGNED_BYTE,photo);glPopClientAttrib();
  }
  /* Screen-space trail markers: three berries and a pointer to the next stop. */
+ if(aircraft)flight_equipment(aircraft,w,h);
  glLoadIdentity();glMatrixMode(GL_PROJECTION);glLoadIdentity();glOrtho(0,w,0,h,-1,1);
  glUseProgram(0);glDisable(GL_DEPTH_TEST);
  float radius=(w<h?w:h)*.044f;

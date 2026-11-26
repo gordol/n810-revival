@@ -14,7 +14,7 @@ import paradise_meadow as paradise
 from river_channel import TROUT_POOL
 from river_camp import CAMP, OVERLOOK, SUPPLIES, camp_materials, campsite, river_stones
 from river_detail import RiverQuality, shade_tree
-from forest_floor import blade, broadleaf_clump, fern, snag, spruce_sprays, trail_cover
+from forest_floor import blade, broadleaf_clump, fern, nurse_log, snag, spruce_sprays, trail_cover
 from rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from rainier_hike import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from valley_map import ValleyMap
@@ -326,7 +326,8 @@ def build_world(high=True,plant_sites=None,regional=False):
         n=unit(cross(sub(b,a),sub(c,a)))
         light=.74+.26*(n.y*.78-n.x*.52-n.z*.35)
         rgb=tuple(max(0,min(255,v*light))/255 for v in color)
-        for p in (a,b,c):target.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z,*rgb,material))
+        materials=material if isinstance(material,tuple) else (material,material,material)
+        for p,m in zip((a,b,c),materials):target.extend((p.x-origin.x,p.y-origin.y,p.z-origin.z,*rgb,m))
 
     patch=getattr(getattr(field,'inset',None),'inset',None) if regional else None
     distant_patch=array('f')
@@ -480,7 +481,7 @@ def build_world(high=True,plant_sites=None,regional=False):
 
     rng=random.Random(3918)
     branch_rng=random.Random(911)
-    def pine(x,z,h,near):
+    def pine(x,z,h,near,hemlock):
         nonlocal target
         y=surface(field,x,z)-.14
         def ring(height,radius,angle,count):
@@ -488,6 +489,8 @@ def build_world(high=True,plant_sites=None,regional=False):
                         z+math.sin(angle+i*math.tau/count)*radius) for i in range(count)]
         sides=(12 if high else 5) if near else 3
         radius=h*(.017 if h>=25 else .022)
+        bark=(93,80,66) if hemlock else (125,86,61)
+        if not hemlock:radius*=1.22
         bottom=ring(0,radius*1.4,0,sides)
         shoulder=ring(min(2.,h*.13),radius,0,sides) if near else None
         top=ring(h*.88,radius*.30,0,sides)
@@ -495,15 +498,47 @@ def build_world(high=True,plant_sites=None,regional=False):
         for i in range(sides):
             j=(i+1)%sides
             for lo,hi in trunk:
-                face(lo[i],hi[i],lo[j],(106,85,66),.48)
-                face(lo[j],hi[i],hi[j],(106,85,66),.48)
+                face(lo[i],hi[i],lo[j],bark,.48)
+                face(lo[j],hi[i],hi[j],bark,.48)
         shade=rng.uniform(.82,1.13)
-        layers=rng.choice((5,7)) if near else 3
+        layers=rng.choice((5,7)) if near else 0
         needles=rng.choice(((37,75,58),(52,91,66),(64,98,76),(48,82,76)))
         breadth=rng.uniform(.8,1.24)*(.70 if h>=25 else 1.)
         crown_base=.33 if h>=25 else .16
-        tips=(20 if high else 10) if near else 5
+        if hemlock:
+            needles=(46,81,65)
+            breadth*=.91
+            crown_base*=.78
+        else:
+            crown_base+=.12
+            needles=(67,96,74)
+        tips=20 if high else 10
         lean_x,lean_z=(rng.uniform(-.085,.085)*h for _ in range(2))
+        if not near:
+            # Crossed crowns keep an irregular silhouette even when each
+            # individual branch would be smaller than a screen pixel.
+            angle=rng.random()*math.pi
+            for heading in (angle,angle+math.pi/2):
+                dx=breadth*h*.245*math.cos(heading)
+                dz=breadth*h*.245*math.sin(heading)
+                for side,level in ((-1,0),(1,0),(-1,1),(-1,1),(1,0),(1,1)):
+                    cy=crown_base+level*(1-crown_base)
+                    target.extend((x+side*dx+lean_x*cy-origin.x,y+h*cy-origin.y,
+                                   z+side*dz+lean_z*cy-origin.z,(side+1)*.5,
+                                   needles[1]*shade/255,needles[2]*shade/255,.640+.009*level))
+            return
+        if hemlock:
+            # The last shoot bends out past the crown and hangs below its elbow.
+            ax,az=x+lean_x,z+lean_z
+            direction=rng.uniform(0,math.tau)
+            ux,uz=math.cos(direction),math.sin(direction)
+            root=Vec(ax,y+.89*h,az)
+            elbow=Vec(ax+ux*.054*h,y+1.025*h,az+uz*.054*h)
+            end=Vec(ax+ux*.117*h,y+.952*h,az+uz*.117*h)
+            for side in (-1,1):
+                tuft=Vec(elbow.x-side*uz*.012*h,elbow.y-.026*h,elbow.z+side*ux*.012*h)
+                face(root,tuft,elbow,needles)
+                face(elbow,tuft,end,needles)
         for layer in range(layers):
             t=layer/layers;angle=rng.random()*math.tau
             apex=Vec(x+lean_x*(.5+.5*t),y+h*(.58+.42*layer/(layers-1)),z+lean_z*(.5+.5*t))
@@ -515,8 +550,20 @@ def build_world(high=True,plant_sites=None,regional=False):
                 target=detail
                 spruce_sprays(x,y,z,h,t,angle,needles,face,branch_rng,crown_base,breadth)
                 target=triangles
-            for i,p in enumerate(crown):
-                face(apex,p,crown[(i+1)%tips],tuple(v*shade*(.78+.23*t) for v in needles))
+            tone=tuple(v*shade*(.78+.23*t) for v in needles)
+            # Fold each bough along its own ridge and leave sky between tips.
+            for i in range(0,tips,2):
+                if not hemlock and layer<layers//2 and (i//2+layer)%4==0:continue
+                tip=crown[i]
+                left,right=crown[i-1],crown[(i+1)%tips]
+                # Separate flanking boughs toward their outer ends.
+                left=Vec(.56*left.x+.44*tip.x,left.y,.56*left.z+.44*tip.z)
+                right=Vec(.56*right.x+.44*tip.x,right.y,.56*right.z+.44*tip.z)
+                ridge=Vec(.38*apex.x+.62*tip.x,.52*apex.y+.48*tip.y,.38*apex.z+.62*tip.z)
+                face(apex,ridge,left,tone,.506)
+                face(ridge,tip,left,tone,.514)
+                face(apex,right,ridge,tone,.506)
+                face(ridge,right,tip,tone,.514)
     if plant_sites is not None:
         plant_sites.clear()
         plant_sites.extend(('blueberry',x,z) for x,z in BUSHES)
@@ -551,9 +598,11 @@ def build_world(high=True,plant_sites=None,regional=False):
                     blocked=True
                     break
             if blocked:continue
-        if plant_sites is not None and math.hypot(dx,dz)<70:plant_sites.append(("conifer",dx,dz))
+        hemlock=math.sin(dx*7.13+dz*17.61)>.05
+        if plant_sites is not None and math.hypot(dx,dz)<70:
+            plant_sites.append(('western_hemlock' if hemlock else 'douglas_fir',dx,dz))
         shade_tree(shadows,dx,dz,h,texel=2)
-        pine(origin.x+dx,origin.z+dz,h,near)
+        pine(origin.x+dx,origin.z+dz,h,near,hemlock)
         if near and h>30 and floor_rng.random()<(.50 if high else .16):
             # Fern colonies under older trees leave open ground between clumps.
             angle=floor_rng.uniform(0,math.tau)
@@ -565,6 +614,18 @@ def build_world(high=True,plant_sites=None,regional=False):
                 fern(px,pz,surface(field,px,pz),floor_rng.uniform(.95,1.55),face,floor_rng,compact=True)
                 if plant_sites is not None:plant_sites.append(('fern',px,pz))
     def height(x,z):return surface(field,x,z)
+    # Place deadfall on the dry shoulder, parallel to the path.
+    logs=[]
+    log_rng=random.Random(217)
+    for x,z,u,v,length in hiking_segments():
+        px=x+.5*length*u+3.4*v
+        pz=z+.5*length*v-3.4*u
+        if any(math.hypot(px-lx,pz-lz)<37 for lx,lz in logs):continue
+        if any(wet(px+d*u,pz+d*v,segments,1) or
+               min(centerline_distances_sq(px+d*u,pz+d*v,corridors))<1.6 for d in (-3,0,3)):continue
+        nurse_log(px,pz,u,v,height,face,log_rng)
+        logs.append((px,pz))
+        if plant_sites is not None:plant_sites.append(('nurse_log',px,pz))
     water=array('f')
     def water_vertex(p,side,station):
         # The water shader takes cross-stream and downstream metres from RG.
@@ -1448,10 +1509,11 @@ class RainierView:
             near=math.hypot(max(west-x,0.,x-east),max(south-z,0.,z-north))<600.
             if near:omit_first,omit_end=base_count-6*summit_approach.COLUMNS*summit_approach.ROWS,base_count
             else:omit_first,omit_end=base_count,terrain_count
+        equipment=(C.c_float*3)(self.glider.powered,self.glider.bank,self.glider.pitch) if self.glider else None
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high or self.regional else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end,None)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end,equipment)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()

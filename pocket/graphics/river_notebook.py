@@ -72,6 +72,9 @@ PLANTS={
     'paintbrush':('Magenta paintbrush','The bright pink-red tips are bracts, small leaves surrounding the flowers.'),
     'avalanche_lily':('Avalanche lily','Six white petals curve back around yellow anthers. Watch for these lilies where snow has melted.'),
     'blueberry':('Blueberry shrub','Look for round blue berries among the leaves on the trail to the fox.'),
+    'douglas_fir':('Douglas-fir','Look for a thick furrowed trunk and daylight between the big lower branches.'),
+    'western_hemlock':('Western hemlock','Follow the treetop to its slender tip. It bends over like a nodding head.'),
+    'nurse_log':('Nurse log','Look for a row of seedlings rooted in the moss. This fallen trunk holds water as its wood decays.'),
     'conifer':('Evergreen conifer','Step under the low branches and look up through the layers of needles.'),
     'fern':('Forest fern','Look down near the forest floor. Each spreading frond divides into smaller leaflets.'),
 }

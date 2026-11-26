@@ -16,7 +16,13 @@ from river_detail import RiverQuality, shade_tree
 class RiverDetailTests(unittest.TestCase):
     def test_profiles_fit_native_buffers_and_keep_encounters(self):
         for high in (False,True):
-            _,_,vertices,terrain,indices,spans,base,mask=build_world(high)
+            plants=[]
+            _,_,vertices,terrain,indices,spans,base,mask=build_world(high,plants)
+            species={'douglas_fir','western_hemlock','nurse_log'}
+            forest=[site for site in plants if site[0] in species]
+            self.assertEqual({key for key,_,_ in forest},species)
+            if high:self.assertEqual(forest,low_forest)
+            else:low_forest=forest
             self.assertLessEqual(len(vertices)//7,3_000_000 if high else 2_000_000)
             self.assertLessEqual(len(indices),2_000_000)
             from river_walk import channel

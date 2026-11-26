@@ -31,15 +31,20 @@ def fern(x,z,y,size,face,rng,compact=False):
         u,v=math.cos(a),math.sin(a)
         arch=rng.uniform(.38,.72)
         previous=Vec(x,y,z)
-        for i in range(1,10,2 if compact else 1):
-            t=i/10
+        pairs=14 if compact else 23
+        for i in range(1,pairs+1):
+            t=i/(pairs+1)
             p=Vec(x+u*t*length,y+length*(arch*math.sin(t*2.45)+.10*t),z+v*t*length)
-            edge=Vec(p.x-.009*v,p.y,p.z+.009*u)
-            face(previous,p,edge,(109,122,61))
+            edge=Vec(p.x-.006*v*size,p.y,p.z+.006*u*size)
+            face(previous,p,edge,(106,133,63))
             for side in (-1,1):
-                span=length*(.21*math.sin(t*math.pi)**.62+.025)*rng.uniform(.72,1.1)
-                blade(p,a+side*(1.12-.36*t),span,.16*span,.025,(53+i,99+i*2,56),face,steps=2 if compact else 4)
+                span=length*(.16*math.sin(t*math.pi)**.70+.012)*rng.uniform(.91,1.08)
+                offset=side*.19*length/pairs
+                leaflet=Vec(p.x+offset*u,p.y,p.z+offset*v)
+                blade(leaflet,a+side*rng.uniform(1.03,1.25)*(1-.34*t),
+                      span,.085*span,span*(.27-.42*t),(55+13*t,110+29*t,56),face,steps=2)
             previous=p
+        blade(previous,a,length/(pairs+1)*1.4,.012*length,-.035*length,(63,130,60),face,steps=2)
 
 
 def broadleaf_clump(x,y,z,height,color,face,rng):
@@ -81,23 +86,82 @@ def snag(x,y,z,height,face):
     for i,p in enumerate(rings[-1]):face(p,Vec(x,y+height,z),rings[-1][i-1],(162,138,100))
 
 
+def nurse_log(x,z,u,v,height,face,rng):
+    """Rotten wood, a broken end and a moss bed over the dorsal bark."""
+    length=rng.uniform(4.2,5.7)
+    radius=rng.uniform(.30,.47)
+    low=height(x-u*length/2,z-v*length/2)
+    high=height(x+u*length/2,z+v*length/2)
+    def point(t,angle,r):
+        along=(t-.5)*length
+        across=r*math.cos(angle)
+        return Vec(x+along*u-across*v,low+(high-low)*t+radius*.51+r*math.sin(angle),
+                   z+along*v+across*u)
+    sides=14
+    rims=[]
+    for k in range(6):
+        rim=[]
+        for j in range(sides):
+            angle=math.tau*j/sides
+            t=k/5+rng.uniform(-.045,.045)*(1 if k in (0,5) else .3)
+            r=radius*(1.12-.27*t)*rng.uniform(.93,1.05)
+            rim.append(point(t,angle,r))
+        rims.append(rim)
+    for a,b in zip(rims,rims[1:]):
+        for j,p in enumerate(a):
+            nxt=(j+1)%sides
+            # Encode upper-surface exposure continuously so the moss can
+            # break up along the grain without following triangle edges.
+            m=.030+.009*math.sin(j*math.tau/sides)
+            n=.030+.009*math.sin(nxt*math.tau/sides)
+            tone=(100,72,49)
+            face(p,b[j],a[nxt],tone,(m,m,n))
+            face(a[nxt],b[j],b[nxt],tone,(n,m,n))
+    for t,rim in ((0,rims[0]),(1,rims[-1])):
+        core=point(t+(.035 if not t else -.035),0,0)
+        for j,p in enumerate(rim):
+            face(p,rim[j-1],core,(135+7*(j%3),89+4*(j%3),52))
+    for t in (.23,.49,.78):
+        base=point(t,math.pi/2,radius*(1.12-.27*t))
+        h=rng.uniform(.33,.84)
+        peak=Vec(base.x+.03,base.y+h,base.z)
+        face(Vec(base.x-.018,base.y,base.z),Vec(base.x+.018,base.y,base.z),peak,(118,83,53))
+        for j in range(16):
+            f=.15+.048*j
+            angle=j*2.4+rng.uniform(-.21,.21)
+            dx,dz=math.cos(angle),math.sin(angle)
+            reach=h*(1-f)*rng.uniform(.31,.55)
+            root=Vec(base.x,base.y+h*f,base.z)
+            tip=Vec(root.x+reach*dx,root.y+.11*reach,root.z+reach*dz)
+            for side in (-1,1):
+                edge=Vec(root.x+(.53*dx-side*.21*dz)*reach,root.y-.10*reach,
+                         root.z+(.53*dz+side*.21*dx)*reach)
+                face(root,edge,tip,(56+18*f,106+29*f,68))
+
+
 def spruce_sprays(x,y,z,h,t,angle,needles,face,rng,crown_base,breadth):
-    """Layered lateral shoots on the outer silhouette of nearby conifers."""
-    shoots=rng.randint(5,9)
+    """Two orders of lateral growth, with smaller forks toward the bough tip."""
+    shoots=rng.randint(5,8)
     for j in range(shoots):
         a=angle+(j+rng.uniform(-.38,.38))*math.tau/shoots
         u,v=math.cos(a),math.sin(a)
-        reach=h*breadth*(.24-.19*t)*rng.uniform(.65,1.18)
-        for k in range(1,5):
-            f=k/5
-            bx,bz=x+reach*f*u,z+reach*f*v
-            by=y+h*(crown_base+.12+(.84-crown_base)*t)-reach*f*.37
-            tip=Vec(bx+reach*.42*u,by-reach*.06,bz+reach*.42*v)
+        reach=h*breadth*(.24-.19*t)*rng.uniform(.78,1.18)
+        level=y+h*(crown_base+.10+(.86-crown_base)*t)
+        for k in range(3):
+            f=.24+.25*k
+            root=Vec(x+reach*f*u,level-reach*.28*f,z+reach*f*v)
             for side in (-1,1):
-                width=reach*(1-f*.75)*.24*side
-                edge=Vec(bx-width*v+reach*.15*u,by-reach*.12,bz+width*u+reach*.15*v)
-                mid=Vec(bx,by+.03*reach,bz)
-                face(mid,tip,edge,tuple(c*(.80+.19*f) for c in needles))
+                direction=a+side*rng.uniform(.56,.98)
+                dx,dz=math.cos(direction),math.sin(direction)
+                length=reach*(.60-.39*f)*rng.uniform(.83,1.13)
+                tip=Vec(root.x+dx*length,root.y-.16*length,root.z+dz*length)
+                mid=Vec(root.x+.47*dx*length,root.y-.22*length,root.z+.47*dz*length)
+                for fork in (-1,1):
+                    width=fork*.22*length
+                    edge=Vec(mid.x-width*dz,mid.y-.12*length,mid.z+width*dx)
+                    tone=tuple(c*(.87+.12*f+.06*fork) for c in needles)
+                    face(root,mid,edge,tone,.506)
+                    face(mid,tip,edge,tone,.514)
 
 
 def trail_cover(stops,height,wet,face):
