@@ -30,3 +30,8 @@ Seattle shoppers use a repeatable site and visitor seed to select the base
 mesh, clothing tint, height, width, and head width. Set `POCKET_CITY_SEED`
 before launching Pocket to vary the crowd. Purchases follow the shopper's
 activity and keep the same appearance seed.
+
+The renderer reads the hand grip and crown from mesh vertices in each pose
+to position carried bags, caps and cropped curls. Accessories interpolate with the same pose pair as the mesh.
+Seeded outfits add stripes, checks, trouser fabrics and caps. Hair and skin
+materials have independent controls for greying and complexion.

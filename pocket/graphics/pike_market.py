@@ -46,23 +46,6 @@ def floor_height(center,height,x,z):
 def arrival(center):
     return *offset(center,0,-38),HEADING,-.16
 
-# Connected strokes in a 4 by 6 grid, from the bottom left of each letter.
-GLYPHS={
-    'W':('0600224046',),'Y':('062346','2320'),
-    'H':('0006','4046','0343'),
-    'P':('00063645443303',),'U':('060111314146',),'B':('000636455433034241303000',),
-    'L':('060040',),'I':('0646','2620','0040'),'C':('4536160501113141',),
-    'M':('0006234640',),'A':('002640','1232'),'R':('00063645543303','2340'),
-    'K':('0006','0346','1340'),'E':('46060040','0333'),'T':('0646','2620'),
-    'D':('000626453541204000',),'O':('113141453616050111',),
-    '0':('113141453616050111',),'1':('15262620','1040'),
-    '2':('0516364544030040',),'3':('063645443323334241303000',),
-    '4':('3603134330','0333'),'5':('460603334241303000',),'6':('3646160501113141423303',),
-    '7':('064620',),'8':('1131414233130405163645443313020111',),
-    '9':('4131160505163645413030',),
-    'N':('00064046',),'F':('000646','0333'),'S':('453616050413334241303000',),
-}
-
 def build(center,height,quad):
     level=height(*center)
     def point(u,y,v):
@@ -85,14 +68,8 @@ def build(center,height,quad):
         panel(((x-dx,y-dy,depth),(x+dx,y+dy,depth),
                (ex+dx,ey+dy,depth),(ex-dx,ey-dy,depth)),color,material)
     def lettering(words,x,y,depth,size,color):
-        for i,letter in enumerate(words):
-            for path in GLYPHS.get(letter,()):
-                pts=[(x+size*(i*.81+int(path[j])/6),y+size*int(path[j+1])/6)
-                     for j in range(0,len(path),2)]
-                for a,b in zip(pts,pts[1:]):
-                    if a!=b:
-                        stroke(*a,*b,depth,size*.077,tuple(v*.50 for v in color))
-                        stroke(*a,*b,depth-.018,size*.045,color,.247)
+        from market_visit import lettering as typeset
+        typeset(words,x,y,depth,size,lambda points,tone:panel(points,tone,.247),color)
 
     iron=(.16,.19,.18)
     trim=(.28,.34,.31)
@@ -113,6 +90,10 @@ def build(center,height,quad):
                 block(xx,xx+.3,y+.09,y+rng.uniform(.25,.51),8.21,8.60,
                       rng.choice(((.68,.48,.25),(.51,.31,.22),(.76,.62,.39))))
         wall(u-.38,u+.38,2.8,2.94,3.7,(.99,.84,.54),.247)
+        if i==-2:
+            wall(u-1.6,u+1.6,2.34,2.95,5.9,(.18,.25,.22))
+            lettering('DownUnder',u-1.33,2.45,5.87,.34,(.95,.87,.70))
+            continue
         if i in (0,1):continue  # Open passage into the arcade.
         block(u-1.65,u+1.65,-1,1.02,4.5,6,(.44,.29,.16))
         if i in (-1,2):
@@ -155,6 +136,19 @@ def build(center,height,quad):
                 r=rng.uniform(.065,.12)
                 y=1.13+r*.4
                 panel(((cx-r,y,cz),(cx,y+r,cz-.04),(cx+r,y,cz),(cx,y-r,cz+.04)),tone)
+    # Pendant globes and the surviving Loback sign seen down the Main Arcade.
+    for u in range(-24,54,4):
+        block(u-.018,u+.018,2.96,3.55,2.67,2.71,iron)
+        for k in range(12):
+            a,b=k*math.tau/12,(k+1)*math.tau/12
+            def bulb(t,r,y):return u+r*math.cos(t),y,2.69+r*math.sin(t)
+            panel((bulb(a,.10,2.65),bulb(b,.10,2.65),bulb(b,.21,2.82),bulb(a,.21,2.82)),(.96,.84,.59),.247)
+            panel((bulb(a,.21,2.82),bulb(b,.21,2.82),bulb(b,.09,2.99),bulb(a,.09,2.99)),(.96,.86,.65),.247)
+    block(-12,-11.87,2.55,3.4,.30,4.35,(.16,.13,.11))
+    from market_visit import lettering as sign_text
+    def sign_panel(points,color):
+        panel(tuple((-11.86-z,y,.48+x) for x,y,z in points),color,.247)
+    sign_text('LOBACK MEAT CO',0,2.86,0,.31,sign_panel,(.95,.35,.18))
     # The OSM shop point registers this bay. A front ice bed faces the
     # customers, with a separate wrapping counter behind the fishmongers.
     # The operator's counter photograph shows hanging enamel lamps, green

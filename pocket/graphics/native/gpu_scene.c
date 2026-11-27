@@ -31,7 +31,7 @@ struct gpu_scene {
  float wind_low,wind_gust,snow_gain,landing_env;
  struct river_bounds {float x,y,z,r;} *river_blocks;
  SDL_Texture *river_print;int print_w,print_h;
- struct posed_person {GLuint program,mesh,atlas;unsigned nv,ni;float sole[16][2][3];} people[2];
+ struct posed_person {GLuint program,mesh,atlas;unsigned nv,ni,skin_tile;float sole[16][2][3],attachments[16][2][3];} people[2];
  GLuint rainier_shadow,rainier_bloom,rainier_color;int bloom_w,bloom_h,rainier_bloom_failed;
  GLuint rainier_grove,rainier_buffer,rainier_indices,rainier_depth,rainier_program;unsigned rainier_w,rainier_h,rainier_grove_count;
 #endif

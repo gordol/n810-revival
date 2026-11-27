@@ -131,7 +131,41 @@ class OutingTests(unittest.TestCase):
                 if frame<12:
                     self.assertLess(abs(lx-rx),.245)
                     self.assertLess(max(left,right),.08)
-            self.assertEqual(len(data),offset+frames*24+ni*4+nv*12*(1+frames)+w*h*4)
+            grip,crown=(5593,10534) if name=='sam' else (5226,10445)
+            start=offset+frames*24+ni*4+nv*12
+            for frame in range(frames):
+                base=start+nv*12*frame
+                hand=struct.unpack_from('<h',data,base+grip*12+2)[0]
+                head=struct.unpack_from('<h',data,base+crown*12+2)[0]
+                self.assertLess(hand+1200,head)
+            self.assertEqual(len(data),start+nv*12*frames+w*h*4)
+
+    def test_market_levels_are_walkable_offline(self):
+        import market_visit
+        for key in market_visit.FLOORS:
+            field,_,mesh,count,*_=pnw.build_world(key)
+            x,z,*_=market_visit.arrival(key)
+            self.assertEqual((x,z),market_visit.walk_inside(key,x,z))
+            self.assertEqual(len(mesh),7*count)
+            self.assertEqual(field.height(x,z),0.)
+            self.assertNotEqual(market_visit.walk_inside(key,0,8),(0,8))
+            self.assertEqual(market_visit.walk_inside(key,2,1),(2,1))
+
+    def test_downunder_landings_connect_adjacent_floors(self):
+        from market_visit import stairs, stair_exit
+        for floor,upper,lower in [('down5','market','down4'),('down4','down5','down3'),('down3','down4',None)]:
+            self.assertIsNone(stair_exit(floor,-1,-9))
+            self.assertEqual(stair_exit(floor,-1,-12.3),upper)
+            self.assertEqual(stair_exit(floor,1,-12.3),lower)
+            self.assertGreater(stairs(floor,-1,-12.3),stairs(floor,-1,-8))
+            if lower:self.assertLess(stairs(floor,1,-12.3),stairs(floor,1,-8))
+
+    def test_overlook_steps_descend_toward_the_waterfront(self):
+        import market_visit
+        x,z=market_visit.site('overlook')
+        heights=[market_visit.deck_height(lambda *_:18.,x,z+i) for i in range(16,-38,-1)]
+        self.assertEqual(sorted(heights,reverse=True),heights)
+        self.assertGreater(heights[0]-heights[-1],4.)
 
     def test_delivery_yields_on_its_mapped_route(self):
         from market_life import Delivery

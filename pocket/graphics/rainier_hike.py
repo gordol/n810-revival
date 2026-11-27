@@ -436,10 +436,13 @@ class BikeLoop:
         tx,tz=self.position(self.angle+.01)
         return x,z,math.atan2(tx-x,tz-z),.10
 
+from market_visit import DESTINATIONS
+
 class ExploreMenu(HikeMenu):
     groups={'Fly':('Plane from Rainier','Plane from Thun Field','Hang glide','Paramotor'),
             'Mountain sports':('Put on skis','Climb summit ice','Mountain bike loop'),
             'On the water':('Boat on Commencement Bay','Bainbridge ferry'),
+            'Market and waterfront':('Pike Place Market',*DESTINATIONS),
             'Seattle':('Pike Place Market','Fish counter','Seattle Great Wheel','Space Needle'),
             'On foot':('Hoh Rain Forest walk','Local trails and activities')}
 

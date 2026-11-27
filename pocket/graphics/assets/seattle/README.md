@@ -6,3 +6,16 @@ The seasonal flower table represents the Main Arcade farm tables described
 in the Market's [flower farmer history](https://www.pikeplacemarket.org/history-behind-our-hmong-flower-farmers/).
 The honey display represents [Sunny Honey Company](https://www.pikeplacemarket.org/vendor/sunny-honey-company/)
 inside the main entrance. Their in-game bearings lead to reconstructed displays.
+
+The three public DownUnder shopping levels have separate, walkable scene reconstructions.
+The Market identifies [Golden Age Collectables on level 4](https://www.pikeplacemarket.org/vendor/golden-age-collectables/),
+[Ruby’s opposite Sound View Café on level 5](https://www.pikeplacemarket.org/vendor/rubys-seattle-gift-gallery/),
+and [Gradient Art Gallery on level 3](https://www.pikeplacemarket.org/12-gifts-for-kids-and-teens-at-pike-place-market/).
+The numbered levels follow the Market directory. Room dimensions, shop fixtures,
+corridor positions, stair connections, and the district map are authored for gameplay.
+The [Gum Wall](https://www.pikeplacemarket.org/vendor/the-gum-wall/) scene uses brick and gum on both alley walls.
+The waterfront scene uses the steps, benches, and railings visible in the
+[Overlook Walk photo reference](https://waterfrontparkseattle.org/overlook-walk/).
+Lumen Field and T-Mobile Park are exterior skyline models.
+The bakery and coffee counters reference [Piroshky Piroshky](https://www.pikeplacemarket.org/vendor/piroshky-piroshky/)
+and the [1912 Pike Place Starbucks storefront](https://www.seattle.gov/documents/departments/neighborhoods/historicpreservation/historicdistricts/pikeplacemarket/meetingdocuments/2024/mhc082824starbuckspp.pdf).

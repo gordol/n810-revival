@@ -1,5 +1,6 @@
 """Offline georeferenced outings using Mapzen Terrarium elevation tiles."""
 from array import array
+import market_visit
 from concurrent.futures import ThreadPoolExecutor
 import math
 import os
@@ -22,6 +23,8 @@ BAY=(47.295,-122.435)
 OUTINGS={'Plane from Rainier':'plane','Plane from Thun Field':'thun',
          'Boat on Commencement Bay':'boat','Hoh Rain Forest walk':'hoh','Bainbridge ferry':'ferry','Seattle Great Wheel':'wheel',
          'Pike Place Market':'market','Fish counter':'fishshop','Space Needle':'needle'}
+
+OUTINGS.update(market_visit.DESTINATIONS)
 
 def pixel(lat,lon,zoom):
     scale=256*(1<<zoom)
@@ -168,6 +171,7 @@ def build_world(outing):
     from geometry import Vec
     from summit_detail import RegionalTerrain
     region='hoh' if outing=='hoh' else 'sound'
+    if outing in market_visit.FLOORS:return market_visit.indoor(outing)
     raw=elevations(region)
     _,_,_,_,nx,nz=GRIDS[region]
     _,_,d=layout(region)
@@ -278,6 +282,7 @@ def build_world(outing):
         pike_market.build(arcade_origin(),ground,quad)
         buildings(ground,quad)
         space_needle(ground,quad)
+        market_visit.outdoor(ground,quad,box)
     else:
         from forest_floor import broadleaf_clump,nurse_log,fern
         rng=random.Random(47861)

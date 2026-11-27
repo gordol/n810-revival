@@ -94,6 +94,15 @@ static GLuint rainier_program(void){
   "float whorl=fract(h*7.+.18*sin(pos.x+pos.z));float side=abs(2.*tint.r-1.);"
   "if(side>(1.-h)*(.68+.75*whorl)+.08)discard;"
   "float light=.78+.27*whorl+.16*noise(pos.xz*1.4);col=vec3(.55*tint.g,tint.g,tint.b)*light;}"
+  "if(regional==2 && abs(tint.a-.252)<.0001){"
+  "float grain=noise(pos.xz*vec2(3.,54.))*.13+noise(pos.xz*vec2(.8,9.))*.16;"
+  "float tile=mod(floor(pos.z*2.),2.);vec2 seam=abs(fract(pos.xz*vec2(.51,2.)+vec2(tile*.5,0.))-.5);"
+  "float joint=smoothstep(.465,.495,max(seam.x,seam.y))*(1.-smoothstep(.08,.4,length(fwidth(pos.xz))));"
+  "vec2 lamp=vec2(pos.x,mod(pos.z+12.,4.)-2.);float pool=exp(-.16*dot(lamp,lamp));"
+  "col*=vec3(.68,.64,.59)+grain+.52*pool*vec3(1.,.88,.68)-.22*joint;}"
+  "if(regional==2 && abs(tint.a-.253)<.0001){vec2 q=vec2(pos.x+pos.z,pos.y);"
+  "float warm=exp(-.20*pow(mod(pos.z+12.,4.)-2.,2.));"
+  "col*=vec3(.77,.73,.70)+.20*warm*vec3(1.,.87,.69)+.11*noise(q*10.);}"
   "if(regional==2 && abs(tint.a-.241)<.0001){vec2 uv=vec2(pos.x+.65*pos.z,pos.y);"
   "float patina=noise(uv*vec2(.45,.18));float grain=(noise(uv*19.)-.5)*(1.-smoothstep(.02,.10,length(fwidth(uv))));"
   "col*=.86+.24*patina+.14*grain;}"
@@ -308,6 +317,25 @@ static void flight_equipment(const float *flight,int w,int h){
  glRotatef(-7.f*flight[1],0,0,1);
  glTranslatef(0,.17f*flight[2],0);
  glDisable(GL_DEPTH_TEST);glUseProgram(0);
+ if(flight[0]>=5.f){
+  glTranslatef(.87f,1.16f,-1.88f);
+  if(flight[0]==5.f){
+   glRotatef(-18.f,1,0,0);
+   glBegin(GL_QUAD_STRIP);
+   for(int i=0;i<=40;i++){
+    float a=i*.15707963f,l=.85f+.12f*cosf(a);
+    glColor3f(.92f*l,.87f*l,.74f*l);
+    glVertex3f(.195f*sinf(a),-.36f,.195f*cosf(a));
+    glVertex3f(.14f*sinf(a),.25f,.14f*cosf(a));
+   }glEnd();glBegin(GL_TRIANGLE_FAN);glColor3f(.21f,.13f,.08f);glVertex3f(0,-.36f,0);
+   for(int i=0;i<=40;i++)glVertex3f(.19f*sinf(i*.15707963f),-.36f,.19f*cosf(i*.15707963f));
+   glEnd();
+  }else{
+   glRotatef(-24.f,0,0,1);market_body(0,0,0,.30f,.18f,.15f,.85f,.51f,.20f);
+   for(int j=-2;j<=2;j++)market_body(j*.08f,-.09f,.10f,.028f,.044f,.031f,.97f,.71f,.36f);
+  }
+  return;
+ }
  if(flight[0]>=2.f){
   if(flight[0]==2.f){
    /* Cowling and the two narrow windscreen pillars of a light aircraft. */
@@ -558,7 +586,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  for(unsigned i=0;i<nh;i++){
   const float *p=hikers+i*3,*coat=coats[i];
   glPushMatrix();glTranslatef(p[0],p[1],p[2]);
-  market_person_draw(&s->people[i%2],0,12.5f+.45f*sinf(age*.57f+i*1.9f),coat,0.f);
+  market_person_draw(&s->people[i%2],0,12.5f+.45f*sinf(age*.57f+i*1.9f),coat,0.f,0,NULL);
   glPopMatrix();
  }
  if(market_count)market_people(s,market,market_count);

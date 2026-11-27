@@ -53,9 +53,9 @@ static void fishmonger_apron(void){
 /* Paper-wrapped stems in a cross-body market tote. */
 static void market_flowers(void){
  glColor3f(.46f,.32f,.21f);glBegin(GL_QUAD_STRIP);
- for(int j=0;j<=20;j++){
-  float a=j*.15708f,x=-.18f*cosf(a),y=.86f+.60f*sinf(a),z=j<10?.155f:-.15f;
-  glVertex3f(x-.018f,y,z);glVertex3f(x+.018f,y,z);
+ for(int j=0;j<=16;j++){
+  float a=j*3.14159265f/16.f,x=-.19f+.086f*cosf(a),y=.93f+.13f*sinf(a);
+  glVertex3f(x-.009f,y,.15f);glVertex3f(x+.009f,y,.15f);
  }
  glEnd();
  market_body(-.19f,.83f,.14f,.115f,.17f,.08f,.70f,.52f,.33f);
@@ -69,6 +69,36 @@ static void market_flowers(void){
  }
 }
 
+/* Cross sections of a beagle from rump through withers, throat, brow and muzzle.
+   Catmull-Rom interpolation keeps the neck continuous with the rib cage. */
+static void hound_coat(void){
+ static const float rings[][4]={{-.35f,.42f,.012f,.03f},{-.30f,.40f,.093f,.12f},
+  {-.21f,.38f,.12f,.15f},{-.09f,.39f,.105f,.12f},{.06f,.39f,.129f,.16f},
+  {.15f,.42f,.119f,.17f},{.19f,.50f,.091f,.135f},{.220f,.57f,.096f,.108f},
+  {.27f,.57f,.090f,.093f},{.31f,.54f,.070f,.056f},{.384f,.54f,.054f,.044f},{.406f,.54f,.038f,.034f}};
+ for(int j=0;j<33;j++){
+  glBegin(GL_QUAD_STRIP);
+  for(int k=0;k<=28;k++){
+   float a=k*6.2831853f/28.f,up=cosf(a),side=sinf(a);
+   for(int e=0;e<2;e++){
+    int n=(j+e)/3;if(n>10)n=10;
+    float t=(j+e)/3.f-n,v[4];
+    for(int m=0;m<4;m++){
+     float p=rings[n?n-1:0][m],q=rings[n][m],r=rings[n+1][m],s=rings[n<10?n+2:11][m];
+     v[m]=q+.5f*t*((r-p)+t*((2*p-5*q+4*r-s)+t*(3*q-p-3*r+s)));
+    }
+    float light=.79f+.16f*up+.10f*side;
+    int white=up<-.52f || (v[0]>.30f && (fabsf(side)<.28f || up<.55f));
+    int saddle=v[0]<.145f && up>.02f+.23f*sinf(9*v[0]+side);
+    glColor3f(light*(white?.94f:saddle?.17f:.76f),light*(white?.89f:saddle?.14f:.45f),
+              light*(white?.78f:saddle?.13f:.23f));
+    glVertex3f(side*v[2],v[1]+up*v[3],v[0]);
+   }
+  }
+  glEnd();
+ }
+}
+
 static void plaza_dog(float phase,float owner_height){
  glColor3f(.23f,.18f,.15f);glBegin(GL_LINE_STRIP);
  for(int j=0;j<=10;j++){
@@ -76,22 +106,47 @@ static void plaza_dog(float phase,float owner_height){
   glVertex3f(-.58f*t,.46f+(.42f+owner_height)*t-.15f*sinf(t*3.14159f),.17f-.47f*t);
  }
  glEnd();
- market_body(0,.38f,0,.122f,.15f,.25f,.53f,.31f,.15f);
- market_body(0,.51f,.20f,.107f,.13f,.13f,.62f,.39f,.21f);
- market_body(0,.48f,.31f,.063f,.052f,.09f,.61f,.41f,.25f);
- market_body(0,.49f,.39f,.036f,.026f,.023f,.12f,.10f,.08f);
+ hound_coat();
+ market_body(0,.556f,.402f,.043f,.027f,.024f,.105f,.085f,.075f);
  for(int side=-1;side<=1;side+=2){
-  market_body(side*.094f,.52f,.18f,.031f,.092f,.06f,.36f,.21f,.12f);
-  market_body(side*.071f,.55f,.286f,.013f,.014f,.012f,.08f,.07f,.05f);
+  market_body(side*.073f,.590f,.307f,.016f,.017f,.016f,.12f,.085f,.05f);
+  market_body(side*.078f,.597f,.319f,.004f,.004f,.004f,.93f,.91f,.82f);
+  glPushMatrix();glTranslatef(side*.086f,.596f,.221f);
+  glRotatef(13.f+6.f*sinf(phase),1,0,0);
+  market_body(side*.012f,-.074f,-.015f,.032f,.116f,.069f,.40f,.22f,.12f);glPopMatrix();
   for(int end=-1;end<=1;end+=2){
-   glPushMatrix();glTranslatef(side*.078f,.31f,end*.139f);
-   glRotatef(22.f*end*side*sinf(phase),1,0,0);
-   market_body(0,-.124f,0,.036f,.14f,.048f,.49f,.30f,.18f);
-   market_body(0,-.268f,.021f,.036f,.031f,.052f,.39f,.25f,.17f);glPopMatrix();
+   float stride=side*end*sinf(phase);
+   glPushMatrix();glTranslatef(side*.084f,.36f,end*.193f);
+   glRotatef(20.f*stride-(end<0?18.f:0.f),1,0,0);
+   market_body(0,-.074f,0,end<0?.067f:.040f,.115f,end<0?.084f:.049f,.68f,.40f,.22f);
+   glTranslatef(0,-.156f,0);
+   glRotatef((end<0?29.f:0.f)-17.f*fmaxf(0,side*end*cosf(phase)),1,0,0);
+   market_body(0,-.078f,0,.029f,.103f,.034f,.89f,.83f,.70f);
+   market_body(0,-.168f,.017f,.038f,.026f,.059f,.93f,.88f,.78f);glPopMatrix();
   }
  }
- glPushMatrix();glTranslatef(0,.44f,-.20f);glRotatef(18.f*sinf(phase),0,1,0);
- glRotatef(-42.f,1,0,0);market_body(0,.09f,0,.034f,.14f,.042f,.54f,.34f,.18f);glPopMatrix();
+ glPushMatrix();glTranslatef(0,.44f,-.287f);glRotatef(18.f*sinf(phase),0,1,0);
+ glRotatef(-52.f,1,0,0);market_body(0,.084f,0,.033f,.12f,.039f,.66f,.39f,.20f);
+ glRotatef(18.f,1,0,0);market_body(0,.19f,-.019f,.021f,.070f,.024f,.93f,.90f,.79f);glPopMatrix();
+}
+
+/* Rounded crown with a higher hairline at the brow and curls down the nape. */
+static void cropped_curls(float grey){
+ for(int row=0;row<13;row++){
+  glBegin(GL_QUAD_STRIP);
+  for(int i=0;i<=48;i++){
+   float a=i*6.2831853f/48.f;
+   for(int j=row;j<=row+1;j++){
+    float t=j/13.f*(1.73f-.48f*cosf(a));
+    float curl=sinf(15*a+.6f*j)*sinf(j*1.8f);
+    float radius=sinf(t)*(1.f+.043f*curl);
+    float light=.72f+.19f*cosf(t)+.11f*curl;
+    glColor3f(light*(.18f+.39f*grey),light*(.13f+.41f*grey),light*(.105f+.43f*grey));
+    glVertex3f(.123f*radius*sinf(a),-.033f+.125f*cosf(t),.128f*radius*cosf(a));
+   }
+  }
+  glEnd();
+ }
 }
 
 static void market_people(struct gpu_scene *s,const float *actors,unsigned count){
@@ -120,10 +175,23 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
    float size=kind==1?.96f+.025f*seed:.93f+.020f*((seed>>7)&7u);
    float width=kind==1?1.02f:.94f+.024f*((seed>>10)&7u);
    glScalef(width,size,size);
+   float anchors[2][3]={{0}};
    market_person_draw(&s->people[kind==0 && (seed&1)],kind,pose,kind==1?coats[3+seed]:coat,
-                      kind==1?0.f:((int)((seed>>2)&15u)-7)*.009f);
+                      kind==1?0.f:((int)((seed>>2)&15u)-7)*.009f,kind==0?seed:0,anchors);
    if(kind==1)fishmonger_apron();
-   if(kind==0 && (identity&32768u))market_flowers();
+   if(kind==0 && (identity&32768u)){
+    glPushMatrix();glTranslatef(anchors[0][0]+.19f,anchors[0][1]-1.06f,anchors[0][2]-.15f);
+    market_flowers();glPopMatrix();
+   }
+   unsigned hair=(seed>>4)&3u;
+   if(kind==0 && (hair==1 || hair==2)){
+    glPushMatrix();glTranslatef(anchors[1][0]+.044f,anchors[1][1],anchors[1][2]-.041f);
+    if(hair==2)cropped_curls(((seed>>11)&3u)/3.f);
+    else{
+    market_body(0,.025f,0,.113f,.075f,.113f,.23f,.28f,.31f);
+    market_body(0,.002f,.115f,.095f,.010f,.080f,.19f,.22f,.24f);}
+    glPopMatrix();
+   }
   }else if(kind==7){
    plaza_dog(pose,p[6]);
   }else if(kind==6){

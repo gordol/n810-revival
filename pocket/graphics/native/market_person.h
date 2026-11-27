@@ -17,6 +17,16 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
  if(sizeof(header)+sizeof(model->sole)+geometry+4u*w*h!=bytes)return SDL_SetError("Invalid market mesh length");
  memcpy(model->sole,(const unsigned char *)data+sizeof(header),sizeof(model->sole));
  const unsigned char *mesh=(const unsigned char *)data+sizeof(header)+sizeof(model->sole);
+ /* Stable grip and crown vertices in the two packaged NPC3 topologies. */
+ static const unsigned anchor_vertex[2][2]={{5593,10534},{5226,10445}};
+ const int16_t *posed=(const int16_t *)(mesh+4u*ni+12u*nv);
+ for(unsigned j=0;j<2;j++){
+  unsigned v=anchor_vertex[slot][j];
+  if(v>=nv)return SDL_SetError("Missing market person attachment");
+  for(unsigned f=0;f<frames;f++)for(unsigned k=0;k<3;k++)
+   model->attachments[f][j][k]=posed[6u*(f*nv+v)+k]*.0001f;
+ }
+ model->skin_tile=slot==0?6u:5u;
  const uint32_t *indices=(const uint32_t *)mesh;
  for(unsigned i=0;i<ni;i++)if(indices[i]>=nv)return SDL_SetError("Invalid person index");
  if(scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
@@ -29,10 +39,15 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
   "light=.68+.33*max(0.,dot(n,normalize(vec3(-.47,.79,.38))))+.09*n.y;"
   "uv=gl_MultiTexCoord0.xyz;gl_Position=gl_ModelViewProjectionMatrix*vec4(pos,1.);}";
  const char *fs="#version 120\n"
-  "uniform vec3 coat;uniform int worker;uniform sampler2D atlas;varying vec3 uv;varying float light;"
+  "uniform vec3 coat;uniform float complexion,grey,skinTile;uniform int worker,outfit,hair;uniform sampler2D atlas;varying vec3 uv;varying float light;"
   "void main(){vec4 c=texture2D(atlas,uv.xy);if(c.a<.46)discard;"
   "vec3 paint=c.rgb;if(uv.z>.5 && uv.z<2.5)paint*=uv.z<1.5?coat:vec3(.19,.22,.25);"
-  "if(worker!=0 && uv.z>2.5)paint=mix(vec3(.075,.08,.07),vec3(.25,.25,.22),c.g);"
+  "if(uv.z>.5 && uv.z<1.5 && outfit>0){vec2 p=fract(uv.xy*4.);float line=smoothstep(.76,.95,cos(96.*p.y));"
+  "if(outfit==2)line=max(line,smoothstep(.79,.95,cos(80.*p.x)));paint=mix(paint,vec3(.78,.74,.60)*c.r,.40*line);}"
+  "if(outfit==3 && uv.z>1.5 && uv.z<2.5)paint=c.rgb*vec3(.49,.42,.31);"
+  "float tile=floor(uv.x*4.)+4.*floor(uv.y*4.);if(tile==skinTile)paint*=mix(vec3(1.),vec3(.60,.43,.36),complexion);"
+  "if(tile==skinTile+2. && hair==2)discard;if(tile==skinTile+2.)paint=mix(paint,vec3(.28)+.68*c.rgb,grey);"
+  "if(worker!=0 && uv.z>2.5 && uv.z<3.5)paint=mix(vec3(.075,.08,.07),vec3(.25,.25,.22),c.g);"
   "gl_FragColor=vec4(paint*light,1.);}";
 
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return -1;
@@ -62,7 +77,7 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
  return 0;
 }
 
-static void market_person_draw(struct posed_person *model,int kind,float pose,const float *coat,float face){
+static void market_person_draw(struct posed_person *model,int kind,float pose,const float *coat,float face,unsigned identity,float anchors[2][3]){
  if(!model->program)return;
  /* Strides wrap. The standing keys share planted feet. A throw or
     catch starts from its own resting stance; pose 18 settles from a stride. */
@@ -80,6 +95,9 @@ static void market_person_draw(struct posed_person *model,int kind,float pose,co
   a=0;b=12;weight=pose-18.f;
  }
  weight=fmaxf(0.f,fminf(1.f,weight));
+ if(anchors)for(int j=0;j<2;j++)for(int k=0;k<3;k++){
+  float u=model->attachments[a][j][k],v=model->attachments[b][j][k];anchors[j][k]=u+(v-u)*weight;
+ }
  glPushAttrib(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_CURRENT_BIT);
  glDisable(GL_TEXTURE_2D);glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
  for(int side=0;side<2;side++){
@@ -108,6 +126,11 @@ static void market_person_draw(struct posed_person *model,int kind,float pose,co
  glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,model->atlas);
  glUseProgram(model->program);
  glUniform1f(glGetUniformLocation(model->program,"blend"),weight);
+ glUniform1i(glGetUniformLocation(model->program,"outfit"),(identity>>8)&3u);
+ glUniform1f(glGetUniformLocation(model->program,"complexion"),((identity>>1)&7u)/7.f);
+ glUniform1i(glGetUniformLocation(model->program,"hair"),(identity>>4)&3u);
+ glUniform1f(glGetUniformLocation(model->program,"skinTile"),(float)model->skin_tile);
+ glUniform1f(glGetUniformLocation(model->program,"grey"),((identity>>11)&3u)/3.f);
  glUniform1f(glGetUniformLocation(model->program,"face"),face);
  glUniform3fv(glGetUniformLocation(model->program,"coat"),1,coat);
  glUniform1i(glGetUniformLocation(model->program,"worker"),kind==1);
