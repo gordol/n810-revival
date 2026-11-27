@@ -374,8 +374,8 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             scene=self.pixel_scene
             menu=getattr(scene,'notebook',None)
             paused=hasattr(menu,'button')
-            if paused:
-                button={'up':11,'down':12,'left':13,'right':14,'enter':0,'\r':0,'escape':1,'\x1b':1,'pause':6}.get(key)
+            if paused or hasattr(menu,'menu_button'):
+                button={'up':11,'down':12,'left':13,'right':14,'enter':0,'\r':0,'space':0,' ':0,'escape':1,'\x1b':1,'pause':6}.get(key)
                 if press and button is not None:scene.controller_button(button)
                 return True
             if key in ('pause','escape','\x1b') and getattr(scene,'pause_owner',None) and scene.world and not menu:

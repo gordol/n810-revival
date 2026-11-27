@@ -112,7 +112,11 @@ int pocket_window_event(int out[6]){
   if(e.type==SDL_CONTROLLERBUTTONDOWN && pad && input_window &&
      SDL_GetKeyboardFocus()==input_window->window &&
      e.cbutton.which==SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad))){
-   out[0]=10;out[1]=e.cbutton.button;return 1;
+   out[0]=10;out[1]=e.cbutton.button;
+   if(e.cbutton.button==SDL_CONTROLLER_BUTTON_RIGHTSHOULDER &&
+      SDL_GameControllerGetButton(pad,SDL_CONTROLLER_BUTTON_LEFTSHOULDER))
+    out[1]=SDL_CONTROLLER_BUTTON_START;
+   return 1;
   }
   if(e.type==SDL_QUIT){out[0]=1;return 1;}
   if(e.type==SDL_WINDOWEVENT){
@@ -120,6 +124,13 @@ int pocket_window_event(int out[6]){
    if(e.window.event==SDL_WINDOWEVENT_FOCUS_LOST){memset(contacts,0,sizeof contacts);SDL_SetRelativeMouseMode(SDL_FALSE);out[0]=6;return 1;}
    if(e.window.event==SDL_WINDOWEVENT_SIZE_CHANGED&&dynamic_canvas){out[0]=8;out[1]=e.window.data1;out[2]=e.window.data2;return 1;}
    if(e.window.event==SDL_WINDOWEVENT_SIZE_CHANGED||e.window.event==SDL_WINDOWEVENT_EXPOSED){out[0]=4;return 1;}
+  }
+  if(e.type==SDL_KEYDOWN || e.type==SDL_KEYUP){
+   SDL_Keycode key=e.key.keysym.sym;
+   if(key==SDLK_PAUSE || key==SDLK_MENU || key==SDLK_APPLICATION || key==SDLK_F10){
+    if(e.type==SDL_KEYDOWN && !e.key.repeat){out[0]=10;out[1]=SDL_CONTROLLER_BUTTON_START;return 1;}
+    continue;
+   }
   }
   if(e.type==SDL_KEYDOWN&&!e.key.repeat&&input_window){
    SDL_Keycode key=e.key.keysym.sym;SDL_Keymod mods=e.key.keysym.mod;

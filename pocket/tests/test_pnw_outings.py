@@ -439,6 +439,21 @@ class OutingTests(unittest.TestCase):
         view.controller_button(12)
         self.assertEqual(plane.flaps,1)
 
+    def test_controller_selects_explore_destination(self):
+        from unittest.mock import Mock
+        from pnw.scene import RainierView
+        view=RainierView(SimpleNamespace())
+        menu=view.notebook=ExploreMenu(view)
+        view.start_outing=Mock()
+        view.controller_button(12)
+        self.assertIn('> Fly',menu.menu_lines(40))
+        view.controller_button(0)
+        self.assertEqual(menu.group,'Fly')
+        view.controller_button(12)
+        self.assertIn('> Thun Field hangar',menu.menu_lines(40))
+        view.controller_button(14)
+        view.start_outing.assert_called_once_with('hangar')
+
     def test_boat_stops_at_land(self):
         boat=SoundVehicle('boat',SimpleNamespace(height=lambda x,z:0))
         start=boat.x,boat.z

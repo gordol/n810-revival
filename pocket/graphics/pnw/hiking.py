@@ -35,6 +35,35 @@ class HikeMenu:
     def __init__(self,view):
         self.view=view
         self.trip=False
+        self.selected_row=None
+
+    def menu_lines(self,width):
+        rows=list(self.lines(width))
+        if self.selected_row is not None and self.selected_row<len(rows):
+            rows[self.selected_row]='> '+rows[self.selected_row]
+        return tuple(rows)
+
+    def menu_button(self,button):
+        if self.view.travel_job:return
+        rows=self.lines(80)
+        choices=[i for i,label in enumerate(rows) if label and label!=self.view.travel_error]
+        choices=choices[1:]  # The first nonempty row is the page title.
+        if getattr(self,'group',None)=='Credits':choices=[rows.index('Back')]
+        if not choices:return
+        if button in (11,12):
+            step=1 if button==12 else -1
+            if self.selected_row in choices:
+                self.selected_row=choices[(choices.index(self.selected_row)+step)%len(choices)]
+            else:self.selected_row=choices[0 if step==1 else -1]
+        elif button in (0,14,1,13):
+            if button in (1,13):
+                target=next((i for i in choices if rows[i] in ('Back','Back to walk')),None)
+                if target is None:
+                    self.view.notebook=None
+                    return
+            else:target=self.selected_row if self.selected_row in choices else choices[0]
+            if not self.tap_xy(0,target):self.view.notebook=None
+            if self.lines(80)!=rows:self.selected_row=None
 
     def trip_spacing(self):
         return 2 if self.view.host.window(self.view.name).h>=23 else 1

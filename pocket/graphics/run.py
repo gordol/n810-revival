@@ -64,6 +64,11 @@ class DesktopWindow(Window):
             elif kind==10:
                 scene=self.controller_scene()
                 if scene:scene.controller_button(x)
+                else:
+                    key={0:'\r',1:'\x1b',11:'up',12:'down',13:'left',14:'right'}.get(x)
+                    if key:
+                        yield dict(action='key',key=key,released=False)
+                        yield dict(action='key',key=key,released=True)
             elif kind in (2,9):
                 if not self.captured and (repeat or target is None):
                     host=self.platform.host

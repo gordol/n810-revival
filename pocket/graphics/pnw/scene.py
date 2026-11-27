@@ -786,6 +786,7 @@ class RainierView:
     def lines(self):
         if self.error:return ('Rainier terrain could not open.',self.error)
         if self.world is None:return ('Opening Ohanapecosh River…',)
+        if isinstance(self.notebook,HikeMenu):return self.notebook.menu_lines(self.host.window(self.name).w-2)
         if self.notebook:return self.notebook.lines(self.host.window(self.name).w-2)
         if self.album:
             from pnw.wildlife_models import NAMES
@@ -1115,7 +1116,10 @@ class RainierView:
             self.pause_game()
             return
         if self.notebook:
-            if isinstance(self.notebook,DiscoveryBook):
+            if isinstance(self.notebook,HikeMenu):
+                self.notebook.menu_button(button)
+                self.pixel_dirty=True
+            elif isinstance(self.notebook,DiscoveryBook):
                 if button==1:self.notebook=None
                 elif button in (13,14):self.notebook.turn_page(-1 if button==13 else 1)
                 self.pixel_dirty=True

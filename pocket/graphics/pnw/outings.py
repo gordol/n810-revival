@@ -417,6 +417,8 @@ class PauseMenu:
         elif button==0:self.activate()
         elif button in (13,14) and self.page in ('Controller','Flight controls') and self.selected<2:
             self.activate(1 if button==14 else -1)
+        elif button==14:self.activate()
+        elif button==13:self.button(1)
         elif button==6 or (button==1 and self.page=='Paused'):self.view.resume_game()
         elif button==1:self.page='Paused';self.selected=0
 

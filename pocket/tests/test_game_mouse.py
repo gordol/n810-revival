@@ -19,10 +19,14 @@ class GameMouse(unittest.TestCase):
   self.active=True;self.motion=[];self.buttons=[];self.releases=[]
   self.app=SimpleNamespace(input_role='game',name='Doom',_active=lambda:self.active,pointer_motion=lambda *v:self.motion.append(v),pointer_button=lambda *v:self.buttons.append(v),release_pointer=lambda:self.releases.append(True))
   self.window=scope['DesktopWindow']();self.window.lib=Events()
-  host=SimpleNamespace(origin=(0,0),window=lambda name:name,bounds=lambda w:(0,0,100,30))
+  host=SimpleNamespace(launcher_lines=(),focus='Doom',origin=(0,0),window=lambda name:name,bounds=lambda w:(0,0,100,30))
   self.window.platform=SimpleNamespace(pixel_apps=[self.app],host=host)
  def event(self,*raw):
   self.window.lib.queue.append(raw);return list(self.window.events())
+ def test_controller_select_in_shell_menu(self):
+  self.window.platform.host.launcher_lines=('Apps',)
+  self.assertEqual(self.event(10,0,0,0,0,0),[
+   dict(action='key',key='\r',released=False),dict(action='key',key='\r',released=True)])
  def test_capture_motion_fire_and_escape_stays_in_app(self):
   self.assertFalse(self.window.captured)
   self.assertEqual(self.event(2,400,240,0,0,0),[]);self.assertTrue(self.window.captured)

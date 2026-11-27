@@ -683,8 +683,12 @@ in the private data directory. Cached patches work offline until evicted. For sc
 a 10 × 10 km area at 1 m/pixel is about 286 MiB of uncompressed RGB imagery before
 elevation, structures or vegetation. Actual JPEG download sizes depend on the scene.
 
-Start / Options pauses local play. Press it again to resume. In the pause menu,
-D-pad up/down moves the selection, A / Cross selects, and B / Circle goes back.
+Start / Options pauses local play. Press it again to resume. If Android captures
+that button, hold LB / L1 and tap RB / R1. A controller that sends keyboard events
+can use F10, Menu, or Pause for the same action. In the pause menu,
+D-pad up/down highlights a row, A / Cross or D-pad right selects, and B / Circle
+or D-pad left goes back. Explore and Hike use the same controls. On a controller
+setting, left and right cycle its value.
 Flight controls saves your pitch direction and aileron response. Flight guide lists
 the bindings. In the plane you can also tap Pause. The View / Create button opens the
 flight wheel while flying. Press D-pad up for cruise power, left for the next
