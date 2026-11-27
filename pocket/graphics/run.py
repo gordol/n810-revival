@@ -155,6 +155,7 @@ class DesktopWindow(Window):
 def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     p.add_argument('--state',type=Path,default=Path.home()/'.local/state/current-world/graphics')
+    p.add_argument('--explore',action='store_true',help='Open Rainier Walk and Northwest outings at startup')
     p.add_argument('--mobile-shell',action='store_true')
     p.add_argument('--ui-scale',type=int,choices=(1,2,3,4),default=2 if os.environ.get('POCKET_TERMUX')=='1' else 1,help='Scale desktop pixels and pointer targets together')
     p.add_argument('--seconds',type=float)
@@ -184,8 +185,12 @@ def main():
         gpu_effects=provider_module.Provider();restore_effects=gpu_effects.install(platform)
     if window:window.platform=platform
     start=time.monotonic();base_events=platform.events;resize_stage=0
+    open_explorer=args.explore
     def events():
-        nonlocal resize_stage
+        nonlocal resize_stage,open_explorer
+        if open_explorer and platform.frames:
+            open_explorer=False
+            platform.registry.open('rainier-walk')
         if window:
             for room,control in list(getattr(window,'controls',{}).items()):
                 control.advance(time.monotonic(),room);room.set_eye_height(340.+control.height)

@@ -29,8 +29,27 @@ graphics-native:
 	$(PYTHON) graphics/build.py
 graphics-check: graphics-native
 	$(PYTHON) graphics/check.py $(EXTRA)
-gui:
-	$(PYTHON) graphics/gui.py $(EXTRA)
+# Keep Mac graphics dependencies in the ignored build tree.
+GUI_PYTHON = $(PYTHON)
+ifeq ($(shell uname -s),Darwin)
+GUI_PYTHON = build/mac-gui/bin/python
+MAC_GUI_BOOTSTRAP = build/mac-gui/.installed
+$(MAC_GUI_BOOTSTRAP): requirements-graphics-macos.txt Makefile
+	@command -v brew >/dev/null || { echo "Install Homebrew, then retry." >&2; exit 1; }
+	brew install sdl2 python@3.12
+	"$$(brew --prefix python@3.12)/bin/python3.12" -m venv build/mac-gui
+	$(GUI_PYTHON) -m pip install Pillow -r requirements-graphics-macos.txt
+	touch $@
+gui explore: export SDL_RENDER_DRIVER ?= opengl
+endif
+
+gui: $(MAC_GUI_BOOTSTRAP)
+	$(GUI_PYTHON) graphics/gui.py $(EXTRA)
+
+.PHONY: explore
+explore: $(MAC_GUI_BOOTSTRAP)
+	$(MAKE) terrain-prepare PYTHON="$(GUI_PYTHON)"
+	$(GUI_PYTHON) graphics/gui.py --explore $(EXTRA)
 
 # Area-selected map acquisition and local derived levels.
 include maps.mk

@@ -13,41 +13,28 @@ Follow [Set up an N810](../../docs/start.md), then
 Install Python 3.11 or newer, Make, a C compiler, Python development headers,
 SDL2 and OpenGL development libraries.
 
-On macOS, install the Command Line Tools and SDL2:
+On macOS, install Homebrew and the Xcode Command Line Tools. From the
+repository root or `pocket/`, run:
 
 ```sh
-xcode-select --install
-brew install sdl2
+make explore
 ```
+
+This prepares the Sound, Hoh and Rainier terrain, reuses cached terrain on later
+runs, and opens Rainier Walk. Choose **Explore** in the app for flights, ferries
+and other outings. Use `make gui` to open the full desktop. Both commands set up
+SDL2 and a local Python environment on the Mac. Apple Silicon uses the GPU for
+map and background effects by default. The 3D scene uses OpenGL.
 
 On Debian:
 
 ```sh
-sudo apt-get install build-essential python3-dev libsdl2-dev libgl1-mesa-dev
+sudo apt-get install build-essential python3-dev libsdl2-dev libgl1-mesa-dev python3-pil
+make explore
 ```
 
-From the repository root:
-
-```sh
-cd pocket
-make gui
-```
-
-The first launch builds the native libraries in `build/graphics/`, then opens
-Pocket. Later launches reuse the build. Close the window to quit.
-
-On Apple Silicon, GPU map and background effects use Python 3.12 or newer and:
-
-```sh
-python3 -m pip install -r requirements-graphics-macos.txt
-make gui
-```
-
-To select CPU map and background effects:
-
-```sh
-make gui EXTRA='--effect-backend cpu'
-```
+The first launch builds the native libraries in `pocket/build/graphics/`.
+Later launches reuse the build. Close the window to quit.
 
 ## Controls
 
