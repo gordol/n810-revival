@@ -113,9 +113,6 @@ int pocket_window_event(int out[6]){
      SDL_GetKeyboardFocus()==input_window->window &&
      e.cbutton.which==SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad))){
    out[0]=10;out[1]=e.cbutton.button;
-   if(e.cbutton.button==SDL_CONTROLLER_BUTTON_RIGHTSHOULDER &&
-      SDL_GameControllerGetButton(pad,SDL_CONTROLLER_BUTTON_LEFTSHOULDER))
-    out[1]=SDL_CONTROLLER_BUTTON_START;
    return 1;
   }
   if(e.type==SDL_QUIT){out[0]=1;return 1;}
