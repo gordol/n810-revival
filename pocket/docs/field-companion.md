@@ -647,6 +647,12 @@ attitude indicator, and altitude above sea level in feet. On the altimeter,
 the longest hand makes one turn per 1,000 feet, the middle hand per 10,000,
 and the shortest per 100,000. The navigation display gives terrain clearance in metres.
 
+Under **Explore → Fly**, choose **Research jet from Rainier** for a flying start
+above the mountain. This fictional survey aircraft shares the trainer's controls
+and the prepared Puget Sound terrain. Its canopy HUD shows speed in km/h.
+Use Y / Triangle for full power, or hold RT / R2 to increase throttle gradually.
+Level full power is about 1,510 km/h. The trainer reaches 540 km/h.
+
 Start / Options pauses local play. Press it again to resume. In the pause menu,
 D-pad up/down moves the selection, A / Cross selects, and B / Circle goes back.
 Flight controls saves your pitch direction and aileron response. Flight guide lists

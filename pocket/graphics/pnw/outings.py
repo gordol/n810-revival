@@ -1,5 +1,6 @@
 """Regional travel, aircraft, and scenes for Pacific Northwest outings."""
 from array import array
+from dataclasses import dataclass
 import math
 import random
 from struct import Struct
@@ -14,7 +15,22 @@ PLACES=(('Thun Field',47.104,-122.287),('Tacoma waterfront',47.266,-122.449),
         ('Tacoma Narrows Airport',47.268,-122.578),('Seattle waterfront',47.604,-122.339),
         ('Rainier',46.852,-121.760))
 BAY=(47.295,-122.435)
-OUTINGS={'Plane from Rainier':'plane','Plane from Thun Field':'thun',
+@dataclass(frozen=True)
+class Aircraft:
+    approach: float  # m/s
+    maximum: float
+    stall: float
+    cruise_power: float
+    roll_rate: float  # degrees/second
+    spool_time: float  # seconds
+    brakes: float  # m/s²
+
+
+TRAINER=Aircraft(32.,150.,25.,48./118.,95.,1.,4.)
+RESEARCH_JET=Aircraft(65.,420.,50.,.60,135.,4.,8.)
+AIRCRAFT={'plane':TRAINER,'thun':TRAINER,'jet':RESEARCH_JET}
+
+OUTINGS={'Plane from Rainier':'plane','Plane from Thun Field':'thun','Research jet from Rainier':'jet',
          'Boat on Commencement Bay':'boat','Hoh Rain Forest walk':'hoh','Bainbridge ferry':'ferry','Seattle Great Wheel':'wheel',
          'Pike Place Market':'market','Fish counter':'fishshop','Space Needle':'needle'}
 
@@ -230,7 +246,7 @@ def terrain_grid_mesh(field, raw, aerial, region):
 
 
 class ExploreMenu(HikeMenu):
-    groups={'Fly':('Plane from Rainier','Plane from Thun Field','Hang glide','Paramotor'),
+    groups={'Fly':('Plane from Rainier','Plane from Thun Field','Research jet from Rainier','Hang glide','Paramotor'),
             'Mountain sports':('Put on skis','Climb summit ice','Mountain bike loop'),
             'On the water':('Boat on Commencement Bay','Bainbridge ferry'),
             'Market and waterfront':('Pike Place Market',*market_visit.DESTINATIONS),
@@ -287,7 +303,7 @@ class PauseMenu:
             return ('Pitch: '+prefs['flight-pitch'],'Roll: '+prefs['flight-roll'],'Back')
         if self.page=='Flight guide':
             return ('Next page','Back')
-        flight=self.view.outing in ('plane','thun') and self.view.glider
+        flight=self.view.outing in AIRCRAFT and self.view.glider
         rows=('Resume','Flight controls','Flight guide')
         return rows+('Leave aircraft',) if flight else rows
 
@@ -353,6 +369,7 @@ class SoundVehicle(HangGlider):
         from types import SimpleNamespace
         self.kind=kind
         self.boat=kind=='boat'
+        self.aircraft=AIRCRAFT.get(kind)
         self.stops=[(name,*location('sound',lat,lon)) for name,lat,lon in PLACES]
         from pnw.seattle_places import places
         self.stops.append(('Space Needle',*places()['Space Needle']))
@@ -360,8 +377,10 @@ class SoundVehicle(HangGlider):
         self.target_index=3 if self.boat else 1 if kind=='thun' else 0
         x,z=location('sound',*BAY) if self.boat else self.stops[0 if kind=='thun' else 4][1:]
         super().__init__(SimpleNamespace(x=x,z=z,heading=0),field.height,True)
-        self.altitude=0. if self.boat else field.height(x,z)+350.
-        self.speed=0. if self.boat else 80.
+        self.altitude=0. if self.boat else field.height(x,z)+(1200. if kind=='jet' else 350.)
+        self.throttle=self.aircraft.cruise_power if self.aircraft else 0.
+        self.speed=(self.aircraft.approach+(self.aircraft.maximum-self.aircraft.approach)*self.throttle
+                    if self.aircraft else 0.)
         _,tx,tz=self.stops[self.target_index]
         self.heading=math.atan2(tx-x,tz-z)
 
@@ -373,7 +392,6 @@ class SoundVehicle(HangGlider):
         self.look=(0.,0.)
         self.look_yaw=self.look_pitch=0.
         self.roll_gain=1.
-        self.throttle=48./118.
         self.roll_state=None
         if kind=='thun':
             rx,rz,self.heading,_,_=self.runways[0]
@@ -391,7 +409,7 @@ class SoundVehicle(HangGlider):
 
     def toggle_speed(self):
         super().toggle_speed()
-        self.throttle=1. if self.fast else 48./118.
+        self.throttle=1. if self.fast else self.aircraft.cruise_power if self.aircraft else 0.
 
     def runway_at(self,x,z):
         for rx,rz,yaw,length,width in self.runways:
@@ -421,12 +439,12 @@ class SoundVehicle(HangGlider):
                     self.heading=yaw if along<length/2 else yaw+math.pi
                     self.roll_state='takeoff'
             if self.roll_state=='takeoff':self.speed+=3.8*dt
-            elif self.roll_state=='rollout':self.speed=max(0.,self.speed-4.*dt)
+            elif self.roll_state=='rollout':self.speed=max(0.,self.speed-self.aircraft.brakes*dt)
             self.x+=math.sin(self.heading)*self.speed*dt
             self.z+=math.cos(self.heading)*self.speed*dt
             self.altitude=height(self.x,self.z)+.3
             self.clearance=.3
-            if self.roll_state=='takeoff' and self.speed>=32:self.roll_state='climbout'
+            if self.roll_state=='takeoff' and self.speed>=self.aircraft.approach:self.roll_state='climbout'
             elif self.roll_state=='rollout' and self.speed==0:self.roll_state='parked'
             return self.x,self.z,self.heading+self.look_yaw,.03+self.look_pitch
         roll=self.stick+self.drag[0]+('right' in self.keys)-('left' in self.keys)
@@ -436,20 +454,20 @@ class SoundVehicle(HangGlider):
         if self.boat:
             self.bank+=(roll-self.bank)*smooth
         else:
-            self.roll_rate+=(roll*self.roll_gain*math.radians(95)-self.roll_rate)*smooth
+            self.roll_rate+=(roll*self.roll_gain*math.radians(self.aircraft.roll_rate)-self.roll_rate)*smooth
             self.roll_angle=math.remainder(self.roll_angle+self.roll_rate*dt,math.tau)
             self.bank=self.roll_angle/math.radians(55)
         self.pitch+=(max(-1.,min(1.,pitch))-self.pitch)*smooth
-        cruise=(22. if self.fast else 10.) if self.boat else 32.+118.*self.throttle
-        if self.descending:cruise=0. if self.boat else 32.
+        cruise=(22. if self.fast else 10.) if self.boat else self.aircraft.approach+(self.aircraft.maximum-self.aircraft.approach)*self.throttle
+        if self.descending:cruise=0. if self.boat else self.aircraft.approach
         if not self.boat and not self.descending:
             cruise=max(12.,cruise-8.*(1.-self.throttle)+17.*self.pitch-3.*self.flaps)
-        self.speed+=(cruise-self.speed)*(-math.expm1(-dt))
+        self.speed+=(cruise-self.speed)*(-math.expm1(-dt/(self.aircraft.spool_time if self.aircraft else 1.)))
         if self.boat:self.heading+=self.bank*dt*.64
         else:
             # Bounded lateral lift through knife-edge and inverted attitudes.
             self.heading+=dt*(9.81*math.sin(self.roll_angle)*(1.-self.pitch)/max(20.,self.speed)+.14*self.rudder)
-            stall_speed=25.-2.*self.flaps+6.*max(0.,-self.pitch)
+            stall_speed=self.aircraft.stall-2.*self.flaps+6.*max(0.,-self.pitch)
             self.stalled=self.roll_state is None and self.speed<stall_speed+(3. if self.stalled else 0.)
         west,east,south,north=limits
         x=max(west,min(east,self.x+self.speed*dt*math.sin(self.heading)))
@@ -465,14 +483,14 @@ class SoundVehicle(HangGlider):
             if self.roll_state=='climbout':
                 next_alt=self.altitude+dt*9.
                 if next_alt-ground>=30 or self.descending:self.roll_state=None
-            manual_approach=self.roll_state is None and self.speed<39. and abs(self.bank)<.18 and 0<=self.pitch<=.30
+            manual_approach=self.roll_state is None and self.speed<self.aircraft.approach+7. and abs(self.bank)<.18 and 0<=self.pitch<=.30
             strip=self.runway_at(x,z) if self.descending or manual_approach else None
             on_approach=False
-            if strip and self.speed<39.:
+            if strip and self.speed<self.aircraft.approach+7.:
                 yaw,along,length=strip
                 aligned=math.cos(self.heading-yaw)
                 remaining=length-along if aligned>0 else along
-                on_approach=abs(aligned)>.97 and remaining>self.speed**2/8.+3.
+                on_approach=abs(aligned)>.97 and remaining>self.speed**2/(2.*self.aircraft.brakes)+3.
                 if on_approach and next_alt<=ground+.3:
                     self.heading=yaw if aligned>0 else yaw+math.pi
                     self.descending=False;self.roll_state='rollout'
@@ -510,6 +528,7 @@ class SoundVehicle(HangGlider):
                f'HDG {round(math.degrees(self.heading))%360:03d}  {power}',
                f'{round(self.clearance)} m AGL')
         status='STALL: nose down + power' if self.stalled else f'Flaps {self.flaps*10} deg'
+        if self.kind=='jet':lines=(f'Research jet  {self.speed*3.6:.0f} km/h',*lines)
         lines+=(status,)
         lines+=('Start: pause   View: wheel',)
         ink.fill((.5,.6,min(w,max(map(len,lines))+1),len(lines)+.6),0x14231FE8)

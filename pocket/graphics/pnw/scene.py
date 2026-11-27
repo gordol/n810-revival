@@ -17,7 +17,7 @@ from pnw.river_detail import RiverQuality, shade_tree
 from pnw.forest_floor import blade, broadleaf_clump, fern, nurse_log, snag, spruce_sprays, trail_cover
 from pnw.rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from pnw import market_visit
-from pnw.outings import ExploreMenu,PauseMenu,SoundVehicle
+from pnw.outings import AIRCRAFT,ExploreMenu,PauseMenu,SoundVehicle
 from pnw.hiking import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from pnw.valley_map import ValleyMap
 from pnw.river_fishing import Fishing,vibration,watch_rod
@@ -1116,15 +1116,15 @@ class RainierView:
             if button==1:self.bike=None
             return
         if self.glider:
-            if self.outing in ('thun','plane') and button==4:
+            if self.outing in AIRCRAFT and button==4:
                 self.glider.menu=not self.glider.menu
                 self.glider.cancel_input()
-            elif self.outing in ('thun','plane') and self.glider.menu:
+            elif self.outing in AIRCRAFT and self.glider.menu:
                 if button==11:self.glider.toggle_speed()
                 elif button==13:self.glider.toggle_motor()
                 elif button==14:self.glider.descending=not self.glider.descending
                 self.glider.menu=False
-            elif self.outing in ('thun','plane') and button in (11,12):
+            elif self.outing in AIRCRAFT and button in (11,12):
                 self.glider.flaps=max(0,min(2,self.glider.flaps+(1 if button==12 else -1)))
             elif button==1:self.end_flight()
             elif button==3:self.glider.toggle_speed()
@@ -1432,7 +1432,7 @@ class RainierView:
                         self.shop_target=None
                         self.delivery=Delivery()
                         self.fish_counter=FishCounter()
-                    if self.outing in ('plane','thun','boat'):
+                    if self.outing in AIRCRAFT or self.outing=='boat':
                         self.glider=SoundVehicle(self.outing,world[0])
                     elif self.outing in ('market','fishshop'):
                         from pnw.seattle_places import arcade_origin
@@ -1770,17 +1770,21 @@ class RainierView:
             near=math.hypot(max(west-x,0.,x-east),max(south-z,0.,z-north))<600.
             if near:omit_first,omit_end=base_count-6*summit_approach.COLUMNS*summit_approach.ROWS,base_count
             else:omit_first,omit_end=base_count,terrain_count
-        equipment=(C.c_float*3)(3 if self.outing=="boat" else 2 if self.outing in ("thun","plane") else self.glider.powered,self.glider.bank,self.glider.pitch) if self.glider else None
-        if self.glider and self.outing in ('thun','plane'):
-            from pnw.cockpit import panel
-            setup=ctx.lib.pocket_scene_cockpit
-            setup.argtypes=[C.c_void_p,C.c_void_p,C.c_float,C.c_float]
-            ctx.check(setup(ctx.handle,None if self.cockpit_ready else panel(),self.glider.speed,self.glider.altitude))
+        equipment=None
+        if self.glider:
+            mode={'boat':3,'jet':9}.get(self.outing,2 if self.outing in AIRCRAFT else self.glider.powered)
+            equipment=(C.c_float*3)(mode,self.glider.bank,self.glider.pitch)
+        if self.glider and self.outing in AIRCRAFT:
+            if self.outing!='jet':
+                from pnw.cockpit import panel
+                setup=ctx.lib.pocket_scene_cockpit
+                setup.argtypes=[C.c_void_p,C.c_void_p,C.c_float,C.c_float]
+                ctx.check(setup(ctx.handle,None if self.cockpit_ready else panel(),self.glider.speed,self.glider.altitude))
+                self.cockpit_ready=True
             look=ctx.lib.pocket_scene_cockpit_look
             look.argtypes=[C.c_void_p,C.c_float,C.c_float]
             look.restype=None
             look(ctx.handle,self.glider.look_yaw,self.glider.look_pitch)
-            self.cockpit_ready=True
         if self.outing and getattr(self,'market_snack',None) and not equipment and not (self.lens or self.binoculars):
             equipment=(C.c_float*3)({'coffee':5,'piroshky':6,'flowers':7,'honey':8}[self.market_snack],0.,0.)
         if self.outing=='ferry':equipment=(C.c_float*3)(4,0.,0.)

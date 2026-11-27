@@ -280,6 +280,27 @@ class OutingTests(unittest.TestCase):
         self.assertAlmostEqual(plane.speed,0.)
         self.assertIsNotNone(plane.runway_at(plane.x,plane.z))
 
+    def test_research_jet_cruise_full_power_and_landing(self):
+        ground=lambda x,z:0.
+        limits=(-1e7,1e7,-1e7,1e7)
+        field=SimpleNamespace(height=ground)
+        jet=SoundVehicle('jet',field)
+        trainer=SoundVehicle('plane',field)
+        self.assertGreater(jet.speed,3*trainer.speed)
+        jet.toggle_speed()
+        trainer.toggle_speed()
+        for _ in range(350):
+            jet.advance(.1,ground,limits)
+            trainer.advance(.1,ground,limits)
+        self.assertAlmostEqual(jet.speed,420.,delta=.1)
+        self.assertAlmostEqual(trainer.speed,150.,delta=.1)
+        jet.x,jet.z,jet.heading,_,_=jet.runways[1]
+        jet.altitude=5.
+        jet.speed=65.
+        jet.descending=True
+        for _ in range(140):jet.advance(.1,ground,limits)
+        self.assertEqual(jet.roll_state,'parked')
+
     def test_plane_manual_approach_and_controller_release(self):
         ground=lambda x,z:0.
         plane=SoundVehicle('plane',SimpleNamespace(height=ground))

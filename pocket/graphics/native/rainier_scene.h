@@ -395,7 +395,35 @@ static void trainer_panel(struct gpu_scene *s,const float *flight,int w,int h){
  glColor3f(.98f,.73f,.22f);glRectf(466,144,490,148);glRectf(510,144,534,148);
  glRectf(497,144,503,149);
 }
+/* Swept canopy bow and combiner glass of the civilian research cockpit. */
+static void research_cockpit(struct gpu_scene *s,const float *flight,int w,int h){
+ glMatrixMode(GL_PROJECTION);glLoadIdentity();glOrtho(-1,1,-1,1,-1,1);
+ glMatrixMode(GL_MODELVIEW);glLoadIdentity();
+ glTranslatef(-1.24f*tanf(s->cockpit_look_yaw),-1.24f*w/h*tanf(s->cockpit_look_pitch),0);
+ glDisable(GL_TEXTURE_2D);glDisable(GL_DEPTH_TEST);glUseProgram(0);
+ glBegin(GL_QUAD_STRIP);
+ for(int i=0;i<=80;i++){
+  float a=i*.039269908f,x=cosf(a),y=sinf(a);
+  glColor3f(.08f,.12f,.14f);glVertex2f(1.12f*x,.78f-1.76f*y);
+  glColor3f(.28f,.34f,.36f);glVertex2f(1.15f*x,.78f-1.80f*y);
+ }
+ glEnd();
+ glBegin(GL_TRIANGLE_FAN);glColor3f(.055f,.08f,.09f);
+ glVertex2f(0,1.1f);glVertex2f(-1.1f,1);glVertex2f(-.49f,.78f);
+ glVertex2f(-.26f,.68f);glVertex2f(.26f,.68f);glVertex2f(.49f,.78f);glVertex2f(1.1f,1);
+ glEnd();
+ glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+ glColor4f(.27f,.73f,.67f,.17f);glBegin(GL_QUADS);
+ glVertex2f(-.26f,.67f);glVertex2f(-.20f,.26f);glVertex2f(.20f,.26f);glVertex2f(.26f,.67f);glEnd();
+ glDisable(GL_BLEND);
+ glTranslatef(0,.47f,0);glScalef((float)h/w,1,1);
+ glColor3f(.55f,1.f,.72f);glRectf(-.035f,-.003f,.035f,.003f);
+ glRotatef(-55.f*flight[1],0,0,1);
+ glTranslatef(0,-.12f*flight[2],0);
+ glRectf(-.10f,-.003f,-.05f,.003f);glRectf(.05f,-.003f,.10f,.003f);
+}
 static void flight_equipment(struct gpu_scene *s,const float *flight,int w,int h){
+ if(flight[0]==9.f){research_cockpit(s,flight,w,h);return;}
  int powered=flight[0]>.5f;
  float aspect=(float)w/h;
  glMatrixMode(GL_PROJECTION);glLoadIdentity();
@@ -579,7 +607,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
  glUseProgram(s->rainier_program);
  GLint sky_pass=glGetUniformLocation(s->rainier_program,"skyPass");
- float roll=aircraft && aircraft[0]==2.f?55.f*aircraft[1]:0.f;
+ float roll=aircraft && (aircraft[0]==2.f || aircraft[0]==9.f)?55.f*aircraft[1]:0.f;
  float cb=cosf(roll*.017453293f),sb=sinf(roll*.017453293f);
  glUniform2f(glGetUniformLocation(s->rainier_program,"bankCS"),cb,sb);
  glUniform1i(sky_pass,1);

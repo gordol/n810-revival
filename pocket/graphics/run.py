@@ -132,7 +132,7 @@ class DesktopWindow(Window):
                 dpad=self.lib.pocket_window_flight_dpad()
                 scene.glider.stick=scene.pad_sticks[0]
                 scene.glider.pitch_stick=-scene.pad_sticks[1]
-                if scene.outing in ('plane','thun'):
+                if getattr(scene.glider,'aircraft',None):
                     scene.glider.roll_gain=scene.roll_gain
                     scene.glider.pitch_stick=scene.pad_sticks[1]*scene.pitch_sign
                     if scene.glider.menu:
