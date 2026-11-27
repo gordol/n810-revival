@@ -1,3 +1,8 @@
 Places extracted from OpenStreetMap on 2026-11-27. © OpenStreetMap contributors, licensed under the [Open Database License](https://www.openstreetmap.org/copyright). Coordinates are WGS84. Nodes are POI markers. Way points are footprint bounding-box centers. Resolve each source at https://www.openstreetmap.org/{osm_type}/{osm_id}. A POI identifies a business or landmark, not the corners of its counter or its interior layout.
 
 The same attribution and ODbL license apply to delivery.csv and buildings.json. Delivery coordinates follow OSM ways 8071901, 1382688147 and 13526138 in their mapped direction. The building extract covers Seattle Center, downtown and a small part of Ballard. Each record contains its source way ID as key, original height or floor-count tag and value, exterior coordinates, and triangulated roof indices. The extractor skips multipolygons and incomplete ways. Regenerate with pocket/tools/seattle_buildings.py against OSM API 0.6 map exports for bounding boxes (-122.354,47.6158,-122.3420,47.6240), (-122.343,47.600,-122.329,47.614) and (-122.395,47.6665,-122.3900,47.6698).
+
+The seasonal flower table represents the Main Arcade farm tables described
+in the Market's [flower farmer history](https://www.pikeplacemarket.org/history-behind-our-hmong-flower-farmers/).
+The honey display represents [Sunny Honey Company](https://www.pikeplacemarket.org/vendor/sunny-honey-company/)
+inside the main entrance. Their in-game bearings lead to reconstructed displays.

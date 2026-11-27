@@ -63,6 +63,28 @@ class OutingTests(unittest.TestCase):
                 self.assertLess(abs(math.remainder(now[4]-last[4],360)),18)
             previous=current
 
+    def test_seeded_shopper_keeps_identity_and_purchase(self):
+        from market_life import BOUQUET,actors,shopper
+        def visitor(age):
+            identity=shopper('flower table',0)
+            return next(row for row in actors(age,lambda x,z:0,None)
+                        if row[0]==0 and row[6]&~BOUQUET==identity)
+        self.assertEqual(0,visitor(1)[6]&BOUQUET)
+        self.assertEqual(visitor(1)[6]|BOUQUET,visitor(2)[6])
+        self.assertEqual(visitor(2)[6],visitor(39)[6])
+        self.assertNotEqual(shopper('market',1,'Seattle'),shopper('market',1,'Tacoma'))
+
+    def test_plaza_dog_tracks_walker_on_sloping_ground(self):
+        from market_life import plaza_walkers
+        ground=lambda x,z:.1*x-.04*z
+        for age in (0,9,70):
+            owner,dog,*others=plaza_walkers(age,ground)
+            self.assertEqual((owner[0],dog[0]),(0,7))
+            self.assertAlmostEqual(dog[2],ground(dog[1],dog[3]))
+            self.assertAlmostEqual(owner[2]-dog[2],dog[6])
+            self.assertAlmostEqual(math.hypot(owner[1]-dog[1],owner[3]-dog[3]),math.hypot(.76,.30))
+            self.assertEqual(len(others),3)
+
     def test_workers_rest_independently_and_reach_in_sequence(self):
         from market_life import actors
         def poses(age,since):

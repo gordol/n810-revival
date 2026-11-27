@@ -22,8 +22,9 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
  if(scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
  if(model->program)return 0;
  const char *vs="#version 120\n"
-  "uniform float blend;varying vec3 uv;varying float light;"
+  "uniform float blend,face;varying vec3 uv;varying float light;"
   "void main(){vec3 pos=mix(gl_Vertex.xyz,gl_MultiTexCoord1.xyz,blend)*.0001;"
+  "pos.x*=1.+face*smoothstep(1.37,1.54,pos.y);"
   "vec3 n=normalize(mix(gl_Normal,gl_MultiTexCoord2.xyz/32767.,blend));"
   "light=.68+.33*max(0.,dot(n,normalize(vec3(-.47,.79,.38))))+.09*n.y;"
   "uv=gl_MultiTexCoord0.xyz;gl_Position=gl_ModelViewProjectionMatrix*vec4(pos,1.);}";
@@ -61,7 +62,7 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
  return 0;
 }
 
-static void market_person_draw(struct posed_person *model,int kind,float pose,const float *coat){
+static void market_person_draw(struct posed_person *model,int kind,float pose,const float *coat,float face){
  if(!model->program)return;
  /* Strides wrap. The standing keys share planted feet. A throw or
     catch starts from its own resting stance; pose 18 settles from a stride. */
@@ -107,6 +108,7 @@ static void market_person_draw(struct posed_person *model,int kind,float pose,co
  glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,model->atlas);
  glUseProgram(model->program);
  glUniform1f(glGetUniformLocation(model->program,"blend"),weight);
+ glUniform1f(glGetUniformLocation(model->program,"face"),face);
  glUniform3fv(glGetUniformLocation(model->program,"coat"),1,coat);
  glUniform1i(glGetUniformLocation(model->program,"worker"),kind==1);
  glDrawElements(GL_TRIANGLES,model->ni,GL_UNSIGNED_INT,0);

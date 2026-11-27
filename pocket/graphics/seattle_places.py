@@ -90,10 +90,19 @@ def buildings(height,quad):
         for a,b,c in zip(roof[::3],roof[1::3],roof[2::3]):
             quad([(points[k][0],top,points[k][1]) for k in (a,b,c,c)],(.47,.48,.46))
 
+@lru_cache(maxsize=1)
+def market_shops():
+    from pike_market import offset
+    shops={k:v for k,v in places().items() if k not in ('Space Needle','Ballard Clay')}
+    # Bearings lead to the reconstructed shop fronts inside the playable arcade.
+    shops['Flower farm table']=offset(arcade_origin(),-4,4.5)
+    shops['Sunny Honey Company']=offset(arcade_origin(),8,4.5)
+    return shops
+
 class MarketDirectory:
     def __init__(self,view):
         self.view=view
-        self.names=[name for name in places() if name not in ('Space Needle','Ballard Clay')]
+        self.names=list(market_shops())
 
     def lines(self,width):
         return ('Market directory','','Choose a shop for a bearing.','',
@@ -108,7 +117,7 @@ class MarketDirectory:
         return False
 
 def bearing_label(name,x,z):
-    tx,tz=places()[name]
+    tx,tz=market_shops()[name]
     degrees=math.degrees(math.atan2(tx-x,tz-z))%360.
     compass=('N','NE','E','SE','S','SW','W','NW')[int((degrees+22.5)//45)%8]
     return f'{name}  {round(math.hypot(tx-x,tz-z))} m {compass}'

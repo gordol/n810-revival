@@ -1218,7 +1218,10 @@ class RainierView:
         if self.outing in ('market','fishshop') and self.camera and not (self.lens or self.binoculars):
             from seattle_places import places
             buttons.append(('shops','Shops',(width-11,height-5,10,4)))
-            if math.dist(self.camera[:2],places()['Pike Place Fish Market'])<13 and self.age>=self.fish_counter.player_ready:
+            fx,fz=places()['Pike Place Fish Market']
+            from pike_market import C,S
+            along_counter=(self.camera[0]-fx)*C-(self.camera[1]-fz)*S
+            if abs(along_counter)<3.2 and math.dist(self.camera[:2],(fx,fz))<13 and self.age>=self.fish_counter.player_ready:
                 buttons.append(('order','Order a fish',(1,height-5,15,4)))
         if not self.regional and self.camera and not (self.lens or self.binoculars):
             position=self.camera[:2]
@@ -1646,6 +1649,8 @@ class RainierView:
         if self.outing=='ferry':equipment=(C.c_float*3)(4,0.,0.)
         market=None
         actor_count=0
+        poses=[]
+        ground=self.walk_height
         if self.outing in ('market','fishshop'):
             from seattle_places import places
             if math.dist((x,z),places()['Pike Place Fish Market'])<120:
@@ -1653,17 +1658,25 @@ class RainierView:
                 poses=actors(self.age,self.walk_height,self.fish_counter.advance(self.age))
                 van=self.delivery.advance(self.age,(x,z),poses,self.walk_height)
                 if van:poses.append(van)
-                actor_count=len(poses)
-                packed=[]
-                for pose in poses:
-                    slopes=(0.,0.)
-                    if pose[0]<=1:
-                        px,py,pz=pose[1:4]
-                        slopes=(self.walk_height(px+.25,pz)-self.walk_height(px-.25,pz),
-                                self.walk_height(px,pz+.25)-self.walk_height(px,pz-.25))
-                        slopes=tuple(2*slope for slope in slopes)
-                    packed.extend((*pose,*slopes))
-                market=(C.c_float*len(packed))(*packed)
+        elif self.outing=='needle':
+            from market_life import plaza_walkers
+            from seattle_places import places
+            nx,nz=places()['Space Needle']
+            if math.hypot(x-nx,z-(nz-183))<140:
+                ground=lambda px,pz:surface(field,px,pz)
+                poses=plaza_walkers(self.age,ground)
+        if poses:
+            actor_count=len(poses)
+            packed=[]
+            for pose in poses:
+                slopes=(0.,0.)
+                if pose[0]<=1:
+                    px,py,pz=pose[1:4]
+                    slopes=(ground(px+.25,pz)-ground(px-.25,pz),
+                            ground(px,pz+.25)-ground(px,pz-.25))
+                    slopes=tuple(2*slope for slope in slopes)
+                packed.extend((*pose,*slopes))
+            market=(C.c_float*len(packed))(*packed)
         needed=set(range(min(2,len(hikers)//3)))
         if actor_count:needed.update(int(p[6])%2 if p[0]==0 else 0 for p in poses if p[0]<=1)
         if needed-self.person_slots:
@@ -1726,8 +1739,8 @@ class RainierView:
                 place={'ferry':'Seattle – Bainbridge ferry','wheel':'Pier 57 · Great Wheel','market':'Pike Place Market','fishshop':'Pike Place Fish Market','needle':'Space Needle','hoh':'Hoh Rain Forest'}
                 label=place[self.outing]
                 if self.outing in ('market','fishshop'):
-                    from seattle_places import places
-                    distance,name=min((math.dist((x,z),point),name) for name,point in places().items())
+                    from seattle_places import market_shops
+                    distance,name=min((math.dist((x,z),point),name) for name,point in market_shops().items())
                     if distance<=18:label=name
                     if self.shop_target:
                         from seattle_places import bearing_label

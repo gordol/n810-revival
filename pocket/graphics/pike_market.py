@@ -48,6 +48,7 @@ def arrival(center):
 
 # Connected strokes in a 4 by 6 grid, from the bottom left of each letter.
 GLYPHS={
+    'W':('0600224046',),'Y':('062346','2320'),
     'H':('0006','4046','0343'),
     'P':('00063645443303',),'U':('060111314146',),'B':('000636455433034241303000',),
     'L':('060040',),'I':('0646','2620','0040'),'C':('4536160501113141',),
@@ -114,6 +115,38 @@ def build(center,height,quad):
         wall(u-.38,u+.38,2.8,2.94,3.7,(.99,.84,.54),.247)
         if i in (0,1):continue  # Open passage into the arcade.
         block(u-1.65,u+1.65,-1,1.02,4.5,6,(.44,.29,.16))
+        if i in (-1,2):
+            flowers=i==-1
+            sign='FLOWERS' if flowers else 'HONEY'
+            wall(u-1.2,u+1.2,1.82,2.27,6.15,(.21,.34,.25))
+            lettering(sign,u-1.,1.87,6.13,.31,(.98,.92,.74))
+            for j in range(8 if flowers else 16):
+                x=u-1.28+(j%8)*.36
+                z=4.85+(j//8)*.40
+                r=.13 if flowers else .087
+                for k in range(10):
+                    a,b=k*math.tau/10,(k+1)*math.tau/10
+                    ax,az=x+r*math.cos(a),z+r*math.sin(a)
+                    bx,bz=x+r*math.cos(b),z+r*math.sin(b)
+                    top=1.29 if flowers else 1.21
+                    shade=.78+.18*math.cos(a)
+                    tone=(.45,.53,.50) if flowers else (.90,.48,.09)
+                    panel(((ax,1.02,az),(bx,1.02,bz),(bx,top,bz),(ax,top,az)),tuple(c*shade for c in tone))
+                    panel(((ax,top,az),(bx,top,bz),(x,top,z),(x,top,z)),(.32,.39,.34) if flowers else (.83,.71,.39))
+                if flowers:
+                    for k in range(9):
+                        theta=k*2.40+j
+                        ex=x+.16*math.cos(theta)
+                        ez=z+.15*math.sin(theta)
+                        ey=1.53+.08*math.sin(k*1.7)
+                        panel(((x-.008,1.25,z),(x+.008,1.25,z),(ex+.008,ey,ez),(ex-.008,ey,ez)),(.21,.39,.16))
+                        for petal in range(6):
+                            a=petal*math.tau/6
+                            dx,dz=.059*math.cos(a),.059*math.sin(a)
+                            panel(((ex,ey,ez),(ex+dx*.55-dz*.40,ey+.011,ez+dz*.55+dx*.40),
+                                   (ex+dx,ey+.025,ez+dz),(ex+dx*.55+dz*.40,ey+.011,ez+dz*.55-dx*.40)),
+                                  ((.86,.26,.43),(.94,.71,.23),(.80,.54,.84))[j%3])
+            continue
         for k,tone in enumerate(((.76,.33,.12),(.49,.58,.19),(.80,.58,.16))):
             xx=u-1.6+k
             block(xx,xx+.92,1.02,1.12,4.56,5.78,(.51,.37,.21))

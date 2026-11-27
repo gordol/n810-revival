@@ -50,6 +50,50 @@ static void fishmonger_apron(void){
  }
 }
 
+/* Paper-wrapped stems in a cross-body market tote. */
+static void market_flowers(void){
+ glColor3f(.46f,.32f,.21f);glBegin(GL_QUAD_STRIP);
+ for(int j=0;j<=20;j++){
+  float a=j*.15708f,x=-.18f*cosf(a),y=.86f+.60f*sinf(a),z=j<10?.155f:-.15f;
+  glVertex3f(x-.018f,y,z);glVertex3f(x+.018f,y,z);
+ }
+ glEnd();
+ market_body(-.19f,.83f,.14f,.115f,.17f,.08f,.70f,.52f,.33f);
+ for(int j=0;j<9;j++){
+  float a=j*2.40f,x=-.21f+.075f*cosf(a),z=.16f+.067f*sinf(a),y=1.03f+.035f*cosf(a*3);
+  glColor3f(.21f,.36f,.15f);glBegin(GL_LINES);glVertex3f(-.19f,.93f,.15f);glVertex3f(x,y,z);glEnd();
+  for(int k=0;k<5;k++){
+   float angle=k*1.2566f;
+   market_body(x+.019f*cosf(angle),y,z+.019f*sinf(angle),.017f,.012f,.017f,.93f,j%3?.42f:.73f,.54f);
+  }
+ }
+}
+
+static void plaza_dog(float phase,float owner_height){
+ glColor3f(.23f,.18f,.15f);glBegin(GL_LINE_STRIP);
+ for(int j=0;j<=10;j++){
+  float t=j*.1f;
+  glVertex3f(-.58f*t,.46f+(.42f+owner_height)*t-.15f*sinf(t*3.14159f),.17f-.47f*t);
+ }
+ glEnd();
+ market_body(0,.38f,0,.122f,.15f,.25f,.53f,.31f,.15f);
+ market_body(0,.51f,.20f,.107f,.13f,.13f,.62f,.39f,.21f);
+ market_body(0,.48f,.31f,.063f,.052f,.09f,.61f,.41f,.25f);
+ market_body(0,.49f,.39f,.036f,.026f,.023f,.12f,.10f,.08f);
+ for(int side=-1;side<=1;side+=2){
+  market_body(side*.094f,.52f,.18f,.031f,.092f,.06f,.36f,.21f,.12f);
+  market_body(side*.071f,.55f,.286f,.013f,.014f,.012f,.08f,.07f,.05f);
+  for(int end=-1;end<=1;end+=2){
+   glPushMatrix();glTranslatef(side*.078f,.31f,end*.139f);
+   glRotatef(22.f*end*side*sinf(phase),1,0,0);
+   market_body(0,-.124f,0,.036f,.14f,.048f,.49f,.30f,.18f);
+   market_body(0,-.268f,.021f,.036f,.031f,.052f,.39f,.25f,.17f);glPopMatrix();
+  }
+ }
+ glPushMatrix();glTranslatef(0,.44f,-.20f);glRotatef(18.f*sinf(phase),0,1,0);
+ glRotatef(-42.f,1,0,0);market_body(0,.09f,0,.034f,.14f,.042f,.54f,.34f,.18f);glPopMatrix();
+}
+
 static void market_people(struct gpu_scene *s,const float *actors,unsigned count){
  static const float coats[][3]={{.87f,.47f,.12f},{.13f,.44f,.49f},{.49f,.25f,.39f},{.32f,.34f,.49f},{.43f,.42f,.25f}};
  for(unsigned i=0;i<count;i++){
@@ -69,11 +113,19 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
   }
   glRotatef(p[4],0,1,0);
   if(kind<=1){
-   const float *coat=coats[(unsigned)p[6]%5];
-   float size=.96f+.025f*(int)p[6];
-   glScalef(1.02f+.034f*((int)p[6]%3),size,size);
-   market_person_draw(&s->people[kind==0 && (int)p[6]%2!=0],kind,pose,kind==1?coats[3+(int)p[6]]:coat);
+   unsigned identity=(unsigned)p[6],seed=identity&32767u;
+   const float *base=coats[(seed>>1)%5];
+   float coat[3];
+   for(unsigned c=0;c<3;c++)coat[c]=base[c]*(.76f+.031f*((seed>>(4+3*c))&7u));
+   float size=kind==1?.96f+.025f*seed:.93f+.020f*((seed>>7)&7u);
+   float width=kind==1?1.02f:.94f+.024f*((seed>>10)&7u);
+   glScalef(width,size,size);
+   market_person_draw(&s->people[kind==0 && (seed&1)],kind,pose,kind==1?coats[3+seed]:coat,
+                      kind==1?0.f:((int)((seed>>2)&15u)-7)*.009f);
    if(kind==1)fishmonger_apron();
+   if(kind==0 && (identity&32768u))market_flowers();
+  }else if(kind==7){
+   plaza_dog(pose,p[6]);
   }else if(kind==6){
    market_body(0,0,0,.12f,.12f,.44f,.86f,.83f,.72f);
   }else if(kind==5){

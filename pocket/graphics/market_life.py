@@ -1,7 +1,39 @@
 """Market visitors and an order at the public fish counter, in game time."""
+from functools import lru_cache
 import math
+import os
+import zlib
 from pike_market import HEADING,offset
 from seattle_places import arcade_origin
+
+# Fifteen seed bits travel exactly in the native actor's float slot. Bit
+# fifteen is a carried purchase, separate from the shopper's stable identity.
+CITY_SEED=os.environ.get('POCKET_CITY_SEED','Seattle')
+BOUQUET=1<<15
+
+@lru_cache(maxsize=128)
+def shopper(site,number,seed=CITY_SEED):
+    return zlib.crc32(f'{seed}/{site}/{number}'.encode())&0x7fff
+
+def plaza_walkers(age,ground):
+    """A short outdoor promenade on the south approach to the Space Needle."""
+    from seattle_places import places
+    cx,cz=places()['Space Needle']
+    rows=[]
+    for i in range(4):
+        identity=shopper('Seattle Center',i)
+        angle=age*(.054+i*.003)+i*1.72
+        x=cx+(16+i)*math.sin(angle)
+        z=cz-183+(9+i)*math.cos(angle)
+        heading=math.atan2((16+i)*math.cos(angle),-(9+i)*math.sin(angle))
+        rows.append((0,x,ground(x,z),z,math.degrees(heading),(age*(10+i)+i)%12,identity))
+        if i==0:
+            # Follow beside the walker on the plaza's outdoor path.
+            dx=x+.76*math.cos(heading)+.30*math.sin(heading)
+            dz=z-.76*math.sin(heading)+.30*math.cos(heading)
+            dog_ground=ground(dx,dz)
+            rows.append((7,dx,dog_ground,dz,math.degrees(heading),age*6,rows[-1][2]-dog_ground))
+    return rows
 
 class FishCounter:
     """Queue orders only when a shopper buys or the player taps the counter."""
@@ -63,7 +95,7 @@ def actors(age,ground,since):
         gait=18+settle
         if .7<wait<6.3:
             gait=12+.48*math.sin(math.pi*(wait-.7)/5.6)**2
-    walker(u,v,heading,gait,2)
+    walker(u,v,heading,gait,shopper('market',0))
 
     # Rounded ends let people walk back through the arcade without spinning
     # in place. Each follows their own pace, lane and stride length.
@@ -83,8 +115,21 @@ def actors(age,ground,since):
         else:
             turn=(along-2*straight-bend)/radius
             u,v,heading=-18-radius*math.sin(turn),lane-radius*math.cos(turn),-math.pi/2+turn
-        gait=(age*speed/(1.10*(.96+.025*(i+1)))*12+i*2.3)%12
-        walker(u,v,heading,gait,i+1)
+        identity=shopper('market',i+1)
+        stature=.93+.020*((identity>>7)&7)
+        gait=(age*speed/(1.10*stature)*12+i*2.3)%12
+        walker(u,v,heading,gait,identity)
+    # A customer collects flowers from the farm table and carries them
+    # on the return walk, completing a circuit before the next visit.
+    purchase=age%48
+    angle=math.tau*min(1.,max(0.,(purchase-3)/42))
+    u=-4-6*math.sin(angle)
+    v=3.75-3.4*(1-math.cos(angle))
+    heading=math.atan2(-6*math.cos(angle),-3.4*math.sin(angle))
+    walker(u,v,heading,(age*10)%12 if 3<purchase<45 else 12.4,
+           shopper('flower table',0)|(BOUQUET if purchase>1.5 else 0))
+    for bay,site in ((-4,'flower seller'),(8,'honey seller')):
+        walker(bay,6.35,math.pi,12.5+.44*math.sin(age*.51+bay),shopper(site,0))
     if since is None:since=-1.
     t=max(0.,min(1.,(since-.8)/.95))
     sender=ground(*offset(center,1.7,3.35))

@@ -25,3 +25,8 @@ torso and trouser cloth at each stride key and between keys. Each pose is
 based at the lowest point of its shoes.
 The renderer interpolates adjacent poses on the GPU. Scene coordinates use
 metres with +Y up and +Z forward.
+
+Seattle shoppers use a repeatable site and visitor seed to select the base
+mesh, clothing tint, height, width, and head width. Set `POCKET_CITY_SEED`
+before launching Pocket to vary the crowd. Purchases follow the shopper's
+activity and keep the same appearance seed.
