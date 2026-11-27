@@ -197,6 +197,6 @@ n810-check-ab:
 n810-write-ab:
 	python3 platform/bootstrap/ab_media.py --kit "$(AB_KIT)" --disk "$(N810_DISK)" $(if $(filter 1,$(N810_ERASE)),--erase)
 
-.PHONY: gui explore mobile mobile-update terrain-prepare mobile-prepare-terrain
-gui explore mobile mobile-update terrain-prepare mobile-prepare-terrain:
+.PHONY: gui explore jet mobile mobile-update terrain-prepare mobile-prepare-terrain
+gui explore jet mobile mobile-update terrain-prepare mobile-prepare-terrain:
 	$(MAKE) -C pocket $@

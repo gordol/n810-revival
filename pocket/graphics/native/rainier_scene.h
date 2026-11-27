@@ -9,7 +9,7 @@ static GLuint rainier_program(void){
   "distanceToEye=length(eye.xyz);gl_Position=gl_ProjectionMatrix*eye;}";
  const char *fs="#version 120\n"
   "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
-  "uniform vec4 supplies;uniform int camp;uniform int season;uniform float originY;uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;uniform sampler2D flightPhoto;uniform vec3 photoArea;uniform vec3 flightAreas[9];"
+  "uniform vec4 supplies;uniform int camp;uniform int season;uniform float originY;uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;uniform sampler2D flightPhoto;uniform vec3 photoArea;uniform vec3 flightAreas[25];"
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
   "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
@@ -131,7 +131,8 @@ static GLuint rainier_program(void){
   "col=mix(vec3(.059,.21,.24),skyColor(vec3(ray.x,max(.015,ray.y),ray.z)),.13+.56*pow(1.-facing,4.));"
   "col+=vec3(.045,.055,.055)*wave*(1.-smoothstep(12.,70.,length(fwidth(pos.xz))));}"
   "if(regional==2 && animal==0 && tint.a>=.1969 && tint.a<.218){"
-  "for(int i=0;i<9;i++){vec2 d=abs(pos.xz-flightAreas[i].xy);if(max(d.x,d.y)<flightAreas[i].z)discard;}}"
+  "vec2 cell=mod(floor(pos.xz/8192.+.5),5.);vec3 area=flightAreas[int(cell.x+5.*cell.y)];"
+  "vec2 d=abs(pos.xz-area.xy);if(max(d.x,d.y)<area.z)discard;}"
   "if(regional==2 && abs(tint.a-.219)<.0001 && photoArea.z>0.)"
   "col=texture2D(flightPhoto,(pos.xz-photoArea.xy)/photoArea.z+.5).rgb;"
   // World-space clusters, shoots and needle tips. Fade subpixel octaves
@@ -312,18 +313,24 @@ static void flight_sail_vertex(int powered,float u,float chord,float puff,float 
  glVertex3f(3.65f*u,height,-depth+chord*length);
 }
 
-int pocket_scene_flight_photo(void *ptr,unsigned slot,const unsigned char *rgb,float x,float z,const float *mesh,unsigned count){
+int pocket_scene_flight_photo(void *ptr,unsigned slot,unsigned pixels,const unsigned char *rgb,float x,float z,const float *mesh,unsigned count){
  struct gpu_scene *s=ptr;
- if(!s||slot>=9||!mesh||!count||count>128*128*6||!rgb||scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
+ if(!s||slot>=25||(pixels!=512 && pixels!=1024 && pixels!=2048)||!mesh||!count||count>128*128*6||!rgb||scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
  glPushAttrib(GL_TEXTURE_BIT);glActiveTexture(GL_TEXTURE1);
  glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
  glPixelStorei(GL_UNPACK_ALIGNMENT,1);glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
  glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);glPixelStorei(GL_UNPACK_SKIP_ROWS,0);
  if(!s->flight_photo[slot])glGenTextures(1,&s->flight_photo[slot]);
  glBindTexture(GL_TEXTURE_2D,s->flight_photo[slot]);
- glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,1024,1024,0,GL_RGB,GL_UNSIGNED_BYTE,rgb);glGenerateMipmap(GL_TEXTURE_2D);
+ glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,pixels,pixels,0,GL_RGB,GL_UNSIGNED_BYTE,rgb);glGenerateMipmap(GL_TEXTURE_2D);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+#ifdef GL_TEXTURE_MAX_ANISOTROPY_EXT
+ if(SDL_GL_ExtensionSupported("GL_EXT_texture_filter_anisotropic")){
+  GLfloat limit;glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT,&limit);
+  glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MAX_ANISOTROPY_EXT,fminf(8.f,limit));
+ }
+#endif
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
  glPopClientAttrib();glPopAttrib();
  GLint previous;glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&previous);
@@ -693,7 +700,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glUniform1i(glGetUniformLocation(s->rainier_program,"flightPhoto"),1);
  GLint photo_area=glGetUniformLocation(s->rainier_program,"photoArea");
  glUniform3f(photo_area,0,0,0);
- glUniform3fv(glGetUniformLocation(s->rainier_program,"flightAreas[0]"),9,s->flight_areas[0]);
+ glUniform3fv(glGetUniformLocation(s->rainier_program,"flightAreas[0]"),25,s->flight_areas[0]);
  float stretch=.55f+2.3f*(1.f-daylight);
  glUniform2f(glGetUniformLocation(s->rainier_program,"shadowStep"),cosf(sun_angle)*stretch,sinf(sun_angle)*stretch);
  glUniform2f(glGetUniformLocation(s->rainier_program,"shadeCenter"),center_x,center_z);
@@ -723,7 +730,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  if(omit_end<terrain_count)river_draw_land(s,terrain_count,omit_end?omit_end:water_count,east,eye,north,yaw,pitch,(float)w/h,cb,sb);
  if(lens==-2){
   glActiveTexture(GL_TEXTURE1);
-  for(unsigned slot=0;slot<9;slot++){
+  for(unsigned slot=0;slot<25;slot++){
    if(!s->flight_count[slot])continue;
    glBindTexture(GL_TEXTURE_2D,s->flight_photo[slot]);
    glUniform3f(photo_area,s->flight_areas[slot][0],s->flight_areas[slot][1],8192.f);

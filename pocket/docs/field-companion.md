@@ -674,8 +674,14 @@ mountain relief. **Aerial** uses the USGS photo when available and falls back
 to drawn terrain for missing local patches. Both modes retain the regional overview
 in the distance.
 
-During Sound outings, Pocket loads the nearest tile first, then its eight neighbors.
-Each tile spans 8.192 km at 8 m/pixel. A complete neighborhood spans about 24.6 km.
+Run `make jet` to start directly in the airborne research jet over Rainier.
+The lower cockpit strip controls throttle in ten-percent steps, cycles flaps
+through 0, 10 and 20 degrees, and toggles landing gear.
+
+During Sound outings, Pocket streams a five-by-five neighborhood. Each tile
+spans 8.192 km, for about 41 km across when loaded. Aerial requests use
+4 m/pixel under the aircraft, 8 m/pixel in the first ring and 16 m/pixel in
+the outer ring. Two background workers prioritize nearby tiles.
 Aircraft can cross the prepared overview boundary. Beyond it, terrain needs cached
 elevation or a successful elevation download in Aerial mode. Mountain relief uses
 64 m samples from USGS 3DEP. Lowland runways and built areas inside the overview

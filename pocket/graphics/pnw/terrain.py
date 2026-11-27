@@ -86,7 +86,7 @@ def elevations(region):
 # A 5:6 export matches the 240 by 288 Sound grid cells.
 IMAGE_SIZE=(1280,1536)
 
-def aerial_url(patch=None):
+def aerial_url(patch=None,pixels=1024):
     _,_,zoom,step,nx,nz=GRIDS['sound']
     cx,cy,_=layout('sound')
     world=40075016.68557849
@@ -102,7 +102,7 @@ def aerial_url(patch=None):
         x+=patch[0]*PATCH_STEP*projection
         y+=patch[1]*PATCH_STEP*projection
         w=h=PATCH_WIDTH*projection/2
-        size=(1024,1024)
+        size=(pixels,pixels)
     args={'bbox':','.join(map(str,(x-w,y-h,x+w,y+h))),'bboxSR':3857,
           'imageSR':3857,'size':','.join(map(str,size)),'format':'jpg','f':'image'}
     return 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?'+urlencode(args)
@@ -229,11 +229,12 @@ def relief_mesh(key,field,values=None):
             rows.pop(0)
     return HeightField(cells+1,cells+1,Vec(x0,0,z0),step,step,tuple(heights),'meters'),mesh
 
-def flight_patch(key,field=None):
+def flight_patch(key,field=None,pixels=1024):
     from data_paths import rainier_cache
     cache=rainier_cache()/'flight-imagery-v1'
     cache.mkdir(parents=True,exist_ok=True)
-    target=cache/f'{key[0]}_{key[1]}.jpg'
+    suffix='' if pixels==1024 else f'-{pixels}'
+    target=cache/f'{key[0]}_{key[1]}{suffix}.jpg'
     with tempfile.TemporaryDirectory(dir=cache) as tmp:
         folder=Path(tmp)
         image=folder/'image.jpg'
@@ -241,15 +242,15 @@ def flight_patch(key,field=None):
         try:image.write_bytes(target.read_bytes())
         except FileNotFoundError:
             cached=False
-            with urlopen(aerial_url(key),timeout=8) as stream:data=stream.read(4*1024**2+1)
+            with urlopen(aerial_url(key,pixels),timeout=8) as stream:data=stream.read(4*1024**2+1)
             if len(data)>4*1024**2:raise ValueError('Oversized aerial patch')
             image.write_bytes(data)
-        try:convert_local(folder,'patch',lambda:decode_aerial(folder,(1024,1024)))
+        try:convert_local(folder,f'patch-{pixels}',lambda:decode_aerial(folder,(pixels,pixels)))
         except (OSError,ValueError,ImportError,subprocess.SubprocessError):
             target.unlink(missing_ok=True)
             raise
-        pixels=(folder/'rgb').read_bytes()
-        if len(pixels)!=1024*1024*3:raise ValueError('Incomplete aerial patch')
+        rgb=(folder/'rgb').read_bytes()
+        if len(rgb)!=pixels*pixels*3:raise ValueError('Incomplete aerial patch')
         if cached and target.exists():os.utime(target,None)
         else:image.replace(target)
         relief=None
@@ -258,7 +259,7 @@ def flight_patch(key,field=None):
             except (OSError,ValueError,ImportError,subprocess.SubprocessError):pass
         trim_patch_cache(cache)
         if field is not None and relief is None:relief=relief_mesh(key,field)
-        return pixels,relief
+        return rgb,relief
 
 
 def trim_patch_cache(cache):
@@ -348,45 +349,63 @@ def map_patch(key,field,*,fetch_missing=False):
         convert_local(folder,'map',lambda:draw_map_patch(folder))
         return (folder/'rgb').read_bytes(),relief
 
-def load_surface(key,field,source):
+def load_surface(key,field,source,pixels=1024):
     if source!='Drawn terrain':
-        try:return flight_patch(key,field)
-        except (OSError,ValueError,ImportError,subprocess.SubprocessError):pass
+        try:return flight_patch(key,field,pixels)
+        except (OSError,ValueError,ImportError,subprocess.SubprocessError):
+            from data_paths import rainier_cache
+            cache=rainier_cache()/'flight-imagery-v1'
+            for size in (1024,512,2048):
+                suffix='' if size==1024 else f'-{size}'
+                if size!=pixels and (cache/f'{key[0]}_{key[1]}{suffix}.jpg').is_file():
+                    try:return flight_patch(key,field,size)
+                    except (OSError,ValueError,ImportError,subprocess.SubprocessError):pass
     return map_patch(key,field,fetch_missing=source!='Drawn terrain')
 
 
 class FlightImagery:
     def __init__(self):
-        self.pool=ThreadPoolExecutor(max_workers=1)
-        self.job=self.pending=None
+        self.pool=ThreadPoolExecutor(max_workers=2)
+        self.jobs={}
+        self.complete=None
         self.resident={}
         self.retry={}
 
     def update(self,x,z,field,source='Aerial'):
         cx,cz=(2*round(v/PATCH_WIDTH) for v in (x,z))
-        wanted=sorted(((cx+dx,cz+dz) for dx in (-2,0,2) for dz in (-2,0,2)),
-                      key=lambda k:(k[0]*PATCH_STEP-x)**2+(k[1]*PATCH_STEP-z)**2)
-        result=None
+        neighborhood=(cx,cz,source)
+        if self.complete==neighborhood:return
+        self.complete=None
+        wanted={}
+        for dx in range(-4,5,2):
+            for dz in range(-4,5,2):
+                ring=max(abs(dx),abs(dz))//2
+                size=(2048,1024,512)[ring] if source=='Aerial' else 1024
+                wanted[cx+dx,cz+dz]=(source,size)
         now=time.monotonic()
-        self.retry={k:t for k,t in self.retry.items() if k[0] in wanted and k[1]==source and t>now}
-        if self.job is not None:
-            if not self.job.done():return
-            job,self.job=self.job,None
-            key,requested=self.pending
-            try:pixels,relief=job.result()
+        self.retry={item:t for item,t in self.retry.items() if t>now and wanted.get(item[0])==item[1:]}
+        result=None
+        for item,job in list(self.jobs.items()):
+            if not job.done():continue
+            del self.jobs[item]
+            key,requested,size=item
+            if key not in wanted or wanted[key][0]!=requested:continue
+            slot=(key[0]//2)%5+5*((key[1]//2)%5)
+            if self.resident.get(slot)==(key,*wanted[key]):continue
+            try:rgb,relief=job.result()
             except (OSError,ValueError,ImportError,subprocess.SubprocessError):
-                self.retry[self.pending]=now+30.
-            else:
-                if key in wanted and requested==source:
-                    slot=(key[0]//2)%3+3*((key[1]//2)%3)
-                    self.resident[slot]=self.pending
-                    result=slot,key,pixels,relief
-        for key in wanted:
-            identity=(key,source)
-            if identity not in self.resident.values() and identity not in self.retry:
-                self.pending=identity
-                self.job=self.pool.submit(load_surface,key,field,source)
-                break
+                self.retry[item]=now+30.
+                continue
+            self.resident[slot]=item
+            result=slot,key,rgb,relief
+            break  # Bound GL upload work to one patch per frame.
+        if len(self.jobs)<2:
+            for key in sorted(wanted,key=lambda k:(k[0]*PATCH_STEP-x)**2+(k[1]*PATCH_STEP-z)**2):
+                item=(key,*wanted[key])
+                if item in self.resident.values() or item in self.jobs or item in self.retry:continue
+                self.jobs[item]=self.pool.submit(load_surface,key,field,*wanted[key])
+                if len(self.jobs)==2:break
+        if not self.jobs and not self.retry:self.complete=neighborhood
         return result
 
     def close(self):
@@ -404,6 +423,7 @@ if __name__=='__main__':
     folder=Path(sys.argv[2])
     if sys.argv[1]=='map':draw_map_patch(folder)
     elif sys.argv[1]=='relief':decode_relief(folder)
-    elif sys.argv[1]=='patch':decode_aerial(folder,(1024,1024))
+    elif sys.argv[1] in ('patch-512','patch-1024','patch-2048'):
+        size=int(sys.argv[1].split('-')[1]);decode_aerial(folder,(size,size))
     elif sys.argv[1]=='aerial':decode_aerial(folder)
     else:convert(sys.argv[1],folder)

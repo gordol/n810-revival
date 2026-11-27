@@ -646,9 +646,23 @@ class SoundVehicle(HangGlider):
     def controls(self,w,h):
         if not self.menu and self.boat:return [('wheel','Helm',(w-11,0,11,3))]
         if not self.menu and self.aircraft is RESEARCH_JET:
-            return [('wheel','Flight',(w-11,0,11,3)),('pause','Pause',(w-11,3,11,3)),('gear','Gear',(w-11,6,11,3))]
+            labels=(('power-down','Pwr -'),('power-up','Pwr +'),('flaps',f'Flap {10*self.flaps}'),
+                    ('gear','Gear '+('DN' if self.gear_down else 'UP')))
+            switches=[(key,label,(i*w//4,h-3,(i+1)*w//4-i*w//4,3)) for i,(key,label) in enumerate(labels)]
+            return [('wheel','Flight',(w-9,0,9,2)),('pause','Pause',(w-9,2,9,2)),*switches]
         if not self.menu:return [('wheel','Flight',(w-11,0,11,3)),('pause','Pause',(w-11,3,11,3))]
         return super().controls(w,h)
+
+    def draw_switch(self,ink,action,box,label):
+        x,y,w,h=box
+        ink.fill(box,0x151B20FF)
+        ink.fill((x+.14,y+.15,w-.28,h-.30),0x353F44FF)
+        ink.fill((x+.18,y+.15,w-.36,.09),0x879294FF)
+        ink.fill((x+.18,y+h-.27,w-.36,.12),0x20272AFF)
+        ink.label(x+(w-len(label[:w]))/2,y+.63,label[:w],0xEFF3E8)
+        level=self.throttle if action.startswith('power-') else self.flaps/2 if action=='flaps' else float(self.gear_down)
+        ink.fill((x+w*.18,y+2.08,w*.64,.21),0x121A1AFF)
+        if level:ink.fill((x+w*.18,y+2.08,w*.64*level,.21),0x94D4B0FF)
 
     def draw(self,ink,w,h):
         name,x,z=self.stops[self.target_index]
@@ -663,12 +677,18 @@ class SoundVehicle(HangGlider):
             for _,_,angle in self.wheel_items():
                 ink.sector(w/2,h/2,self.radius(w,h),angle)
         power='APPR' if self.descending else f'THR {round(100*self.throttle)}%'
+        if self.aircraft is RESEARCH_JET:
+            speed=f'{self.speed*1.94384:.0f} KT'
+            agl=f'{self.clearance*3.28084:.0f} FT AGL'
+            heading=round(math.degrees(self.heading))%360
+            ink.label(.5,.5,f'{speed}   {agl}',0xE3F7E9)
+            ink.label(.5,1.6,f'HDG {heading:03d}   {power}',0xE3F7E9)
+            ink.label(.5,h-4.3,'STALL' if self.stalled else f'{name}  {distance:.1f} km  {bearing:03d}°',0xFFCD79)
+            return
         lines=(name,f'{distance:.1f} km  BRG {bearing:03d}',
                f'HDG {round(math.degrees(self.heading))%360:03d}  {power}',
                f'{round(self.clearance)} m AGL')
         status='STALL: nose down + power' if self.stalled else f'Flaps {self.flaps*10} deg'
-        if self.aircraft is RESEARCH_JET:lines=(f'Research jet  {self.speed*3.6:.0f} km/h',*lines)
-        if self.aircraft is RESEARCH_JET:status+='  Gear '+('down' if self.gear_down else 'up')
         lines+=(status,)
         lines+=('Start: pause   View: wheel',)
         ink.fill((.5,.6,min(w,max(map(len,lines))+1),len(lines)+.6),0x14231FE8)

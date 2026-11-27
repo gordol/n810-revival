@@ -40,7 +40,7 @@ $(MAC_GUI_BOOTSTRAP): requirements-graphics-macos.txt Makefile
 	"$$(brew --prefix python@3.12)/bin/python3.12" -m venv build/mac-gui
 	$(GUI_PYTHON) -m pip install Pillow -r requirements-graphics-macos.txt
 	touch $@
-gui explore: export SDL_RENDER_DRIVER ?= opengl
+gui explore jet: export SDL_RENDER_DRIVER ?= opengl
 endif
 
 gui: $(MAC_GUI_BOOTSTRAP)
@@ -50,6 +50,15 @@ gui: $(MAC_GUI_BOOTSTRAP)
 explore: $(MAC_GUI_BOOTSTRAP)
 	$(MAKE) terrain-prepare PYTHON="$(GUI_PYTHON)"
 	$(GUI_PYTHON) graphics/gui.py --explore $(EXTRA)
+
+.PHONY: jet
+ifneq ($(findstring com.termux,$(PREFIX)),)
+jet:
+	$(MAKE) mobile EXTRA="--outing jet $(EXTRA)"
+else
+jet: $(MAC_GUI_BOOTSTRAP)
+	$(GUI_PYTHON) graphics/gui.py --outing jet $(EXTRA)
+endif
 
 # Area-selected map acquisition and local derived levels.
 include maps.mk

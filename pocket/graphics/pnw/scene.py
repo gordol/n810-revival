@@ -785,6 +785,7 @@ class RainierView:
 
     def lines(self):
         if self.error:return ('Rainier terrain could not open.',self.error)
+        if self.world is None and self.pending_outing=='jet':return ('Preparing research jet over Rainier…',)
         if self.world is None:return ('Opening Ohanapecosh River…',)
         if isinstance(self.notebook,HikeMenu):return self.notebook.menu_lines(self.host.window(self.name).w-2)
         if self.notebook:return self.notebook.lines(self.host.window(self.name).w-2)
@@ -946,6 +947,10 @@ class RainierView:
                 else:self.ski.action(action)
             elif action=='launch':self.start_glide()
             elif action in BAYS:self.start_outing(action)
+            elif action in ('power-down','power-up'):
+                self.glider.throttle=max(0.,min(1.,self.glider.throttle+(.1 if action=='power-up' else -.1)))
+                self.glider.fast=self.glider.throttle>=.99
+            elif action=='flaps':self.glider.flaps=(self.glider.flaps+1)%3
             elif action=='gear':self.glider.toggle_gear()
             elif action=='air-action':self.glider.action()
             elif action=='pause':self.pause_game()
@@ -1435,7 +1440,9 @@ class RainierView:
     def poll(self,owner):
         if self.travel_job and self.travel_job.done():
             try:world=self.travel_job.result()
-            except Exception as error:self.travel_error=str(error)
+            except Exception as error:
+                self.travel_error=str(error)
+                if self.world is None:self.error=self.travel_error
             else:
                 if not self.regional:self.valley_pose=(owner.x,owner.z,owner.yaw,owner.pitch)
                 if self.world is world:
@@ -1514,6 +1521,7 @@ class RainierView:
                 self.travel_pool=self.travel_job=None
         if self.error:return
         if self.world is None:
+            if self.travel_job:return
             if self.job is None:
                 self.pool=ThreadPoolExecutor(max_workers=1)
                 from pnw.river_scene_cache import valley_world
@@ -1805,8 +1813,8 @@ class RainierView:
             if patch:
                 slot,(ix,iz),rgb,(heights,mesh)=patch
                 upload=ctx.lib.pocket_scene_flight_photo
-                upload.argtypes=[C.c_void_p,C.c_uint,C.c_char_p,C.c_float,C.c_float,C.c_void_p,C.c_uint]
-                ctx.check(upload(ctx.handle,slot,rgb,ix*PATCH_STEP,iz*PATCH_STEP,mesh.buffer_info()[0],len(mesh)//7))
+                upload.argtypes=[C.c_void_p,C.c_uint,C.c_uint,C.c_char_p,C.c_float,C.c_float,C.c_void_p,C.c_uint]
+                ctx.check(upload(ctx.handle,slot,math.isqrt(len(rgb)//3),rgb,ix*PATCH_STEP,iz*PATCH_STEP,mesh.buffer_info()[0],len(mesh)//7))
                 self.flight_surfaces[slot]=heights
         if sound_region:center=((field.nx-1)*field.dx,(field.nz-1)*field.dz)
         if self.regional and self.outing in (None,'hoh'):
@@ -1973,6 +1981,8 @@ class RainierView:
                 if self.glider and self.glider.menu:
                     bx,by,bw,bh=box
                     ink.label(bx+(bw-len(label))/2,by+(bh-1)/2,label,0xFFF6DA)
+                elif self.outing in ('jet','hangar-jet') and action in ('power-down','power-up','flaps','gear'):
+                    self.glider.draw_switch(ink,action,box,label)
                 else:ink.button(box,label)
                 if self.ski and action=='brake':
                     bx,by,bw,bh=box

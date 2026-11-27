@@ -71,6 +71,28 @@ class OutingTests(unittest.TestCase):
                 rgb2,(fine2,mesh2)=pnw_terrain.flight_patch((0,0),field)
             self.assertEqual((rgb,fine.values,vertices),(rgb2,fine2.values,mesh2))
 
+            with patch('pnw.terrain.urlopen',side_effect=OSError('offline')):
+                fallback,_=pnw_terrain.load_surface((0,0),field,'Aerial',2048)
+            self.assertEqual(fallback,rgb)
+
+    def test_jet_console_switches_at_portrait_and_landscape_sizes(self):
+        from pnw.scene import RainierView
+        for w,h in ((36,58),(96,27)):
+            view=RainierView.__new__(RainierView)
+            view.album=[]
+            view.ski=None
+            view.outing='jet'
+            jet=view.glider=SoundVehicle('jet',SimpleNamespace(height=lambda x,z:0.))
+            power=jet.throttle
+            for action in ('power-down','power-up','flaps','gear'):
+                x,y,width,height=next(box for key,_,box in jet.controls(w,h) if key==action)
+                self.assertGreaterEqual(y,h-3)
+                self.assertTrue(view.scene_tap(x+width/2,y+height/2,w,h))
+                if action=='power-down':self.assertAlmostEqual(jet.throttle,power-.1)
+            self.assertAlmostEqual(jet.throttle,power)
+            self.assertEqual(jet.flaps,1)
+            self.assertTrue(jet.gear_down)
+
     def test_aircraft_crosses_prepared_boundary_while_boat_stays_inside(self):
         ground=lambda x,z:0.
         for mode in ('jet','boat'):
@@ -80,25 +102,30 @@ class OutingTests(unittest.TestCase):
             if mode=='boat':self.assertEqual(vehicle.z,1.)
             else:self.assertGreater(vehicle.z,1.)
 
-    def test_neighborhood_keeps_inflight_neighbor_and_reuses_six_tiles_after_crossing(self):
+    def test_neighborhood_prioritizes_center_and_reuses_tiles_after_crossing(self):
         from unittest.mock import patch
         imagery=pnw_terrain.FlightImagery()
         self.addCleanup(imagery.close)
         width=pnw_terrain.PATCH_WIDTH
+        def settle(x,source):
+            imagery.update(x,0,None,source)
+            for i in range(60):
+                if not imagery.jobs:return
+                self.assertLessEqual(len(imagery.jobs),2)
+                for job in imagery.jobs.values():job.result()
+                imagery.update(x,0,None,source)
+            self.fail('Tile queue did not finish')
         with patch('pnw.terrain.load_surface',return_value=(b'image',None)) as load:
             imagery.update(0,0,None)
-            self.assertEqual(imagery.pending[0],(0,0))
-            for i in range(9):
-                imagery.job.result()
-                self.assertIsNotNone(imagery.update(width*.51,0,None))
-            self.assertEqual(len(imagery.resident),9)
-            self.assertIsNone(imagery.job)
-            imagery.update(width*1.51,0,None)
-            for i in range(3):
-                imagery.job.result()
-                imagery.update(width*1.51,0,None)
-            self.assertIsNone(imagery.job)
-            self.assertEqual(load.call_count,12)
+            self.assertEqual(next(iter(imagery.jobs)),((0,0),'Aerial',2048))
+            settle(0,'Aerial')
+            sizes=[size for key,source,size in imagery.resident.values()]
+            self.assertEqual([sizes.count(n) for n in (2048,1024,512)],[1,8,16])
+            settle(width,'Drawn terrain')
+            load.reset_mock()
+            settle(2*width,'Drawn terrain')
+            self.assertEqual(load.call_count,5)
+            self.assertEqual(len(imagery.resident),25)
 
     def test_exterior_tile_renders_real_lowland_elevation(self):
         from geometry import HeightField,Vec
