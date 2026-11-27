@@ -122,6 +122,42 @@ class OutingTests(unittest.TestCase):
             self.assertEqual(load.call_count,5)
             self.assertEqual(len(imagery.resident),25)
 
+    def test_horizon_keeps_landmarks_and_releases_tiles_under_memory_pressure(self):
+        from unittest.mock import patch
+        horizon=pnw_terrain.FlightHorizon()
+        self.addCleanup(horizon.close)
+        def settle(x):
+            removed=[]
+            for i in range(40):
+                drops,_=horizon.update(x,0,None,'Auto')
+                removed.extend(drops)
+                if not horizon.job:return removed
+                horizon.job.result()
+            self.fail('Horizon did not settle')
+        with patch('pnw.terrain.flight_patch',return_value=(b'image',None)), patch(
+                'pnw.terrain.available_memory',return_value=4*1024**3) as memory:
+            settle(0)
+            self.assertEqual(len(horizon.resident),28)
+            pins={i:horizon.resident[i] for i in (25,26,27)}
+            settle(3*pnw_terrain.HORIZON_WIDTH)
+            self.assertEqual({i:horizon.resident[i] for i in pins},pins)
+            memory.return_value=1024**3
+            horizon.next_sample=0
+            self.assertEqual(len(settle(3*pnw_terrain.HORIZON_WIDTH)),16)
+            self.assertEqual(len(horizon.resident),12)
+            memory.return_value=128*1024**2
+            horizon.next_sample=0
+            self.assertEqual(len(settle(0)),12)
+            self.assertFalse(horizon.resident)
+        args=lambda w:parse_qs(urlparse(pnw_terrain.aerial_url((8,-8),width=w)).query)
+        def extent(w):
+            a,b,c,d=map(float,args(w)['bbox'][0].split(','))
+            return (a+c)/2,(b+d)/2,c-a
+        near=extent(pnw_terrain.PATCH_WIDTH)
+        far=extent(pnw_terrain.HORIZON_WIDTH)
+        for i in (0,1):self.assertAlmostEqual(near[i],far[i])
+        self.assertAlmostEqual(far[2],4*near[2])
+
     def test_exterior_tile_renders_real_lowland_elevation(self):
         from geometry import HeightField,Vec
         field=HeightField(2,2,Vec(-4096,0,-4096),8192,8192,(200,)*4,'meters')

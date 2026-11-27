@@ -83,10 +83,15 @@ def elevations(region):
         (folder/'grid').replace(dest)
         return result
 
+# Tile keys use the original cache coordinate system (two steps per tile).
+PATCH_WIDTH=8192
+PATCH_STEP=4096
+PATCH_LIMIT=128*1024**2
+
 # A 5:6 export matches the 240 by 288 Sound grid cells.
 IMAGE_SIZE=(1280,1536)
 
-def aerial_url(patch=None,pixels=1024):
+def aerial_url(patch=None,pixels=1024,width=PATCH_WIDTH):
     _,_,zoom,step,nx,nz=GRIDS['sound']
     cx,cy,_=layout('sound')
     world=40075016.68557849
@@ -101,7 +106,7 @@ def aerial_url(patch=None,pixels=1024):
         projection=step*scale/spacing
         x+=patch[0]*PATCH_STEP*projection
         y+=patch[1]*PATCH_STEP*projection
-        w=h=PATCH_WIDTH*projection/2
+        w=h=width*projection/2
         size=(pixels,pixels)
     args={'bbox':','.join(map(str,(x-w,y-h,x+w,y+h))),'bboxSR':3857,
           'imageSR':3857,'size':','.join(map(str,size)),'format':'jpg','f':'image'}
@@ -142,14 +147,9 @@ def sound_aerial():
     except (OSError,ValueError,URLError,subprocess.SubprocessError):return None
 
 
-# Tile keys use the original cache coordinate system (two steps per tile).
-PATCH_WIDTH=8192
-PATCH_STEP=4096
-PATCH_LIMIT=128*1024**2
-
-def relief_url(key):
+def relief_url(key,width=PATCH_WIDTH):
     from urllib.parse import parse_qs,urlsplit
-    args=parse_qs(urlsplit(aerial_url(key)).query)
+    args=parse_qs(urlsplit(aerial_url(key,width=width)).query)
     left,bottom,right,top=map(float,args['bbox'][0].split(','))
     # ArcGIS samples pixel centres. Extend the box by half a grid step.
     half=(right-left)/256
@@ -169,10 +169,11 @@ def decode_relief(folder):
     if sys.byteorder!='little':values.byteswap()
     (folder/'height').write_bytes(values.tobytes())
 
-def flight_relief(key,field,*,local_only=False):
+def flight_relief(key,field,*,local_only=False,width=PATCH_WIDTH):
     from data_paths import rainier_cache
     cache=rainier_cache()/'flight-imagery-v1'
-    dest=cache/f'{key[0]}_{key[1]}.dem'
+    prefix='' if width==PATCH_WIDTH else f'{width}-'
+    dest=cache/f'{prefix}{key[0]}_{key[1]}.dem'
     try:data=dest.read_bytes()
     except FileNotFoundError:data=b''
     if len(data)!=129*129*2:
@@ -180,7 +181,7 @@ def flight_relief(key,field,*,local_only=False):
         cache.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(dir=cache) as tmp:
             folder=Path(tmp)
-            with urlopen(relief_url(key),timeout=8) as stream:raw=stream.read(1024**2+1)
+            with urlopen(relief_url(key,width),timeout=8) as stream:raw=stream.read(1024**2+1)
             if len(raw)>1024**2:raise ValueError('Oversized elevation patch')
             (folder/'height.tif').write_bytes(raw)
             convert_local(folder,'relief',lambda:decode_relief(folder))
@@ -190,23 +191,23 @@ def flight_relief(key,field,*,local_only=False):
     values=array('h')
     values.frombytes(data)
     if sys.byteorder!='little':values.byteswap()
-    return relief_mesh(key,field,values)
+    return relief_mesh(key,field,values,width)
 
-def relief_mesh(key,field,values=None):
+def relief_mesh(key,field,values=None,width=PATCH_WIDTH):
     from pnw.hiking import bounds
     from pnw.scene import surface
     from geometry import HeightField,Vec
     from struct import Struct
     west,east,south,north=bounds(field)
-    x0,z0=(v*PATCH_STEP-PATCH_WIDTH/2 for v in key)
-    inside=west<=x0 and x0+PATCH_WIDTH<=east and south<=z0 and z0+PATCH_WIDTH<=north
+    x0,z0=(v*PATCH_STEP-width/2 for v in key)
+    inside=west<=x0 and x0+width<=east and south<=z0 and z0+width<=north
     if not inside and values is None:
         raise ValueError('Elevation is unavailable beyond the prepared map')
-    cells=128 if values is not None and (not inside or max(values)>=400) else 32
+    cells=128 if values is not None and (width>PATCH_WIDTH or not inside or max(values)>=400) else 32
     heights=[]
     rows=[]
     vertex=Struct('=7f').pack
-    step=PATCH_WIDTH/cells
+    step=width/cells
     mesh=array('f')
     for j in range(cells+1):
         row=[]
@@ -229,12 +230,13 @@ def relief_mesh(key,field,values=None):
             rows.pop(0)
     return HeightField(cells+1,cells+1,Vec(x0,0,z0),step,step,tuple(heights),'meters'),mesh
 
-def flight_patch(key,field=None,pixels=1024):
+def flight_patch(key,field=None,pixels=1024,width=PATCH_WIDTH):
     from data_paths import rainier_cache
     cache=rainier_cache()/'flight-imagery-v1'
     cache.mkdir(parents=True,exist_ok=True)
     suffix='' if pixels==1024 else f'-{pixels}'
-    target=cache/f'{key[0]}_{key[1]}{suffix}.jpg'
+    prefix='' if width==PATCH_WIDTH else f'{width}-'
+    target=cache/f'{prefix}{key[0]}_{key[1]}{suffix}.jpg'
     with tempfile.TemporaryDirectory(dir=cache) as tmp:
         folder=Path(tmp)
         image=folder/'image.jpg'
@@ -242,7 +244,7 @@ def flight_patch(key,field=None,pixels=1024):
         try:image.write_bytes(target.read_bytes())
         except FileNotFoundError:
             cached=False
-            with urlopen(aerial_url(key,pixels),timeout=8) as stream:data=stream.read(4*1024**2+1)
+            with urlopen(aerial_url(key,pixels,width),timeout=8) as stream:data=stream.read(4*1024**2+1)
             if len(data)>4*1024**2:raise ValueError('Oversized aerial patch')
             image.write_bytes(data)
         try:convert_local(folder,f'patch-{pixels}',lambda:decode_aerial(folder,(pixels,pixels)))
@@ -255,10 +257,10 @@ def flight_patch(key,field=None,pixels=1024):
         else:image.replace(target)
         relief=None
         if field is not None:
-            try:relief=flight_relief(key,field)
+            try:relief=flight_relief(key,field,width=width)
             except (OSError,ValueError,ImportError,subprocess.SubprocessError):pass
         trim_patch_cache(cache)
-        if field is not None and relief is None:relief=relief_mesh(key,field)
+        if field is not None and relief is None:relief=relief_mesh(key,field,width=width)
         return rgb,relief
 
 
@@ -362,6 +364,84 @@ def load_surface(key,field,source,pixels=1024):
                     except (OSError,ValueError,ImportError,subprocess.SubprocessError):pass
     return map_patch(key,field,fetch_missing=source!='Drawn terrain')
 
+
+# Wide tiles use the same metre coordinates and image/DEM registration as local tiles.
+HORIZON_WIDTH=4*PATCH_WIDTH
+LANDMARKS=tuple(tuple(2*round(v/PATCH_WIDTH) for v in location('sound',lat,lon))
+                for lat,lon in ((46.852,-121.760),(47.603,-122.382),(47.266,-122.449)))
+
+def available_memory():
+    """Available host memory in bytes, capped by the remaining cgroup allowance."""
+    try:
+        if sys.platform=='darwin':
+            stats=subprocess.check_output(['/usr/bin/vm_stat'],text=True,timeout=2)
+            page=int(stats.split('page size of ')[1].split()[0])
+            rows=dict(line.rstrip('.').split(':') for line in stats.splitlines()[1:] if ':' in line)
+            return page*sum(int(rows[k]) for k in ('Pages free','Pages inactive','Pages speculative'))
+        info=Path('/proc/meminfo').read_text()
+        free=int(info.split('MemAvailable:')[1].split()[0])*1024
+        group=Path('/sys/fs/cgroup')
+        try:
+            limit=int((group/'memory.max').read_text())
+            free=min(free,max(0,limit-int((group/'memory.current').read_text())))
+        except (OSError,ValueError):pass
+        return free
+    except (OSError,IndexError,KeyError,ValueError,subprocess.SubprocessError):return None
+
+class FlightHorizon:
+    """One independent worker keeps the distant scenery from queuing behind local detail."""
+    def __init__(self):
+        self.pool=ThreadPoolExecutor(max_workers=1)
+        self.job=self.pending=None
+        self.resident={}
+        self.retry={}
+        self.settled=None
+        self.next_sample=0.
+        self.auto=1
+
+    def update(self,x,z,field,setting):
+        now=time.monotonic()
+        if setting=='Auto' and now>=self.next_sample:
+            free=available_memory()
+            self.auto=1 if free is None else 0 if free<512*1024**2 else 2 if free>2*1024**3 else 1
+            self.next_sample=now+30.
+        rings={'Local':0,'50 km':1,'80 km':2}.get(setting,self.auto)
+        cx,cz=(round(v/HORIZON_WIDTH) for v in (x,z))
+        neighborhood=(cx,cz,rings)
+        if self.settled==neighborhood:return [],None
+        self.settled=None
+        wanted={}
+        if rings:
+            # Slots 25..27 are always reserved for detailed landmark scenery.
+            for i,key in enumerate(LANDMARKS):wanted[25+i]=(key,PATCH_WIDTH)
+            grid=sorted(((i,j) for i in range(cx-rings,cx+rings+1) for j in range(cz-rings,cz+rings+1)),
+                        key=lambda ij:(ij[0]*HORIZON_WIDTH-x)**2+(ij[1]*HORIZON_WIDTH-z)**2)
+            for i,j in grid:wanted[28+i%5+5*(j%5)]=((8*i,8*j),HORIZON_WIDTH)
+        removed=[slot for slot in self.resident if slot not in wanted]
+        for slot in removed:del self.resident[slot]
+        self.retry={item:t for item,t in self.retry.items() if t>now and wanted.get(item[0])==item[1]}
+        patch=None
+        if self.job and self.job.done():
+            slot,entry=self.pending
+            try:rgb,relief=self.job.result()
+            except (ValueError,OSError,ImportError,subprocess.SubprocessError):
+                self.retry[self.pending]=now+60.
+            else:
+                if wanted.get(slot)==entry:
+                    self.resident[slot]=entry
+                    patch=(slot,entry[0],rgb,relief)
+            self.job=None
+        if self.job is None:
+            for slot,entry in wanted.items():
+                if self.resident.get(slot)==entry or (slot,entry) in self.retry:continue
+                self.pending=slot,entry
+                self.job=self.pool.submit(flight_patch,entry[0],field,1024,entry[1])
+                break
+        if not self.job and not self.retry:self.settled=neighborhood
+        return removed,patch
+
+    def close(self):
+        self.pool.shutdown(wait=False,cancel_futures=True)
 
 class FlightImagery:
     def __init__(self):

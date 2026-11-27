@@ -683,6 +683,19 @@ During Sound outings, Pocket streams a five-by-five neighborhood. Each tile
 spans 8.192 km, for about 41 km across when loaded. Aerial requests use
 4 m/pixel under the aircraft, 8 m/pixel in the first ring and 16 m/pixel in
 the outer ring. Two background workers prioritize nearby tiles.
+
+In **Settings → Rainier walk → Aerial horizon range**, choose **50 km** or
+**80 km** for a second layer of USGS imagery and elevation. These are nominal
+half-widths of square neighborhoods snapped to a 32.768 km tile grid. The
+distant imagery is 32 m/pixel. Three 8 m/pixel patches stay with Rainier,
+Elliott Bay and the Tacoma waterfront as the aircraft moves. A separate worker
+loads these landmarks and the horizon in Aerial mode. First visits need network
+coverage. Choose **Local** to use only the existing nearby imagery.
+
+**Auto** samples available system memory every 30 seconds during flight. It
+uses Local below 512 MiB, the middle range up to 2 GiB, and the widest range
+above that. If the memory reading is unavailable it selects the middle range.
+Shrinking the range releases unneeded horizon textures and terrain buffers.
 Aircraft can cross the prepared overview boundary. Beyond it, terrain needs cached
 elevation or a successful elevation download in Aerial mode. Mountain relief uses
 64 m samples from USGS 3DEP. Lowland runways and built areas inside the overview

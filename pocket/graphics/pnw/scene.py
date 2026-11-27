@@ -704,6 +704,7 @@ class RainierView:
     bike=glider=climb=None
     pad_sticks=(0.,0.,0.,0.)
     ground_source='Aerial'
+    horizon_range='Auto'
     flight_surfaces={}
     look_gain=1.
     name='Rainier walk'
@@ -724,6 +725,7 @@ class RainierView:
         self.valley_pose=self.map_position=None
         self.flight_surfaces={}
         self.flight_imagery=None
+        self.flight_horizon=None
         self.travel_job=self.travel_pool=None
         self.meadow_site=None
         self.flower_sites=[]
@@ -1256,6 +1258,7 @@ class RainierView:
     def release(self):
         self.flight_surfaces={}
         if self.flight_imagery:self.flight_imagery.close();self.flight_imagery=None
+        if self.flight_horizon:self.flight_horizon.close();self.flight_horizon=None
         self.bike=self.glider=self.climb=None
         self.stop_ski()
         if self.context and self.context.handle:
@@ -1662,7 +1665,8 @@ class RainierView:
             cx,cz=market_visit.site('overlook')
             if abs(x-cx)<=6 and -38<=z-cz<=20:return market_visit.deck_height(terrain,x,z)
             return floor_height(arcade_origin(),terrain,x,z)
-        for patch in self.flight_surfaces.values():
+        for slot in sorted(self.flight_surfaces):
+            patch=self.flight_surfaces[slot]
             west,east,south,north=bounds(patch)
             if west<=x<=east and south<=z<=north:return surface(patch,x,z)
         if self.outing in AIRCRAFT:
@@ -1811,11 +1815,21 @@ class RainierView:
         upload_shade=self.upload
         sound_region=self.outing is not None and self.outing!='hoh'
         if sound_region and self.outing not in market_visit.FLOORS:
-            from pnw.terrain import FlightImagery,PATCH_STEP
+            from pnw.terrain import FlightHorizon,FlightImagery,PATCH_STEP
             if self.flight_imagery is None:self.flight_imagery=FlightImagery()
             patch=self.flight_imagery.update(x,z,field,self.ground_source)
-            if patch:
-                slot,(ix,iz),rgb,(heights,mesh)=patch
+            if self.flight_horizon is None:self.flight_horizon=FlightHorizon()
+            setting=self.horizon_range if self.outing in AIRCRAFT and self.ground_source=='Aerial' else 'Local'
+            removed,distant=self.flight_horizon.update(x,z,field,setting)
+            if removed:
+                drop=ctx.lib.pocket_scene_drop_flight_photo
+                drop.argtypes=[C.c_void_p,C.c_uint]
+                for slot in removed:
+                    ctx.check(drop(ctx.handle,slot))
+                    self.flight_surfaces.pop(slot,None)
+            for tile in (patch,distant):
+                if tile is None:continue
+                slot,(ix,iz),rgb,(heights,mesh)=tile
                 upload=ctx.lib.pocket_scene_flight_photo
                 upload.argtypes=[C.c_void_p,C.c_uint,C.c_uint,C.c_char_p,C.c_float,C.c_float,C.c_void_p,C.c_uint]
                 ctx.check(upload(ctx.handle,slot,math.isqrt(len(rgb)//3),rgb,ix*PATCH_STEP,iz*PATCH_STEP,mesh.buffer_info()[0],len(mesh)//7))
