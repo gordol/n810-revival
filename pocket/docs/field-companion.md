@@ -650,3 +650,11 @@ cache for offline use. Flights use roughly 415 m elevation samples with
 a finer aerial texture. Hoh uses a separate local grid. The city buildings,
 market stalls, wheel, and ferry course are illustrative game scenery.
 Station Map's bundled regional relief uses elevation bands.
+
+**Seattle waterfront → Pike Place Market** opens on Pike Street facing the Main
+Arcade. The street-scale model follows the three tiers of rooftop lettering,
+clock, entrance fascia and neighboring facades visible on the
+[PDA press kit cover](https://images.pikeplacemarket.org/wp-content/uploads/2021/09/21060602/2021-Pike-Place-Market-Press-Kit.pdf).
+The approach width uses approximate cross-sections from the
+[City of Seattle 2023 building outlines](https://catalog.data.gov/dataset/building-outlines-2023).
+Building heights, windows, stalls and interior fittings are illustrative.

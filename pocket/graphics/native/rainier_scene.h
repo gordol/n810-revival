@@ -94,6 +94,14 @@ static GLuint rainier_program(void){
   "float whorl=fract(h*7.+.18*sin(pos.x+pos.z));float side=abs(2.*tint.r-1.);"
   "if(side>(1.-h)*(.68+.75*whorl)+.08)discard;"
   "float light=.78+.27*whorl+.16*noise(pos.xz*1.4);col=vec3(.55*tint.g,tint.g,tint.b)*light;}"
+  "if(regional==2 && abs(tint.a-.241)<.0001){vec2 uv=vec2(pos.x+.65*pos.z,pos.y);"
+  "float patina=noise(uv*vec2(.45,.18));float grain=(noise(uv*19.)-.5)*(1.-smoothstep(.02,.10,length(fwidth(uv))));"
+  "col*=.86+.24*patina+.14*grain;}"
+  "if(regional==2 && abs(tint.a-.244)<.0001){vec3 ray=normalize(pos-waterEye);"
+  "vec3 n=normalize(cross(dFdx(pos),dFdy(pos)));vec3 mirror=reflect(ray,n);"
+  "float skyline=noise(mirror.xz*17.)*.21-.03;"
+  "vec3 reflection=mix(vec3(.21,.23,.22),skyColor(vec3(mirror.x,max(.01,mirror.y),mirror.z)),smoothstep(skyline-.015,skyline+.025,mirror.y));"
+  "col=mix(col,reflection,.28+.55*pow(1.-abs(dot(ray,n)),3.));}"
   "if(regional==2 && abs(tint.a-.237)<.0001){vec2 p=pos.xz*vec2(2.,4.);p.x+=.5*mod(floor(p.y),2.);"
   "vec2 edge=abs(fract(p)-.5);float mortar=smoothstep(.435,.49,max(edge.x,edge.y));"
   "float joint=mortar*(1.-smoothstep(.12,.65,length(fwidth(pos.xz*4.))));"
@@ -169,7 +177,7 @@ static GLuint rainier_program(void){
   "snow+=vec3(.021*ripple+.033*grain+.045*(seams-.5)+.040*flecks);"
   "col=mix(col,mix(rock,snow,smoothstep(.78,.94,retention)),smoothstep(2350.,2750.,elev));}"
   "col*=mix(vec3(1.),vec3(.52,.63,.72),castShade);"
-  "float haze=1.-exp(-distanceToEye*hazeDensity);vec3 lit=col*mix(vec3(.24,.32,.47),vec3(1.),daylight);gl_FragColor=vec4(mix(mix(lit,reflected,reflection),horizon(),haze),alpha);}";
+  "float haze=1.-exp(-distanceToEye*hazeDensity);vec3 lit=col*mix(vec3(.24,.32,.47),vec3(1.),daylight);if(regional==2 && abs(tint.a-.247)<.0001)lit=tint.rgb;gl_FragColor=vec4(mix(mix(lit,reflected,reflection),horizon(),haze),alpha);}";
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return 0;
  GLuint frag=wildlife_shader(GL_FRAGMENT_SHADER,fs);if(!frag){glDeleteShader(vert);return 0;}
  GLuint program=glCreateProgram();glAttachShader(program,vert);glAttachShader(program,frag);

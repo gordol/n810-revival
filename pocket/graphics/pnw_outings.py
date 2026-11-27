@@ -40,7 +40,7 @@ def location(region,lat,lon):
     return (px-cx)*spacing/step,(cy-py)*spacing/step
 
 WHEEL=(47.6062,-122.3425)
-MARKET=(47.6095,-122.3418)
+MARKET=(47.6087,-122.3405)  # Pike Street entrance, near the clock
 # Illustrative ferry course through Elliott Bay and Eagle Harbor.
 FERRY=tuple(location('sound',*p) for p in ((47.6032,-122.3485),(47.602,-122.368),
     (47.595,-122.44),(47.596,-122.485),(47.617,-122.497),(47.622,-122.509)))
@@ -282,66 +282,8 @@ def build_world(outing):
             box(x,zz,y,3.8,2.3,1.15,(.80,.83,.81))
             box(x,zz,y+1.15,3.5,2.,1.05,(.24,.38,.45))
             box(x,zz,y+2.2,3.8,2.3,.18,(.84,.85,.80))
-        x,z=location('sound',*MARKET)
-        # Market entrance: red tube lettering on an open steel frame and a
-        # clock. Keep the sky visible through the sign from the street.
-        def sign_bar(ax,ay,bx,by,z,width,color):
-            length=math.hypot(bx-ax,by-ay)
-            dx,dy=width*(by-ay)/length,width*(ax-bx)/length
-            quad(((ax-dx,ay-dy,z),(ax+dx,ay+dy,z),(bx+dx,by+dy,z),(bx-dx,by-dy,z)),color)
-        sign_z=z+9
-        sign_y=surface(field,x,sign_z)
-        steel=(.19,.20,.17)
-        for side in (-1,1):
-            box(x+side*4.8,sign_z,sign_y-.8,.16,.21,8.8,steel)
-        for h in (4.8,5.4,7.35):
-            box(x,sign_z,sign_y+h,9.8,.19,.105,steel)
-        for j in range(8):
-            start=x-4.8+1.2*j
-            sign_bar(start,sign_y+4.8,start+1.2,sign_y+5.4,sign_z,.045,steel)
-        letters={'M':('0006336660',),'A':('003660', '1252'),
-                 'R':('00064663533303','3360'),'K':('0006','0366','0360'),
-                 'E':('66060060','0333'),'T':('0666','3630')}
-        red=(1.,.14,.095)
-        for j,c in enumerate('MARKET'):
-            for stroke in letters[c]:
-                points=[(x-4.48+j*1.16+int(stroke[k])*.145,sign_y+5.65+int(stroke[k+1])*.23)
-                        for k in range(0,len(stroke),2)]
-                for a,b in zip(points,points[1:]):sign_bar(*a,*b,sign_z-.13,.055,red)
-        clock_x,clock_y=x+3.45,sign_y+6.35
-        for j in range(48):
-            a,b=j*math.tau/48,(j+1)*math.tau/48
-            for angle,r in ((a,0),(a,.9),(b,.9)):
-                mesh.extend((clock_x+r*math.cos(angle),clock_y+r*math.sin(angle),sign_z-.16,.92,.87,.69,0.))
-            if j%4==0:
-                sign_bar(clock_x+.70*math.cos(a),clock_y+.70*math.sin(a),
-                         clock_x+.84*math.cos(a),clock_y+.84*math.sin(a),sign_z-.18,.027,steel)
-        for dx,dy in ((-.31,.39),(.54,.27)):
-            sign_bar(clock_x,clock_y,clock_x+dx,clock_y+dy,sign_z-.2,.036,steel)
-        # Pavers follow the same triangles as the player's feet.
-        for j in range(-14,66,2):
-            ends=[(x+sx*4.8,z+j+step) for sx,step in ((-1,0),(1,0),(1,2),(-1,2))]
-            quad([(xx,surface(field,xx,zz)+.045,zz) for xx,zz in ends],(.42,.39,.36),.237)
-        rng=random.Random(1907)
-        for side in (-1,1):
-            for row in range(12):
-                xx,zz=x+side*5.5,z+row*5
-                y=surface(field,xx,zz)
-                box(xx+side*2,zz,y-1,3.,4.9,5.6,(.59,.36,.26),.228)
-                box(xx,zz,y-.25,1.15,4.4,1.18,(.48,.34,.20))
-                for edge in (-1,1):
-                    box(xx-side*.6,zz+2.3*edge,y-.3,.09,.09,3.27,(.27,.29,.24))
-                for band in range(8):
-                    zz0=zz-2.5+band*.625
-                    color=(.66,.16,.12) if band%2 else (.91,.81,.61)
-                    quad(((xx-side*.9,y+2.85,zz0),(xx+side*1.7,y+3.65,zz0),
-                          (xx+side*1.7,y+3.65,zz0+.625),(xx-side*.9,y+2.85,zz0+.625)),color)
-                for bin_index in range(6):
-                    basket=zz-1.8+bin_index*.68
-                    box(xx,basket,y+.93,.98,.59,.18,(.53,.37,.19))
-                    color=rng.choice(((.82,.23,.09),(.86,.59,.10),(.39,.59,.19),(.70,.12,.16)))
-                    for offset in (-.25,0,.25):
-                        box(xx+offset,basket,y+1.11,.20,.43,rng.uniform(.12,.23),color)
+        import pike_market
+        pike_market.build(location(region,*MARKET),lambda x,z:surface(field,x,z),quad)
     else:
         from forest_floor import broadleaf_clump,nurse_log,fern
         rng=random.Random(47861)

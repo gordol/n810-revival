@@ -1316,9 +1316,8 @@ class RainierView:
                         self.glider=SoundVehicle(self.outing,world[0])
                     elif self.outing=='market':
                         from pnw_outings import MARKET,location
-                        x,z=location('sound',*MARKET)
-                        owner.x,owner.z=x,z-6
-                        owner.yaw=.07
+                        from pike_market import arrival
+                        owner.x,owner.z,owner.yaw,owner.pitch=arrival(location('sound',*MARKET))
                     elif self.outing in ('ferry','wheel'):
                         owner.x,owner.z,owner.yaw,owner.pitch,_=ride_pose(self.outing,0)
                 else:

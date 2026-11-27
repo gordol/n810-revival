@@ -26,6 +26,16 @@ class OutingTests(unittest.TestCase):
             merc_x=lon*20037508.342789245/180
             self.assertAlmostEqual((merc_x-x0)/(x1-x0),.5+x/((nx-1)*spacing),places=7)
 
+    def test_market_street_arrival_faces_the_arcade(self):
+        import pike_market
+        center=pnw.location('sound',*pnw.MARKET)
+        x,z,yaw,pitch=pike_market.arrival(center)
+        self.assertGreater(x,center[0])
+        self.assertGreater(z,center[1])
+        self.assertAlmostEqual(x+38*math.sin(yaw),center[0])
+        self.assertAlmostEqual(z+38*math.cos(yaw),center[1])
+        self.assertLess(pitch,0)
+
     def test_round_trips(self):
         duration=sum(math.dist(a,b) for a,b in zip(pnw.FERRY,pnw.FERRY[1:]))/45
         self.assertLess(math.dist(pnw.ride_pose('ferry',duration)[:2],pnw.FERRY[-1]),.001)
