@@ -1,4 +1,4 @@
-"""Private, replaceable cache for the valley's static GPU buffers."""
+"""Private, replaceable cache for static terrain and wildlife GPU buffers."""
 from array import array
 import hashlib
 import json
@@ -36,67 +36,125 @@ def read_array(archive,name,kind,max_bytes):
     return values
 
 
-def load(path,key,species_count):
+def load(path,key,species_count,*,summit=False,prepare=False):
     with zipfile.ZipFile(path) as archive:
         if archive.getinfo('scene').file_size>256*1024:raise ValueError('oversized scene metadata')
         meta=json.loads(archive.read('scene'))
         if meta['key']!=key:raise ValueError('scene changed')
-        vertices=read_array(archive,'vertices','f',3_000_000*28)
-        indices=read_array(archive,'indices','I',2_000_000*4)
-        if archive.getinfo('canopy').file_size!=1024**2:raise ValueError('invalid canopy size')
-        canopy=bytearray(archive.read('canopy'))
-    base,terrain=meta['base'],meta['terrain']
-    n=len(vertices)//7
-    if len(vertices)%7 or not 0<base<=terrain<=n or base%3 or terrain%3:raise ValueError('invalid terrain')
+        nv=archive.getinfo('vertices').file_size
+        ni=archive.getinfo('indices').file_size
+        if not 0<nv<=3_000_000*28 or nv%28 or not 0<ni<=2_000_000*4 or ni%4:
+            raise ValueError('invalid scene buffers')
+        if not summit and archive.getinfo('canopy').file_size!=1024**2:
+            raise ValueError('invalid canopy size')
+        base,terrain=meta['base'],meta['terrain']
+        n=nv//28
+        if not 0<base<=terrain<=n or base%3 or terrain%3:raise ValueError('invalid terrain')
+        if not prepare:
+            vertices=read_array(archive,'vertices','f',nv)
+            indices=read_array(archive,'indices','I',ni)
+            canopy=None if summit else bytearray(archive.read('canopy'))
     spans=meta['spans']
-    if len(spans)!=species_count:raise ValueError('invalid species count')
+    if species_count is not None and len(spans)!=species_count:raise ValueError('invalid species count')
     for first,stride,frames,start,count in spans:
-        if min(stride,frames,count)<=0 or first<terrain or first+frames*stride>n or start<0 or start+count>len(indices):
+        if min(stride,frames,count)<=0 or first<terrain or first+frames*stride>n or start<0 or start+count>ni//4:
             raise ValueError('invalid wildlife span')
     plants=[(str(kind),float(x),float(z)) for kind,x,z in meta['plants']]
-    return vertices,terrain,indices,spans,base,canopy,plants
+    if prepare:
+        print(f'{path.name} already prepared',flush=True)
+        return
+    return vertices,terrain,indices,spans,base,canopy,plants,meta.get('panorama',False)
 
 
 def store(path,key,world,plants):
-    _,_,vertices,terrain,indices,spans,base,canopy=world
+    field,_,vertices,terrain,indices,spans,base,canopy=world
     path.parent.mkdir(parents=True,exist_ok=True)
     temp=None
     try:
         with tempfile.NamedTemporaryFile(dir=path.parent,delete=False) as output:
             temp=Path(output.name)
             with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED,compresslevel=1) as archive:
-                archive.writestr('scene',json.dumps(dict(key=key,terrain=terrain,base=base,spans=spans,plants=plants)))
+                archive.writestr('scene',json.dumps(dict(key=key,terrain=terrain,base=base,spans=spans,plants=plants,panorama=getattr(field,'panorama',False))))
                 for name,values in (('vertices',vertices),('indices',indices)):
                     data=memoryview(values).cast('B')
                     with archive.open(name,'w') as stream:
                         for offset in range(0,len(data),1024*1024):stream.write(data[offset:offset+1024*1024])
-                archive.writestr('canopy',canopy)
+                if canopy is not None:archive.writestr('canopy',canopy)
         os.replace(temp,path)
     finally:
         if temp is not None:temp.unlink(missing_ok=True)
 
 
-def valley_world(high,plant_sites):
+def valley_world(high,plant_sites,*,prepare=False):
     from geometry import Vec
     from pnw.scene import build_world,ENCOUNTERS,surface,valley_floor
     folder=Path(os.environ.get('XDG_CACHE_HOME') or Path.home()/'.cache')/'pocket/rainier-walk'
     path=folder/('valley-high.zip' if high else 'valley-low.zip')
     try:
         key=source_key()
-    except OSError:return build_world(high,plant_sites)
+    except OSError:
+        if prepare:raise
+        return build_world(high,plant_sites)
     try:
-        vertices,terrain,indices,spans,base,canopy,plants=load(path,key,len(ENCOUNTERS))
+        cached=load(path,key,len(ENCOUNTERS),prepare=prepare)
     except (OSError,ValueError,TypeError,KeyError,EOFError,zipfile.BadZipFile,zlib.error):
         world=build_world(high,plant_sites)
         try:store(path,key,world,plant_sites)
-        except OSError:pass
+        except OSError:
+            if prepare:raise
         return world
+    if prepare:return
+    vertices,terrain,indices,spans,base,canopy,plants,_=cached
     field,_=valley_floor()
     plant_sites[:]=plants
     return field,Vec(0,surface(field,0,0),0),vertices,terrain,indices,spans,base,canopy
 
 
-def regional_mesh(region,elevation,textured,build,*,require_cache=False):
+def summit_world(*,prepare=False):
+    from dataclasses import replace
+    from data_paths import rainier_cache,rainier_root
+    from geometry import Vec
+    from pnw.scene import build_world,region_field,surface,SUMMIT_DANCERS
+    from rainier_data import download,FILES
+    download()
+    here=Path(__file__).resolve().parent
+    inputs=[rainier_root()/name for name in FILES]
+    inputs.extend(here/(name+'.py') for name in ('hiking','summit_detail','summit_approach',
+                  'summit_horizon','summit_ski','paradise_meadow','fremont_lookout'))
+    inputs.extend((here.parent/'assets/summit/elevation.i16.zlib',
+                   here.parents[1]/'shell/terrain_elevation.py'))
+    inputs.extend((rainier_cache()/name) for name in ('summit-approach-v1.f32.zlib','horizon-terrarium-v2.i16.zlib'))
+    def identity():
+        digest=hashlib.sha256(source_key().encode())
+        for path in inputs:
+            digest.update(path.read_bytes() if path.is_file() else b'missing')
+        return digest.hexdigest()
+    key=identity()
+    folder=Path(os.environ.get('XDG_CACHE_HOME') or Path.home()/'.cache')/'pocket/rainier-walk'
+    path=folder/'rainier-summit.zip'
+    field=None if prepare else region_field()
+    dancers=None if prepare else len(SUMMIT_DANCERS) if getattr(field,'inset',None) else 0
+    try:
+        cached=load(path,key,dancers,summit=True,prepare=prepare)
+    except (OSError,ValueError,TypeError,KeyError,EOFError,zipfile.BadZipFile,zlib.error):
+        if field is None:field=region_field()
+        world=build_world(False,None,True,field=field)
+        # Missing remote detail can be retried on a later visit.
+        if getattr(field,'inset',None) and (not getattr(field.inset,'inset',None)
+                or not getattr(world[0],'panorama',False) or not inputs[-1].is_file()):
+            if prepare:raise ValueError('Summit detail incomplete. Retry terrain preparation.')
+            return world
+        try:store(path,identity(),world,[])
+        except OSError:
+            if prepare:raise
+        return world
+    if prepare:return
+    vertices,terrain,indices,spans,base,canopy,_,panorama=cached
+    if panorama:field=replace(field,panorama=True)
+    return field,Vec(0,surface(field,0,0),0),vertices,terrain,indices,spans,base,canopy
+
+
+def regional_mesh(region,elevation,textured,build,*,require_cache=False,prepare=False):
     """Keep one validated, atomically replaceable vertex buffer per region."""
     here=Path(__file__).resolve().parent
     graphics=here.parent
@@ -105,7 +163,7 @@ def regional_mesh(region,elevation,textured,build,*,require_cache=False):
     digest.update(elevation)
     inputs=[here/(name+'.py') for name in sources]
     inputs.extend(graphics.parent/'shell'/name for name in ('geometry.py','vegetation.py'))
-    if region=='sound':
+    if region!='hoh':
         inputs.extend(sorted((graphics/'assets/seattle').glob('*.json')))
         inputs.extend(sorted((graphics/'assets/seattle').glob('*.csv')))
     for path in inputs:digest.update(hashlib.sha256(path.read_bytes()).digest())
@@ -115,6 +173,10 @@ def regional_mesh(region,elevation,textured,build,*,require_cache=False):
     try:
         with zipfile.ZipFile(target) as archive:
             if archive.comment==key:
+                size=archive.getinfo('vertices').file_size
+                if prepare and 0<size<=3_000_000*28 and size%84==0:
+                    print(f'{target.name} already prepared',flush=True)
+                    return None
                 mesh=read_array(archive,'vertices','f',3_000_000*28)
                 if len(mesh)%21==0:return mesh
     except (OSError,ValueError,KeyError,EOFError,zipfile.BadZipFile,zlib.error):pass
@@ -129,7 +191,7 @@ def regional_mesh(region,elevation,textured,build,*,require_cache=False):
                 archive.writestr('vertices',memoryview(mesh).cast('B'))
         tmp.replace(target)
     except OSError:
-        if require_cache:raise
+        if require_cache or prepare:raise
     finally:
         if tmp:tmp.unlink(missing_ok=True)
     return mesh

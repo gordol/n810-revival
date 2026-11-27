@@ -18,6 +18,26 @@ class HikeTests(TestCase):
         with patch('rainier_data.download'),patch('terrain_elevation.grid',return_value=(meta,values)):
             return region_field()
 
+    def test_summit_bake_is_reused_until_the_local_dem_changes(self):
+        from array import array
+        import os
+        from tempfile import TemporaryDirectory
+        from pnw.river_scene_cache import summit_world
+        field=self.field()
+        mesh=array('f',[0.]*21)
+        world=(field,None,mesh,3,array('I',[0]),[],3,None)
+        with TemporaryDirectory() as tmp, patch.dict(os.environ,XDG_CACHE_HOME=tmp,XDG_DATA_HOME=tmp), \
+                patch('rainier_data.download'), patch('data_paths.rainier_root',return_value=Path(tmp)), \
+                patch('pnw.scene.region_field',return_value=field), patch('pnw.scene.build_world',return_value=world) as build:
+            summit_world(prepare=True)
+            with patch('pnw.river_scene_cache.read_array',side_effect=AssertionError('unpacked a prepared mesh')):
+                summit_world(prepare=True)
+            self.assertEqual(summit_world()[2:],world[2:])
+            build.assert_called_once()
+            (Path(tmp)/'tahoma-3dep.i16.zlib').write_bytes(b'changed elevation')
+            summit_world(prepare=True)
+            self.assertEqual(build.call_count,2)
+
     def test_ice_grips_deliver_the_climber_to_the_peak_before_flag_raise(self):
         from geometry import HeightField,Vec
         from pnw.hiking import SummitClimb

@@ -54,6 +54,8 @@ class RiverDetailTests(unittest.TestCase):
             'pnw.scene.ENCOUNTERS',[None]),patch('pnw.scene.build_world',side_effect=generate) as build:
             with patch('pnw.river_scene_cache.source_key',return_value='first'):
                 valley_world(True,[])
+                with patch('pnw.river_scene_cache.read_array',side_effect=AssertionError('reloaded GPU buffers')):
+                    valley_world(True,[],prepare=True)
                 restored=[]
                 world=valley_world(True,restored)
                 self.assertEqual(world[2:5],sample[2:5])

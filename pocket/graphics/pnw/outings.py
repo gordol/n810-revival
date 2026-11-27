@@ -67,18 +67,19 @@ def ride_pose(outing,elapsed):
         along-=d
     return *FERRY[-1],0.,0.,5.
 
-def build_world(outing,*,require_cache=False):
+def build_world(outing,*,require_cache=False,prepare=False):
     from geometry import Vec
     from pnw.summit_detail import RegionalTerrain
     region='hoh' if outing=='hoh' else 'sound'
-    if outing in market_visit.FLOORS:return market_visit.indoor(outing)
+    if outing in market_visit.FLOORS:return market_visit.indoor(outing,prepare=prepare)
     raw=elevations(region)
     _,_,_,_,nx,nz=GRIDS[region]
     _,_,d=layout(region)
     field=RegionalTerrain(nx,nz,Vec(-(nx//2)*d,0,-(nz//2)*d),d,d,tuple(max(0,v) for v in raw),'meters')
     aerial=sound_aerial() if region=='sound' else None
     from pnw.river_scene_cache import regional_mesh
-    mesh=regional_mesh(region,raw,aerial is not None,lambda:build_mesh(region,field,raw,aerial),require_cache=require_cache)
+    mesh=regional_mesh(region,raw,aerial is not None,lambda:build_mesh(region,field,raw,aerial),require_cache=require_cache,prepare=prepare)
+    if prepare:return aerial is not None
     count=len(mesh)//7
     return field,Vec(0,0,0),mesh,count,array('I',[0]),(),count,aerial
 

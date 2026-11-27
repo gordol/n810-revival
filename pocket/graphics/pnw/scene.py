@@ -313,8 +313,8 @@ def encounters(field,origin,spans,age,fed=False,observer=(0.,0.),subjects=None,o
     return (AnimalDraw*len(visible))(*visible)
 
 
-def build_world(high=True,plant_sites=None,regional=False):
-    field,segments=(region_field(),()) if regional else (valley_floor()[0],site()[1])
+def build_world(high=True,plant_sites=None,regional=False,*,field=None):
+    field,segments=(field if field is not None else region_field(),()) if regional else (valley_floor()[0],site()[1])
     origin=Vec(0,surface(field,0,0),0)
     triangles=array('f')
     detail=array('f')
@@ -1342,7 +1342,8 @@ class RainierView:
         self.lookout_arrival=lookout_arrival
         self.travel_error=''
         self.travel_pool=ThreadPoolExecutor(max_workers=1)
-        self.travel_job=self.travel_pool.submit(build_world,False,None,True)
+        from pnw.river_scene_cache import summit_world
+        self.travel_job=self.travel_pool.submit(summit_world)
 
     def return_to_valley(self):
         self.release()

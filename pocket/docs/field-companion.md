@@ -661,9 +661,12 @@ B/Circle exits flight.
 terrain before opening Pocket. To prepare without opening the app, use
 `make mobile-prepare-terrain`, or `make mobile-prepare-terrain TERRAIN_REGIONS=sound`
 for flights, Seattle and the ferry only. The desktop equivalent is `make terrain-prepare`.
-The simulator reuses prepared Sound and Hoh vertex buffers, and preparation also
-warms the starting valley mesh for the current quality setting. Elevation, imagery
-and saved games continue to use the existing private data directories.
+Preparation builds both starting-valley quality levels and the shared Rainier mesh for
+the summit, Paradise meadow, lookout, and ski courses. It also builds the Sound and Hoh
+outdoor meshes and the three Pike Place shop floors. Repeat runs check the inputs and
+skip current mesh buffers. Changing a scene or its source terrain triggers a rebuild.
+The first visit still loads collision data and uploads the scene to the GPU. Moving
+wildlife, weather, and vegetation near the player are updated during play.
 
 With an empty cache, preparation downloads Terrarium elevation tiles for the Sound or the
 Hoh visitor center. Puget Sound also uses an aerial image from the USGS

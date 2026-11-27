@@ -126,9 +126,17 @@ def walk_inside(key,x,z):
             else:z+=math.copysign(ez,dz)
     return x,z
 
-def indoor(key):
+def indoor(key,*,prepare=False):
+    from pnw.river_scene_cache import regional_mesh
     from geometry import Vec
     from pnw.summit_detail import RegionalTerrain
+    mesh=regional_mesh(key,b'',False,lambda:indoor_mesh(key),prepare=prepare)
+    if prepare:return
+    field=RegionalTerrain(17,27,Vec(-8,0,-13),1,1,(0,)*(17*27),'meters')
+    count=len(mesh)//7
+    return field,Vec(0,0,0),mesh,count,array('I',[0]),(),count,None
+
+def indoor_mesh(key):
     mesh=array('f')
     def quad(p,c,m=0.):
         for i in (0,1,2,0,2,3):mesh.extend((*p[i],*c,m))
@@ -231,9 +239,7 @@ def indoor(key):
                 box(-7.74,1.16,zz,.11,1.40,.06,wood)
         # Doors into the two bays stay open on either side of the centre post.
     box(0,0,8.5,.20,3.35,9.,wood)
-    field=RegionalTerrain(17,27,Vec(-8,0,-13),1,1,(0,)*(17*27),'meters')
-    count=len(mesh)//7
-    return field,Vec(0,0,0),mesh,count,array('I',[0]),(),count,None
+    return mesh
 
 def storefronts(ground,world_quad,world_box):
     _,_,c,s=storefront_frame()
