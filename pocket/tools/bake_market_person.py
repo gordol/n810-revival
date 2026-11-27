@@ -122,6 +122,10 @@ def hang_wrist(side,forward):
 def world_head(name):
     return arm.matrix_world@arm.pose.bones[name].head
 
+def ease(x):
+    x=min(1.,max(0.,x))
+    return x*x*(3-2*x)
+
 def walking_legs(cycle):
     # Solve to the ankle in metres. Each stance travels back at street speed.
     # The swing starts and ends at the same velocity as the planted foot.
@@ -132,7 +136,7 @@ def walking_legs(cycle):
     up=arm.matrix_world.inverted().to_3x3()@Vector((0,0,1))
     pivot=Matrix.Translation(pelvis.head)
     transform=pivot@Matrix.Rotation(twist,4,up)@pivot.inverted()@pelvis.matrix
-    shift=Vector((.015*math.sin(phase),0,-.046-.012*math.cos(2*phase)))
+    shift=Vector((-.020*math.sin(phase),0,-.046-.012*math.cos(2*phase)))
     transform.translation+=arm.matrix_world.inverted().to_3x3()@shift
     pelvis.matrix=transform
     bpy.context.view_layer.update()
@@ -146,16 +150,24 @@ def walking_legs(cycle):
         stride=1.10
         forward=stride*(stance/2-t)
         lift=0.
-        roll=0.
+        # Rock over the heel at contact and the toe at push-off. Smoothstep
+        # leaves the sole flat through midstance and joins the swing smoothly.
+        heel=-.17
+        toe=.30
+        roll=heel*(1-ease(t/.13))+toe*ease((t-.40)/(stance-.40))
         if t>=stance:
             swing=(t-stance)/(1-stance)
             forward+=stride*swing*swing*(3-2*swing)
             lift=.065*math.sin(math.pi*swing)**2
-            roll=.18*math.sin(math.tau*swing)
+            roll=toe+(heel-toe)*ease(swing)
         hip=world_head('thigh_'+side)
         knee=world_head('calf_'+side)
         rest=arm.matrix_world@arm.data.bones['foot_'+side].head_local
         goal=Vector((sign*(.098+.013*lift/.065),rest.y-forward,rest.z+lift))
+        # Rotate the ankle about the contacting end of the shoe, including
+        # its fore/aft displacement, before solving the knee to that ankle.
+        contact=Vector((0,.052 if roll<0 else -.155,-rest.z))
+        goal+=contact-Matrix.Rotation(roll,3,'X')@contact
         axis=(goal-hip).normalized()
         pole=Vector((0,-1,0))
         pole=(pole-axis*pole.dot(axis)).normalized()
@@ -182,11 +194,13 @@ def walking_arms(phase):
     for side,sign in (('l',1),('r',-1)):
         # Left foot trails at stride zero as the left arm swings forward.
         # Drive the elbow parent shared by the wrist and forearm twist bone.
-        quiet=pocket_hand and side=='r'
-        shoulder=.04+.025*math.cos(phase) if quiet else sign*.21*math.cos(phase)
-        forearm=.84 if quiet else .19+sign*.24*math.cos(phase-.18)
-        upper_out=.33 if quiet else .27
-        lower_out=-.09 if quiet else .045
+        # Sam's jacket needs clearance at the hip. A smaller right-hand
+        # swing keeps the arms asymmetric without pinning the elbow in place.
+        swing=.83 if jacket and side=='r' else 1.
+        shoulder=sign*.21*swing*math.cos(phase)
+        forearm=.19+sign*.24*swing*math.cos(phase-.18)
+        upper_out=.25 if jacket else .27
+        lower_out=.075 if jacket else .045
         aim('upperarm_'+side,(sign*upper_out,-math.sin(shoulder),-math.cos(shoulder)))
         aim('lowerarm_'+side,(sign*lower_out,-math.sin(forearm),-math.cos(forearm)))
         # A sleeve twist bone can point the right way without moving the
@@ -196,7 +210,7 @@ def walking_arms(phase):
         intended=Vector((sign*lower_out,-math.sin(forearm),-math.cos(forearm)))
         if wrist_axis.angle(intended)>math.radians(3):
             raise ValueError(f'{side} wrist does not follow its elbow')
-        hang_wrist(side,.13 if quiet else forearm-.06)
+        hang_wrist(side,forearm-.06)
         relax_hand(side,False)
 
 def clearance_surfaces():
@@ -235,7 +249,7 @@ for obj,probes,fabric in surfaces:
 walk_surfaces=[]
 # The imported accessory walk has widely spaced ankles and exaggerated
 # vertical travel. Start each sample from rest to avoid inheriting that pose.
-pocket_hand=any(o.name.startswith('Sam | anatomical body') for o in objects)
+jacket=any(o.name.startswith('Sam | anatomical body') for o in objects)
 arm.animation_data_clear()
 poses=[];contacts=[]
 for frame in range(16):
