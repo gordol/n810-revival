@@ -101,10 +101,60 @@ def relax_hand(side,open_hand):
             arm.pose.bones[name].rotation_quaternion=Quaternion(local,math.radians(angle*factor*(.4 if open_hand else 1.)))
     bpy.context.view_layer.update()
 
+def hang_wrist(side,forward):
+    # The wrist bone points diagonally across this rig's hand. Use the
+    # knuckles to orient the palm, with the thumb toward the direction of travel.
+    bones=arm.pose.bones
+    wrist=bones['hand_'+side]
+    middle=bones['middle_01_'+side].head
+    across=bones['index_01_'+side].head-bones['pinky_01_'+side].head
+    def basis(length,width):
+        length=length.normalized()
+        width=(width-length*width.dot(length)).normalized()
+        return Matrix((length,width,length.cross(width))).transposed()
+    local=arm.matrix_world.inverted().to_3x3()
+    target=basis(local@Vector((0,-math.sin(forward),-math.cos(forward))),local@Vector((0,-1,0)))
+    rotation=target@basis(middle-wrist.head,across).transposed()
+    pivot=Matrix.Translation(wrist.head)
+    wrist.matrix=pivot@rotation.to_4x4()@pivot.inverted()@wrist.matrix
+    bpy.context.view_layer.update()
+
+def walking_arms(phase):
+    for side,sign in (('l',1),('r',-1)):
+        # Left foot trails at stride zero as the left arm swings forward.
+        # Drive the elbow parent shared by the wrist and forearm twist bone.
+        shoulder=sign*.26*math.cos(phase)
+        forearm=.18+sign*.32*math.cos(phase-.18)
+        aim('upperarm_'+side,(sign*.095,-math.sin(shoulder),-math.cos(shoulder)))
+        aim('lowerarm_'+side,(-sign*.055,-math.sin(forearm),-math.cos(forearm)))
+        # A sleeve twist bone can point the right way without moving the
+        # hand. Check the rendered joint chain before writing the asset.
+        bones=arm.pose.bones
+        wrist_axis=arm.matrix_world.to_3x3()@(bones['hand_'+side].head-bones['lowerarm_'+side].head)
+        intended=Vector((-sign*.055,-math.sin(forearm),-math.cos(forearm)))
+        if wrist_axis.angle(intended)>math.radians(3):
+            raise ValueError(f'{side} wrist does not follow its elbow')
+        hang_wrist(side,forearm-.06)
+        relax_hand(side,False)
+
+# Discard the accessory pose, including twist bones and individual finger keys.
+# Otherwise evaluating the source action can restore those keys during posing.
+arm_bones=set()
+for side in ('l','r'):
+    upper=arm.pose.bones['upperarm_'+side]
+    arm_bones.update(b.name for b in (upper,*upper.children_recursive))
+action=arm.animation_data.action
+for curve in list(action.fcurves):
+    if any(curve.data_path.startswith(f'pose.bones["{name}"]') for name in arm_bones):
+        action.fcurves.remove(curve)
+
 poses=[];contacts=[]
 for frame in range(16):
     if frame<12:
+        for name in arm_bones:arm.pose.bones[name].matrix_basis=Matrix.Identity(4)
         scene.frame_set(frame*2)
+        bpy.context.view_layer.update()
+        walking_arms(math.tau*frame/12)
     else:
         if frame==12:arm.animation_data_clear()
         # Reset each key so the rotations below are absolute. Both planted
@@ -131,9 +181,9 @@ for frame in range(16):
                 upper=(.20*sign,-.58,-.72)
                 lower=(-.32*sign,-.86,.32)
             aim('upperarm_'+side,upper)
-            aim('lowerarm_prox_'+side,lower)
+            aim('lowerarm_'+side,lower)
             reaching=frame==15 or (frame==14 and side=='r')
-            if not reaching:aim('hand_'+side,(-.12*sign,-(.45 if bent else .19),-.95))
+            if not reaching:hang_wrist(side,.27 if bent else .10)
             relax_hand(side,reaching)
     graph=bpy.context.evaluated_depsgraph_get()
     points=[];normals=[];sole=None
