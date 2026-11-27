@@ -9,14 +9,14 @@ TIP_HEIGHT=605*.3048
 
 @lru_cache(maxsize=1)
 def places():
-    from pnw_outings import location
-    with (Path(__file__).parent/'assets/seattle/places.csv').open() as source:
+    from pnw.terrain import location
+    with (Path(__file__).resolve().parents[1]/'assets/seattle/places.csv').open() as source:
         return {row['name']:location('sound',float(row['latitude']),float(row['longitude']))
                 for row in csv.DictReader(source)}
 
 @lru_cache(maxsize=1)
 def arcade_origin():
-    from pike_market import offset
+    from pnw.pike_market import offset
     return offset(places()['Pike Place Fish Market'],-2.7,-5.)
 
 def space_needle(height,quad):
@@ -58,9 +58,9 @@ def space_needle(height,quad):
 
 @lru_cache(maxsize=1)
 def delivery_route():
-    from pnw_outings import location
+    from pnw.terrain import location
     points=[]
-    with (Path(__file__).parent/'assets/seattle/delivery.csv').open() as source:
+    with (Path(__file__).resolve().parents[1]/'assets/seattle/delivery.csv').open() as source:
         for row in csv.DictReader(source):
             pos=location('sound',float(row['latitude']),float(row['longitude']))
             if not points or points[-1]!=pos:points.append(pos)
@@ -68,9 +68,9 @@ def delivery_route():
 
 
 def streets(height,quad):
-    from pnw_outings import location
+    from pnw.terrain import location
     import json
-    source=Path(__file__).parent/'assets/seattle/streets.json'
+    source=Path(__file__).resolve().parents[1]/'assets/seattle/streets.json'
     junctions={}
     for name,kind,coords in json.loads(source.read_text()).values():
         points=[location('sound',lat/1e7,lon/1e7) for lon,lat,*_ in coords]
@@ -96,7 +96,7 @@ def streets(height,quad):
             if len(coords[i])==3:
                 for n in range(-int(half),int(half)):
                     band(n+.12,n+.54,0.,min(2.8,length),.092,(.79,.78,.71))
-    from market_visit import lettering
+    from pnw.market_visit import lettering
     for (x,z),names in junctions.items():
         if '2nd Avenue' not in names or len(names)<2:continue
         name=next(iter(sorted(names-{'2nd Avenue'})))
@@ -107,9 +107,9 @@ def streets(height,quad):
 
 
 def buildings(height,quad):
-    from pnw_outings import location
+    from pnw.terrain import location
     import json
-    source=Path(__file__).parent/'assets/seattle/buildings.json'
+    source=Path(__file__).resolve().parents[1]/'assets/seattle/buildings.json'
     arcade=arcade_origin()
     for way,(metric,value,outline,roof) in json.loads(source.read_text()).items():
         if way=='12903132':continue  # Render the observation tower separately.
@@ -133,7 +133,7 @@ def buildings(height,quad):
 
 @lru_cache(maxsize=1)
 def market_shops():
-    from pike_market import offset
+    from pnw.pike_market import offset
     shops={k:v for k,v in places().items() if k not in ('Space Needle','Ballard Clay')}
     # Bearings lead to the reconstructed shop fronts inside the playable arcade.
     shops['Flower farm table']=offset(arcade_origin(),-4,4.5)

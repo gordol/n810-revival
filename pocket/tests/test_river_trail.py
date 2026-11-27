@@ -7,7 +7,7 @@ import unittest
 
 root=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(root/'graphics'),str(root/'shell'),str(root/'shell/apps/landscape-lab')]
-from river_walk import BUSHES, FOX, BerryTrail, nearby_calls, river_gain, site, wet
+from pnw.river_walk import BUSHES, FOX, BerryTrail, nearby_calls, river_gain, site, wet
 
 
 class RiverTrailTests(unittest.TestCase):
@@ -43,8 +43,8 @@ class RiverTrailTests(unittest.TestCase):
         self.assertEqual(river_gain(0,0,[]),0.)
 
     def test_water_surface_falls_downstream_and_clears_terrain(self):
-        from river_walk import channel
-        from rainier_pixels import surface
+        from pnw.river_walk import channel
+        from pnw.scene import surface
         field,_=site()
         river=channel()
         bed=river.bed_field(field)
@@ -67,8 +67,8 @@ class RiverTrailTests(unittest.TestCase):
 
     def test_camera_clears_rendered_bank_and_water_triangles(self):
         from geometry import Vec
-        from rainier_pixels import RainierView,surface,valley_floor
-        from river_walk import channel
+        from pnw.scene import RainierView,surface,valley_floor
+        from pnw.river_walk import channel
         bed,_=valley_floor()
         origin=Vec(0,surface(bed,0,0),0)
         view=RainierView.__new__(RainierView)
@@ -119,11 +119,11 @@ class RiverTrailTests(unittest.TestCase):
     def test_trout_holds_above_pool_bed_and_rises_during_hatch(self):
         from unittest.mock import patch
         from geometry import Vec
-        from river_channel import TROUT_POOL
-        from rainier_pixels import encounters,surface,valley_floor
-        from river_walk import channel
+        from pnw.river_channel import TROUT_POOL
+        from pnw.scene import encounters,surface,valley_floor
+        from pnw.river_walk import channel
         bed,_=valley_floor()
-        with patch('rainier_pixels.ENCOUNTERS',(('trout',*TROUT_POOL,.65),)):
+        with patch('pnw.scene.ENCOUNTERS',(('trout',*TROUT_POOL,.65),)):
             for age,hatch,above in ((5,True,False),(.8,True,True),(.8,False,False),(2,True,False)):
                 fish=encounters(bed,Vec(0,0,0),[(0,1,3,0,3)],age,hatch=hatch)[0]
                 stage=channel().water_height(fish.x,fish.z)
@@ -132,7 +132,7 @@ class RiverTrailTests(unittest.TestCase):
                 else:self.assertLess(fish.y+.39*.65,stage)
 
     def test_pool_cast_bite_release_and_retry_with_touch_buttons(self):
-        from rainier_pixels import RainierView
+        from pnw.scene import RainierView
         view=RainierView(None)
         view.camera=(9.,7.,0.,0.)
         def tap(label):
@@ -151,8 +151,8 @@ class RiverTrailTests(unittest.TestCase):
             view.age+=.1
             if view.fishing.update(view.age):break
         from tempfile import TemporaryDirectory
-        from river_notebook import DiscoveryBook
-        with TemporaryDirectory() as data,patch.dict('os.environ',XDG_DATA_HOME=data),patch('rainier_pixels.vibration') as pulse:
+        from pnw.river_notebook import DiscoveryBook
+        with TemporaryDirectory() as data,patch.dict('os.environ',XDG_DATA_HOME=data),patch('pnw.scene.vibration') as pulse:
             tap('Lift rod!')
             pulse.assert_called_with(130)
             # One tap starts continuous winding, another eases off for a run.
@@ -169,7 +169,7 @@ class RiverTrailTests(unittest.TestCase):
             self.assertIsNone(view.fishing.position(view.age))
 
     def test_motion_rod_needs_a_sustained_tilt(self):
-        from river_fishing import rod_tilted
+        from pnw.river_fishing import rod_tilted
         import json
         def readings(*values):
             return '\n'.join(json.dumps({'phone accelerometer':{'values':v}},indent=2) for v in values)
@@ -182,8 +182,8 @@ class RiverTrailTests(unittest.TestCase):
         from tempfile import TemporaryDirectory
         from unittest.mock import patch
         from data_paths import rainier_cache
-        from rainier_pixels import RainierView
-        from river_notebook import DiscoveryBook
+        from pnw.scene import RainierView
+        from pnw.river_notebook import DiscoveryBook
         with TemporaryDirectory() as data,patch.dict('os.environ',XDG_DATA_HOME=data):
             view=RainierView(None)
             fish=view.fishing
@@ -206,7 +206,7 @@ class RiverTrailTests(unittest.TestCase):
             self.assertEqual(book.preview,photo)
 
     def test_line_break_slack_missed_bite_and_species_retention(self):
-        from river_fishing import Fishing
+        from pnw.river_fishing import Fishing
         from unittest.mock import Mock
         def strike():
             rng=Mock()
@@ -241,8 +241,8 @@ class RiverTrailTests(unittest.TestCase):
         self.assertEqual(game.state,'landed')
 
     def test_gather_supplies_once_and_build_at_camp(self):
-        from rainier_pixels import RainierView
-        from river_camp import CAMP,SUPPLIES
+        from pnw.scene import RainierView
+        from pnw.river_camp import CAMP,SUPPLIES
         view=RainierView(None)
         def actions():return {key:box for key,_,box in view.walk_tools(42,32)}
         for i,(_,x,z) in enumerate(SUPPLIES):
@@ -259,8 +259,8 @@ class RiverTrailTests(unittest.TestCase):
         self.assertNotIn('build',actions())
 
     def test_population_and_trail_geometry(self):
-        from rainier_pixels import ENCOUNTERS
-        from river_walk import hiking_paths
+        from pnw.scene import ENCOUNTERS
+        from pnw.river_walk import hiking_paths
         self.assertEqual(len({key for key,*_ in ENCOUNTERS}),len(ENCOUNTERS))
         self.assertGreater(sum(key.partition('#')[0]=='trout' for key,*_ in ENCOUNTERS),2)
         paths=hiking_paths()
@@ -268,7 +268,7 @@ class RiverTrailTests(unittest.TestCase):
         self.assertTrue(all(abs(c)<=1024 for p in paths for pt in p['xz'] for c in pt))
 
     def test_river_stones_round(self):
-        from river_notebook import CARDS,RiverNotebook
+        from pnw.river_notebook import CARDS,RiverNotebook
         book=RiverNotebook()
         for index,(_,_,correct,_) in enumerate(CARDS):
             lines=book.lines(34)

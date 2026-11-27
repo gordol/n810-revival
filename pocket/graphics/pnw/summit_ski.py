@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import threading
 
-from river_explore import project_subject
+from pnw.river_explore import project_subject
 
 LENGTH=150.
 HEADING=math.radians(225)

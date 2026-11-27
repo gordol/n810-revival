@@ -657,7 +657,15 @@ the runway below 140 km/h, level the wings and fly a shallow descent.
 Y/Triangle switches cruise speed, X/Square cycles the waypoint, and
 B/Circle exits flight.
 
-The first visit downloads Terrarium elevation tiles for the Sound or the
+**Prepare before playing.** On Android, `make mobile-update` prepares the regional
+terrain before opening Pocket. To prepare without opening the app, use
+`make mobile-prepare-terrain`, or `make mobile-prepare-terrain TERRAIN_REGIONS=sound`
+for flights, Seattle and the ferry only. The desktop equivalent is `make terrain-prepare`.
+The simulator reuses prepared Sound and Hoh vertex buffers, and preparation also
+warms the starting valley mesh for the current quality setting. Elevation, imagery
+and saved games continue to use the existing private data directories.
+
+With an empty cache, preparation downloads Terrarium elevation tiles for the Sound or the
 Hoh visitor center. Puget Sound also uses an aerial image from the USGS
 National Map Imagery service. Pocket keeps both in the private Rainier Walk
 cache for offline use. Flights use roughly 415 m elevation samples with

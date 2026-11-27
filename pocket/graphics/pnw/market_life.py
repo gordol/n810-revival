@@ -3,8 +3,8 @@ from functools import lru_cache
 import math
 import os
 import zlib
-from pike_market import HEADING,offset
-from seattle_places import arcade_origin
+from pnw.pike_market import HEADING,offset
+from pnw.seattle_places import arcade_origin
 
 # Fifteen seed bits travel exactly in the native actor's float slot. Bit
 # fifteen is a carried purchase, separate from the shopper's stable identity.
@@ -24,7 +24,7 @@ def leashed_dog(owner,heading,phase,ground):
 
 def plaza_walkers(age,ground):
     """A short outdoor promenade on the south approach to the Space Needle."""
-    from seattle_places import places
+    from pnw.seattle_places import places
     cx,cz=places()['Space Needle']
     rows=[]
     for i in range(4):
@@ -57,7 +57,7 @@ def stroll(site_name,i,age,length):
 
 def street_walkers(age,ground,x,z):
     """Local foot traffic on the boardwalk, in the alley and outside the bakery."""
-    from market_visit import site,storefront_point,storefront_frame
+    from pnw.market_visit import site,storefront_point,storefront_frame
     rows=[]
     for key,length,width,count in (('overlook',15,2.8,5),('gum',10,1.2,3),('bakery',6,1.5,3)):
         cx,cz=site(key)
@@ -211,7 +211,7 @@ class Delivery:
         self.speed=0.
 
     def advance(self,age,player,people,ground):
-        from seattle_places import delivery_route
+        from pnw.seattle_places import delivery_route
         dt=max(0.,min(.25,age-self.last)) if self.last is not None else 0.
         self.last=age
         ahead=self.distance

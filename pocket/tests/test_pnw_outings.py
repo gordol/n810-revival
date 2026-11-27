@@ -8,13 +8,46 @@ from urllib.parse import parse_qs,urlparse
 
 pocket=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(pocket/'graphics'),str(pocket/'shell'),str(pocket/'shell/apps/landscape-lab')]
-import pnw_outings as pnw
-from rainier_hike import ExploreMenu,SoundVehicle
+from pnw import outings as pnw
+from pnw import terrain as pnw_terrain
+from pnw.outings import ExploreMenu,SoundVehicle
 
 
 class OutingTests(unittest.TestCase):
+    def test_termux_workers_run_with_only_their_staged_script(self):
+        from io import BytesIO
+        import os
+        import subprocess
+        import tempfile
+        from unittest.mock import patch
+        from PIL import Image
+        from pnw.cockpit import panel
+        def encoded(size,fmt):
+            buf=BytesIO()
+            Image.new('RGB',size,(128,12,0)).save(buf,fmt)
+            return buf.getvalue()
+        tile=encoded((256,256),'PNG')
+        aerial=encoded(pnw_terrain.IMAGE_SIZE,'JPEG')
+        real_run=subprocess.run
+        def isolated(args,**opts):
+            self.assertEqual(args[:3],['proot-distro','login','pocket-maps'])
+            return real_run([sys.executable,'-I',*args[args.index('/usr/bin/python3')+1:]],**opts)
+        with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,POCKET_TERMUX='1',XDG_DATA_HOME=tmp),patch(
+                'pnw.terrain.urlopen',side_effect=lambda url,timeout:BytesIO(tile if 'terrarium' in url else aerial)),patch(
+                'pnw.terrain.subprocess.run',side_effect=isolated) as runner:
+            for region in ('sound','hoh'):
+                self.assertEqual(set(pnw_terrain.elevations(region)),{12})
+            self.assertEqual(len(pnw_terrain.sound_aerial()),1280*1536*3)
+            panel.cache_clear()
+            try:
+                self.assertEqual(len(panel()),1000*244*4)
+                panel.cache_clear()
+                self.assertEqual(len(panel()),1000*244*4)
+            finally:panel.cache_clear()
+            self.assertEqual(runner.call_count,4)
+
     def test_aerial_registration(self):
-        args=parse_qs(urlparse(pnw.aerial_url()).query)
+        args=parse_qs(urlparse(pnw_terrain.aerial_url()).query)
         x0,y0,x1,y1=map(float,args['bbox'][0].split(','))
         self.assertAlmostEqual((x1-x0)/(y1-y0),5/6)
         lat,_,_,_,nx,nz=pnw.GRIDS['sound']
@@ -27,8 +60,8 @@ class OutingTests(unittest.TestCase):
             self.assertAlmostEqual((merc_x-x0)/(x1-x0),.5+x/((nx-1)*spacing),places=7)
 
     def test_market_street_arrival_faces_the_arcade(self):
-        import pike_market
-        from seattle_places import arcade_origin
+        from pnw import pike_market
+        from pnw.seattle_places import arcade_origin
         center=arcade_origin()
         x,z,yaw,pitch=pike_market.arrival(center)
         self.assertGreater(x,center[0])
@@ -38,7 +71,7 @@ class OutingTests(unittest.TestCase):
         self.assertLess(pitch,0)
 
     def test_counter_shoppers_can_browse_and_player_orders_queue(self):
-        from market_life import FishCounter,actors
+        from pnw.market_life import FishCounter,actors
         counter=FishCounter()
         self.assertIsNone(counter.advance(5))
         self.assertEqual(counter.advance(12),0)
@@ -52,7 +85,7 @@ class OutingTests(unittest.TestCase):
         self.assertGreater(next(a[2] for a in arc if a[0]==2),2.)
 
     def test_market_walks_close_without_teleports_or_pivot_snaps(self):
-        from market_life import actors
+        from pnw.market_life import actors
         def walkers(age):
             return [a for a in actors(age,lambda x,z:0,None) if a[0]==0]
         previous=walkers(0)
@@ -64,7 +97,7 @@ class OutingTests(unittest.TestCase):
             previous=current
 
     def test_seeded_shopper_keeps_identity_and_purchase(self):
-        from market_life import BOUQUET,actors,shopper
+        from pnw.market_life import BOUQUET,actors,shopper
         def visitor(age):
             identity=shopper('flower table',0)
             return next(row for row in actors(age,lambda x,z:0,None)
@@ -75,7 +108,7 @@ class OutingTests(unittest.TestCase):
         self.assertNotEqual(shopper('market',1,'Seattle'),shopper('market',1,'Tacoma'))
 
     def test_plaza_dog_tracks_walker_on_sloping_ground(self):
-        from market_life import plaza_walkers
+        from pnw.market_life import plaza_walkers
         ground=lambda x,z:.1*x-.04*z
         for age in (0,9,70):
             owner,dog,*others=plaza_walkers(age,ground)
@@ -86,7 +119,7 @@ class OutingTests(unittest.TestCase):
             self.assertEqual(len(others),3)
 
     def test_workers_rest_independently_and_reach_in_sequence(self):
-        from market_life import actors
+        from pnw.market_life import actors
         def poses(age,since):
             return [a[5] for a in actors(age,lambda x,z:0,since) if a[0]==1]
         idle=poses(5,None)
@@ -97,9 +130,9 @@ class OutingTests(unittest.TestCase):
         self.assertAlmostEqual(poses(11,1.75)[1],17.)
 
     def test_staff_stand_on_the_rendered_slab_and_street_matches_mesh(self):
-        from market_life import actors
-        from pike_market import build,floor_height,offset
-        from seattle_places import arcade_origin
+        from pnw.market_life import actors
+        from pnw.pike_market import build,floor_height,offset
+        from pnw.seattle_places import arcade_origin
         center=arcade_origin()
         def terrain(x,z):
             return 30+.11*(x-center[0])+.06*(z-center[1])
@@ -141,7 +174,7 @@ class OutingTests(unittest.TestCase):
             self.assertEqual(len(data),start+nv*12*frames+w*h*4)
 
     def test_market_levels_are_walkable_offline(self):
-        import market_visit
+        from pnw import market_visit
         for key in market_visit.FLOORS:
             field,_,mesh,count,*_=pnw.build_world(key)
             x,z,*_=market_visit.arrival(key)
@@ -152,7 +185,7 @@ class OutingTests(unittest.TestCase):
             self.assertEqual(market_visit.walk_inside(key,2,1),(2,1))
 
     def test_downunder_landings_connect_adjacent_floors(self):
-        from market_visit import stairs, stair_exit
+        from pnw.market_visit import stairs, stair_exit
         for floor,upper,lower in [('down5','market','down4'),('down4','down5','down3'),('down3','down4',None)]:
             self.assertIsNone(stair_exit(floor,-1,-9))
             self.assertEqual(stair_exit(floor,-1,-12.3),upper)
@@ -161,15 +194,15 @@ class OutingTests(unittest.TestCase):
             if lower:self.assertLess(stairs(floor,1,-12.3),stairs(floor,1,-8))
 
     def test_overlook_steps_descend_toward_the_waterfront(self):
-        import market_visit
+        from pnw import market_visit
         x,z=market_visit.site('overlook')
         heights=[market_visit.deck_height(lambda *_:18.,x,z+i) for i in range(16,-38,-1)]
         self.assertEqual(sorted(heights,reverse=True),heights)
         self.assertGreater(heights[0]-heights[-1],4.)
 
     def test_delivery_yields_on_its_mapped_route(self):
-        from market_life import Delivery
-        from seattle_places import delivery_route
+        from pnw.market_life import Delivery
+        from pnw.seattle_places import delivery_route
         delivery=Delivery()
         start=delivery_route()[0]
         for i in range(10):
@@ -181,7 +214,7 @@ class OutingTests(unittest.TestCase):
 
     def test_bakery_displays_and_approach_are_on_the_street(self):
         import json
-        from market_visit import storefront_point
+        from pnw.market_visit import storefront_point
         records=json.loads((pocket/'graphics/assets/seattle/buildings.json').read_text())
         for way in ('367894552','367894553'):
             outline=records[way][2]
@@ -194,8 +227,8 @@ class OutingTests(unittest.TestCase):
                     self.assertEqual(crossings%2,0,way)
 
     def test_shoppers_face_their_travel_direction_and_stay_grounded(self):
-        from market_life import street_walkers
-        from market_visit import site
+        from pnw.market_life import street_walkers
+        from pnw.market_visit import site
         ground=lambda x,z:.06*x-.04*z
         for district in ('gum','bakery','overlook'):
             at=site(district)
@@ -213,7 +246,7 @@ class OutingTests(unittest.TestCase):
         self.assertFalse(street_walkers(0,ground,0,0))
 
     def test_needle_profile_uses_published_heights(self):
-        from seattle_places import DECK_HEIGHT,TIP_HEIGHT,space_needle
+        from pnw.seattle_places import DECK_HEIGHT,TIP_HEIGHT,space_needle
         levels=set()
         space_needle(lambda x,z:20,lambda pts,color:levels.update(p[1]-20 for p in pts))
         self.assertTrue(any(abs(y-DECK_HEIGHT-1.04)<1e-5 for y in levels))

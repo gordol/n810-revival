@@ -12,13 +12,14 @@ import zlib
 
 def source_key():
     here=Path(__file__).resolve().parent
-    shell=here.parent/'shell'
+    graphics=here.parent
+    shell=graphics.parent/'shell'
     inputs=[here/(name+'.py') for name in (
-        'rainier_pixels','river_scene_cache','river_walk','river_channel','river_camp','river_explore',
-        'river_detail','rainier_habitat','forest_floor','wildlife_models','pnw_mesh','pnw_species')]
+        'scene','river_scene_cache','river_walk','river_channel','river_camp','river_explore',
+        'river_detail','rainier_habitat','forest_floor','wildlife_models','mesh','species')]
     inputs.extend(shell/path for path in ('geometry.py','vegetation.py','apps/landscape-lab/marmot_art.py'))
-    inputs.extend(sorted(here.glob('*.mesh.gz')))
-    inputs.extend(sorted((here/'assets/ohanapecosh').glob('*')))
+    inputs.extend(sorted(graphics.glob('*.mesh.gz')))
+    inputs.extend(sorted((graphics/'assets/ohanapecosh').glob('*')))
     digest=hashlib.sha256(f'{sys.implementation.cache_tag}/{sys.byteorder}'.encode())
     for path in inputs:
         digest.update(path.name.encode())
@@ -77,7 +78,7 @@ def store(path,key,world,plants):
 
 def valley_world(high,plant_sites):
     from geometry import Vec
-    from rainier_pixels import build_world,ENCOUNTERS,surface,valley_floor
+    from pnw.scene import build_world,ENCOUNTERS,surface,valley_floor
     folder=Path(os.environ.get('XDG_CACHE_HOME') or Path.home()/'.cache')/'pocket/rainier-walk'
     path=folder/('valley-high.zip' if high else 'valley-low.zip')
     try:
@@ -93,3 +94,42 @@ def valley_world(high,plant_sites):
     field,_=valley_floor()
     plant_sites[:]=plants
     return field,Vec(0,surface(field,0,0),0),vertices,terrain,indices,spans,base,canopy
+
+
+def regional_mesh(region,elevation,textured,build,*,require_cache=False):
+    """Keep one validated, atomically replaceable vertex buffer per region."""
+    here=Path(__file__).resolve().parent
+    graphics=here.parent
+    sources=('outings','terrain','scene','pike_market','market_visit','seattle_places','forest_floor')
+    digest=hashlib.sha256(f'{sys.byteorder}/{region}/{textured}'.encode())
+    digest.update(elevation)
+    inputs=[here/(name+'.py') for name in sources]
+    inputs.extend(graphics.parent/'shell'/name for name in ('geometry.py','vegetation.py'))
+    if region=='sound':
+        inputs.extend(sorted((graphics/'assets/seattle').glob('*.json')))
+        inputs.extend(sorted((graphics/'assets/seattle').glob('*.csv')))
+    for path in inputs:digest.update(hashlib.sha256(path.read_bytes()).digest())
+    key=digest.digest()
+    folder=Path(os.environ.get('XDG_CACHE_HOME') or Path.home()/'.cache')/'pocket/rainier-walk'
+    target=folder/(region+'-mesh.zip')
+    try:
+        with zipfile.ZipFile(target) as archive:
+            if archive.comment==key:
+                mesh=read_array(archive,'vertices','f',3_000_000*28)
+                if len(mesh)%21==0:return mesh
+    except (OSError,ValueError,KeyError,EOFError,zipfile.BadZipFile,zlib.error):pass
+    mesh=build()
+    tmp=None
+    try:
+        folder.mkdir(parents=True,exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=folder,delete=False) as output:
+            tmp=Path(output.name)
+            with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED,compresslevel=1) as archive:
+                archive.comment=key
+                archive.writestr('vertices',memoryview(mesh).cast('B'))
+        tmp.replace(target)
+    except OSError:
+        if require_cache:raise
+    finally:
+        if tmp:tmp.unlink(missing_ok=True)
+    return mesh

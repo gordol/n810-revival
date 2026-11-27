@@ -27,7 +27,7 @@ def attach(field,meta,*,approach=False):
             math.isclose(meta[key],value,abs_tol=1e-9,rel_tol=0) for key,value in zip(keys,registration)):
         return field
     raw=array('h')
-    raw.frombytes(zlib.decompress((Path(__file__).parent/'assets/summit/elevation.i16.zlib').read_bytes()))
+    raw.frombytes(zlib.decompress((Path(__file__).resolve().parents[1]/'assets/summit/elevation.i16.zlib').read_bytes()))
     if sys.byteorder!='little':raw.byteswap()
     values=list(raw)
     x0=field.origin.x+WEST*field.dx
@@ -44,7 +44,7 @@ def attach(field,meta,*,approach=False):
     inset=HeightField(SIZE,SIZE,Vec(x0,0,z0),dx,dz,tuple(values),'meters')
     if approach:
         import subprocess
-        import summit_approach as patch
+        from pnw import summit_approach as patch
         try:data=patch.samples()
         except (OSError,ValueError,ImportError,KeyError,subprocess.SubprocessError) as error:
             print(f'Using standard summit detail: {error}',file=sys.stderr)
@@ -53,7 +53,7 @@ def attach(field,meta,*,approach=False):
     return RegionalTerrain(field.nx,field.nz,field.origin,field.dx,field.dz,field.values,field.units,inset)
 
 def attach_approach(parent,data):
-    import summit_approach as patch
+    from pnw import summit_approach as patch
     dx,dz=parent.dx/patch.DIVISIONS,parent.dz/patch.DIVISIONS
     x0=parent.origin.x+patch.WEST*parent.dx
     z0=parent.origin.z+patch.SOUTH*parent.dz

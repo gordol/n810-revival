@@ -81,10 +81,18 @@ mobile-api-deps:
 		pkg install -y termux-api || echo "Phone haptics unavailable. Retry with pkg install termux-api." >&2; \
 	fi
 
-.PHONY: mobile-update
+TERRAIN_REGIONS ?= sound hoh rainier
+.PHONY: terrain-prepare mobile-prepare-terrain mobile-update
+terrain-prepare:
+	PYTHONPATH=graphics:shell:shell/apps/landscape-lab:shell/apps/surface-renderer $(PYTHON) -m pnw $(TERRAIN_REGIONS)
+
+mobile-prepare-terrain: mobile-map-deps
+	POCKET_TERMUX=1 $(MAKE) terrain-prepare
+
 mobile-update:
 	@branch=$$(git branch --show-current); case "$$branch" in \
 	  feat/offline-field-companion|feat/ohanapecosh-wildlife) git pull --ff-only origin "$$branch" ;; \
 	  *) echo "Switch to a Pocket mobile feature branch to update this build." >&2; exit 1 ;; \
 	esac
+	$(MAKE) mobile-prepare-terrain || echo "Terrain preparation incomplete. Retry with make mobile-prepare-terrain." >&2
 	$(MAKE) mobile

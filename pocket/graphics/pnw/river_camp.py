@@ -56,7 +56,7 @@ def river_stones(channel,face,height):
             scale=rng.uniform(.24,.88)
             gray=rng.randrange(68,115)
             ellipsoid(face,x,r.stage-.14,z,scale,.44*scale,.72*scale,(gray,gray+4,gray+1))
-    from river_channel import TROUT_POOL
+    from pnw.river_channel import TROUT_POOL
     cx,cz=TROUT_POOL
     for _ in range(52):
         x,z=cx+rng.uniform(-5,5),cz+rng.uniform(-8,8)

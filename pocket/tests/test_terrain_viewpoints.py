@@ -68,7 +68,7 @@ class ViewpointTests(unittest.TestCase):
    taps=[]
    view.scene_tap=lambda x,y,w,h:taps.append((x,y))
    sys.path.insert(0,str(ROOT/"graphics"))
-   from rainier_hike import HangGlider
+   from pnw.hiking import HangGlider
    view.glider=HangGlider(SimpleNamespace(x=0,z=0,heading=0),lambda x,z:4500,True)
    for use_mouse in (False,True):
     def event(x,y,button,released=False):
@@ -173,7 +173,7 @@ class ViewpointTests(unittest.TestCase):
 
  def test_walk_height_matches_drawn_triangle(self):
   sys.path.insert(0,str(ROOT/'graphics'))
-  from rainier_pixels import surface
+  from pnw.scene import surface
   from geometry import HeightField,Vec
   field=HeightField(2,2,Vec(0,0,0),1,1,(0,10,20,60))
   self.assertEqual(surface(field,.25,.25),7.5)

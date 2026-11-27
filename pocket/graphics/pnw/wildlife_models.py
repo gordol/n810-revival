@@ -7,8 +7,8 @@ from functools import lru_cache
 from pathlib import Path
 from geometry import Mesh, Triangle, Vec, merge
 from marmot_art import ellipsoid
-from pnw_species import REGIONAL
-from pnw_mesh import study
+from pnw.species import REGIONAL
+from pnw.mesh import study
 
 FOX_FRAMES=16
 FOX_ASSETS={'fox':'red_fox.mesh.gz','arctic_fox':'arctic_fox.mesh.gz'}
@@ -180,7 +180,7 @@ def goat_leg(hind, side, coat):
 # Offline adaptation of the Khronos Fox sample. See red_fox_credits.md.
 @lru_cache(maxsize=len(FOX_ASSETS))
 def fox_animation(species):
-    with gzip.open(Path(__file__).with_name(FOX_ASSETS[species]),'rb') as src:
+    with gzip.open((Path(__file__).resolve().parents[1]/FOX_ASSETS[species]),'rb') as src:
         frames,count,faces=struct.unpack('<III',src.read(12))
         if frames!=FOX_FRAMES:raise ValueError('Unexpected fox animation length')
         triangles=tuple(Triangle(a,b,c,color,'') for a,b,c,color in

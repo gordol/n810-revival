@@ -1,7 +1,7 @@
 """Regional wildlife silhouettes with tapered sections and articulated appendages."""
 import math
 from geometry import Mesh, Triangle, Vec
-from pnw_species import PERCH_FLIGHT, group
+from pnw.species import PERCH_FLIGHT, group
 
 
 def study(spec,phase,low=False):

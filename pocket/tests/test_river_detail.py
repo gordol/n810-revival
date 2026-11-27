@@ -9,8 +9,8 @@ root=Path(__file__).resolve().parents[1]
 for folder in ('graphics','shell','shell/apps/landscape-lab'):
     sys.path.insert(0,str(root/folder))
 
-from rainier_pixels import build_world
-from river_detail import RiverQuality, shade_tree
+from pnw.scene import build_world
+from pnw.river_detail import RiverQuality, shade_tree
 
 
 class RiverDetailTests(unittest.TestCase):
@@ -25,7 +25,7 @@ class RiverDetailTests(unittest.TestCase):
             else:low_forest=forest
             self.assertLessEqual(len(vertices)//7,3_000_000 if high else 2_000_000)
             self.assertLessEqual(len(indices),2_000_000)
-            from river_walk import channel
+            from pnw.river_walk import channel
             water_count=6*(len(channel().rows)-1)
             self.assertTrue(all(abs(value-.35)<1e-6 for value in vertices[6:7*water_count:7]))
             self.assertNotAlmostEqual(vertices[7*water_count+6],.35)
@@ -44,15 +44,15 @@ class RiverDetailTests(unittest.TestCase):
     def test_cached_valley_restores_game_inputs_and_rebuilds_bad_or_old_cache(self):
         import tempfile
         from array import array
-        from river_scene_cache import valley_world
+        from pnw.river_scene_cache import valley_world
         plants=[('blueberry',1.,2.)]
         sample=(None,None,array('f',[0.]*42),3,array('I',[0,0,0]),[(3,1,3,0,3)],3,bytearray(1024**2))
         def generate(high,sites):
             sites[:]=plants
             return sample
         with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,XDG_CACHE_HOME=tmp),patch(
-            'rainier_pixels.ENCOUNTERS',[None]),patch('rainier_pixels.build_world',side_effect=generate) as build:
-            with patch('river_scene_cache.source_key',return_value='first'):
+            'pnw.scene.ENCOUNTERS',[None]),patch('pnw.scene.build_world',side_effect=generate) as build:
+            with patch('pnw.river_scene_cache.source_key',return_value='first'):
                 valley_world(True,[])
                 restored=[]
                 world=valley_world(True,restored)
@@ -62,19 +62,19 @@ class RiverDetailTests(unittest.TestCase):
                 build.assert_called_once()
                 next(Path(tmp).rglob('*.zip')).write_bytes(b'interrupted')
                 valley_world(True,[])
-            with patch('river_scene_cache.source_key',return_value='new'):
+            with patch('pnw.river_scene_cache.source_key',return_value='new'):
                 valley_world(True,[])
             self.assertEqual(build.call_count,3)
 
     def test_binoculars_prioritize_in_frame_wildlife_beyond_walking_range(self):
         from geometry import Vec
-        from rainier_pixels import encounters
-        from river_walk import site
+        from pnw.scene import encounters
+        from pnw.river_walk import site
         field,_=site()
         crowd=tuple((f'near{i}',2.,5.,1.) for i in range(50))+(('distant',0.,500.,1.),)
         spans=[(0,1,1,0,3)]*len(crowd)
         camera=(0,field.height(0,500),0,0,0)
-        with patch('rainier_pixels.ENCOUNTERS',crowd):
+        with patch('pnw.scene.ENCOUNTERS',crowd):
             for optics,expected in ((None,False),((camera,.5,8),True)):
                 seen=[]
                 draws=encounters(field,Vec(0,0,0),spans,0,subjects=seen,optics=optics)
@@ -83,8 +83,8 @@ class RiverDetailTests(unittest.TestCase):
 
     def test_bluff_cycles_unpicked_patches_then_fox_with_clear_terrain(self):
         import math
-        from rainier_pixels import RainierView,surface
-        from river_walk import BERRY_BLUFF,BUSHES,FOX,BerryTrail,channel,site
+        from pnw.scene import RainierView,surface
+        from pnw.river_walk import BERRY_BLUFF,BUSHES,FOX,BerryTrail,channel,site
         view=RainierView.__new__(RainierView)
         view.ski=None
         view.lens=view.regional=False
@@ -112,7 +112,7 @@ class RiverDetailTests(unittest.TestCase):
 
     def test_valley_forest_has_multiple_height_layers_and_unsaturated_tall_crowns(self):
         import random
-        from rainier_habitat import forest_sites
+        from pnw.rainier_habitat import forest_sites
         heights=[h for x,z,h,near in forest_sites(random.Random(3918))]
         self.assertTrue(any(h<4 for h in heights))
         self.assertGreater(sum(25<=h<=54 for h in heights),len(heights)//3)
@@ -132,7 +132,7 @@ class RiverDetailTests(unittest.TestCase):
 
     def test_regional_forest_survives_travel_and_stops_above_treeline(self):
         from geometry import HeightField,Vec
-        from rainier_habitat import regional_stand
+        from pnw.rainier_habitat import regional_stand
         field=HeightField(3,3,Vec(-512,0,-512),512.,512.,(900.,)*9)
         ground=lambda f,x,z:900.
         trees,mask=regional_stand(field,900,0,0,ground,None)

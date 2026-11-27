@@ -6,7 +6,7 @@ import socket
 import struct
 import time
 
-from river_walk import BUSHES, BerryTrail
+from pnw.river_walk import BUSHES, BerryTrail
 
 PORT=43817
 # Binary fixed-size packets bound parsing and carry only game coordinates.

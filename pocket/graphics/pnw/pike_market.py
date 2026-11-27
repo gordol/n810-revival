@@ -68,7 +68,7 @@ def build(center,height,quad):
         panel(((x-dx,y-dy,depth),(x+dx,y+dy,depth),
                (ex+dx,ey+dy,depth),(ex-dx,ey-dy,depth)),color,material)
     def lettering(words,x,y,depth,size,color):
-        from market_visit import lettering as typeset
+        from pnw.market_visit import lettering as typeset
         typeset(words,x,y,depth,size,lambda points,tone:panel(points,tone,.247),color)
 
     iron=(.16,.19,.18)
@@ -152,7 +152,7 @@ def build(center,height,quad):
             panel((bulb(a,.10,2.65),bulb(b,.10,2.65),bulb(b,.21,2.82),bulb(a,.21,2.82)),(.96,.84,.59),.247)
             panel((bulb(a,.21,2.82),bulb(b,.21,2.82),bulb(b,.09,2.99),bulb(a,.09,2.99)),(.96,.86,.65),.247)
     block(-12,-11.87,2.55,3.4,.30,4.35,(.16,.13,.11))
-    from market_visit import lettering as sign_text
+    from pnw.market_visit import lettering as sign_text
     def sign_panel(points,color):
         panel(tuple((-11.86-z,y,.48+x) for x,y,z in points),color,.247)
     sign_text('LOBACK MEAT CO',0,2.86,0,.31,sign_panel,(.95,.35,.18))

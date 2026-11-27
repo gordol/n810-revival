@@ -6,6 +6,35 @@ import random
 
 @lru_cache(maxsize=1)
 def panel():
+    import os
+    if os.environ.get('POCKET_TERMUX')=='1':
+        import tempfile
+        from pathlib import Path
+        from data_paths import rainier_cache
+        from pnw.terrain import run_image_worker
+        import hashlib
+        cache=rainier_cache()
+        cache.mkdir(parents=True,exist_ok=True)
+        key=hashlib.sha256(Path(__file__).read_bytes()).digest()
+        target=cache/'cockpit-panel.rgba'
+        try:
+            with target.open('rb') as source:
+                if source.read(len(key))==key:
+                    data=source.read(1000*244*4+1)
+                    if len(data)==1000*244*4:return data
+        except FileNotFoundError:pass
+        with tempfile.TemporaryDirectory(dir=cache) as tmp:
+            folder=Path(tmp)
+            run_image_worker(Path(__file__),folder)
+            data=(folder/'panel').read_bytes()
+            if len(data)!=1000*244*4:raise ValueError('Incomplete cockpit panel')
+            output=folder/'cached'
+            output.write_bytes(key+data)
+            output.replace(target)
+            return data
+    return paint_panel()
+
+def paint_panel():
     from PIL import Image, ImageDraw, ImageFont
     width,height=1000,244
     art=Image.new('RGBA',(width,height))
@@ -72,3 +101,9 @@ def panel():
             span=math.sqrt(20**2-(j*7)**2)
             d.line((cx-span,144+j*7,cx+span,146+j*7),fill=(74,77,73),width=3)
     return art.tobytes()
+
+
+if __name__=='__main__':
+    import sys
+    from pathlib import Path
+    (Path(sys.argv[1])/'panel').write_bytes(paint_panel())

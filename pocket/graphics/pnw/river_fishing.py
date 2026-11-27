@@ -8,8 +8,8 @@ import shutil
 import subprocess
 import threading
 
-from river_channel import TROUT_POOL
-from river_walk import channel
+from pnw.river_channel import TROUT_POOL
+from pnw.river_walk import channel
 
 
 @lru_cache(maxsize=1)

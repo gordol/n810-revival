@@ -10,8 +10,8 @@ POCKET = Path(__file__).resolve().parents[1]
 for directory in ('graphics', 'shell', 'shell/apps/landscape-lab'):
     sys.path.insert(0, str(POCKET / directory))
 
-from pnw_species import REGIONAL
-from wildlife_pixels import FOX_ASSETS, FOX_FRAMES, NAMES, PixelWildlife, pose
+from pnw.species import REGIONAL
+from pnw.wildlife_pixels import FOX_ASSETS, FOX_FRAMES, NAMES, PixelWildlife, pose
 
 
 class WildlifeInspectionTests(unittest.TestCase):
@@ -34,7 +34,7 @@ class WildlifeInspectionTests(unittest.TestCase):
         self.assertEqual(app.species, 'marmot')
 
     def test_rainier_uses_regional_wildlife_meshes(self):
-        from rainier_pixels import ENCOUNTERS, append_animals
+        from pnw.scene import ENCOUNTERS, append_animals
 
         self.assertEqual({entry[0].partition('#')[0] for entry in ENCOUNTERS}, set(NAMES) - {'arctic_fox','coho_salmon','chinook_salmon'})
         vertices = array('f')

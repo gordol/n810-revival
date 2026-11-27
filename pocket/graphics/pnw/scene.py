@@ -9,24 +9,25 @@ import struct
 import zlib
 
 from geometry import Vec, cross, sub, unit
-import fremont_lookout as lookout
-import paradise_meadow as paradise
-from river_channel import TROUT_POOL
-from river_camp import CAMP, OVERLOOK, SUPPLIES, camp_materials, campsite, river_stones
-from river_detail import RiverQuality, shade_tree
-from forest_floor import blade, broadleaf_clump, fern, nurse_log, snag, spruce_sprays, trail_cover
-from rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
-import market_visit
-from rainier_hike import ExploreMenu,SoundVehicle,HikeMenu, ReliefMap, bounds, region_field, summit_start
-from valley_map import ValleyMap
-from river_fishing import Fishing,vibration,watch_rod
-from river_party import PartyMenu
-from river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
-from river_notebook import DiscoveryBook
-from river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, project_subject, read_photo, save_photo, sighting, walk_to
-from pnw_species import PERCH_FLIGHT, REGIONAL, group
-from river_walk import BERRY_BLUFF, BUSHES, FOX, BerryTrail, blueberry_patch, centerline_distances_sq, channel, nearby_calls, river_gain, site, wet
-from river_walk import hiking_paths, hiking_segments, trail_surface
+from pnw import fremont_lookout as lookout
+from pnw import paradise_meadow as paradise
+from pnw.river_channel import TROUT_POOL
+from pnw.river_camp import CAMP, OVERLOOK, SUPPLIES, camp_materials, campsite, river_stones
+from pnw.river_detail import RiverQuality, shade_tree
+from pnw.forest_floor import blade, broadleaf_clump, fern, nurse_log, snag, spruce_sprays, trail_cover
+from pnw.rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
+from pnw import market_visit
+from pnw.outings import ExploreMenu,SoundVehicle
+from pnw.hiking import HikeMenu, ReliefMap, bounds, region_field, summit_start
+from pnw.valley_map import ValleyMap
+from pnw.river_fishing import Fishing,vibration,watch_rod
+from pnw.river_party import PartyMenu
+from pnw.river_overlay import Ink, album_tools, draw_book, hit, tools as river_tools
+from pnw.river_notebook import DiscoveryBook
+from pnw.river_explore import DIPPER_ROCK, OTTER_POOL, bank_sign, ground_target, project_subject, read_photo, save_photo, sighting, walk_to
+from pnw.species import PERCH_FLIGHT, REGIONAL, group
+from pnw.river_walk import BERRY_BLUFF, BUSHES, FOX, BerryTrail, blueberry_patch, centerline_distances_sq, channel, nearby_calls, river_gain, site, wet
+from pnw.river_walk import hiking_paths, hiking_segments, trail_surface
 from vegetation import ground_color, noise
 
 def surface(field,x,z):
@@ -47,7 +48,7 @@ def surface(field,x,z):
 
 @lru_cache(maxsize=1)
 def valley_floor():
-    from river_channel import RiverFloor
+    from pnw.river_channel import RiverFloor
     river=channel()
     bed=river.bed_field(site()[0])
     return bed,RiverFloor(river,lambda x,z:surface(bed,x,z))
@@ -120,7 +121,7 @@ SUMMIT_DANCERS=(('fox',0.,0.,1.),('marmot',0.,0.,.9))
 
 def append_animals(vertices,high=False,animals=ENCOUNTERS):
     """Store each (vertex, material) once per pose, sharing indices across poses."""
-    from wildlife_models import FOX_ASSETS, FOX_FRAMES, pose
+    from pnw.wildlife_models import FOX_ASSETS, FOX_FRAMES, pose
     indices=array('I')
     spans=[]
     models={}
@@ -397,19 +398,19 @@ def build_world(high=True,plant_sites=None,regional=False):
             paradise.meadow(meadow_height,face,*clearing)
             paradise.groundcover(meadow_height,face,*clearing)
             if getattr(field,'inset',None):
-                from rainier_hike import BikeLoop
+                from pnw.hiking import BikeLoop
                 BikeLoop(clearing).build_track(meadow_height,face)
         if getattr(field,'inset',None):
             import subprocess
             from dataclasses import replace
-            import summit_horizon
+            from pnw import summit_horizon
             try:horizon=summit_horizon.samples()
             except (OSError,ValueError,ImportError,zlib.error,subprocess.SubprocessError) as error:
                 print(f'Using local Rainier horizon: {error}')
             else:
                 summit_horizon.append_mesh(triangles,field,origin.y,*horizon)
                 field=replace(field,panorama=True)
-            from summit_ski import COURSES,RAMP_LENGTH,LIP_HEIGHT,HALF_WIDTH
+            from pnw.summit_ski import COURSES,RAMP_LENGTH,LIP_HEIGHT,HALF_WIDTH
             for course in COURSES[1:]:
                 for gate,lane in (*course.gates,(course.length,0.)):
                     for offset in (-2.7,2.7):
@@ -437,7 +438,7 @@ def build_world(high=True,plant_sites=None,regional=False):
         base_count=len(triangles)//7
         if patch:
             terrain(patch)
-            from summit_ski import GATES,location
+            from pnw.summit_ski import GATES,location
             for gate,lane in (*GATES,(150.,0.)):
                 for offset in (-2.7,2.7):
                     x,z=location(gate,lane+offset)
@@ -782,7 +783,7 @@ class RainierView:
         if self.world is None:return ('Opening Ohanapecosh River…',)
         if self.notebook:return self.notebook.lines(self.host.window(self.name).w-2)
         if self.album:
-            from wildlife_models import NAMES
+            from pnw.wildlife_models import NAMES
             key=self.album[self.album_index].stem.rsplit('-',1)[0]
             footer=f'{NAMES.get(key,key)}   {self.album_index+1}/{len(self.album)}'
             return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
@@ -798,7 +799,7 @@ class RainierView:
             elevation=round(self.walk_height(*self.camera[:2])) if self.camera else 0
             labels=(labels[0],f'{elevation} m','Explore','Mute' if self.sound else 'Sound','Map')
             if self.outing in ('ferry','wheel'):
-                from pnw_outings import ferry_stop
+                from pnw.outings import ferry_stop
                 exit_label='Ashore' if self.outing=='ferry' and ferry_stop(self.ride_time) else 'Exit'
                 labels=(exit_label,'Restart','Explore',labels[3],'Map')
             if self.glider:labels=('Stop' if self.outing else 'Land','Restart','Explore',labels[3],'Map')
@@ -820,7 +821,7 @@ class RainierView:
             self.pixel_dirty=True
             return True
         if self.outing in ('ferry','wheel'):
-            from pnw_outings import CROSSING,DOCK_TIME,ferry_stop
+            from pnw.outings import CROSSING,DOCK_TIME,ferry_stop
             stop=ferry_stop(self.ride_time) if self.outing=='ferry' else None
             if self.outing=='ferry' and x<width//6:
                 inbound=self.ride_time%(2*(CROSSING+DOCK_TIME))>=CROSSING+DOCK_TIME
@@ -923,7 +924,7 @@ class RainierView:
                 if self.glider.wheel_choice(x,y,width,height)!=action:continue
             elif not hit(box,x,y):continue
             if action=='needle_lift':
-                from seattle_places import places
+                from pnw.seattle_places import places
                 nx,nz=places()['Space Needle']
                 self.outing='needle'
                 self.needle_deck=not self.needle_deck
@@ -1008,8 +1009,8 @@ class RainierView:
                 self.hint_until=self.age+2;self.pixel_dirty=True
                 return True
             if self.outing in market_visit.STREETS:
-                from seattle_places import MarketDirectory,arcade_origin
-                from pike_market import offset
+                from pnw.seattle_places import MarketDirectory,arcade_origin
+                from pnw.pike_market import offset
                 center=arcade_origin()
                 # Dimensions in metres keep touch areas attached to the fixtures.
                 fixtures=(('directory',*offset(center,-3,-1.95),1.50,.82,.61),
@@ -1142,7 +1143,7 @@ class RainierView:
         return True
 
     def start_bike(self):
-        from rainier_hike import BikeLoop
+        from pnw.hiking import BikeLoop
         self.bike=BikeLoop(self.meadow_site)
         self.destination=self.trip_pose=self.map_position=None
         self.lens=self.binoculars=self.cruise=self.trail.guiding=False
@@ -1158,7 +1159,7 @@ class RainierView:
         self.pixel_dirty=True
 
     def start_glide(self,powered=False):
-        from rainier_hike import HangGlider
+        from pnw.hiking import HangGlider
         if not self.climb:self.start_climb()
         self.glider=HangGlider(self.climb,self.walk_height,powered)
         self.photo_hint='Drag to turn • Up to dive • Flight for speed'
@@ -1168,7 +1169,7 @@ class RainierView:
         self.destination=None
 
     def start_climb(self):
-        from rainier_hike import SummitClimb
+        from pnw.hiking import SummitClimb
         self.stop_ski()
         self.climb=SummitClimb(self.world[0].inset,panorama=self.world[0].panorama)
         self.destination=self.trip_pose=self.map_position=None
@@ -1176,7 +1177,7 @@ class RainierView:
         self.zoom=1.
 
     def start_ski(self):
-        from summit_ski import COURSES,SkiRun,start_tilt
+        from pnw.summit_ski import COURSES,SkiRun,start_tilt
         self.ski=SkiRun(COURSES if getattr(self.world[0].inset,"inset",None) else COURSES[1:])
         self.ski.tilt=start_tilt()
         self.cruise=self.binoculars=self.lens=False
@@ -1246,7 +1247,7 @@ class RainierView:
             self.photo_hint=self.fishing.note
             self.hint_until=age+2.
             if self.fishing.state=='landed':
-                from river_notebook import record_catch
+                from pnw.river_notebook import record_catch
                 try:record_catch(self.fishing.target)
                 except OSError:self.photo_hint+=' - guidebook save failed'
                 else:self.photo_hint+=' - in guidebook'
@@ -1267,7 +1268,7 @@ class RainierView:
         if self.climb:return self.climb.controls(width,height)
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
         if self.outing in market_visit.STREETS and self.camera:
-            from seattle_places import places
+            from pnw.seattle_places import places
             nx,nz=places()['Space Needle']
             near_needle=math.hypot(self.camera[0]-nx,self.camera[1]-nz)<35
         else:near_needle=False
@@ -1324,7 +1325,7 @@ class RainierView:
 
     def start_outing(self,outing,landing=None):
         self.stair_landing=landing
-        from pnw_outings import build_world as build_outing
+        from pnw.outings import build_world as build_outing
         self.pending_outing=outing
         self.travel_error=''
         if self.outing and self.outing!='hoh' and outing!='hoh' and self.world and not (
@@ -1388,21 +1389,21 @@ class RainierView:
                 self.trip_pose=self.map_position=None
                 self.cruise=self.trail.guiding=self.lens=self.binoculars=False
                 if self.outing:
-                    from pnw_outings import ride_pose
+                    from pnw.outings import ride_pose
                     owner.x=owner.z=owner.yaw=0.
                     owner.pitch=-.08
                     self.ride_time=getattr(self,'boarding_time',0.) if self.outing=='ferry' else 0.
                     self.boarding_time=0.
                     if self.outing in market_visit.STREETS:
-                        from market_life import Delivery,FishCounter
+                        from pnw.market_life import Delivery,FishCounter
                         self.shop_target=None
                         self.delivery=Delivery()
                         self.fish_counter=FishCounter()
                     if self.outing in ('plane','thun','boat'):
                         self.glider=SoundVehicle(self.outing,world[0])
                     elif self.outing in ('market','fishshop'):
-                        from seattle_places import arcade_origin
-                        from pike_market import arrival,offset,HEADING
+                        from pnw.seattle_places import arcade_origin
+                        from pnw.pike_market import arrival,offset,HEADING
                         owner.x,owner.z,owner.yaw,owner.pitch=arrival(arcade_origin())
                         if self.outing=='fishshop':
                             owner.x,owner.z=offset(arcade_origin(),1.,-4.)
@@ -1410,7 +1411,7 @@ class RainierView:
                     elif self.outing in market_visit.DESTINATIONS.values():
                         owner.x,owner.z,owner.yaw,owner.pitch=market_visit.arrival(self.outing)
                     elif self.outing=='needle':
-                        from seattle_places import places
+                        from pnw.seattle_places import places
                         nx,nz=places()['Space Needle']
                         owner.x,owner.z=nx,nz-215.
                         owner.yaw,owner.pitch=0.,-.38
@@ -1442,7 +1443,7 @@ class RainierView:
         if self.world is None:
             if self.job is None:
                 self.pool=ThreadPoolExecutor(max_workers=1)
-                from river_scene_cache import valley_world
+                from pnw.river_scene_cache import valley_world
                 self.job=self.pool.submit(valley_world,self.quality.high,self.plant_sites)
             if not self.job.done():return
             try:self.world=self.job.result()
@@ -1467,7 +1468,7 @@ class RainierView:
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
         if self.outing in ('ferry','wheel') and not self.notebook:
-            from pnw_outings import ride_pose
+            from pnw.outings import ride_pose
             old_yaw=ride_pose(self.outing,self.ride_time)[2]
             self.ride_time+=dt
             owner.x,owner.z,heading,_,_=ride_pose(self.outing,self.ride_time)
@@ -1493,7 +1494,7 @@ class RainierView:
         for plant,px,pz in (self.flower_sites if self.regional else self.plant_sites):
             if self.regional and not paradise.blooming(plant,self.season):continue
             if plant not in self.found_plants and (owner.x-px)**2+(owner.z-pz)**2<=2.5**2:
-                from river_notebook import PLANTS,record_plant
+                from pnw.river_notebook import PLANTS,record_plant
                 try:record_plant(plant)
                 except OSError:continue
                 self.found_plants.add(plant)
@@ -1518,7 +1519,7 @@ class RainierView:
         west,east,south,north=bounds(self.world[0])
         owner.x=max(west,min(east,owner.x));owner.z=max(south,min(north,owner.z))
         if self.outing=='needle' and self.needle_deck:
-            from seattle_places import places
+            from pnw.seattle_places import places
             nx,nz=places()['Space Needle']
             dx,dz=owner.x-nx,owner.z-nz
             radius=math.hypot(dx,dz)
@@ -1531,15 +1532,15 @@ class RainierView:
             if target and not self.travel_job:
                 landing=(-owner.x,-11.0,0.,-.03)
                 if target=='market':
-                    from pike_market import offset,HEADING
-                    from seattle_places import arcade_origin
+                    from pnw.pike_market import offset,HEADING
+                    from pnw.seattle_places import arcade_origin
                     landing=(*offset(arcade_origin(),-8,1.8),HEADING+math.pi,0.)
                 self.cruise=False;self.destination=None
                 self.start_outing(target,landing)
         elif self.outing in market_visit.STREETS and not self.travel_job:
-            from pike_market import offset
-            from seattle_places import arcade_origin
-            from pnw_outings import CROSSING,DOCK_TIME
+            from pnw.pike_market import offset
+            from pnw.seattle_places import arcade_origin
+            from pnw.outings import CROSSING,DOCK_TIME
             for terminal,side in (('colman',1),('bainbridge',-1)):
                 cx,cz=market_visit.site(terminal)
                 if abs(owner.x-(cx+side*3))<2.5 and abs(owner.z-cz)<3.:
@@ -1566,11 +1567,11 @@ class RainierView:
     def walk_height(self,x,z):
         if self.outing in market_visit.FLOORS:return market_visit.stairs(self.outing,x,z)
         if self.outing=='needle' and self.needle_deck:
-            from seattle_places import DECK_HEIGHT,places
+            from pnw.seattle_places import DECK_HEIGHT,places
             return surface(self.world[0],*places()['Space Needle'])+DECK_HEIGHT
         if self.outing in market_visit.STREETS:
-            from pike_market import floor_height
-            from seattle_places import arcade_origin
+            from pnw.pike_market import floor_height
+            from pnw.seattle_places import arcade_origin
             terrain=lambda px,pz:surface(self.world[0],px,pz)
             cx,cz=market_visit.site('overlook')
             if abs(x-cx)<=6 and -38<=z-cz<=20:return market_visit.deck_height(terrain,x,z)
@@ -1589,7 +1590,7 @@ class RainierView:
                 step=min(14,int((z-cz+7.4)/.3)+1)
                 ground=bottom+(base+lookout.DECK-bottom)*step/14
         if self.outing in ('ferry','wheel'):
-            from pnw_outings import ride_pose
+            from pnw.outings import ride_pose
             ground+=ride_pose(self.outing,self.ride_time)[4]
         if self.glider:ground=self.glider.altitude
         if getattr(self,"ski",None):ground+=self.ski.lift
@@ -1729,7 +1730,7 @@ class RainierView:
                 upload_shade=True
         omit_first=omit_end=0
         if self.regional and base_count<terrain_count:
-            import summit_approach
+            from pnw import summit_approach
             patch=field.inset.inset
             west,east,south,north=bounds(patch)
             near=math.hypot(max(west-x,0.,x-east),max(south-z,0.,z-north))<600.
@@ -1737,7 +1738,7 @@ class RainierView:
             else:omit_first,omit_end=base_count,terrain_count
         equipment=(C.c_float*3)(3 if self.outing=="boat" else 2 if self.outing in ("thun","plane") else self.glider.powered,self.glider.bank,self.glider.pitch) if self.glider else None
         if self.glider and self.outing in ('thun','plane'):
-            from cockpit import panel
+            from pnw.cockpit import panel
             setup=ctx.lib.pocket_scene_cockpit
             setup.argtypes=[C.c_void_p,C.c_void_p,C.c_float,C.c_float]
             ctx.check(setup(ctx.handle,None if self.cockpit_ready else panel(),self.glider.speed,self.glider.altitude))
@@ -1750,10 +1751,10 @@ class RainierView:
         poses=[]
         ground=self.walk_height
         if self.outing in market_visit.STREETS and not self.needle_deck:
-            from market_life import plaza_walkers,street_walkers
-            from seattle_places import places
+            from pnw.market_life import plaza_walkers,street_walkers
+            from pnw.seattle_places import places
             if math.dist((x,z),places()['Pike Place Fish Market'])<120:
-                from market_life import actors
+                from pnw.market_life import actors
                 poses=actors(self.age,self.walk_height,self.fish_counter.advance(self.age))
                 van=self.delivery.advance(self.age,(x,z),poses,self.walk_height)
                 if van:poses.append(van)
@@ -1767,7 +1768,7 @@ class RainierView:
             if math.hypot(x-nx,z-(nz-183))<140:
                 poses.extend(plaza_walkers(self.age,ground))
         elif self.outing in market_visit.FLOORS:
-            from market_life import stroll
+            from pnw.market_life import stroll
             for i,lane in enumerate((-4.4,-1.55,1.55,4.4)):
                 dx,dz,heading,gait,identity=stroll(self.outing,i,self.age,8.)
                 poses.append((0,lane+dx,0.,dz,math.degrees(heading),gait,identity))
@@ -1791,7 +1792,7 @@ class RainierView:
             upload.argtypes=[C.c_void_p,C.c_uint,C.c_void_p,C.c_uint]
             for slot in sorted(needed-self.person_slots):
                 name=('sam','maya')[slot]
-                mesh=zlib.decompress((Path(__file__).parent/f'assets/people/{name}.zlib').read_bytes())
+                mesh=zlib.decompress((Path(__file__).resolve().parents[1]/f'assets/people/{name}.zlib').read_bytes())
                 ctx.check(upload(ctx.handle,slot,mesh,len(mesh)))
                 del mesh
                 self.person_slots.add(slot)
@@ -1809,7 +1810,7 @@ class RainierView:
             self.photo_hint="View blocked";self.hint_until=self.age+1.2
         else:ctx.check(result)
         if pixels is not None:
-            from wildlife_models import NAMES
+            from pnw.wildlife_models import NAMES
             try:
                 species=self.shutter.split('#')[0]
                 save_photo(species,rect[2],rect[3],bytes(pixels))
@@ -1846,22 +1847,22 @@ class RainierView:
                 if self.outing in market_visit.FLOORS and z>3:
                     label=market_visit.FLOORS[self.outing][int(x>0)]
                 if self.outing in market_visit.STREETS and self.shop_target:
-                    from seattle_places import bearing_label
+                    from pnw.seattle_places import bearing_label
                     label=bearing_label(self.shop_target,x,z)
                 ink.label(1,h-5,label,0xFFF6DD)
             if self.outing=='ferry':
-                from pnw_outings import ferry_stop
+                from pnw.outings import ferry_stop
                 dock=ferry_stop(self.ride_time)
                 if dock:ink.label(1,4,'Colman Dock' if dock=='colman' else 'Bainbridge Island',0xFFF6DD)
             if self.outing in ('ferry','wheel','market','fishshop','needle','hoh'):
                 place={'ferry':'Seattle – Bainbridge ferry','wheel':'Pier 57 · Great Wheel','market':'Pike Place Market','fishshop':'Pike Place Fish Market','needle':'Space Needle','hoh':'Hoh Rain Forest'}
                 label=place[self.outing]
                 if self.outing in ('market','fishshop'):
-                    from seattle_places import market_shops
+                    from pnw.seattle_places import market_shops
                     distance,name=min((math.dist((x,z),point),name) for name,point in market_shops().items())
                     if distance<=18:label=name
                     if self.shop_target:
-                        from seattle_places import bearing_label
+                        from pnw.seattle_places import bearing_label
                         label=bearing_label(self.shop_target,x,z)
                 ink.label(1,h-7 if self.outing in ('market','fishshop') else h-5,label,0xFFF6DD)
             if self.glider:self.glider.draw(ink,w-2,h-3)
@@ -1881,7 +1882,7 @@ class RainierView:
             if self.age<self.hint_until and self.photo_hint:
                 ink.label(1,5,self.photo_hint[:w-2],0xFFF6DA)
             elif (self.lens or self.binoculars) and self.focus_key:
-                from wildlife_models import NAMES
+                from pnw.wildlife_models import NAMES
                 subject=next(s for s in spotting if s[0]==self.focus_key)
                 u,v,_=project_subject(self.frame_camera[0],self.frame_camera[1],self.zoom,subject)
                 cx=max(1.2,min(w-3.2,u*(w-2)))

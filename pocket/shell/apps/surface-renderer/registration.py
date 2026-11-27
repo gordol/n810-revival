@@ -87,7 +87,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def movement_bounds(self):
             if self.pixel_scene and isinstance(getattr(self.pixel_scene,'world',None),tuple):
-                from rainier_hike import bounds
+                from pnw.hiking import bounds
                 return bounds(self.pixel_scene.world[0])
             return super().movement_bounds()
 
@@ -399,7 +399,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                 else:return False
                 return True
             if self.pixel_scene and key=='?' and self.pixel_scene.world is not None:
-                from river_notebook import RiverNotebook
+                from pnw.river_notebook import RiverNotebook
                 self.pixel_scene.notebook=RiverNotebook()
                 self.pixel_scene.destination=None
                 self.pixel_scene.trail.guiding=self.pixel_scene.cruise=False

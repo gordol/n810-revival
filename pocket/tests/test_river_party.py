@@ -6,8 +6,8 @@ import unittest
 
 root=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(root/'graphics'),str(root/'shell')]
-from river_party import RiverParty,PartyMenu
-from river_walk import BUSHES,FOX
+from pnw.river_party import RiverParty,PartyMenu
+from pnw.river_walk import BUSHES,FOX
 
 
 class FamilyWalkTests(unittest.TestCase):
@@ -57,7 +57,7 @@ class FamilyWalkTests(unittest.TestCase):
         self.assertFalse(guests[-1].roster)
 
     def test_family_descent_waits_for_everyone_and_keeps_the_finish_open(self):
-        from summit_ski import SkiRun
+        from pnw.summit_ski import SkiRun
         from unittest.mock import patch
         host,guest=SkiRun(),SkiRun()
         room=RiverParty(True,5432,port=0,ski=True)
@@ -70,7 +70,7 @@ class FamilyWalkTests(unittest.TestCase):
             nonlocal clock
             clock+=.1
             for run in (guest,host):run.advance(.1,ground)
-        with patch('river_party.time.monotonic',side_effect=lambda:clock):
+        with patch('pnw.river_party.time.monotonic',side_effect=lambda:clock):
             host.room.ready=True
             for _ in range(12):tick()
             host.tap_slope(.5,.5)
@@ -98,6 +98,6 @@ class FamilyWalkTests(unittest.TestCase):
         view=SimpleNamespace(party=None)
         view.enter_party=lambda party:setattr(view,'party',party)
         menu=PartyMenu(view);menu.tap_xy(4,4)
-        with patch('river_party.RiverParty',return_value='joined') as factory:
+        with patch('pnw.river_party.RiverParty',return_value='joined') as factory:
             for x,y in ((3,4),(11,4),(19,4),(3,6)):menu.tap_xy(x,y)
             self.assertEqual(factory.call_args.args[:2],(False,1234))

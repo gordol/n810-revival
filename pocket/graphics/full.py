@@ -41,7 +41,7 @@ class Platform:
     if getattr(ctx,'backend',None)!='opengl' or not hasattr(ctx.lib,'pocket_scene_rainier'):
      return original_rainier(host,**options)
     sys.path.insert(0,str(HERE.parent/'shell/apps/landscape-lab'))
-    from rainier_pixels import RainierView
+    from pnw.scene import RainierView
     view=RainierView(host);owner=original_rainier(host,pixel_scene=view,**options)
     owner.yaw=0.;owner.pitch=-.14
     self.register_pixel_view(view);return owner
@@ -49,7 +49,7 @@ class Platform:
   if 'wildlife' in registry.entries and (self.display is None or hasattr(self.display.lib,'pocket_scene_wildlife')):
    def wildlife_factory(host,**options):
     sys.path.insert(0,str(HERE.parent/'shell/apps/landscape-lab'))
-    from wildlife_pixels import PixelWildlife
+    from pnw.wildlife_pixels import PixelWildlife
     view=PixelWildlife(host);self.register_pixel_view(view);return view
    entry=registry.entries['wildlife'];registry.entries['wildlife']=entry._replace(factory=wildlife_factory)
   if 'doom' in registry.entries:

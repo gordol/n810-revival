@@ -1,9 +1,9 @@
 """Pixel presentation of the existing wildlife meshes on the SDL scene backend."""
 import math
 
-from pnw_species import REGIONAL,group
+from pnw.species import REGIONAL,group
 from wildlife_app import Wildlife
-from wildlife_models import FOX_ASSETS, FOX_FRAMES, NAMES, pose
+from pnw.wildlife_models import FOX_ASSETS, FOX_FRAMES, NAMES, pose
 
 class PixelWildlife(Wildlife):
     def __init__(self,host):

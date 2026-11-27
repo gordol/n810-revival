@@ -74,7 +74,7 @@ def regional_stand(field,base_y,cx,cz,surface,lookout,meadow=None):
     """Stable world-grid trees and meadow clumps within walking distance."""
     from array import array
     import random
-    from river_detail import shade_tree
+    from pnw.river_detail import shade_tree
 
     vertices=array('f')
     canopy=bytearray(512*512)

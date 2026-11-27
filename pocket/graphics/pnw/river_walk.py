@@ -8,9 +8,9 @@ import sys
 import zlib
 
 from geometry import HeightField, Vec
-from forest_floor import blade
+from pnw.forest_floor import blade
 
-ASSETS=Path(__file__).parent/'assets'/'ohanapecosh'
+ASSETS=Path(__file__).resolve().parents[1]/'assets'/'ohanapecosh'
 BUSHES=((-13.,5.),(-27.,42.),(-11.,82.))
 FOX=(-40.,113.)
 BERRY_BLUFF=(56.,56.)
@@ -91,7 +91,7 @@ def river_gain(x,z,segments):
 
 @lru_cache(maxsize=1)
 def channel():
-    from river_channel import RiverChannel
+    from pnw.river_channel import RiverChannel
     field,segments=site()
     return RiverChannel(field,segments)
 

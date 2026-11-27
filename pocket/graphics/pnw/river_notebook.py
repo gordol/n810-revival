@@ -103,8 +103,8 @@ def record_catch(target):
 class DiscoveryBook:
     def __init__(self,view):
         from data_paths import rainier_cache
-        from river_explore import photo_paths
-        from wildlife_models import NAMES
+        from pnw.river_explore import photo_paths
+        from pnw.wildlife_models import NAMES
         self.view=view
         self.photos=photo_paths()
         animals={p.stem.rsplit('-',1)[0] for p in self.photos}
@@ -129,7 +129,7 @@ class DiscoveryBook:
         if self.entries:self.page=(self.page+step)%len(self.entries)
 
     def tap_xy(self,x,y):
-        from river_overlay import book_layout,hit
+        from pnw.river_overlay import book_layout,hit
         window=self.view.host.window(self.view.name)
         page,buttons=book_layout(window.w-2,window.h-3)
         for action,_,bounds in buttons:

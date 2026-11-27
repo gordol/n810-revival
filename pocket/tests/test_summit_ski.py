@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'graphics'))
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'shell'))
-from summit_ski import LENGTH,SkiRun,location
+from pnw.summit_ski import LENGTH,SkiRun,location
 
 
 class SkiTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class SkiTests(unittest.TestCase):
         self.assertEqual(pose[:2],location(0.))
 
     def test_long_courses_jump_bypass_and_brake_on_landing(self):
-        from summit_ski import COURSES
+        from pnw.summit_ski import COURSES
         game=SkiRun()
         for course in COURSES[1:]:
             game.action('course')
@@ -105,7 +105,7 @@ class SkiTests(unittest.TestCase):
         self.assertIsNone(run.tap_lane)
 
     def test_one_tap_follows_every_gate_with_assist(self):
-        from summit_ski import COURSES
+        from pnw.summit_ski import COURSES
         for course in COURSES:
             run=SkiRun((course,))
             run.tap_slope(.92,.35)

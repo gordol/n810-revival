@@ -16,13 +16,13 @@ STREETS=frozenset(SITES) | {'market','fishshop','needle'}
 
 @lru_cache(maxsize=None)
 def site(key):
-    from pnw_outings import location
+    from pnw.terrain import location
     return location('sound',*SITES[key])
 
 @lru_cache(maxsize=1)
 def storefront_frame():
     # Adjacent frontage vertices from the bundled OSM way 367894552.
-    from pnw_outings import location
+    from pnw.terrain import location
     x,z=location('sound',47.6099559,-122.3425691)
     ex,ez=location('sound',47.6097481,-122.3422163)
     length=math.hypot(ex-x,ez-z)
@@ -59,7 +59,7 @@ def sign_font():
     """Tessellate the shared outlines once. Even-odd spans preserve counters."""
     import json
     from pathlib import Path
-    data=json.loads((Path(__file__).parent/'assets/seattle/signs.json').read_text())
+    data=json.loads((Path(__file__).resolve().parents[1]/'assets/seattle/signs.json').read_text())
     result={}
     for char,(advance,paths) in data['glyphs'].items():
         edges=[];heights=set()
@@ -128,7 +128,7 @@ def walk_inside(key,x,z):
 
 def indoor(key):
     from geometry import Vec
-    from summit_detail import RegionalTerrain
+    from pnw.summit_detail import RegionalTerrain
     mesh=array('f')
     def quad(p,c,m=0.):
         for i in (0,1,2,0,2,3):mesh.extend((*p[i],*c,m))
@@ -384,7 +384,7 @@ class DistrictMap:
         yield None,'Back',(0,h-2,w,2)
 
     def draw(self,ctx,rect):
-        from river_overlay import Ink
+        from pnw.river_overlay import Ink
         ink=Ink(ctx,rect);w,h=rect[2]//8,rect[3]//16
         ink.fill((0,0,w,h),0x243C46FF)
         mh=h-10

@@ -1,11 +1,11 @@
 """Offline north-up field map for the playable Ohanapecosh valley."""
 import math
 
-from rainier_hike import ReliefMap, bounds
-from river_camp import CAMP, OVERLOOK
-from river_channel import TROUT_POOL
-from river_overlay import Ink
-from river_walk import hiking_paths, site
+from pnw.hiking import ReliefMap, bounds
+from pnw.river_camp import CAMP, OVERLOOK
+from pnw.river_channel import TROUT_POOL
+from pnw.river_overlay import Ink
+from pnw.river_walk import hiking_paths, site
 
 TRAIL_COLORS={'Hot Springs Trail':(254,200,104),'Silver Falls Loop Trail':(250,153,155)}
 RIVER=(79,177,210)

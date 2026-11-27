@@ -7,8 +7,8 @@ from unittest.mock import patch
 
 pocket=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(pocket/'graphics'),str(pocket/'shell'),str(pocket/'shell/apps/surface-renderer'),str(pocket/'shell/apps/landscape-lab')]
-from rainier_hike import HikeMenu,ReliefMap,bounds,region_field,summit_start
-from river_explore import ground_target,walk_to
+from pnw.hiking import HikeMenu,ReliefMap,bounds,region_field,summit_start
+from pnw.river_explore import ground_target,walk_to
 
 
 class HikeTests(TestCase):
@@ -20,7 +20,7 @@ class HikeTests(TestCase):
 
     def test_ice_grips_deliver_the_climber_to_the_peak_before_flag_raise(self):
         from geometry import HeightField,Vec
-        from rainier_hike import SummitClimb
+        from pnw.hiking import SummitClimb
         heights=tuple(4000-abs(i-10)-abs(j-10) for j in range(21) for i in range(21))
         field=HeightField(21,21,Vec(-100,0,-100),10,10,heights)
         climb=SummitClimb(field)
@@ -41,7 +41,7 @@ class HikeTests(TestCase):
 
     def test_summit_views_follow_geographic_bearings_and_wrap(self):
         from geometry import HeightField,Vec
-        from rainier_hike import SummitClimb
+        from pnw.hiking import SummitClimb
         import math
         field=HeightField(3,3,Vec(-100,0,-100),100,100,(0,0,0,0,100,0,0,0,0))
         climb=SummitClimb(field,panorama=True)
@@ -64,8 +64,8 @@ class HikeTests(TestCase):
 
     def test_summit_dancers_alternate_hops_and_stop_at_the_panorama(self):
         from geometry import HeightField,Vec
-        from rainier_hike import SummitClimb
-        from rainier_pixels import summit_dancers
+        from pnw.hiking import SummitClimb
+        from pnw.scene import summit_dancers
         field=HeightField(3,3,Vec(-100,0,-100),100,100,(0,0,0,0,1,0,0,0,0))
         climb=SummitClimb(field)
         spans=((0,10,16,0,12),(160,8,3,12,9))
@@ -85,7 +85,7 @@ class HikeTests(TestCase):
     def test_horizon_joins_the_walking_grid_and_curves_below_sea_level(self):
         from array import array
         from geometry import HeightField,Vec
-        import summit_horizon as h
+        from pnw import summit_horizon as h
         field=HeightField(257,257,Vec(-12800,0,-12800),100,100,(300,)*(257**2))
         vertices=array('f')
         h.append_mesh(vertices,field,100,[-40]*(h.SIZE**2))
@@ -101,7 +101,7 @@ class HikeTests(TestCase):
         self.assertAlmostEqual(far_y[0],-100-102400**2/(2*6371000),places=3)
 
     def test_hang_glide_steering_dead_straight_then_landing(self):
-        from rainier_hike import HangGlider
+        from pnw.hiking import HangGlider
         import math
         climb=SimpleNamespace(x=0,z=0,heading=math.pi)
         height=lambda x,z:100-.4*z
@@ -128,8 +128,8 @@ class HikeTests(TestCase):
         self.assertEqual(flight.clearance,0)
 
     def test_flight_wheel_speed_and_two_axis_control(self):
-        from rainier_hike import HangGlider
-        from rainier_pixels import RainierView
+        from pnw.hiking import HangGlider
+        from pnw.scene import RainierView
         view=RainierView(None)
         view.world=(True,)
         floor=lambda x,z:0.
@@ -151,9 +151,9 @@ class HikeTests(TestCase):
         self.assertEqual(flight.drag,(0.,0.))
 
     def test_flight_exits_restart_and_map_teleport(self):
-        from rainier_pixels import RainierView
-        from rainier_hike import HangGlider
-        from summit_detail import RegionalTerrain
+        from pnw.scene import RainierView
+        from pnw.hiking import HangGlider
+        from pnw.summit_detail import RegionalTerrain
         from dataclasses import replace
         host=SimpleNamespace(window=lambda name:SimpleNamespace(w=52,h=35))
         view=RainierView(host)
@@ -180,7 +180,7 @@ class HikeTests(TestCase):
 
     def test_horizon_concentrates_real_samples_and_preserves_old_cache(self):
         import tempfile,zlib
-        import summit_horizon as h
+        from pnw import summit_horizon as h
         self.assertEqual([h.offset(i) for i in (-128,-32,0,32,64,128)],
                          [-128,-16,0,16,32,128])
         with tempfile.TemporaryDirectory() as tmp,patch('data_paths.rainier_cache',return_value=Path(tmp)):
@@ -193,7 +193,7 @@ class HikeTests(TestCase):
 
     def test_bike_grade_brake_resume_and_closed_track(self):
         import math
-        from rainier_hike import BikeLoop
+        from pnw.hiking import BikeLoop
         uphill,downhill=BikeLoop((20.,30.)),BikeLoop((20.,30.))
         for _ in range(12):
             uphill.advance(.1,lambda x,z:.2*z)
@@ -210,7 +210,7 @@ class HikeTests(TestCase):
         self.assertLess(math.dist(uphill.position(0),uphill.position(math.tau)),1e-9)
 
     def test_first_person_bike_brake_and_dismount(self):
-        from rainier_pixels import RainierView
+        from pnw.scene import RainierView
         view=RainierView(None)
         view.world=(True,)
         view.meadow_site=(1.,2.)
@@ -224,7 +224,7 @@ class HikeTests(TestCase):
         view.controller_button(8)
 
     def test_paramotor_climbs_coasts_and_lands_above_former_ceiling(self):
-        from rainier_hike import HangGlider
+        from pnw.hiking import HangGlider
         floor=lambda x,z:5500.
         limits=(-1000,1000,-1000,1000)
         flight=HangGlider(SimpleNamespace(x=0,z=0,heading=0),floor,powered=True)
@@ -238,7 +238,7 @@ class HikeTests(TestCase):
         self.assertTrue(flight.landed)
 
     def test_controller_launches_from_flag_and_hike_offers_direct_flight(self):
-        from rainier_pixels import RainierView
+        from pnw.scene import RainierView
         view=RainierView(None)
         view.regional=True
         view.world=(SimpleNamespace(inset=True),)
@@ -250,8 +250,8 @@ class HikeTests(TestCase):
             self.assertEqual(launch.call_count,2)
 
     def test_pad_shutter_and_pool_actions_follow_equipped_tool(self):
-        from rainier_pixels import RainierView
-        from river_channel import TROUT_POOL
+        from pnw.scene import RainierView
+        from pnw.river_channel import TROUT_POOL
         host=SimpleNamespace(window=lambda name:SimpleNamespace(w=42,h=32))
         view=RainierView(host)
         view.world=(True,)
@@ -280,7 +280,7 @@ class HikeTests(TestCase):
         view.controller_button(0)
         self.assertEqual(view.fishing.state,'drift')
         view.fishing.state='bite'
-        with patch('rainier_pixels.vibration'):
+        with patch('pnw.scene.vibration'):
             view.controller_button(0)
         self.assertEqual(view.fishing.state,'fight')
         view.controller_button(0)
@@ -329,8 +329,8 @@ class HikeTests(TestCase):
             self.assertEqual(view.debug_overlay,expected)
 
     def test_lookout_position_and_deck_match_the_mesh(self):
-        import fremont_lookout as lookout
-        from rainier_pixels import RainierView,surface
+        from pnw import fremont_lookout as lookout
+        from pnw.scene import RainierView,surface
         from geometry import Vec
         field=self.field()
         meta=dict(latitude_first=lookout.LATITUDE-.12,longitude_first=lookout.LONGITUDE-.24,
@@ -358,10 +358,10 @@ class HikeTests(TestCase):
     def test_regional_builder_streams_the_same_grid_triangles(self):
         from array import array
         from geometry import HeightField
-        from rainier_pixels import build_world
+        from pnw.scene import build_world
         field=self.field()
         mesh=field.mesh()
-        with patch('rainier_pixels.region_field',return_value=field),patch('fremont_lookout.location',return_value=None),patch.object(
+        with patch('pnw.scene.region_field',return_value=field),patch('pnw.fremont_lookout.location',return_value=None),patch.object(
                 HeightField,'mesh',side_effect=AssertionError('materialized regional mesh')):
             _,origin,vertices,*_=build_world(False,regional=True)
         expected=array('f')
@@ -402,8 +402,8 @@ class HikeTests(TestCase):
             self.assertAlmostEqual((z-south)/(north-south),.75)
 
     def test_valley_map_layers_zoom_and_walking_waypoint(self):
-        from valley_map import ValleyMap,RIVER,TRAIL_COLORS,SIZE
-        from river_walk import site
+        from pnw.valley_map import ValleyMap,RIVER,TRAIL_COLORS,SIZE
+        from pnw.river_walk import site
         for cols,rows in ((45,40),(92,20)):
             window=SimpleNamespace(w=cols,h=rows)
             view=SimpleNamespace(world=(site()[0],),camera=(0.,0.,0.,0.),name='Walk',destination=None,
@@ -426,9 +426,9 @@ class HikeTests(TestCase):
             self.assertFalse(view.trail.free_look)
 
     def test_paradise_outing_and_seasonal_discoveries(self):
-        import paradise_meadow as meadow
-        from river_notebook import PLANTS
-        from rainier_pixels import RainierView
+        from pnw import paradise_meadow as meadow
+        from pnw.river_notebook import PLANTS
+        from pnw.scene import RainierView
         view=RainierView(None)
         menu=HikeMenu(view)
         row=menu.lines(40).index('Paradise meadows')
@@ -454,9 +454,9 @@ class HikeTests(TestCase):
     def test_close_approach_uses_parent_edges_and_fine_walking_triangles(self):
         from array import array
         from geometry import HeightField,Vec
-        from rainier_pixels import surface
-        import summit_approach as p
-        from summit_detail import attach_approach
+        from pnw.scene import surface
+        from pnw import summit_approach as p
+        from pnw.summit_detail import attach_approach
         parent=HeightField(145,104,Vec(-4300,0,1150),34,38,
                            tuple(3000+i*.25+j*.5 for j in range(104) for i in range(145)),'meters')
         field=attach_approach(parent,array('f',[3400.])*(p.WIDTH*p.HEIGHT))
@@ -469,8 +469,8 @@ class HikeTests(TestCase):
         self.assertGreater(surface(field,x,z)-surface(parent,x,z),300.)
 
     def test_summit_inset_registered_to_terrain_and_walk_height(self):
-        import summit_detail
-        from rainier_pixels import surface
+        from pnw import summit_detail
+        from pnw.scene import surface
         from geometry import HeightField,Vec
         field=HeightField(257,257,Vec(-12800,0,-12800),100.,100.,tuple(
             1800+x-z for z in range(257) for x in range(257)),'meters')

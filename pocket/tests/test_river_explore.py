@@ -11,7 +11,7 @@ import zlib
 
 root=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(root/'graphics'),str(root/'shell')]
-from river_explore import ground_target, photo_paths, read_photo, save_photo, sighting, walk_to
+from pnw.river_explore import ground_target, photo_paths, read_photo, save_photo, sighting, walk_to
 
 
 class RiverExplorationTests(unittest.TestCase):
@@ -27,8 +27,8 @@ class RiverExplorationTests(unittest.TestCase):
 
     def test_walk_across_mapped_trout_pool_without_berry_guide(self):
         import math
-        from rainier_pixels import surface,valley_floor
-        from river_walk import channel
+        from pnw.scene import surface,valley_floor
+        from pnw.river_walk import channel
         bed,floor=valley_floor()
         def height(x,z):return floor.height(x,z,surface(bed,x,z))
         owner=SimpleNamespace(x=1.,z=8.,yaw=math.pi/2)
@@ -49,8 +49,8 @@ class RiverExplorationTests(unittest.TestCase):
         self.assertIsNone(channel().water_height(owner.x,owner.z))
 
     def test_wildlife_routes_move_rest_and_stay_on_land(self):
-        from rainier_pixels import ENCOUNTERS,GRAZERS,bird_excursion,forage
-        from river_walk import channel
+        from pnw.scene import ENCOUNTERS,GRAZERS,bird_excursion,forage
+        from pnw.river_walk import channel
         for key,x,z,_ in ENCOUNTERS:
             if key not in GRAZERS:continue
             poses=[forage(t,*GRAZERS[key]) for t in range(120)]
@@ -112,7 +112,7 @@ class RiverExplorationTests(unittest.TestCase):
 
     def test_private_discovery_pages_survive_reopening(self):
         sys.path[:0]=[str(root/'shell/apps/surface-renderer'),str(root/'shell/apps/landscape-lab')]
-        from river_notebook import DiscoveryBook,record_plant
+        from pnw.river_notebook import DiscoveryBook,record_plant
         with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,XDG_DATA_HOME=temp):
             view=SimpleNamespace(name='Rainier walk',host=SimpleNamespace(window=lambda _:SimpleNamespace(w=42,h=24)))
             record_plant('blueberry');record_plant('blueberry')
@@ -120,7 +120,7 @@ class RiverExplorationTests(unittest.TestCase):
             book=DiscoveryBook(view)
             self.assertEqual({e[1] for e in book.entries},{'trout','blueberry'})
             book.page=next(i for i,e in enumerate(book.entries) if e[1]=='trout')
-            from river_overlay import book_layout,tools,hit
+            from pnw.river_overlay import book_layout,tools,hit
             for width,height in ((20,9),(40,21),(90,32)):
                 page,buttons=book_layout(width,height)
                 for _,_,box in buttons+tools(width,height,True):
