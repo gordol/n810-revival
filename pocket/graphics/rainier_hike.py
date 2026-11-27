@@ -501,17 +501,55 @@ class SoundVehicle(HangGlider):
         _,tx,tz=self.stops[self.target_index]
         self.heading=math.atan2(tx-x,tz-z)
 
+        from pnw_outings import runway_geometry
+        self.runways=tuple(runway_geometry())
+        self.roll_state=None
+        if kind=='thun':
+            rx,rz,self.heading,_,_=self.runways[0]
+            self.x=rx+18*math.sin(self.heading)
+            self.z=rz+18*math.cos(self.heading)
+            self.altitude=field.height(self.x,self.z)+.3
+            self.speed=0.
+            self.roll_state='parked'
+            self.target_index=2
+
+    def runway_at(self,x,z):
+        for rx,rz,yaw,length,width in self.runways:
+            dx,dz=x-rx,z-rz
+            along=dx*math.sin(yaw)+dz*math.cos(yaw)
+            across=dx*math.cos(yaw)-dz*math.sin(yaw)
+            if 0<=along<=length and abs(across)<=width/2:
+                return yaw,along,length
+        return None
+
     def toggle_motor(self):
         self.target_index=(self.target_index+1)%len(self.stops)
 
     def advance(self,dt,height,limits):
+        if self.roll_state in ('parked','takeoff','rollout'):
+            if self.roll_state=='parked' and self.descending:
+                self.descending=False
+                strip=self.runway_at(self.x,self.z)
+                if strip:
+                    yaw,along,length=strip
+                    self.heading=yaw if along<length/2 else yaw+math.pi
+                    self.roll_state='takeoff'
+            if self.roll_state=='takeoff':self.speed+=3.8*dt
+            elif self.roll_state=='rollout':self.speed=max(0.,self.speed-4.*dt)
+            self.x+=math.sin(self.heading)*self.speed*dt
+            self.z+=math.cos(self.heading)*self.speed*dt
+            self.altitude=height(self.x,self.z)+.3
+            self.clearance=.3
+            if self.roll_state=='takeoff' and self.speed>=32:self.roll_state='climbout'
+            elif self.roll_state=='rollout' and self.speed==0:self.roll_state='parked'
+            return self.x,self.z,self.heading,.03
         roll=self.stick+self.drag[0]+('right' in self.keys)-('left' in self.keys)
         pitch=self.pitch_stick+self.drag[1]+('up' in self.keys)-('down' in self.keys)
         smooth=-math.expm1(-3*dt)
         self.bank+=(max(-1.,min(1.,roll))-self.bank)*smooth
         self.pitch+=(max(-1.,min(1.,pitch))-self.pitch)*smooth
         cruise=(22. if self.fast else 10.) if self.boat else (150. if self.fast else 80.)
-        if self.boat and self.descending:cruise=0.
+        if self.descending:cruise=0. if self.boat else 32.
         self.speed+=(cruise-self.speed)*(-math.expm1(-dt))
         self.heading+=self.bank*dt*(.64 if self.boat else .38)
         west,east,south,north=limits
@@ -521,14 +559,31 @@ class SoundVehicle(HangGlider):
         if self.boat and ground>.01:self.speed=0.
         else:self.x,self.z=x,z
         if not self.boat:
-            self.altitude=max(ground+6.,self.altitude-dt*(36*self.pitch+12*self.descending))
+            next_alt=self.altitude-dt*(36*self.pitch+12*self.descending)
+            if self.roll_state=='climbout':
+                next_alt=self.altitude+dt*9.
+                if next_alt-ground>=30 or self.descending:self.roll_state=None
+            strip=self.runway_at(x,z) if self.descending else None
+            on_approach=False
+            if strip and self.speed<39.:
+                yaw,along,length=strip
+                aligned=math.cos(self.heading-yaw)
+                remaining=length-along if aligned>0 else along
+                on_approach=abs(aligned)>.97 and remaining>self.speed**2/8.+3.
+                if on_approach and next_alt<=ground+.3:
+                    self.heading=yaw if aligned>0 else yaw+math.pi
+                    self.descending=False;self.roll_state='rollout'
+            self.altitude=max(ground+(.3 if self.roll_state or on_approach else 6.),next_alt)
         self.clearance=max(0.,self.altitude-ground)
         return self.x,self.z,self.heading,.06+(.08 if self.boat else .40)*self.pitch
 
     def wheel_items(self):
         items=super().wheel_items()
-        return [(action,'Waypoint' if action=='motor' else ('Go' if self.descending else 'Stop')
-                 if self.boat and action=='descend' else label,angle) for action,label,angle in items]
+        descent='Go' if self.descending else 'Stop'
+        if not self.boat:
+            descent='Take off' if self.roll_state=='parked' else 'Go around' if self.descending else 'Approach'
+        return [(action,'Waypoint' if action=='motor' else descent if action=='descend' else label,angle)
+                for action,label,angle in items]
 
     def controls(self,w,h):
         if not self.menu and self.boat:return [('wheel','Helm',(w-11,0,11,3))]

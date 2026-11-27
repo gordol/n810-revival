@@ -19,3 +19,13 @@ The waterfront scene uses the steps, benches, and railings visible in the
 Lumen Field and T-Mobile Park are exterior skyline models.
 The bakery and coffee counters reference [Piroshky Piroshky](https://www.pikeplacemarket.org/vendor/piroshky-piroshky/)
 and the [1912 Pike Place Starbucks storefront](https://www.seattle.gov/documents/departments/neighborhoods/historicpreservation/historicdistricts/pikeplacemarket/meetingdocuments/2024/mhc082824starbuckspp.pdf).
+
+The Belltown and waterfront infill uses OSM API map extracts for
+(-122.354,47.6135,-122.34,47.617) and (-122.350,47.600,-122.339,47.614).
+The same ODbL attribution applies to streets.json. The keys are OSM way IDs.
+The street extractor accepts the Seattle Center, downtown, infill and waterfront
+exports with `pocket/tools/seattle_buildings.py --streets`. It retains named
+surface streets in the walking district and flags mapped crossing nodes.
+Widths, paint, terminal approaches and sign placement are game scenery.
+The accelerated ferry rides OSM way 332476322 in both directions. Runway
+thresholds and widths come from the [OurAirports public-domain runway dataset](https://ourairports.com/data/).

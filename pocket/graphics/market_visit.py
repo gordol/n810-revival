@@ -7,9 +7,9 @@ from functools import lru_cache
 FLOORS={'down5':('Sound View Cafe',"Ruby's Seattle Gift Gallery"),
         'down4':('Golden Age Collectables','Market Magic Shop'),
         'down3':('Gradient Art Gallery','Antique Touch')}
-DESTINATIONS={'DownUnder level 5':'down5','DownUnder level 4':'down4','DownUnder level 3':'down3',
+DESTINATIONS={'Belltown walk':'belltown','Colman Dock':'colman','Bainbridge landing':'bainbridge','DownUnder level 5':'down5','DownUnder level 4':'down4','DownUnder level 3':'down3',
               'Post Alley and Gum Wall':'gum','Overlook Walk':'overlook','Lumen Field':'stadiums','T-Mobile Park':'ballpark','Coffee and piroshky':'bakery'}
-SITES={'gum':(47.60836,-122.34027),'overlook':(47.60991,-122.34355),
+SITES={'belltown':(47.6140337,-122.3456787),'colman':(47.6028952,-122.3398411),'bainbridge':(47.6221412,-122.5095054),'gum':(47.60836,-122.34027),'overlook':(47.60991,-122.34355),
        'stadiums':(47.5952,-122.3321),'ballpark':(47.5914,-122.3325),'bakery':(47.60993,-122.34246)}
 
 STREETS=frozenset(SITES) | {'market','fishshop','needle'}
@@ -42,6 +42,10 @@ def deck_height(ground,x,z):
 def arrival(key):
     if key in FLOORS:return -3.75,-7.,.04,0.
     x,z=site(key)
+    if key in ('colman','bainbridge'):
+        side=1 if key=='colman' else -1
+        return x+side*22,z,-side*math.pi/2,0.
+    if key=='belltown':return x,z,-.6,-.02
     if key=='bakery':
         _,_,c,s=storefront_frame()
         return *storefront_point(1,-8),math.atan2(-s,c)+.22,.02
@@ -269,6 +273,20 @@ def storefronts(ground,world_quad,world_box):
 
 def outdoor(ground,quad,box):
     storefronts(ground,quad,box)
+    for key,side in (('colman',1),('bainbridge',-1)):
+        cx,cz=site(key)
+        for j in range(24):
+            x=cx+side*(j+.5)*3
+            y=ground(x,cz)+.18
+            box(x,cz,y-.24,3.02,7,.24,(.46,.43,.35))
+            for edge in (-3.35,3.35):
+                box(x,cz+edge,y,.095,.095,1.,(.44,.49,.49))
+                box(x,cz+edge,y+.97,3.02,.07,.065,(.51,.56,.55))
+        for j in (3,5,7):
+            x=cx+side*j*3
+            for edge in (-2.8,2.8):
+                box(x,cz+edge,ground(x,cz),.18,.18,3.5,(.24,.33,.32))
+        box(cx+side*15,cz,ground(cx+side*15,cz)+3.48,16,7.4,.28,(.22,.34,.32))
     cx,cz=site('gum')
     rng=random.Random(1428)
     for side in (-1,1):
@@ -349,7 +367,7 @@ class DistrictMap:
     # Map coordinates are schematic; vertically stacked shops need a cutaway.
     pins=(('needle','Space Needle',.25,.015),('overlook','Overlook Walk',.13,.29),('bakery','Coffee / bakery',.51,.16),
           ('market','Main Arcade',.69,.38),('gum','Gum Wall',.75,.57),
-          ('wheel','Great Wheel',.18,.69),('stadiums','Lumen Field',.71,.80),
+          ('belltown','Belltown',.83,.035),('colman','Ferry dock',.26,.85),('wheel','Great Wheel',.18,.69),('stadiums','Lumen Field',.71,.80),
           ('ballpark','T-Mobile Park',.78,.94))
 
     def __init__(self,view):self.view=view

@@ -49,7 +49,26 @@ def extract(path):
         if roof:result[int(way.get('id'))]=[key,value,pts,roof]
     return result
 
+def streets(path):
+    root=ET.parse(path).getroot()
+    nodes={n.get('id'):[round(float(n.get(k))*1e7) for k in ('lon','lat')] for n in root.findall('node')}
+    marked={n.get('id') for n in root.findall('node')
+            if n.find("tag[@k='highway'][@v='crossing']") is not None and
+            n.find("tag[@k='crossing:markings'][@v='no']") is None}
+    result={}
+    for way in root.findall('way'):
+        t={v.get('k'):v.get('v') for v in way.findall('tag')}
+        if not t.get('name') or t.get('highway') not in ('residential','tertiary','secondary','primary','pedestrian','living_street','unclassified'):continue
+        if t.get('tunnel') or t.get('bridge') or t.get('area')=='yes':continue
+        pts=[nodes[n.get('ref')] for n in way.findall('nd')]
+        if not all(-1223540000<=x<=-1223350000 and 476015000<=y<=476216000 for x,y in pts):continue
+        coords=[point+[1] if node.get('ref') in marked else point for node,point in zip(way.findall('nd'),pts)]
+        result[int(way.get('id'))]=[t['name'],t['highway'],coords]
+    return result
+
 if __name__=='__main__':
     buildings={}
-    for path in sys.argv[1:]:buildings.update(extract(path))
+    paths=sys.argv[1:]
+    roads=paths[:1]==['--streets']
+    for path in (paths[1:] if roads else paths):buildings.update(streets(path) if roads else extract(path))
     print(json.dumps(buildings,sort_keys=True,separators=(',',':')))

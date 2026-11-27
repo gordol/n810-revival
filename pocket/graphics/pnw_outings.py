@@ -43,24 +43,49 @@ def location(region,lat,lon):
     return (px-cx)*spacing/step,(cy-py)*spacing/step
 
 WHEEL=(47.6062,-122.3425)
-# Illustrative ferry course through Elliott Bay and Eagle Harbor.
-FERRY=tuple(location('sound',*p) for p in ((47.6032,-122.3485),(47.602,-122.368),
-    (47.595,-122.44),(47.596,-122.485),(47.617,-122.497),(47.622,-122.509)))
+# Seattle and Bainbridge landings and Eagle Harbor bends, OSM way 332476322.
+FERRY=tuple(location('sound',*p) for p in (
+    (47.6028952, -122.3398411),(47.6028572, -122.3408157),(47.6028536, -122.3411992),
+    (47.6028717, -122.3417062),(47.6027487, -122.3567748),(47.6024883, -122.3667527),
+    (47.6033274, -122.3921586),(47.6049478, -122.438078),(47.6068719, -122.4718523),
+    (47.6073349, -122.4835253),(47.6076821, -122.4864006),(47.608391, -122.4891043),
+    (47.609447, -122.4908209),(47.6106622, -122.4920011),(47.6131647, -122.4933958),
+    (47.6160867, -122.4949622),(47.6176488, -122.4959064),(47.6194423, -122.4973655),
+    (47.620339, -122.4990392),(47.6208887, -122.5012279),(47.6217448, -122.5069982),
+    (47.6219853, -122.508332),(47.6221412, -122.5095054),
+))
+FERRY_LEGS=tuple((a,b,math.dist(a,b)) for a,b in zip(FERRY,FERRY[1:]))
+CROSSING=sum(length for _,_,length in FERRY_LEGS)/45.
+DOCK_TIME=15.
+
+def ferry_stop(elapsed):
+    t=elapsed%(2*(CROSSING+DOCK_TIME))
+    if t<DOCK_TIME:return 'colman'
+    if CROSSING+DOCK_TIME<=t<CROSSING+2*DOCK_TIME:return 'bainbridge'
+    return None
+
+def runway_geometry():
+    # Threshold coordinates and widths from OurAirports runways.csv.
+    for a,b,width in (((47.108898,-122.287003),(47.098918,-122.287278),18.29),
+                      ((47.2747,-122.577004),(47.261135,-122.579335),30.48)):
+        x,z=location('sound',*a)
+        ex,ez=location('sound',*b)
+        yield x,z,math.atan2(ex-x,ez-z),math.hypot(ex-x,ez-z),width
 
 def ride_pose(outing,elapsed):
     if outing=='wheel':
         x,z=location('sound',*WHEEL)
         phase=elapsed*math.tau/100.
         return x,z+23*math.sin(phase),1.45,-.04,4+23*(1-math.cos(phase))
-    legs=[(a,b,math.dist(a,b)) for a,b in zip(FERRY,FERRY[1:])]
-    length=sum(d for _,_,d in legs)
-    along=elapsed*45%(2*length)
-    returning=along>length
-    if returning:along=2*length-along
-    for (x,z),(ex,ez),d in legs:
+    phase=elapsed%(2*(CROSSING+DOCK_TIME))
+    returning=phase>=CROSSING+DOCK_TIME
+    t=phase-(CROSSING+DOCK_TIME) if returning else phase
+    distance=max(0.,min(CROSSING,t-DOCK_TIME))
+    along=45*(CROSSING-distance if returning else distance)
+    for (x,z),(ex,ez),d in FERRY_LEGS:
         if along<=d:
             t=along/d
-            return x+(ex-x)*t,z+(ez-z)*t,math.atan2(ex-x,ez-z)+math.pi*(1-returning),.015,5.
+            return x+(ex-x)*t,z+(ez-z)*t,math.atan2(ex-x,ez-z)+math.pi*returning,.015,5.
         along-=d
     return *FERRY[-1],0.,0.,5.
 
@@ -213,17 +238,15 @@ def build_world(outing):
                 shade=(.78,.91,.84,.69)[i]
                 quad((base[i],base[j],top[j],top[i]),tuple(c*shade for c in color),material)
         # Game scenery at named locations. Runway paint follows the sampled terrain.
-        for name,lat,lon in (PLACES[0],PLACES[2]):
-            x,z=location(region,lat,lon)
-            a=math.radians(165 if name=='Thun Field' else 170)
-            def strip(width,start,end,color):
+        for x,z,a,length,width in runway_geometry():
+            def strip(width,start,end,color,lift):
                 for side,t in ((-1,start),(1,start),(-1,end),(-1,end),(1,start),(1,end)):
                     xx=x+t*math.sin(a)+side*width*math.cos(a)
                     zz=z+t*math.cos(a)-side*width*math.sin(a)
-                    mesh.extend((xx,field.height(xx,zz)+2.,zz,*color,0.))
-            for t in range(-500,500,25):
-                strip(14,t,t+25,(.19,.20,.21))
-                if t%50==0:strip(.9,t,t+15,(.94,.93,.80))
+                    mesh.extend((xx,surface(field,xx,zz)+lift,zz,*color,0.))
+            for t in range(0,math.ceil(length),25):
+                strip(width/2,t,min(length,t+25),(.19,.20,.21),.14)
+                if t%50==0:strip(.65,t,min(length,t+15),(.94,.93,.80),.18)
         for name,lat,lon in (PLACES[1],):
             rng=random.Random(name)
             x,z=location(region,lat,lon)
@@ -280,9 +303,10 @@ def build_world(outing):
             box(x,zz,y+1.15,3.5,2.,1.05,(.24,.38,.45))
             box(x,zz,y+2.2,3.8,2.3,.18,(.84,.85,.80))
         import pike_market
-        from seattle_places import arcade_origin,buildings,space_needle
+        from seattle_places import arcade_origin,buildings,space_needle,streets
         def ground(x,z):return surface(field,x,z)
         pike_market.build(arcade_origin(),ground,quad)
+        streets(ground,quad)
         buildings(ground,quad)
         space_needle(ground,quad)
         market_visit.outdoor(ground,quad,box)

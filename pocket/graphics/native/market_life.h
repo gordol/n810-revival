@@ -21,6 +21,34 @@ static void market_panel(float x,float y,float z,float w,float h,float d,float r
  glVertex3f(x+w,y+h,z+d);glVertex3f(x-w,y+h,z+d);glEnd();
 }
 
+/* Double-ended Sound ferry. The open vehicle deck runs between the two ramps. */
+static void docked_ferry(void){
+ for(int k=0;k<48;k++){
+  float a=k*.130899694f,b=(k+1)*.130899694f;
+  glBegin(GL_QUAD_STRIP);
+  for(int tier=0;tier<3;tier++){
+   float width=tier==0?7.4f:10.f,length=tier==0?41.f:47.f,y=tier==0?-2.f:tier==1?.9f:2.3f;
+   glColor3f(.12f+.04f*tier,.21f+.06f*tier,.21f+.04f*tier);
+   glVertex3f(width*sinf(a),y,length*cosf(a));glVertex3f(width*sinf(b),y,length*cosf(b));
+  }
+  glEnd();
+ }
+ glBegin(GL_TRIANGLE_FAN);glColor3f(.42f,.43f,.41f);glVertex3f(0,2.3f,0);
+ for(int k=0;k<=48;k++)glVertex3f(10.f*sinf(k*.130899694f),2.3f,47.f*cosf(k*.130899694f));
+ glEnd();
+ for(int side=-1;side<=1;side+=2){
+  for(int j=-3;j<=3;j++)market_panel(side*7.6f,2.3f,j*7.f,.23f,3.6f,.27f,.86f,.87f,.81f);
+  market_panel(0,9.4f,side*17.f,4.1f,2.1f,4.8f,.90f,.90f,.84f);
+  market_panel(0,10.2f,side*21.83f,3.7f,.85f,.04f,.18f,.31f,.34f);
+ }
+ market_panel(0,5.9f,0,8.5f,.5f,31.f,.15f,.31f,.26f);
+ market_panel(0,6.4f,0,7.7f,2.7f,27.f,.91f,.90f,.83f);
+ for(int side=-1;side<=1;side+=2)
+  for(int i=-8;i<=8;i++)market_panel(side*7.72f,7.25f,i*3.f,.04f,1.15f,1.17f,.20f,.32f,.34f);
+ market_panel(0,9.1f,0,8.f,.30f,28.f,.22f,.37f,.30f);
+ market_panel(0,9.4f,0,1.7f,3.2f,2.4f,.19f,.34f,.27f);
+}
+
 #include "market_person.h"
 
 /* A draped waterproof bib bridges the thighs and wraps the hips. */
@@ -192,6 +220,8 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
     market_body(0,.002f,.115f,.095f,.010f,.080f,.19f,.22f,.24f);}
     glPopMatrix();
    }
+  }else if(kind==8){
+   docked_ferry();
   }else if(kind==7){
    if(i && (int)actors[9*(i-1)]==0){
     float yaw=p[4]*.017453293f,dx=leash_hand[0]-p[1],dz=leash_hand[2]-p[3];

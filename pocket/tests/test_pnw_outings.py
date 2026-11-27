@@ -221,10 +221,31 @@ class OutingTests(unittest.TestCase):
         self.assertTrue(any(abs(y-DECK_HEIGHT)<1e-5 for y in levels))
 
     def test_round_trips(self):
-        duration=sum(math.dist(a,b) for a,b in zip(pnw.FERRY,pnw.FERRY[1:]))/45
+        duration=pnw.CROSSING+pnw.DOCK_TIME
+        self.assertEqual(pnw.ferry_stop(0),'colman')
+        self.assertIsNone(pnw.ferry_stop(duration/2))
+        self.assertEqual(pnw.ferry_stop(duration+1),'bainbridge')
         self.assertLess(math.dist(pnw.ride_pose('ferry',duration)[:2],pnw.FERRY[-1]),.001)
         self.assertLess(math.dist(pnw.ride_pose('ferry',2*duration)[:2],pnw.FERRY[0]),.001)
         self.assertAlmostEqual(pnw.ride_pose('wheel',50)[4]-pnw.ride_pose('wheel',0)[4],46)
+
+    def test_runway_departure_and_tacoma_touchdown(self):
+        ground=lambda x,z:0.
+        limits=(-1e6,1e6,-1e6,1e6)
+        plane=SoundVehicle('thun',SimpleNamespace(height=ground))
+        self.assertEqual(plane.roll_state,'parked')
+        plane.descending=True
+        for _ in range(150):plane.advance(.1,ground,limits)
+        self.assertIsNone(plane.roll_state)
+        self.assertGreater(plane.clearance,25.)
+        x,z,plane.heading,_,_=plane.runways[1]
+        plane.x,plane.z=x,z
+        plane.altitude=12.
+        plane.speed=32.;plane.descending=True
+        for _ in range(130):plane.advance(.1,ground,limits)
+        self.assertEqual(plane.roll_state,'parked')
+        self.assertAlmostEqual(plane.speed,0.)
+        self.assertIsNotNone(plane.runway_at(plane.x,plane.z))
 
     def test_boat_stops_at_land(self):
         boat=SoundVehicle('boat',SimpleNamespace(height=lambda x,z:0))

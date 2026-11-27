@@ -796,7 +796,10 @@ class RainierView:
             field=self.world[0]
             elevation=round(self.walk_height(*self.camera[:2])) if self.camera else 0
             labels=(labels[0],f'{elevation} m','Explore','Mute' if self.sound else 'Sound','Map')
-            if self.outing in ('ferry','wheel'):labels=('Exit','Restart','Explore',labels[3],'Map')
+            if self.outing in ('ferry','wheel'):
+                from pnw_outings import ferry_stop
+                exit_label='Ashore' if self.outing=='ferry' and ferry_stop(self.ride_time) else 'Exit'
+                labels=(exit_label,'Restart','Explore',labels[3],'Map')
             if self.glider:labels=('Stop' if self.outing else 'Land','Restart','Explore',labels[3],'Map')
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
@@ -816,9 +819,14 @@ class RainierView:
             self.pixel_dirty=True
             return True
         if self.outing in ('ferry','wheel'):
-            if width//6<=x<width*3//7:self.ride_time=0.
+            from pnw_outings import CROSSING,DOCK_TIME,ferry_stop
+            stop=ferry_stop(self.ride_time) if self.outing=='ferry' else None
+            if self.outing=='ferry' and x<width//6:
+                inbound=self.ride_time%(2*(CROSSING+DOCK_TIME))>=CROSSING+DOCK_TIME
+                self.start_outing(stop or ('bainbridge' if inbound else 'colman'))
+            elif width//6<=x<width*3//7:self.ride_time=0.
             elif x<width*4//7:
-                self.outing='waterfront'
+                if self.outing=='wheel' and x<width//6:self.outing='waterfront'
                 self.cruise=False
                 self.destination=None
                 self.notebook=ExploreMenu(self)
@@ -916,6 +924,7 @@ class RainierView:
             if action=='needle_lift':
                 from seattle_places import places
                 nx,nz=places()['Space Needle']
+                self.outing='needle'
                 self.needle_deck=not self.needle_deck
                 self.destination=None
                 self.cruise=False
@@ -1255,7 +1264,12 @@ class RainierView:
         if self.ski:return self.ski.controls(width,height)
         if self.climb:return self.climb.controls(width,height)
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
-        if self.outing=='needle':buttons.append(('needle_lift','Ground' if self.needle_deck else 'Visit deck',(1,height-6,13,4)))
+        if self.outing in market_visit.STREETS and self.camera:
+            from seattle_places import places
+            nx,nz=places()['Space Needle']
+            near_needle=math.hypot(self.camera[0]-nx,self.camera[1]-nz)<35
+        else:near_needle=False
+        if self.outing=='needle' or near_needle:buttons.append(('needle_lift','Ground' if self.needle_deck else 'Visit deck',(1,height-6,13,4)))
         if not self.regional and self.camera and not (self.lens or self.binoculars):
             position=self.camera[:2]
             if math.dist(position,TROUT_POOL)<=12:
@@ -1375,7 +1389,8 @@ class RainierView:
                     from pnw_outings import ride_pose
                     owner.x=owner.z=owner.yaw=0.
                     owner.pitch=-.08
-                    self.ride_time=0.
+                    self.ride_time=getattr(self,'boarding_time',0.) if self.outing=='ferry' else 0.
+                    self.boarding_time=0.
                     if self.outing in market_visit.STREETS:
                         from market_life import Delivery,FishCounter
                         self.shop_target=None
@@ -1398,7 +1413,7 @@ class RainierView:
                         owner.x,owner.z=nx,nz-215.
                         owner.yaw,owner.pitch=0.,-.38
                     elif self.outing in ('ferry','wheel'):
-                        owner.x,owner.z,owner.yaw,owner.pitch,_=ride_pose(self.outing,0)
+                        owner.x,owner.z,owner.yaw,owner.pitch,_=ride_pose(self.outing,self.ride_time)
                     if getattr(self,'stair_landing',None):
                         owner.x,owner.z,owner.yaw,owner.pitch=self.stair_landing
                         self.stair_landing=None
@@ -1522,6 +1537,14 @@ class RainierView:
         elif self.outing in market_visit.STREETS and not self.travel_job:
             from pike_market import offset
             from seattle_places import arcade_origin
+            from pnw_outings import CROSSING,DOCK_TIME
+            for terminal,side in (('colman',1),('bainbridge',-1)):
+                cx,cz=market_visit.site(terminal)
+                if abs(owner.x-(cx+side*3))<2.5 and abs(owner.z-cz)<3.:
+                    self.boarding_time=0. if side==1 else CROSSING+DOCK_TIME
+                    self.cruise=False;self.destination=None
+                    self.start_outing('ferry')
+                    break
             stair=offset(arcade_origin(),-8,5.5)
             if math.hypot(owner.x-stair[0],owner.z-stair[1])<1.05:
                 self.cruise=False;self.destination=None
@@ -1726,6 +1749,11 @@ class RainierView:
                 poses=actors(self.age,self.walk_height,self.fish_counter.advance(self.age))
                 van=self.delivery.advance(self.age,(x,z),poses,self.walk_height)
                 if van:poses.append(van)
+            for terminal,side in (('colman',1),('bainbridge',-1)):
+                cx,cz=market_visit.site(terminal)
+                if math.hypot(x-cx,z-cz)<520:
+                    px=cx-side*43
+                    poses.append((8,px,ground(px,cz),cz,90.,0.,0.))
             poses.extend(street_walkers(self.age,ground,x,z))
             nx,nz=places()['Space Needle']
             if math.hypot(x-nx,z-(nz-183))<140:
@@ -1813,6 +1841,10 @@ class RainierView:
                     from seattle_places import bearing_label
                     label=bearing_label(self.shop_target,x,z)
                 ink.label(1,h-5,label,0xFFF6DD)
+            if self.outing=='ferry':
+                from pnw_outings import ferry_stop
+                dock=ferry_stop(self.ride_time)
+                if dock:ink.label(1,4,'Colman Dock' if dock=='colman' else 'Bainbridge Island',0xFFF6DD)
             if self.outing in ('ferry','wheel','market','fishshop','needle','hoh'):
                 place={'ferry':'Seattle – Bainbridge ferry','wheel':'Pier 57 · Great Wheel','market':'Pike Place Market','fishshop':'Pike Place Fish Market','needle':'Space Needle','hoh':'Hoh Rain Forest'}
                 label=place[self.outing]

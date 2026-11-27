@@ -67,6 +67,45 @@ def delivery_route():
     return tuple(points)
 
 
+def streets(height,quad):
+    from pnw_outings import location
+    import json
+    source=Path(__file__).parent/'assets/seattle/streets.json'
+    junctions={}
+    for name,kind,coords in json.loads(source.read_text()).values():
+        points=[location('sound',lat/1e7,lon/1e7) for lon,lat,*_ in coords]
+        half={'primary':8.,'secondary':7.,'tertiary':5.5,'pedestrian':3.}.get(kind,4.4)
+        for pt in (points[0],points[-1]):junctions.setdefault(pt,set()).add(name)
+        for i,((x,z),(ex,ez)) in enumerate(zip(points,points[1:])):
+            length=math.hypot(ex-x,ez-z)
+            if length<.2:continue
+            dx,dz=(ex-x)/length,(ez-z)/length
+            def band(left,right,t,end,lift,color):
+                corners=[]
+                for d,w in ((t,left),(end,left),(end,right),(t,right)):
+                    px,pz=x+d*dx+w*dz,z+d*dz-w*dx
+                    corners.append((px,height(px,pz)+lift,pz))
+                quad(corners,color)
+            for t in range(0,math.ceil(length),16):
+                end=min(length,t+16)
+                band(-half,half,t,end,.045,(.25,.26,.255))
+                for side in (-1,1):
+                    band(side*half,side*(half+1.8),t,end,.14,(.57,.55,.50))
+                if kind in ('primary','secondary'):
+                    band(-.07,.07,t,min(end,t+5),.068,(.83,.68,.35))
+            if len(coords[i])==3:
+                for n in range(-int(half),int(half)):
+                    band(n+.12,n+.54,0.,min(2.8,length),.092,(.79,.78,.71))
+    from market_visit import lettering
+    for (x,z),names in junctions.items():
+        if '2nd Avenue' not in names or len(names)<2:continue
+        name=next(iter(sorted(names-{'2nd Avenue'})))
+        x+=6.6;y=height(x,z)
+        quad(((x-.05,y,z),(x+.05,y,z),(x+.05,y+2.9,z),(x-.05,y+2.9,z)),(.39,.43,.40))
+        quad(((x-1.1,y+2.50,z),(x+1.1,y+2.50,z),(x+1.1,y+2.89,z),(x-1.1,y+2.89,z)),(.11,.29,.22))
+        lettering(name,x-.97,y+2.60,z-.012,min(.23,2.2/len(name)),quad,(.92,.92,.84))
+
+
 def buildings(height,quad):
     from pnw_outings import location
     import json
