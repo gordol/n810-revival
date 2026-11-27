@@ -440,7 +440,7 @@ class ExploreMenu(HikeMenu):
     groups={'Fly':('Plane from Rainier','Plane from Thun Field','Hang glide','Paramotor'),
             'Mountain sports':('Put on skis','Climb summit ice','Mountain bike loop'),
             'On the water':('Boat on Commencement Bay','Bainbridge ferry'),
-            'Seattle waterfront':('Pike Place Market','Seattle Great Wheel'),
+            'Seattle':('Pike Place Market','Fish counter','Seattle Great Wheel','Space Needle'),
             'On foot':('Hoh Rain Forest walk','Local trails and activities')}
 
     def __init__(self,view):
@@ -484,6 +484,9 @@ class SoundVehicle(HangGlider):
         self.kind=kind
         self.boat=kind=='boat'
         self.stops=[(name,*location('sound',lat,lon)) for name,lat,lon in PLACES]
+        from seattle_places import places
+        self.stops.append(('Space Needle',*places()['Space Needle']))
+        self.stops.append(('Jimothy mural · Ballard Clay',*places()['Ballard Clay']))
         self.target_index=3 if self.boat else 1 if kind=='thun' else 0
         x,z=location('sound',*BAY) if self.boat else self.stops[0 if kind=='thun' else 4][1:]
         super().__init__(SimpleNamespace(x=x,z=z,heading=0),field.height,True)

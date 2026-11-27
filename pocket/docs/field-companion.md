@@ -638,7 +638,7 @@ or A / Cross), and **Dismount** (B / Circle) to explore on foot at that spot.
 ### Puget Sound and Olympic outings
 
 In Rainier Walk, open **Explore** and choose **Fly**, **On the water**,
-**Seattle waterfront**, **Mountain sports**, or **On foot**. The plane can start above Rainier
+**Seattle**, **Mountain sports**, or **On foot**. The plane can start above Rainier
 or Pierce County Airport (Thun Field). Open the flight wheel for fast cruise
 or to change the navigation waypoint. The ferry follows an accelerated
 Seattle–Bainbridge route. Explore stays available during the ride.
@@ -651,10 +651,29 @@ a finer aerial texture. Hoh uses a separate local grid. The city buildings,
 market stalls, wheel, and ferry course are illustrative game scenery.
 Station Map's bundled regional relief uses elevation bands.
 
-**Seattle waterfront → Pike Place Market** opens on Pike Street facing the Main
+**Seattle → Pike Place Market** opens on Pike Street facing the Main
 Arcade. The street-scale model follows the three tiers of rooftop lettering,
 clock, entrance fascia and neighboring facades visible on the
 [PDA press kit cover](https://images.pikeplacemarket.org/wp-content/uploads/2021/09/21060602/2021-Pike-Place-Market-Press-Kit.pdf).
 The approach width uses approximate cross-sections from the
 [City of Seattle 2023 building outlines](https://catalog.data.gov/dataset/building-outlines-2023).
 Building heights, windows, stalls and interior fittings are illustrative.
+
+Choose **Explore → Seattle → Fish counter**. Tap **Order a fish** to see a
+simulated order pass from the front display to the wrapping counter. Some
+visitors browse and others buy. Nearby **Shops** lists six mapped businesses
+and lets you follow a compass bearing. Vendor locations come from
+[OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
+The order sequence follows the [Market's description](https://www.pikeplacemarket.org/ufaq/wondering-when-they-throw-the-fish/).
+The shoppers, wildlife and occasional authorized delivery are simulated.
+
+**Explore → Seattle → Space Needle** visits Seattle Center on the same Sound
+terrain used for flight and boating. Use **Visit deck** to look out from the observation level and **Ground** to return. The deck and tip heights above the base follow the
+[Space Needle's published dimensions](https://www.spaceneedle.com/about/).
+Seattle Center and downtown buildings use a local OSM extract. Where only a
+floor count is recorded, the renderer uses 3.15 metres per floor. Roof shapes
+and facade finishes are illustrative.
+
+The plane's **Waypoint** action also cycles to Ballard Clay on NW Market Street,
+where Andrew Miller painted a Jimothy mural. The waypoint marks the mapped
+studio building. [Local reporting on the mural](https://www.spokesman.com/stories/2026/jul/20/jimothys-odyssey-inspires-a-burst-of-seattle-pop-a/)

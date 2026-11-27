@@ -698,6 +698,7 @@ def build_world(high=True,plant_sites=None,regional=False):
 class RainierView:
     outing=pending_outing=None
     ride_time=0.
+    needle_deck=False
     bike=glider=climb=None
     pad_sticks=(0.,0.,0.,0.)
     name='Rainier walk'
@@ -904,7 +905,23 @@ class RainierView:
             if self.glider and self.glider.menu:
                 if self.glider.wheel_choice(x,y,width,height)!=action:continue
             elif not hit(box,x,y):continue
-            if action=='pedal':self.bike.pedaling=not self.bike.pedaling
+            if action=='needle_lift':
+                from seattle_places import places
+                nx,nz=places()['Space Needle']
+                self.needle_deck=not self.needle_deck
+                self.destination=None
+                self.cruise=False
+                self.trip_pose=(nx+12,nz-16,2.50,.13) if self.needle_deck else (nx,nz-215,0.,-.38)
+            elif action=='shops':
+                from seattle_places import MarketDirectory
+                self.notebook=MarketDirectory(self)
+                self.destination=None
+                self.cruise=False
+            elif action=='order':
+                self.fish_counter.order(self.age)
+                self.photo_hint='Order placed'
+                self.hint_until=self.age+1.
+            elif action=='pedal':self.bike.pedaling=not self.bike.pedaling
             elif action=='dismount':self.bike=None
             elif self.ski:
                 if action=='leave':self.stop_ski()
@@ -1195,6 +1212,12 @@ class RainierView:
         if self.ski:return self.ski.controls(width,height)
         if self.climb:return self.climb.controls(width,height)
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
+        if self.outing=='needle':buttons.append(('needle_lift','Ground' if self.needle_deck else 'Visit deck',(1,height-6,13,4)))
+        if self.outing in ('market','fishshop') and self.camera and not (self.lens or self.binoculars):
+            from seattle_places import places
+            buttons.append(('shops','Shops',(width-11,height-5,10,4)))
+            if math.dist(self.camera[:2],places()['Pike Place Fish Market'])<13 and self.age>=self.fish_counter.player_ready:
+                buttons.append(('order','Order a fish',(1,height-5,15,4)))
         if not self.regional and self.camera and not (self.lens or self.binoculars):
             position=self.camera[:2]
             if math.dist(position,TROUT_POOL)<=12:
@@ -1302,6 +1325,7 @@ class RainierView:
                 self.zoom=1.
                 self.review_key=self.notebook=None
                 owner.cancel_keys()
+                self.needle_deck=False
                 self.outing=self.pending_outing
                 self.lookout_site=self.meadow_site=None
                 self.flower_sites=[]
@@ -1312,12 +1336,25 @@ class RainierView:
                     owner.x=owner.z=owner.yaw=0.
                     owner.pitch=-.08
                     self.ride_time=0.
+                    if self.outing in ('market','fishshop'):
+                        from market_life import Delivery,FishCounter
+                        self.shop_target=None
+                        self.delivery=Delivery()
+                        self.fish_counter=FishCounter()
                     if self.outing in ('plane','thun','boat'):
                         self.glider=SoundVehicle(self.outing,world[0])
-                    elif self.outing=='market':
-                        from pnw_outings import MARKET,location
-                        from pike_market import arrival
-                        owner.x,owner.z,owner.yaw,owner.pitch=arrival(location('sound',*MARKET))
+                    elif self.outing in ('market','fishshop'):
+                        from seattle_places import arcade_origin
+                        from pike_market import arrival,offset,HEADING
+                        owner.x,owner.z,owner.yaw,owner.pitch=arrival(arcade_origin())
+                        if self.outing=='fishshop':
+                            owner.x,owner.z=offset(arcade_origin(),1.,-4.)
+                            owner.yaw,owner.pitch=HEADING+.16,0.
+                    elif self.outing=='needle':
+                        from seattle_places import places
+                        nx,nz=places()['Space Needle']
+                        owner.x,owner.z=nx,nz-215.
+                        owner.yaw,owner.pitch=0.,-.38
                     elif self.outing in ('ferry','wheel'):
                         owner.x,owner.z,owner.yaw,owner.pitch,_=ride_pose(self.outing,0)
                 else:
@@ -1358,6 +1395,7 @@ class RainierView:
             self.trip_pose=None
             owner.cancel_keys()
         if self.regional and self.map_position:
+            self.needle_deck=False
             owner.x,owner.z=self.map_position
             owner.pitch=-.12
             self.map_position=None
@@ -1417,6 +1455,14 @@ class RainierView:
         self.last_tick=now
         west,east,south,north=bounds(self.world[0])
         owner.x=max(west,min(east,owner.x));owner.z=max(south,min(north,owner.z))
+        if self.outing=='needle' and self.needle_deck:
+            from seattle_places import places
+            nx,nz=places()['Space Needle']
+            dx,dz=owner.x-nx,owner.z-nz
+            radius=math.hypot(dx,dz)
+            if radius<.01:dx,dz,radius=0.,1.,1.
+            reach=max(18.65,min(20.9,radius))/radius
+            owner.x,owner.z=nx+dx*reach,nz+dz*reach
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)
         age=owner.clock()-owner.started-owner.paused_total
         if self.fishing.state!='idle':
@@ -1427,6 +1473,9 @@ class RainierView:
             self.camera=camera;self.age=age;self.pixel_dirty=True
 
     def walk_height(self,x,z):
+        if self.outing=='needle' and self.needle_deck:
+            from seattle_places import DECK_HEIGHT,places
+            return surface(self.world[0],*places()['Space Needle'])+DECK_HEIGHT
         terrain=surface(self.world[0],x,z)
         return terrain if self.regional else valley_floor()[1].height(x,z,terrain)
 
@@ -1516,7 +1565,7 @@ class RainierView:
             sound(ctx.handle,self.sound,self.cue,river_gain(x,z,site()[1]),voice,gain)
         self.cue=0
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
-                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint,C.c_uint,C.c_uint,C.c_uint,C.POINTER(C.c_float)]
+                       C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint,C.c_uint,C.c_uint,C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_uint]
         target_x,target_z=self.trail.target(x,z)
         direction=math.atan2(target_x-x,target_z-z)-yaw
         mask=sum(1<<i for i,p in enumerate(BUSHES) if p in self.trail.picked)
@@ -1589,10 +1638,21 @@ class RainierView:
             else:omit_first,omit_end=base_count,terrain_count
         equipment=(C.c_float*3)(3 if self.outing=="boat" else 2 if self.outing in ("thun","plane") else self.glider.powered,self.glider.bank,self.glider.pitch) if self.glider else None
         if self.outing=='ferry':equipment=(C.c_float*3)(4,0.,0.)
+        market=None
+        actor_count=0
+        if self.outing in ('market','fishshop'):
+            from seattle_places import places
+            if math.dist((x,z),places()['Pike Place Fish Market'])<120:
+                from market_life import actors
+                poses=actors(self.age,self.walk_height,self.fish_counter.advance(self.age))
+                van=self.delivery.advance(self.age,(x,z),poses,self.walk_height)
+                if van:poses.append(van)
+                actor_count=len(poses)
+                market=(C.c_float*(7*actor_count))(*(v for pose in poses for v in pose))
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high or self.regional else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-2 if sound_region else -1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end,equipment)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-2 if sound_region else -1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end,equipment,market,actor_count)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()
@@ -1635,9 +1695,19 @@ class RainierView:
                     ink.label(1,7,f'Reeled {round(100*(1-self.fishing.remaining))}%   Tension',0xFFF6DA)
                     ink.fill((1,8.1,18,.36),0x283832FF)
                     ink.fill((1,8.1,18*self.fishing.tension,.36),0xFD996EFF)
-            if self.outing in ('ferry','wheel','market','hoh'):
-                place={'ferry':'Seattle – Bainbridge ferry','wheel':'Pier 57 · Great Wheel','market':'Pike Place Market','hoh':'Hoh Rain Forest'}
-                ink.label(1,h-5,place[self.outing],0xFFF6DD)
+            if self.outing in ('ferry','wheel','market','fishshop','needle','hoh'):
+                place={'ferry':'Seattle – Bainbridge ferry','wheel':'Pier 57 · Great Wheel','market':'Pike Place Market','fishshop':'Pike Place Fish Market','needle':'Space Needle','hoh':'Hoh Rain Forest'}
+                label=place[self.outing]
+                if self.outing in ('market','fishshop'):
+                    from seattle_places import places
+                    distance,name=min((math.dist((x,z),point),name) for name,point in places().items())
+                    if distance<=18:label=name
+                    if self.shop_target:
+                        from seattle_places import bearing_label
+                        label=bearing_label(self.shop_target,x,z)
+                ink.label(1,h-7 if self.outing in ('market','fishshop') else h-5,label,0xFFF6DD)
+            if sound_region:
+                ink.label(1,3 if self.glider else h-4,'© OpenStreetMap contributors',0xDBE3D9)
             if self.glider:self.glider.draw(ink,w-2,h-3)
             if self.climb:self.climb.draw(ink,w-2,h-3)
             if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y)

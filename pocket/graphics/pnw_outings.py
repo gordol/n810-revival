@@ -21,7 +21,7 @@ PLACES=(('Thun Field',47.104,-122.287),('Tacoma waterfront',47.266,-122.449),
 BAY=(47.295,-122.435)
 OUTINGS={'Plane from Rainier':'plane','Plane from Thun Field':'thun',
          'Boat on Commencement Bay':'boat','Hoh Rain Forest walk':'hoh','Bainbridge ferry':'ferry','Seattle Great Wheel':'wheel',
-         'Pike Place Market':'market'}
+         'Pike Place Market':'market','Fish counter':'fishshop','Space Needle':'needle'}
 
 def pixel(lat,lon,zoom):
     scale=256*(1<<zoom)
@@ -40,7 +40,6 @@ def location(region,lat,lon):
     return (px-cx)*spacing/step,(cy-py)*spacing/step
 
 WHEEL=(47.6062,-122.3425)
-MARKET=(47.6087,-122.3405)  # Pike Street entrance, near the clock
 # Illustrative ferry course through Elliott Bay and Eagle Harbor.
 FERRY=tuple(location('sound',*p) for p in ((47.6032,-122.3485),(47.602,-122.368),
     (47.595,-122.44),(47.596,-122.485),(47.617,-122.497),(47.622,-122.509)))
@@ -218,7 +217,7 @@ def build_world(outing):
             for t in range(-500,500,25):
                 strip(14,t,t+25,(.19,.20,.21))
                 if t%50==0:strip(.9,t,t+15,(.94,.93,.80))
-        for name,lat,lon in (PLACES[1],PLACES[3]):
+        for name,lat,lon in (PLACES[1],):
             rng=random.Random(name)
             x,z=location(region,lat,lon)
             for col in range(10):
@@ -249,15 +248,6 @@ def build_world(outing):
                 right=x+5+length*.41
                 quad(((left,deck+6,eave),(right,deck+6,eave),(right,deck+10,z),
                       (left,deck+10,z)),(.33,.38,.39))
-        # Smith Tower's stepped shaft and pyramid roof, south of downtown.
-        x,z=location(region,47.6019,-122.3318)
-        base=surface(field,x,z)
-        box(x,z,base,44,44,80,(.77,.73,.65),.228)
-        box(x,z,base+80,25,25,57,(.83,.81,.74),.228)
-        roof=[(x+sx*13,base+137,z+sz*13) for sx,sz in ((-1,-1),(1,-1),(1,1),(-1,1))]
-        for j in range(4):
-            for pt in (roof[j],roof[(j+1)%4],(x,base+158,z)):
-                mesh.extend((*pt,.31+j*.045,.36+j*.035,.36,0.))
         x,z=location('sound',*WHEEL)
         base=field.height(x,z)+27
         # Two rims, axle braces and radial spokes facing Elliott Bay.
@@ -283,7 +273,11 @@ def build_world(outing):
             box(x,zz,y+1.15,3.5,2.,1.05,(.24,.38,.45))
             box(x,zz,y+2.2,3.8,2.3,.18,(.84,.85,.80))
         import pike_market
-        pike_market.build(location(region,*MARKET),lambda x,z:surface(field,x,z),quad)
+        from seattle_places import arcade_origin,buildings,space_needle
+        def ground(x,z):return surface(field,x,z)
+        pike_market.build(arcade_origin(),ground,quad)
+        buildings(ground,quad)
+        space_needle(ground,quad)
     else:
         from forest_floor import broadleaf_clump,nurse_log,fern
         rng=random.Random(47861)

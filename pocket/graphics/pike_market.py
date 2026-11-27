@@ -18,6 +18,7 @@ def arrival(center):
 
 # Connected strokes in a 4 by 6 grid, from the bottom left of each letter.
 GLYPHS={
+    'H':('0006','4046','0343'),
     'P':('00063645443303',),'U':('060111314146',),'B':('000636455433034241303000',),
     'L':('060040',),'I':('0646','2620','0040'),'C':('4536160501113141',),
     'M':('0006234640',),'A':('002640','1232'),'R':('00063645543303','2340'),
@@ -91,6 +92,36 @@ def build(center,height,quad):
                 r=rng.uniform(.065,.12)
                 y=1.13+r*.4
                 panel(((cx-r,y,cz),(cx,y+r,cz-.04),(cx+r,y,cz),(cx,y-r,cz+.04)),tone)
+    # The OSM shop point registers this bay. A front ice bed faces the
+    # customers, with a separate wrapping counter behind the fishmongers.
+    # The operator's counter photograph shows hanging enamel lamps, green
+    # overhead beams, and small upright product cards across sloping ice.
+    for z in (1.5,4.6,7.5):
+        block(-2.1,7.2,3.32,3.54,z,z+.19,(.19,.29,.24))
+    for u,v in ((.55,2.9),(2.4,4.85),(4.85,3.45),(5.6,6.65)):
+        block(u-.017,u+.017,2.98,3.51,v-.017,v+.017,iron)
+        for j in range(16):
+            a,b=j*math.tau/16,(j+1)*math.tau/16
+            panel(((u+.035*math.cos(a),2.99,v+.035*math.sin(a)),
+                   (u+.035*math.cos(b),2.99,v+.035*math.sin(b)),
+                   (u+.28*math.cos(b),2.74,v+.28*math.sin(b)),
+                   (u+.28*math.cos(a),2.74,v+.28*math.sin(a))),(.67,.70,.63))
+            panel(((u,2.735,v),(u+.28*math.cos(a),2.735,v+.28*math.sin(a)),
+                   (u+.28*math.cos(b),2.735,v+.28*math.sin(b)),(u,2.735,v)),(.99,.93,.78),.247)
+    block(.9,4.65,-1,.82,4.42,5.47,(.27,.34,.34))
+    block(.88,4.68,.82,.96,4.41,5.51,(.83,.88,.86))
+    for i in range(9):
+        u=1.12+i*.39
+        for left,right in ((-.11,.09),(.09,.18)):
+            panel(((u+left,.98,4.54),(u+right,1.06,4.88),(u+.04,.98,5.27),(u-.03,.96,4.96)),
+                  (.45,.54,.51) if left<0 else (.66,.71,.66))
+    for i in range(5):
+        x=1.23+i*.72
+        wall(x,x+.24,.98,1.20,4.73,(.98,.91,.74))
+        wall(x+.025,x+.20,1.12,1.15,4.72,(.29,.24,.20))
+    block(1.4,5.6,-1,1.,6.9,7.8,(.48,.40,.32))
+    wall(.4,6.,2.37,2.96,6.85,(.24,.22,.18))
+    lettering('PIKE PLACE FISH',.64,2.46,6.81,.40,(.93,.85,.68))
     # Cream masonry walls, bay windows, lintels and projecting cornices.
     for left,right,front,floors,color in ((-29,-7,5.,4,(.69,.67,.57)),
                                          (6.6,32,3.2,3,(.68,.62,.50))):

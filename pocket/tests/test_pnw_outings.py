@@ -28,13 +28,47 @@ class OutingTests(unittest.TestCase):
 
     def test_market_street_arrival_faces_the_arcade(self):
         import pike_market
-        center=pnw.location('sound',*pnw.MARKET)
+        from seattle_places import arcade_origin
+        center=arcade_origin()
         x,z,yaw,pitch=pike_market.arrival(center)
         self.assertGreater(x,center[0])
         self.assertGreater(z,center[1])
         self.assertAlmostEqual(x+38*math.sin(yaw),center[0])
         self.assertAlmostEqual(z+38*math.cos(yaw),center[1])
         self.assertLess(pitch,0)
+
+    def test_counter_shoppers_can_browse_and_player_orders_queue(self):
+        from market_life import FishCounter,actors
+        counter=FishCounter()
+        self.assertIsNone(counter.advance(5))
+        self.assertEqual(counter.advance(12),0)
+        counter.order(12.1)
+        counter.order(12.2)
+        self.assertEqual(counter.waiting,1)
+        self.assertEqual(counter.advance(17),0)
+        self.assertIsNone(counter.advance(44))
+        self.assertNotIn(2,[a[0] for a in actors(44,lambda x,z:0,None)])
+        arc=actors(14,lambda x,z:0,1.275)
+        self.assertGreater(next(a[2] for a in arc if a[0]==2),2.)
+
+    def test_delivery_yields_on_its_mapped_route(self):
+        from market_life import Delivery
+        from seattle_places import delivery_route
+        delivery=Delivery()
+        start=delivery_route()[0]
+        for i in range(10):
+            van=delivery.advance(i*.1,start,[],lambda x,z:5)
+        self.assertEqual((van[1],van[3]),start)
+        for i in range(10,20):
+            delivery.advance(i*.1,(0,0),[],lambda x,z:5)
+        self.assertGreater(delivery.distance,0)
+
+    def test_needle_profile_uses_published_heights(self):
+        from seattle_places import DECK_HEIGHT,TIP_HEIGHT,space_needle
+        levels=set()
+        space_needle(lambda x,z:20,lambda pts,color:levels.update(p[1]-20 for p in pts))
+        self.assertAlmostEqual(max(levels),TIP_HEIGHT)
+        self.assertTrue(any(abs(y-DECK_HEIGHT)<1e-5 for y in levels))
 
     def test_round_trips(self):
         duration=sum(math.dist(a,b) for a,b in zip(pnw.FERRY,pnw.FERRY[1:]))/45
