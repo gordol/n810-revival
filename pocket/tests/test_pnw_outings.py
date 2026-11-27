@@ -46,6 +46,31 @@ class OutingTests(unittest.TestCase):
             finally:panel.cache_clear()
             self.assertEqual(runner.call_count,4)
 
+    def test_streamed_imagery_and_relief_restore_offline(self):
+        from io import BytesIO
+        import os
+        import tempfile
+        from unittest.mock import patch
+        from PIL import Image
+        from geometry import HeightField,Vec
+        field=HeightField(2,2,Vec(-8192,0,-8192),16384,16384,(800,)*4,'meters')
+        color=BytesIO()
+        Image.new('RGB',(1024,1024),(34,87,51)).save(color,'JPEG')
+        dem=BytesIO()
+        Image.new('F',(129,129),1100.).save(dem,'TIFF')
+        def fetch(url,timeout):
+            return BytesIO(dem.getvalue() if '3DEPElevation' in url else color.getvalue())
+        with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,XDG_DATA_HOME=tmp,POCKET_TERMUX='0'):
+            with patch('pnw.terrain.urlopen',side_effect=fetch) as requests:
+                rgb,(fine,vertices)=pnw_terrain.flight_patch((0,0),field)
+            self.assertEqual(requests.call_count,2)
+            self.assertEqual(fine.values[0],800.)
+            self.assertEqual(fine.height(0,0),1100.)
+            self.assertEqual(len(vertices)//7,6*128*128)
+            with patch('pnw.terrain.urlopen',side_effect=AssertionError('network used')):
+                rgb2,(fine2,mesh2)=pnw_terrain.flight_patch((0,0),field)
+            self.assertEqual((rgb,fine.values,vertices),(rgb2,fine2.values,mesh2))
+
     def test_aerial_registration(self):
         args=parse_qs(urlparse(pnw_terrain.aerial_url()).query)
         x0,y0,x1,y1=map(float,args['bbox'][0].split(','))
@@ -301,6 +326,33 @@ class OutingTests(unittest.TestCase):
         for _ in range(140):jet.advance(.1,ground,limits)
         self.assertEqual(jet.roll_state,'parked')
 
+    def test_hangar_jet_gear_and_air_sports(self):
+        from pnw.outings import AirSport
+        ground=lambda x,z:0.
+        field=SimpleNamespace(height=ground)
+        limits=(-1e6,1e6,-1e6,1e6)
+        plane=SoundVehicle('hangar-jet',field)
+        plane.toggle_gear()
+        self.assertTrue(plane.gear_down)
+        plane.descending=True
+        for _ in range(230):plane.advance(.1,ground,limits)
+        self.assertIsNone(plane.roll_state)
+        plane.toggle_gear()
+        self.assertFalse(plane.gear_down)
+        plane.descending=True
+        plane.advance(.1,ground,limits)
+        self.assertTrue(plane.gear_down)
+        dive=AirSport('skydive',field)
+        for _ in range(60):dive.advance(.1,ground,limits)
+        self.assertLess(dive.vertical,-40.)
+        dive.action()
+        for _ in range(60):dive.advance(.1,ground,limits)
+        self.assertGreater(dive.vertical,-5.)
+        balloon=AirSport('balloon',field)
+        balloon.action()
+        for _ in range(60):balloon.advance(.1,ground,limits)
+        self.assertGreater(balloon.clearance,120.)
+
     def test_plane_manual_approach_and_controller_release(self):
         ground=lambda x,z:0.
         plane=SoundVehicle('plane',SimpleNamespace(height=ground))
@@ -355,7 +407,7 @@ class OutingTests(unittest.TestCase):
         view.pause_owner=SimpleNamespace(clock=Mock(side_effect=[10.,13.,13.]),paused_total=0.,cancel_keys=Mock())
         view.controller_button(6)
         view.controller_button(12)
-        self.assertEqual(view.notebook.rows()[view.notebook.selected],'Flight controls')
+        self.assertEqual(view.notebook.rows()[view.notebook.selected],'Controller')
         self.assertEqual(plane.flaps,0)
         view.controller_button(6)
         self.assertEqual(view.pause_owner.paused_total,3.)

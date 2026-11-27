@@ -98,6 +98,8 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def set_flight_controls(self,preferences):
             if self.pixel_scene:
+                self.pixel_scene.southpaw=preferences.get('stick-layout')=='Southpaw'
+                self.pixel_scene.look_gain={'Gentle':.65,'Standard':1.,'Quick':1.4}[preferences.get('look-speed','Standard')]
                 self.pixel_scene.pitch_sign=1. if preferences.get('flight-pitch')=='Push to climb' else -1.
                 self.pixel_scene.roll_gain={'Gentle':.6,'Standard':1.,'Quick':1.35}[preferences.get('flight-roll','Standard')]
 
@@ -357,6 +359,8 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def flight_key(self,key):
             flight=getattr(self.pixel_scene,'glider',None)
+            if getattr(self.pixel_scene,'outing',None) in ('skydive','balloon') and key in ('space',' ','enter','\r') and flight:
+                flight.action();return True
             if flight and key.lower()=='f':flight.toggle_speed();return True
             if flight and flight.powered and key.lower()=='p':
                 flight.toggle_motor();return True
@@ -454,6 +458,8 @@ def outdoor_descriptor():
     return dict(id='rainier-walk',title='Rainier walk',preferred_size=(90,32),minimum_size=(22,12),category='Experiments',
         description='Explore Rainier terrain and wildlife. On mobile, follow the Ohanapecosh blueberry trail.',
         settings=(dict(id='touch-controls',label='Touch controls',kind='choice',choices=(WAYPOINT,TWIN_THUMB),default=WAYPOINT),
+                  dict(id='stick-layout',label='Controller sticks',kind='choice',choices=('Standard','Southpaw'),default='Standard'),
+                  dict(id='look-speed',label='Controller look',kind='choice',choices=('Gentle','Standard','Quick'),default='Standard'),
                   dict(id='flight-pitch',label='Flight stick pitch',kind='choice',choices=('Pull to climb','Push to climb'),default='Pull to climb'),
                   dict(id='flight-roll',label='Aileron response',kind='choice',choices=('Gentle','Standard','Quick'),default='Standard')),
         help=(('Explore',('W/S walk; A/D strafe; arrows turn.','I/K look up/down; ground follows metre-scale terrain.','O opens saved terrain viewpoints in Scenery.',

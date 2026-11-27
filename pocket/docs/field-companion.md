@@ -653,6 +653,27 @@ and the prepared Puget Sound terrain. Its canopy HUD shows speed in km/h.
 Use Y / Triangle for full power, or hold RT / R2 to increase throttle gradually.
 Level full power is about 1,510 km/h. The trainer reaches 540 km/h.
 
+**Thun Field hangar** opens on foot at a fictional open-front hangar beside the runway.
+Walk up to either parked plane and tap Board or press A / Cross. Both start on the
+runway. The jet has retractable gear. Click the right stick (R3) or tap Gear in flight.
+Assisted approach lowers it automatically. The trainer has fixed gear.
+**Skydive over Rainier** starts in free fall. A / Cross opens the parachute, with
+automatic opening near the ground. In **Balloon over the Sound**, A / Cross toggles
+the burner. The balloon rises with heat and otherwise descends as the wind carries it.
+
+**Start → Controller** saves Standard or Southpaw sticks and look sensitivity for the
+regional simulator. Southpaw swaps the two sticks before activity-specific controls.
+Flight pitch direction and aileron response remain separately adjustable.
+
+During Sound outings, Pocket requests USGS imagery near the player in overlapping
+8.192 km squares at 8 m/pixel. Mountain relief uses 64 m samples from USGS 3DEP.
+The detail fades into the regional terrain at the edges. Lowland runways and built
+areas keep their existing elevations. Downloads and decoding run in the background.
+The JPEG and elevation cache keeps the most recently visited patches within 128 MiB
+in the private data directory. Cached patches work offline until evicted. For scale,
+a 10 × 10 km area at 1 m/pixel is about 286 MiB of uncompressed RGB imagery before
+elevation, structures or vegetation. Actual JPEG download sizes depend on the scene.
+
 Start / Options pauses local play. Press it again to resume. In the pause menu,
 D-pad up/down moves the selection, A / Cross selects, and B / Circle goes back.
 Flight controls saves your pitch direction and aileron response. Flight guide lists

@@ -28,9 +28,13 @@ class Aircraft:
 
 TRAINER=Aircraft(32.,150.,25.,48./118.,95.,1.,4.)
 RESEARCH_JET=Aircraft(65.,420.,50.,.60,135.,4.,8.)
-AIRCRAFT={'plane':TRAINER,'thun':TRAINER,'jet':RESEARCH_JET}
+AIRCRAFT={'plane':TRAINER,'thun':TRAINER,'jet':RESEARCH_JET,'hangar-jet':RESEARCH_JET}
 
-OUTINGS={'Plane from Rainier':'plane','Plane from Thun Field':'thun','Research jet from Rainier':'jet',
+HANGAR=location('sound',PLACES[0][1],PLACES[0][2])
+HANGAR=(HANGAR[0]+70.,HANGAR[1])
+BAYS={'thun':(-8.,'Trainer'),'hangar-jet':(8.,'Research jet')}
+AIR_SPORTS=('skydive','balloon')
+OUTINGS={'Thun Field hangar':'hangar','Skydive over Rainier':'skydive','Balloon over the Sound':'balloon','Plane from Rainier':'plane','Plane from Thun Field':'thun','Research jet from Rainier':'jet',
          'Boat on Commencement Bay':'boat','Hoh Rain Forest walk':'hoh','Bainbridge ferry':'ferry','Seattle Great Wheel':'wheel',
          'Pike Place Market':'market','Fish counter':'fishshop','Space Needle':'needle'}
 
@@ -117,6 +121,51 @@ def build_mesh(region,field,raw,aerial):
                 j=(i+1)%4
                 shade=(.78,.91,.84,.69)[i]
                 quad((base[i],base[j],top[j],top[i]),tuple(c*shade for c in color),material)
+        hx,hz=HANGAR
+        grey=(.54,.58,.58)
+        for dx in (-17.,17.):box(hx+dx,hz,surface(field,hx+dx,hz)-1,.3,23,9,grey)
+        box(hx,hz+11,surface(field,hx,hz+11)-1,34,.3,9,grey)
+        floor=surface(field,hx,hz)
+        # An open portal, pitched metal roof and exposed transverse frames.
+        for side in (-1,1):
+            edge=hx+side*17.5
+            quad(((edge,floor+7.8,hz-12),(edge,floor+7.8,hz+12),
+                  (hx,floor+10.5,hz+12),(hx,floor+10.5,hz-12)),(.38,.44,.46))
+        for dz in (-11.,-4.,4.,11.):
+            box(hx,hz+dz,floor+7.5,34,.20,.24,(.38,.27,.18))
+            for dx in (-14.,-7.,0.,7.,14.):
+                roof=10.4-abs(dx)*.155
+                box(hx+dx,hz+dz,floor+7.7,.11,.14,roof-7.7,(.44,.32,.21))
+            box(hx,hz+dz,floor+7.4,2.8,.34,.10,(.99,.92,.70))
+        for dx in range(-14,16,4):
+            box(hx+dx,hz+10.76,floor+3.8,2.9,.1,1.35,(.53,.66,.68))
+        quad(tuple((hx+dx,surface(field,hx+dx,hz+dz)+.05,hz+dz)
+                   for dx,dz in ((-17,-16),(17,-16),(17,11),(-17,11))),(.43,.44,.43))
+        for kind,(dx,_) in BAYS.items():
+            # Parked silhouettes: a swept jet and a straight high-wing trainer.
+            x=hx+dx
+            y=surface(field,x,hz)+1.3
+            jet=kind=='hangar-jet'
+            color=(.65,.69,.72) if jet else (.85,.80,.65)
+            rings=[]
+            for zz,r in ((-5.4,.035),(-2,.67),(0,.8),(2.3,.58),(5.2,.14)):
+                rings.append([(x+r*math.cos(k*math.tau/12),y+r*math.sin(k*math.tau/12),hz+zz) for k in range(12)])
+            for a,b in zip(rings,rings[1:]):
+                for k in range(12):
+                    shade=.76+.24*math.sin((k-.5)*math.tau/12)
+                    quad((a[k-1],a[k],b[k],b[k-1]),tuple(c*shade for c in color))
+            for side in (-1,1):
+                tip=side*(5.5 if jet else 6.)
+                yy=y+(.1 if jet else .68)
+                sweep=2.2 if jet else -.65
+                quad(((x,yy,hz-1.6),(x+tip,yy,hz+sweep),(x+tip,yy,hz+sweep+.68),(x,yy,hz+1.6)),color)
+                quad(((x,y,hz+3.),(x+side*2.4,y,hz+4.),(x+side*2.2,y,hz+4.65),(x,y,hz+4.6)),color)
+                box(x+side,hz+.6,y-1.4,.25,.65,.62,(.09,.10,.11))
+            quad(((x,y,hz+2.5),(x,y+2.1,hz+4.3),(x,y+2.0,hz+4.8),(x,y,hz+4.8)),(.21,.37,.47))
+            box(x,hz-1.1,y+.45,.97,1.65,.43,(.19,.31,.36))
+            if not jet:
+                box(x,hz-5.4,y-.95,.13,.12,1.9,(.16,.18,.19))
+                box(x,hz-5.42,y-.11,.14,.14,.22,(.91,.59,.21))
         # Game scenery at named locations. Runway paint follows the sampled terrain.
         for x,z,a,length,width in runway_geometry():
             def strip(width,start,end,color,lift):
@@ -228,7 +277,7 @@ def terrain_grid_mesh(field, raw, aerial, region):
             dz=(field.values[min(nz-1,j+1)*nx+i]-field.values[max(0,j-1)*nx+i])/(2*d)
             shade=max(.45,min(1.2,.88+.52*(dx-dz)))
             color=(.11,.32,.37) if raw[k]<=0 else (.88,.92,.95) if y>2400 else (.28,.39,.24)
-            material = .20 if raw[k]<=0 else .216 if aerial is not None else .974 if region=='hoh' else .0
+            material = .20 if raw[k]<=0 else .216 if aerial is not None else .974 if region=='hoh' else .197
             r,g,b = color
             row.append(_VERTEX.pack(field.origin.x+i*d,y,field.origin.z+j*d,
                                     r*shade,g*shade,b*shade,material))
@@ -246,7 +295,7 @@ def terrain_grid_mesh(field, raw, aerial, region):
 
 
 class ExploreMenu(HikeMenu):
-    groups={'Fly':('Plane from Rainier','Plane from Thun Field','Research jet from Rainier','Hang glide','Paramotor'),
+    groups={'Fly':('Thun Field hangar','Skydive over Rainier','Balloon over the Sound','Plane from Rainier','Plane from Thun Field','Research jet from Rainier','Hang glide','Paramotor'),
             'Mountain sports':('Put on skis','Climb summit ice','Mountain bike loop'),
             'On the water':('Boat on Commencement Bay','Bainbridge ferry'),
             'Market and waterfront':('Pike Place Market',*market_visit.DESTINATIONS),
@@ -298,13 +347,16 @@ class PauseMenu:
         self.guide_page=0
 
     def rows(self):
+        if self.page=='Controller':
+            prefs=self.view.app_context.preferences
+            return ('Sticks: '+prefs['stick-layout'],'Look: '+prefs['look-speed'],'Back')
         if self.page=='Flight controls':
             prefs=self.view.app_context.preferences
             return ('Pitch: '+prefs['flight-pitch'],'Roll: '+prefs['flight-roll'],'Back')
         if self.page=='Flight guide':
             return ('Next page','Back')
         flight=self.view.outing in AIRCRAFT and self.view.glider
-        rows=('Resume','Flight controls','Flight guide')
+        rows=('Resume','Controller','Flight controls','Flight guide')
         return rows+('Leave aircraft',) if flight else rows
 
     def lines(self,width):
@@ -339,7 +391,12 @@ class PauseMenu:
 
     def activate(self,direction=1):
         label=self.rows()[self.selected]
-        if self.page=='Flight controls' and label!='Back':
+        if self.page=='Controller' and label!='Back':
+            key,choices=(('stick-layout',('Standard','Southpaw')) if self.selected==0
+                         else ('look-speed',('Gentle','Standard','Quick')))
+            context=self.view.app_context
+            context.registry.set_setting(context.identifier,key,choices[(choices.index(context.preferences[key])+direction)%len(choices)])
+        elif self.page=='Flight controls' and label!='Back':
             key,choices=(('flight-pitch',('Pull to climb','Push to climb')) if self.selected==0
                          else ('flight-roll',('Gentle','Standard','Quick')))
             context=self.view.app_context
@@ -358,10 +415,50 @@ class PauseMenu:
         if button in (11,12):
             self.selected=(self.selected+(1 if button==12 else -1))%len(self.rows())
         elif button==0:self.activate()
-        elif button in (13,14) and self.page=='Flight controls' and self.selected<2:
+        elif button in (13,14) and self.page in ('Controller','Flight controls') and self.selected<2:
             self.activate(1 if button==14 else -1)
         elif button==6 or (button==1 and self.page=='Paused'):self.view.resume_game()
         elif button==1:self.page='Paused';self.selected=0
+
+
+class AirSport(HangGlider):
+    def __init__(self,kind,field):
+        from types import SimpleNamespace
+        self.balloon=kind=='balloon'
+        x,z=location('sound',*(BAY if self.balloon else PLACES[-1][1:]))
+        super().__init__(SimpleNamespace(x=x,z=z,heading=-math.pi),field.height)
+        self.altitude=field.height(x,z)+(120. if self.balloon else 1800.)
+        self.clearance=self.altitude-field.height(self.x,self.z)
+        self.vertical=0.
+        self.open=False
+
+    def action(self):
+        if self.balloon:self.motor=not self.motor
+        else:self.open=True
+
+    def advance(self,dt,height,limits):
+        steering=max(-1.,min(1.,self.stick+self.drag[0]+('right' in self.keys)-('left' in self.keys)))
+        self.heading+=steering*dt
+        self.speed=5. if self.balloon else 10. if self.open else 17.
+        if not self.balloon and self.clearance<120.:self.open=True
+        target=(4. if self.motor else -2.) if self.balloon else -4.5 if self.open else -50.
+        self.vertical+=(target-self.vertical)*(-math.expm1(-dt))
+        course=.8+.18*math.sin(self.altitude*.002) if self.balloon else self.heading
+        west,east,south,north=limits
+        self.x=max(west,min(east,self.x+dt*self.speed*math.sin(course)))
+        self.z=max(south,min(north,self.z+dt*self.speed*math.cos(course)))
+        ground=height(self.x,self.z)
+        self.clearance=max(0.,self.altitude+self.vertical*dt-ground)
+        self.altitude=ground+self.clearance
+        self.landed=self.clearance==0
+        return self.x,self.z,self.heading,.25+self.pitch_stick*.5
+
+    def controls(self,w,h):
+        label=('Burner off' if self.motor else 'Burner on') if self.balloon else ('Chute open' if self.open else 'Open chute')
+        return [('air-action',label,(w-14,0,14,3)),('pause','Pause',(w-14,3,14,3))]
+
+    def draw(self,ink,w,h):
+        ink.label(1,1,f'{self.clearance:.0f} m AGL',0xFFF6DA)
 
 
 class SoundVehicle(HangGlider):
@@ -377,7 +474,7 @@ class SoundVehicle(HangGlider):
         self.target_index=3 if self.boat else 1 if kind=='thun' else 0
         x,z=location('sound',*BAY) if self.boat else self.stops[0 if kind=='thun' else 4][1:]
         super().__init__(SimpleNamespace(x=x,z=z,heading=0),field.height,True)
-        self.altitude=0. if self.boat else field.height(x,z)+(1200. if kind=='jet' else 350.)
+        self.altitude=0. if self.boat else field.height(x,z)+(1200. if self.aircraft is RESEARCH_JET else 350.)
         self.throttle=self.aircraft.cruise_power if self.aircraft else 0.
         self.speed=(self.aircraft.approach+(self.aircraft.maximum-self.aircraft.approach)*self.throttle
                     if self.aircraft else 0.)
@@ -386,6 +483,7 @@ class SoundVehicle(HangGlider):
 
         self.runways=tuple(runway_geometry())
         self.rudder=self.throttle_rate=0.
+        self.gear_down=kind!='jet'
         self.flaps=0
         self.stalled=False
         self.roll_angle=self.roll_rate=0.
@@ -393,7 +491,7 @@ class SoundVehicle(HangGlider):
         self.look_yaw=self.look_pitch=0.
         self.roll_gain=1.
         self.roll_state=None
-        if kind=='thun':
+        if kind in ('thun','hangar-jet'):
             rx,rz,self.heading,_,_=self.runways[0]
             self.x=rx+18*math.sin(self.heading)
             self.z=rz+18*math.cos(self.heading)
@@ -410,6 +508,10 @@ class SoundVehicle(HangGlider):
     def toggle_speed(self):
         super().toggle_speed()
         self.throttle=1. if self.fast else self.aircraft.cruise_power if self.aircraft else 0.
+
+    def toggle_gear(self):
+        if self.aircraft is RESEARCH_JET and self.roll_state not in ('parked','takeoff','rollout'):
+            self.gear_down=not self.gear_down
 
     def runway_at(self,x,z):
         for rx,rz,yaw,length,width in self.runways:
@@ -459,9 +561,11 @@ class SoundVehicle(HangGlider):
             self.bank=self.roll_angle/math.radians(55)
         self.pitch+=(max(-1.,min(1.,pitch))-self.pitch)*smooth
         cruise=(22. if self.fast else 10.) if self.boat else self.aircraft.approach+(self.aircraft.maximum-self.aircraft.approach)*self.throttle
+        if self.descending and self.aircraft:self.gear_down=True
         if self.descending:cruise=0. if self.boat else self.aircraft.approach
         if not self.boat and not self.descending:
             cruise=max(12.,cruise-8.*(1.-self.throttle)+17.*self.pitch-3.*self.flaps)
+        if self.aircraft is RESEARCH_JET and self.gear_down and not self.descending:cruise*=.88
         self.speed+=(cruise-self.speed)*(-math.expm1(-dt/(self.aircraft.spool_time if self.aircraft else 1.)))
         if self.boat:self.heading+=self.bank*dt*.64
         else:
@@ -486,7 +590,7 @@ class SoundVehicle(HangGlider):
             manual_approach=self.roll_state is None and self.speed<self.aircraft.approach+7. and abs(self.bank)<.18 and 0<=self.pitch<=.30
             strip=self.runway_at(x,z) if self.descending or manual_approach else None
             on_approach=False
-            if strip and self.speed<self.aircraft.approach+7.:
+            if strip and self.gear_down and self.speed<self.aircraft.approach+7.:
                 yaw,along,length=strip
                 aligned=math.cos(self.heading-yaw)
                 remaining=length-along if aligned>0 else along
@@ -508,6 +612,8 @@ class SoundVehicle(HangGlider):
 
     def controls(self,w,h):
         if not self.menu and self.boat:return [('wheel','Helm',(w-11,0,11,3))]
+        if not self.menu and self.aircraft is RESEARCH_JET:
+            return [('wheel','Flight',(w-11,0,11,3)),('pause','Pause',(w-11,3,11,3)),('gear','Gear',(w-11,6,11,3))]
         if not self.menu:return [('wheel','Flight',(w-11,0,11,3)),('pause','Pause',(w-11,3,11,3))]
         return super().controls(w,h)
 
@@ -528,7 +634,8 @@ class SoundVehicle(HangGlider):
                f'HDG {round(math.degrees(self.heading))%360:03d}  {power}',
                f'{round(self.clearance)} m AGL')
         status='STALL: nose down + power' if self.stalled else f'Flaps {self.flaps*10} deg'
-        if self.kind=='jet':lines=(f'Research jet  {self.speed*3.6:.0f} km/h',*lines)
+        if self.aircraft is RESEARCH_JET:lines=(f'Research jet  {self.speed*3.6:.0f} km/h',*lines)
+        if self.aircraft is RESEARCH_JET:status+='  Gear '+('down' if self.gear_down else 'up')
         lines+=(status,)
         lines+=('Start: pause   View: wheel',)
         ink.fill((.5,.6,min(w,max(map(len,lines))+1),len(lines)+.6),0x14231FE8)

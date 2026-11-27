@@ -17,7 +17,7 @@ from pnw.river_detail import RiverQuality, shade_tree
 from pnw.forest_floor import blade, broadleaf_clump, fern, nurse_log, snag, spruce_sprays, trail_cover
 from pnw.rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from pnw import market_visit
-from pnw.outings import AIRCRAFT,ExploreMenu,PauseMenu,SoundVehicle
+from pnw.outings import AIRCRAFT,AIR_SPORTS,AirSport,HANGAR,BAYS,ExploreMenu,PauseMenu,SoundVehicle
 from pnw.hiking import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from pnw.valley_map import ValleyMap
 from pnw.river_fishing import Fishing,vibration,watch_rod
@@ -703,6 +703,8 @@ class RainierView:
     needle_deck=False
     bike=glider=climb=None
     pad_sticks=(0.,0.,0.,0.)
+    flight_surface=None
+    look_gain=1.
     name='Rainier walk'
     paces=(('Walk',1.),('Brisk',2.),('Explore',8.))
 
@@ -719,6 +721,8 @@ class RainierView:
         self.pace_index=0
         self.regional=False
         self.valley_pose=self.map_position=None
+        self.flight_surface=None
+        self.flight_imagery=None
         self.travel_job=self.travel_pool=None
         self.meadow_site=None
         self.flower_sites=[]
@@ -838,7 +842,8 @@ class RainierView:
             elif x<width*3//7:
                 powered=self.glider.powered
                 self.end_flight()
-                if self.outing:self.glider=SoundVehicle(self.outing,self.world[0])
+                if self.outing in AIR_SPORTS:self.glider=AirSport(self.outing,self.world[0])
+                elif self.outing:self.glider=SoundVehicle(self.outing,self.world[0])
                 else:self.start_glide(powered)
             else:
                 self.end_flight()
@@ -938,6 +943,9 @@ class RainierView:
                 elif action=='family':self.notebook=PartyMenu(self,ski=True)
                 else:self.ski.action(action)
             elif action=='launch':self.start_glide()
+            elif action in BAYS:self.start_outing(action)
+            elif action=='gear':self.glider.toggle_gear()
+            elif action=='air-action':self.glider.action()
             elif action=='pause':self.pause_game()
             elif self.glider:
                 flight=self.glider
@@ -1116,7 +1124,12 @@ class RainierView:
             if button==1:self.bike=None
             return
         if self.glider:
-            if self.outing in AIRCRAFT and button==4:
+            if self.outing in AIR_SPORTS:
+                if button==0:self.glider.action()
+                elif button==1:self.end_flight()
+                return
+            if self.outing in AIRCRAFT and button==8:self.glider.toggle_gear()
+            elif self.outing in AIRCRAFT and button==4:
                 self.glider.menu=not self.glider.menu
                 self.glider.cancel_input()
             elif self.outing in AIRCRAFT and self.glider.menu:
@@ -1138,6 +1151,10 @@ class RainierView:
             elif button==1 and self.climb.raised:self.climb.wave=0.
 
         elif self.world and not self.ski and not self.album and not self.notebook:
+            if self.outing=='hangar' and button==0:
+                bay=self.hangar_bay()
+                if bay:self.start_outing(bay)
+                return
             if button==0:action='shutter' if self.lens else 'fish'
             elif button==1:action='book'
             else:action={2:'camera',3:'binoculars',10:'zoom'}.get(button)
@@ -1152,8 +1169,8 @@ class RainierView:
         sideways,back,turn,look=self.pad_sticks
         if turn or look:
             self.trail.free_look=True
-            owner.yaw+=turn*dt*1.6/self.zoom
-            owner.pitch=max(-1.,min(1.,owner.pitch+look*dt/self.zoom))
+            owner.yaw+=turn*dt*1.6*self.look_gain/self.zoom
+            owner.pitch=max(-1.,min(1.,owner.pitch+look*dt*self.look_gain/self.zoom))
         if sideways or back:
             self.destination=None
             self.cruise=self.trail.guiding=False
@@ -1223,6 +1240,8 @@ class RainierView:
         self.ski=None
 
     def release(self):
+        self.flight_surface=None
+        if self.flight_imagery:self.flight_imagery.close();self.flight_imagery=None
         self.bike=self.glider=self.climb=None
         self.stop_ski()
         if self.context and self.context.handle:
@@ -1291,7 +1310,17 @@ class RainierView:
         self.photo_hint=self.fishing.note
         self.hint_until=self.age+2.
 
+    def hangar_bay(self):
+        if self.camera:
+            x,z=self.camera[:2]
+            for kind,(dx,_) in BAYS.items():
+                if math.hypot(x-HANGAR[0]-dx,z-HANGAR[1])<8:return kind
+        return None
+
     def walk_tools(self,width,height):
+        if self.outing=='hangar':
+            kind=self.hangar_bay()
+            return [(kind,'Board '+BAYS[kind][1],(1,height-4,19,3))] if kind else []
         if self.outing in ('ferry','wheel'):return []
         if self.glider:return self.glider.controls(width,height)
         if self.bike:return [('dismount','Dismount',(0,0,11,3)),
@@ -1434,6 +1463,12 @@ class RainierView:
                         self.fish_counter=FishCounter()
                     if self.outing in AIRCRAFT or self.outing=='boat':
                         self.glider=SoundVehicle(self.outing,world[0])
+                    elif self.outing=='hangar':
+                        owner.x,owner.z=HANGAR[0],HANGAR[1]-45
+                        owner.pitch=-.055
+                        self.photo_hint="Walk up to a plane to board"
+                        self.hint_until=self.age+6.
+                    elif self.outing in AIR_SPORTS:self.glider=AirSport(self.outing,world[0])
                     elif self.outing in ('market','fishshop'):
                         from pnw.seattle_places import arcade_origin
                         from pnw.pike_market import arrival,offset,HEADING
@@ -1609,6 +1644,10 @@ class RainierView:
             cx,cz=market_visit.site('overlook')
             if abs(x-cx)<=6 and -38<=z-cz<=20:return market_visit.deck_height(terrain,x,z)
             return floor_height(arcade_origin(),terrain,x,z)
+        patch=self.flight_surface
+        if patch:
+            west,east,south,north=bounds(patch)
+            if west<=x<=east and south<=z<=north:return surface(patch,x,z)
         terrain=surface(self.world[0],x,z)
         return terrain if self.regional else valley_floor()[1].height(x,z,terrain)
 
@@ -1751,6 +1790,21 @@ class RainierView:
         stand_ptr=None
         upload_shade=self.upload
         sound_region=self.outing is not None and self.outing!='hoh'
+        if sound_region and self.outing not in market_visit.FLOORS:
+            from pnw.terrain import FlightImagery,PATCH_STEP
+            if self.flight_imagery is None:self.flight_imagery=FlightImagery()
+            patch=self.flight_imagery.update(x,z,field)
+            if patch:
+                (ix,iz),rgb,relief=patch
+                self.flight_surface=None
+                self.stand_count=0
+                if relief:
+                    self.flight_surface,stand=relief
+                    stand_ptr=stand.buffer_info()[0]
+                    self.stand_count=len(stand)//7
+                upload=ctx.lib.pocket_scene_flight_photo
+                upload.argtypes=[C.c_void_p,C.c_char_p,C.c_float,C.c_float]
+                ctx.check(upload(ctx.handle,rgb,ix*PATCH_STEP,iz*PATCH_STEP))
         if sound_region:center=((field.nx-1)*field.dx,(field.nz-1)*field.dz)
         if self.regional and self.outing in (None,'hoh'):
             center=self.stand_center
@@ -1772,10 +1826,10 @@ class RainierView:
             else:omit_first,omit_end=base_count,terrain_count
         equipment=None
         if self.glider:
-            mode={'boat':3,'jet':9}.get(self.outing,2 if self.outing in AIRCRAFT else self.glider.powered)
-            equipment=(C.c_float*3)(mode,self.glider.bank,self.glider.pitch)
+            mode={'boat':3,'jet':9,'hangar-jet':9,'skydive':int(getattr(self.glider,'open',False))*10,'balloon':11}.get(self.outing,2 if self.outing in AIRCRAFT else self.glider.powered)
+            if self.outing!='skydive' or mode:equipment=(C.c_float*3)(mode,self.glider.bank,self.glider.pitch)
         if self.glider and self.outing in AIRCRAFT:
-            if self.outing!='jet':
+            if self.outing not in ('jet','hangar-jet'):
                 from pnw.cockpit import panel
                 setup=ctx.lib.pocket_scene_cockpit
                 setup.argtypes=[C.c_void_p,C.c_void_p,C.c_float,C.c_float]
