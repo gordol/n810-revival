@@ -551,26 +551,17 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   if(photo_query && (int)i==photo_animal)glEndQuery(GL_SAMPLES_PASSED);
   glPopMatrix();
  }
- /* Small rain jackets and knit caps stand out against the dark conifers. */
+ /* Shared family positions carry a standing pose and distinct coat colours. */
  glUseProgram(0);
  static const float coats[][3]={{.93f,.47f,.12f},{.12f,.66f,.67f},{.75f,.28f,.40f},
   {.42f,.48f,.81f},{.85f,.67f,.18f},{.50f,.63f,.27f},{.68f,.38f,.65f}};
  for(unsigned i=0;i<nh;i++){
   const float *p=hikers+i*3,*coat=coats[i];
   glPushMatrix();glTranslatef(p[0],p[1],p[2]);
-  for(int leg=-1;leg<=1;leg+=2){
-   glPushMatrix();glTranslatef(leg*.10f,0,0);
-   river_hiker_band(.02f,.52f,.085f,.09f,.13f,.16f,.19f);
-   glPopMatrix();
-  }
-  river_hiker_band(.48f,.94f,.22f,.24f,coat[0],coat[1],coat[2]);
-  river_hiker_band(.94f,1.10f,.24f,.11f,coat[0],coat[1],coat[2]);
-  river_hiker_band(1.09f,1.32f,.12f,.14f,.63f,.44f,.32f);
-  river_hiker_band(1.29f,1.37f,.16f,.15f,.89f,.83f,.65f);
-  river_hiker_band(1.37f,1.45f,.15f,.025f,.79f,.74f,.58f);
+  market_person_draw(&s->people[i%2],0,12.f,coat);
   glPopMatrix();
  }
- if(market_count)market_people(market,market_count);
+ if(market_count)market_people(s,market,market_count);
  /* Blend the river over opaque bed, fish and banks. Depth testing leaves
     a breaching fish above the surface and hides water behind shore rocks. */
  if(water_count){

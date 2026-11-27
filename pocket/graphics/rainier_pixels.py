@@ -770,6 +770,7 @@ class RainierView:
         self.next_call=0.
         self.stand_center=None
         self.stand_count=0
+        self.person_slots=set()
         self.upload=True
         self.context=None
         self.error=''
@@ -1154,6 +1155,7 @@ class RainierView:
         self.next_call=0.
         self.stand_center=None
         self.stand_count=0
+        self.person_slots=set()
         self.upload=True
         self.camera=None
         self.error=''
@@ -1476,6 +1478,10 @@ class RainierView:
         if self.outing=='needle' and self.needle_deck:
             from seattle_places import DECK_HEIGHT,places
             return surface(self.world[0],*places()['Space Needle'])+DECK_HEIGHT
+        if self.outing in ('market','fishshop'):
+            from pike_market import floor_height
+            from seattle_places import arcade_origin
+            return floor_height(arcade_origin(),lambda px,pz:surface(self.world[0],px,pz),x,z)
         terrain=surface(self.world[0],x,z)
         return terrain if self.regional else valley_floor()[1].height(x,z,terrain)
 
@@ -1648,7 +1654,28 @@ class RainierView:
                 van=self.delivery.advance(self.age,(x,z),poses,self.walk_height)
                 if van:poses.append(van)
                 actor_count=len(poses)
-                market=(C.c_float*(7*actor_count))(*(v for pose in poses for v in pose))
+                packed=[]
+                for pose in poses:
+                    slopes=(0.,0.)
+                    if pose[0]<=1:
+                        px,py,pz=pose[1:4]
+                        slopes=(self.walk_height(px+.25,pz)-self.walk_height(px-.25,pz),
+                                self.walk_height(px,pz+.25)-self.walk_height(px,pz-.25))
+                        slopes=tuple(2*slope for slope in slopes)
+                    packed.extend((*pose,*slopes))
+                market=(C.c_float*len(packed))(*packed)
+        needed=set(range(min(2,len(hikers)//3)))
+        if actor_count:needed.update(int(p[6])%2 if p[0]==0 else 0 for p in poses if p[0]<=1)
+        if needed-self.person_slots:
+            from pathlib import Path
+            upload=ctx.lib.pocket_scene_market_person
+            upload.argtypes=[C.c_void_p,C.c_uint,C.c_void_p,C.c_uint]
+            for slot in sorted(needed-self.person_slots):
+                name=('sam','maya')[slot]
+                mesh=zlib.decompress((Path(__file__).parent/f'assets/people/{name}.zlib').read_bytes())
+                ctx.check(upload(ctx.handle,slot,mesh,len(mesh)))
+                del mesh
+                self.person_slots.add(slot)
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high or self.regional else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,

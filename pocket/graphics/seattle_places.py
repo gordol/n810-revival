@@ -14,6 +14,7 @@ def places():
         return {row['name']:location('sound',float(row['latitude']),float(row['longitude']))
                 for row in csv.DictReader(source)}
 
+@lru_cache(maxsize=1)
 def arcade_origin():
     from pike_market import offset
     return offset(places()['Pike Place Fish Market'],-2.7,-5.)

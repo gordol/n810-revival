@@ -13,6 +13,36 @@ S,C=math.sin(HEADING),math.cos(HEADING)
 def offset(center,right,forward):
     return center[0]+C*right+S*forward,center[1]-S*right+C*forward
 
+# Shared by the drawn pavement, camera and actors. Local rectangles are
+# tessellated on a two-metre grid; interpolate the same diagonal as quad().
+FLOORS=((-10,10,-54,-9),(-35,65,-9,-1),(-28,57,-1,9))
+
+def floor_vertex(center,height,u,v):
+    raw=height(*offset(center,u,v))
+    # The fish counter stands on a level slab. Its entrance meets the sloping
+    # brick street over the final metres; the unmodified DEM stays underneath.
+    across=min(1.,max(0.,(12.-abs(u))/4.))
+    entry=min(1.,max(0.,(v+3.)/4.))
+    return raw+.065+across*entry*max(0.,height(*center)-raw)
+
+def floor_height(center,height,x,z):
+    dx,dz=x-center[0],z-center[1]
+    u,v=C*dx-S*dz,S*dx+C*dz
+    for left,right,front,back in FLOORS:
+        if left<=u<=right and front<=v<=back:
+            u0=left+2*min((right-left-1)//2,int((u-left)//2))
+            v0=front+2*min((back-front-1)//2,int((v-front)//2))
+            u1,v1=min(right,u0+2),min(back,v0+2)
+            a,b=(u-u0)/(u1-u0),(v-v0)/(v1-v0)
+            h0=floor_vertex(center,height,u0,v0)
+            h2=floor_vertex(center,height,u1,v1)
+            if a>=b:
+                hm=floor_vertex(center,height,u1,v0)
+                return (1-a)*h0+(a-b)*hm+b*h2
+            hm=floor_vertex(center,height,u0,v1)
+            return (1-b)*h0+(b-a)*hm+a*h2
+    return height(x,z)
+
 def arrival(center):
     return *offset(center,0,-38),HEADING,-.16
 
@@ -209,10 +239,11 @@ def build(center,height,quad):
     wall(-6.61,7.11,3.62,4.87,-1.39,(.94,.89,.71))
     lettering('FARMERS MARKET',-5.26,3.73,-1.45,1.,red)
     # The cross street stays open along the arcade, including its north end.
-    for left,right,front,back in ((-10,10,-54,-9),(-35,65,-9,-1)):
+    for left,right,front,back in FLOORS:
         for v in range(front,back,2):
-            pts=[]
-            for u,dv in ((left,0),(right,0),(right,2),(left,2)):
-                x,z=offset(center,u,min(back,v+dv))
-                pts.append((x,height(x,z)+.065,z))
-            quad(pts,(.43,.37,.32),.237)
+            for u in range(left,right,2):
+                pts=[]
+                for du,dv in ((0,0),(2,0),(2,2),(0,2)):
+                    x,z=offset(center,min(right,u+du),min(back,v+dv))
+                    pts.append((x,floor_vertex(center,height,min(right,u+du),min(back,v+dv)),z))
+                quad(pts,(.43,.37,.32) if front<-1 else (.38,.36,.32),.237)

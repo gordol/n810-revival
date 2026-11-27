@@ -47,19 +47,21 @@ def actors(age,ground,since):
     def walker(u,v,heading,gait,palette):
         actor(0,u,v,ground(*offset(center,u,v)),heading,gait,palette)
     walker(u,v,.9 if phase<11 else 1.95 if phase>18 else 0,
-           math.sin(6*age) if phase<11 or phase>18 else 0,2)
+           (age*11)%12 if phase<11 or phase>18 else 12,2)
     for i in range(4):
         t=(age+i*13)%70
         east=t<35
         walker(-20+(t if east else 70-t)*1.3,-4.4-(i%2)*1.4,
-               math.pi/2 if east else -math.pi/2,math.sin(5.9*age+i),i+1)
+               math.pi/2 if east else -math.pi/2,(age*12.5+i*2.3)%12,i+1)
     if since is None:since=-1.
     t=max(0.,min(1.,(since-.8)/.95))
-    actor(1,1.7,3.35,floor,.25,math.sin(math.pi*t),0)
-    actor(1,3.4,6.25,floor,math.pi,math.sin(math.pi*t),1)
+    sender=ground(*offset(center,1.7,3.35))
+    catcher=ground(*offset(center,3.4,6.25))
+    actor(1,1.7,3.35,sender,.25,math.sin(math.pi*t),0)
+    actor(1,3.4,6.25,catcher,math.pi,math.sin(math.pi*t),1)
     if 0<=since<=2.45:
-        actor(2,1.7+1.7*t,3.72+2.18*t,floor+1.08+4.8*t*(1-t),1.3+.7*t,.18-.38*t)
-    if 2.45<since<4.4:actor(6,3.4,6.4,floor+1.05,0,0)
+        actor(2,1.7+1.7*t,3.72+2.18*t,sender+(catcher-sender)*t+1.08+4.8*t*(1-t),1.3+.7*t,.18-.38*t)
+    if 2.45<since<4.4:actor(6,3.4,6.4,catcher+1.05,0,0)
     # Gulls bank over the street. Pigeons forage and pause on the paving.
     for i in range(2):
         a=age*.16+i*2.9

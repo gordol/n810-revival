@@ -51,6 +51,40 @@ class OutingTests(unittest.TestCase):
         arc=actors(14,lambda x,z:0,1.275)
         self.assertGreater(next(a[2] for a in arc if a[0]==2),2.)
 
+    def test_staff_stand_on_the_rendered_slab_and_street_matches_mesh(self):
+        from market_life import actors
+        from pike_market import build,floor_height,offset
+        from seattle_places import arcade_origin
+        center=arcade_origin()
+        def terrain(x,z):
+            return 30+.11*(x-center[0])+.06*(z-center[1])
+        def floor(x,z):return floor_height(center,terrain,x,z)
+        people=[row for row in actors(4,floor,None) if row[0] in (0,1)]
+        for _,x,y,z,*_ in people:self.assertAlmostEqual(y,floor(x,z))
+        tiles=[]
+        def capture(points,color,material=0.):
+            if material==.237:tiles.append(points)
+        build(center,terrain,capture)
+        for x,y,z in [tuple(sum(p[k] for p in tile[:3])/3 for k in range(3)) for tile in tiles[::47]]:
+            self.assertAlmostEqual(floor(x,z),y)
+        for u,v in ((1.7,3.35),(3.4,6.25)):
+            self.assertAlmostEqual(floor(*offset(center,u,v)),terrain(*center)+.065,places=3)
+
+    def test_baked_people_have_a_supporting_shoe_in_each_pose(self):
+        import struct
+        import zlib
+        for name in ('sam','maya'):
+            path=pocket/'graphics'/'assets'/'people'/f'{name}.zlib'
+            data=zlib.decompress(path.read_bytes())
+            magic,nv,ni,frames,w,h=struct.unpack_from('<4s5I',data)
+            self.assertEqual((magic,frames),(b'NPC2',17))
+            offset=24
+            for frame in range(frames):
+                _,left,_,_,right,_=struct.unpack_from('<6f',data,offset+frame*24)
+                self.assertAlmostEqual(min(left,right),0)
+                self.assertGreaterEqual(max(left,right),0)
+            self.assertEqual(len(data),offset+frames*24+ni*4+nv*12*(1+frames)+w*h*4)
+
     def test_delivery_yields_on_its_mapped_route(self):
         from market_life import Delivery
         from seattle_places import delivery_route
