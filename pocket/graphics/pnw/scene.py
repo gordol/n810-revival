@@ -1832,7 +1832,8 @@ class RainierView:
         equipment=None
         if self.glider:
             mode={'boat':3,'jet':9,'hangar-jet':9,'skydive':int(getattr(self.glider,'open',False))*10,'balloon':11}.get(self.outing,2 if self.outing in AIRCRAFT else self.glider.powered)
-            if self.outing!='skydive' or mode:equipment=(C.c_float*3)(mode,self.glider.bank,self.glider.pitch)
+            equipment_pitch=-self.glider.elevation/.40 if self.outing in AIRCRAFT else self.glider.pitch
+            if self.outing!='skydive' or mode:equipment=(C.c_float*3)(mode,self.glider.bank,equipment_pitch)
         if self.glider and self.outing in AIRCRAFT:
             if self.outing not in ('jet','hangar-jet'):
                 from pnw.cockpit import panel

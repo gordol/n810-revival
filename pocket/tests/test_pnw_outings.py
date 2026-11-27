@@ -386,6 +386,49 @@ class OutingTests(unittest.TestCase):
         for _ in range(130):plane.advance(.1,ground,(-1e6,1e6,-1e6,1e6))
         self.assertEqual(plane.roll_state,'parked')
 
+    def test_jet_elevator_follows_the_canopy(self):
+        ground=lambda x,z:0.
+        limits=(-1e7,1e7,-1e7,1e7)
+        for bank in (0,90,-90,180):
+            with self.subTest(bank=bank):
+                jet=SoundVehicle('jet',SimpleNamespace(height=ground))
+                jet.roll_angle=math.radians(bank)
+                jet.pitch_stick=-1.
+                initial_heading,initial_alt=jet.heading,jet.altitude
+                for _ in range(30):pose=jet.advance(1/60,ground,limits)
+                self.assertAlmostEqual(pose[3],-jet.elevation)
+                if abs(bank)==90:
+                    self.assertAlmostEqual(jet.elevation,0.)
+                    self.assertGreater((jet.heading-initial_heading)*math.copysign(1,bank),.1)
+                else:
+                    self.assertGreater((jet.altitude-initial_alt)*(1 if bank==0 else -1),5.)
+
+    def test_airborne_jet_completes_inside_and_outside_loops(self):
+        ground=lambda x,z:0.
+        limits=(-1e7,1e7,-1e7,1e7)
+        for direction in (-1,1):
+            for hz in (30,60):
+                with self.subTest(direction=direction,hz=hz):
+                    jet=SoundVehicle('jet',SimpleNamespace(height=ground))
+                    jet.altitude=4000.
+                    jet.pitch_stick=direction
+                    heading=jet.heading
+                    # Project the nose onto the initial vertical flight plane.
+                    # Unwrap its angle so crossing either pole counts continuously.
+                    previous=angle=0.
+                    for _ in range(10*hz):
+                        _,_,yaw,pitch=jet.advance(1/hz,ground,limits)
+                        current=math.atan2(-math.sin(pitch),math.cos(pitch)*math.cos(yaw-heading))
+                        delta=math.remainder(current-previous,math.tau)
+                        self.assertLess(abs(delta),.04)
+                        previous=current
+                        angle+=delta
+                        if abs(angle)>=math.tau:break
+                    self.assertGreaterEqual(-direction*angle,math.tau)
+                    self.assertLess(abs(jet.elevation),.04)
+                    self.assertGreater(math.cos(jet.roll_angle),.99)
+                    self.assertGreater(math.cos(jet.heading-heading),.99)
+
     def test_aircraft_glance_roll_stall_and_recovery(self):
         ground=lambda x,z:0.
         limits=(-1e6,1e6,-1e6,1e6)

@@ -22,12 +22,13 @@ class Aircraft:
     stall: float
     cruise_power: float
     roll_rate: float  # degrees/second
+    pitch_rate: float  # degrees/second
     spool_time: float  # seconds
     brakes: float  # m/s²
 
 
-TRAINER=Aircraft(32.,150.,25.,48./118.,95.,1.,4.)
-RESEARCH_JET=Aircraft(65.,420.,50.,.60,135.,4.,8.)
+TRAINER=Aircraft(32.,150.,25.,48./118.,95.,32.,1.,4.)
+RESEARCH_JET=Aircraft(65.,420.,50.,.60,135.,46.,4.,8.)
 AIRCRAFT={'plane':TRAINER,'thun':TRAINER,'jet':RESEARCH_JET,'hangar-jet':RESEARCH_JET}
 
 HANGAR=location('sound',PLACES[0][1],PLACES[0][2])
@@ -488,7 +489,7 @@ class SoundVehicle(HangGlider):
         self.gear_down=kind!='jet'
         self.flaps=0
         self.stalled=False
-        self.roll_angle=self.roll_rate=0.
+        self.roll_angle=self.roll_rate=self.elevation=0.
         self.look=(0.,0.)
         self.look_yaw=self.look_pitch=0.
         self.roll_gain=1.
@@ -527,6 +528,33 @@ class SoundVehicle(HangGlider):
     def toggle_motor(self):
         self.target_index=(self.target_index+1)%len(self.stops)
 
+    def turn_aircraft(self,dt):
+        """Rotate the nose and canopy together about the aircraft's local axes."""
+        from geometry import Vec,add,mul,dot
+        pitch_rate=-self.pitch*math.radians(self.aircraft.pitch_rate)
+        yaw_rate=.14*self.rudder
+        rate=math.hypot(pitch_rate,yaw_rate)
+        if not rate:return
+        # Work in the current heading frame: +x right, +y up, +z ahead.
+        se,ce=math.sin(self.elevation),math.cos(self.elevation)
+        sb,cb=math.sin(self.roll_angle),math.cos(self.roll_angle)
+        nose=Vec(0.,se,ce)
+        canopy=Vec(sb,cb*ce,-cb*se)
+        right=Vec(cb,-sb*ce,sb*se)
+        tangent=add(mul(canopy,pitch_rate/rate),mul(right,yaw_rate/rate))
+        sn,cs=math.sin(rate*dt),math.cos(rate*dt)
+        forward=add(mul(nose,cs),mul(tangent,sn))
+        # Only the component of the canopy in the turn plane rotates.
+        canopy=add(canopy,mul(add(mul(tangent,cs-1),mul(nose,-sn)),pitch_rate/rate))
+        horizontal=math.hypot(forward.x,forward.z)
+        yaw=math.atan2(forward.x,forward.z) if horizontal>1e-10 else 0.
+        self.heading+=yaw
+        self.elevation=math.atan2(forward.y,horizontal)
+        sy,cy=math.sin(yaw),math.cos(yaw)
+        level_right=Vec(cy,0.,-sy)
+        level_up=Vec(-sy*forward.y,horizontal,-cy*forward.y)
+        self.roll_angle=math.atan2(dot(canopy,level_right),dot(canopy,level_up))
+
     def advance(self,dt,height,limits):
         blend=-math.expm1(-8*dt)
         self.look_yaw+=(1.40*self.look[0]-self.look_yaw)*blend
@@ -560,36 +588,36 @@ class SoundVehicle(HangGlider):
         else:
             self.roll_rate+=(roll*self.roll_gain*math.radians(self.aircraft.roll_rate)-self.roll_rate)*smooth
             self.roll_angle=math.remainder(self.roll_angle+self.roll_rate*dt,math.tau)
-            self.bank=self.roll_angle/math.radians(55)
         self.pitch+=(max(-1.,min(1.,pitch))-self.pitch)*smooth
         cruise=(22. if self.fast else 10.) if self.boat else self.aircraft.approach+(self.aircraft.maximum-self.aircraft.approach)*self.throttle
         if self.descending and self.aircraft:self.gear_down=True
         if self.descending:cruise=0. if self.boat else self.aircraft.approach
         if not self.boat and not self.descending:
-            cruise=max(12.,cruise-8.*(1.-self.throttle)+17.*self.pitch-3.*self.flaps)
+            cruise=max(12.,cruise-8.*(1.-self.throttle)-40.*math.sin(self.elevation)-3.*self.flaps)
         if self.aircraft is RESEARCH_JET and self.gear_down and not self.descending:cruise*=.88
         self.speed+=(cruise-self.speed)*(-math.expm1(-dt/(self.aircraft.spool_time if self.aircraft else 1.)))
         if self.boat:self.heading+=self.bank*dt*.64
         else:
-            # Bounded lateral lift through knife-edge and inverted attitudes.
-            self.heading+=dt*(9.81*math.sin(self.roll_angle)*(1.-self.pitch)/max(20.,self.speed)+.14*self.rudder)
+            self.turn_aircraft(dt)
+            self.bank=self.roll_angle/math.radians(55)
+            self.heading+=dt*9.81*math.sin(self.roll_angle)*math.cos(self.elevation)/max(20.,self.speed)
             stall_speed=self.aircraft.stall-2.*self.flaps+6.*max(0.,-self.pitch)
             self.stalled=self.roll_state is None and self.speed<stall_speed+(3. if self.stalled else 0.)
         west,east,south,north=limits
-        x=max(west,min(east,self.x+self.speed*dt*math.sin(self.heading)))
-        z=max(south,min(north,self.z+self.speed*dt*math.cos(self.heading)))
+        ground_speed=self.speed*math.cos(self.elevation)
+        x=max(west,min(east,self.x+ground_speed*dt*math.sin(self.heading)))
+        z=max(south,min(north,self.z+ground_speed*dt*math.cos(self.heading)))
         ground=height(x,z)
         if self.boat and ground>.01:self.speed=0.
         else:self.x,self.z=x,z
         if not self.boat:
             lift=math.cos(self.roll_angle)
-            next_alt=self.altitude-dt*(self.speed*math.sin(.40*self.pitch)*lift+
-                                       9.*(1.-lift)+12*self.descending)
+            next_alt=self.altitude+dt*(self.speed*math.sin(self.elevation)-9.*(1.-lift)-12*self.descending)
             if self.stalled:next_alt=min(next_alt,self.altitude-8.*dt)
             if self.roll_state=='climbout':
                 next_alt=self.altitude+dt*9.
                 if next_alt-ground>=30 or self.descending:self.roll_state=None
-            manual_approach=self.roll_state is None and self.speed<self.aircraft.approach+7. and abs(self.bank)<.18 and 0<=self.pitch<=.30
+            manual_approach=self.roll_state is None and self.speed<self.aircraft.approach+7. and abs(self.bank)<.18 and -.15<=self.elevation<=.01
             strip=self.runway_at(x,z) if self.descending or manual_approach else None
             on_approach=False
             if strip and self.gear_down and self.speed<self.aircraft.approach+7.:
@@ -600,9 +628,11 @@ class SoundVehicle(HangGlider):
                 if on_approach and next_alt<=ground+.3:
                     self.heading=yaw if aligned>0 else yaw+math.pi
                     self.descending=False;self.roll_state='rollout'
+                    self.elevation=self.roll_angle=self.roll_rate=self.bank=0.
             self.altitude=max(ground+(.3 if self.roll_state or on_approach else 6.),next_alt)
         self.clearance=max(0.,self.altitude-ground)
-        return self.x,self.z,self.heading+self.look_yaw,.06+(.08 if self.boat else .40)*self.pitch+self.look_pitch
+        camera_pitch=.06+.08*self.pitch if self.boat else -self.elevation
+        return self.x,self.z,self.heading+self.look_yaw,camera_pitch+self.look_pitch
 
     def wheel_items(self):
         items=super().wheel_items()

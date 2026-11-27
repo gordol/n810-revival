@@ -407,7 +407,8 @@ static void trainer_panel(struct gpu_scene *s,const float *flight,int w,int h){
  }
  glColor3f(.93f,.90f,.80f);glBegin(GL_LINES);
  for(int j=-2;j<=2;j++){
-  float y=pitch+j*9.f,span=j==0?sqrtf(54*54-y*y):j%2?9.f:15.f;
+  float y=pitch+j*9.f;if(fabsf(y)>=54.f)continue;
+  float span=j==0?sqrtf(54*54-y*y):j%2?9.f:15.f;
   glVertex2f(-span,y);glVertex2f(span,y);
  }
  glEnd();glPopMatrix();
