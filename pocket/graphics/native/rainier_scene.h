@@ -355,17 +355,12 @@ static void flight_equipment(const float *flight,int w,int h){
  }
  if(flight[0]>=2.f){
   if(flight[0]==2.f){
-   /* Cowling and the two narrow windscreen pillars of a light aircraft. */
+   /* Only the nose cowling enters the forward view. */
    glBegin(GL_TRIANGLE_FAN);glColor3f(.18f,.23f,.25f);glVertex3f(0,-2.2f,-2.3f);
    for(int i=0;i<=32;i++){
     float a=i*.098175f;glColor3f(.29f+.19f*sinf(a),.36f+.16f*sinf(a),.38f+.15f*sinf(a));
     glVertex3f(1.55f*cosf(a),-1.9f+.64f*sinf(a),-2.3f);
    }glEnd();
-   for(int side=-1;side<=1;side+=2){
-    glColor3f(.24f,.27f,.26f);glBegin(GL_QUADS);
-    glVertex3f(side*1.55f,-1.7f,-2);glVertex3f(side*1.64f,-1.7f,-2);
-    glVertex3f(side*1.24f,2,-2);glVertex3f(side*1.15f,2,-2);glEnd();
-   }
   }else if(flight[0]==3.f){
    glBegin(GL_TRIANGLES);glColor3f(.67f,.74f,.72f);glVertex3f(-1.7f,-1.8f,-1.5f);
    glVertex3f(0,-.9f,-3.3f);glColor3f(.38f,.49f,.50f);glVertex3f(1.7f,-1.8f,-1.5f);glEnd();
