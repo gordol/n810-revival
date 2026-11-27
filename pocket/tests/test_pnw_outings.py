@@ -179,10 +179,44 @@ class OutingTests(unittest.TestCase):
             delivery.advance(i*.1,(0,0),[],lambda x,z:5)
         self.assertGreater(delivery.distance,0)
 
+    def test_bakery_displays_and_approach_are_on_the_street(self):
+        import json
+        from market_visit import storefront_point
+        records=json.loads((pocket/'graphics/assets/seattle/buildings.json').read_text())
+        for way in ('367894552','367894553'):
+            outline=records[way][2]
+            points=[pnw.location('sound',lat/1e7,lon/1e7) for lon,lat in outline]
+            for across in (4,-6.6):
+                for depth in (-1.95,-5.):
+                    x,z=storefront_point(across,depth)
+                    crossings=sum((az>z)!=(bz>z) and x<ax+(bx-ax)*(z-az)/(bz-az)
+                                  for (ax,az),(bx,bz) in zip(points,points[1:]+points[:1]))
+                    self.assertEqual(crossings%2,0,way)
+
+    def test_shoppers_face_their_travel_direction_and_stay_grounded(self):
+        from market_life import street_walkers
+        from market_visit import site
+        ground=lambda x,z:.06*x-.04*z
+        for district in ('gum','bakery','overlook'):
+            at=site(district)
+            for age in range(32):
+                before=street_walkers(age,ground,*at)
+                after=street_walkers(age+.01,ground,*at)
+                self.assertTrue(before)
+                for a,b in zip(before,after):
+                    self.assertAlmostEqual(a[2],ground(a[1],a[3]))
+                    if a[0]==7:continue
+                    self.assertEqual(a[6],b[6])
+                    dx,dz=b[1]-a[1],b[3]-a[3]
+                    heading=math.radians(a[4])
+                    self.assertGreater(dx*math.sin(heading)+dz*math.cos(heading),.008)
+        self.assertFalse(street_walkers(0,ground,0,0))
+
     def test_needle_profile_uses_published_heights(self):
         from seattle_places import DECK_HEIGHT,TIP_HEIGHT,space_needle
         levels=set()
         space_needle(lambda x,z:20,lambda pts,color:levels.update(p[1]-20 for p in pts))
+        self.assertTrue(any(abs(y-DECK_HEIGHT-1.04)<1e-5 for y in levels))
         self.assertAlmostEqual(max(levels),TIP_HEIGHT)
         self.assertTrue(any(abs(y-DECK_HEIGHT)<1e-5 for y in levels))
 

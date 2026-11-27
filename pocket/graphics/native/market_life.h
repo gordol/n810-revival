@@ -99,13 +99,7 @@ static void hound_coat(void){
  }
 }
 
-static void plaza_dog(float phase,float owner_height){
- glColor3f(.23f,.18f,.15f);glBegin(GL_LINE_STRIP);
- for(int j=0;j<=10;j++){
-  float t=j*.1f;
-  glVertex3f(-.58f*t,.46f+(.42f+owner_height)*t-.15f*sinf(t*3.14159f),.17f-.47f*t);
- }
- glEnd();
+static void plaza_dog(float phase){
  hound_coat();
  market_body(0,.556f,.402f,.043f,.027f,.024f,.105f,.085f,.075f);
  for(int side=-1;side<=1;side+=2){
@@ -151,6 +145,7 @@ static void cropped_curls(float grey){
 
 static void market_people(struct gpu_scene *s,const float *actors,unsigned count){
  static const float coats[][3]={{.87f,.47f,.12f},{.13f,.44f,.49f},{.49f,.25f,.39f},{.32f,.34f,.49f},{.43f,.42f,.25f}};
+ float leash_hand[3]={0.f,0.f,0.f};
  for(unsigned i=0;i<count;i++){
   const float *p=actors+9*i;
   int kind=(int)p[0];
@@ -178,6 +173,11 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
    float anchors[2][3]={{0}};
    market_person_draw(&s->people[kind==0 && (seed&1)],kind,pose,kind==1?coats[3+seed]:coat,
                       kind==1?0.f:((int)((seed>>2)&15u)-7)*.009f,kind==0?seed:0,anchors);
+   if(i+1<count && (int)actors[9*(i+1)]==7){
+    float yaw=p[4]*.017453293f,gx=width*anchors[0][0],gz=size*anchors[0][2];
+    float dx=gx*cosf(yaw)+gz*sinf(yaw),dz=gz*cosf(yaw)-gx*sinf(yaw);
+    leash_hand[0]=p[1]+dx;leash_hand[1]=p[2]+size*anchors[0][1]+p[7]*dx+p[8]*dz;leash_hand[2]=p[3]+dz;
+   }
    if(kind==1)fishmonger_apron();
    if(kind==0 && (identity&32768u)){
     glPushMatrix();glTranslatef(anchors[0][0]+.19f,anchors[0][1]-1.06f,anchors[0][2]-.15f);
@@ -193,7 +193,17 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
     glPopMatrix();
    }
   }else if(kind==7){
-   plaza_dog(pose,p[6]);
+   if(i && (int)actors[9*(i-1)]==0){
+    float yaw=p[4]*.017453293f,dx=leash_hand[0]-p[1],dz=leash_hand[2]-p[3];
+    float ex=dx*cosf(yaw)-dz*sinf(yaw),ez=dx*sinf(yaw)+dz*cosf(yaw);
+    glColor3f(.25f,.17f,.12f);glBegin(GL_LINE_STRIP);
+    for(int j=0;j<=12;j++){
+     float t=j/12.f;
+     glVertex3f(t*ex,.49f+t*(leash_hand[1]-p[2]-.49f)-.13f*sinf(3.14159f*t),.16f+t*(ez-.16f));
+    }
+    glEnd();
+   }
+   plaza_dog(pose);
   }else if(kind==6){
    market_body(0,0,0,.12f,.12f,.44f,.86f,.83f,.72f);
   }else if(kind==5){

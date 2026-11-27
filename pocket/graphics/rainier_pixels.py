@@ -796,7 +796,7 @@ class RainierView:
             field=self.world[0]
             elevation=round(self.walk_height(*self.camera[:2])) if self.camera else 0
             labels=(labels[0],f'{elevation} m','Explore','Mute' if self.sound else 'Sound','Map')
-            if self.outing in ('ferry','wheel'):labels=('Exit','Restart','Explore',labels[3],'')
+            if self.outing in ('ferry','wheel'):labels=('Exit','Restart','Explore',labels[3],'Map')
             if self.glider:labels=('Stop' if self.outing else 'Land','Restart','Explore',labels[3],'Map')
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
@@ -920,15 +920,6 @@ class RainierView:
                 self.destination=None
                 self.cruise=False
                 self.trip_pose=(nx+12,nz-16,2.50,.13) if self.needle_deck else (nx,nz-215,0.,-.38)
-            elif action=='shops':
-                from seattle_places import MarketDirectory
-                self.notebook=MarketDirectory(self)
-                self.destination=None
-                self.cruise=False
-            elif action=='order':
-                self.fish_counter.order(self.age)
-                self.photo_hint='Order placed'
-                self.hint_until=self.age+1.
             elif action=='pedal':self.bike.pedaling=not self.bike.pedaling
             elif action=='dismount':self.bike=None
             elif self.ski:
@@ -999,23 +990,49 @@ class RainierView:
             if not self.shutter:
                 self.photo_hint='Look closer';self.hint_until=self.age+1.2
         else:
-            if self.outing in ('bakery','market','fishshop','gum','overlook'):
-                bx,bz=market_visit.site('bakery')
-                for number,item in enumerate(('piroshky','coffee')):
-                    px,pz=bx-8*number,bz+7*number-1.1
-                    projected=project_subject(camera,aspect,1.,(item,px,ground(px,pz)+1.,pz,1.))
-                    if projected and projected[2]<7. and abs(u-projected[0])*aspect<2.1/projected[2] and abs(v-projected[1])<.7/projected[2]:
-                        self.market_snack=item
-                        self.photo_hint='Fresh coffee' if number else 'Warm piroshky'
-                        self.hint_until=self.age+2
-                        self.destination=None;self.cruise=False
-                        self.pixel_dirty=True
-                        return True
-            if getattr(self,'market_snack',None) and u>.61 and v>.66:
-                self.photo_hint='Took a sip' if self.market_snack=='coffee' else 'Ate the piroshky'
+            held=getattr(self,'market_snack',None)
+            if held and u>.61 and v>.66:
+                self.photo_hint={'coffee':'Took a sip','piroshky':'Ate the piroshky',
+                                 'flowers':'Put away the bouquet','honey':'Put away the honey'}[held]
                 self.market_snack=None
                 self.hint_until=self.age+2;self.pixel_dirty=True
                 return True
+            if self.outing in market_visit.STREETS:
+                from seattle_places import MarketDirectory,arcade_origin
+                from pike_market import offset
+                center=arcade_origin()
+                # Dimensions in metres keep touch areas attached to the fixtures.
+                fixtures=(('directory',*offset(center,-3,-1.95),1.50,.82,.61),
+                          ('fish',*offset(center,2.78,4.42),1.,1.9,.75),
+                          ('flowers',*offset(center,-4,4.85),1.35,1.55,.60),
+                          ('honey',*offset(center,8,4.85),1.15,1.55,.54),
+                          ('piroshky',*market_visit.storefront_point(4,-1.95),1.,2.1,.70),
+                          ('coffee',*market_visit.storefront_point(-6.6,-1.95),1.,2.1,.70))
+                hits=[]
+                for item,px,pz,dy,half_w,half_h in fixtures:
+                    if math.hypot(px-camera[0],pz-camera[2])>7.:continue
+                    base=ground(px,pz) if item in ('coffee','piroshky') else surface(field,*center)-origin.y
+                    projected=project_subject(camera,aspect,1.,(item,px,base+dy,pz,1.))
+                    if projected:
+                        sx,sy,depth=projected
+                        if abs(u-sx)*aspect*depth<half_w and abs(v-sy)*depth<half_h:
+                            hits.append((depth,item))
+                if hits:
+                    _,item=min(hits)
+                    if item=='directory':
+                        self.notebook=MarketDirectory(self)
+                    elif item=='fish':
+                        if self.age>=self.fish_counter.player_ready:
+                            self.fish_counter.order(self.age)
+                            self.photo_hint='Fish on its way!'
+                    else:
+                        self.market_snack=item
+                        self.photo_hint={'coffee':'Fresh coffee','piroshky':'Warm piroshky',
+                                         'flowers':'Fresh bouquet','honey':'Jar of honey'}[item]
+                    self.hint_until=self.age+2
+                    self.destination=None;self.cruise=False
+                    self.pixel_dirty=True
+                    return True
             # The compass still provides the child's one-tap berry route.
             radius=min(1.,aspect)*.044
             if not self.regional and math.hypot((1-u)*aspect-1.7*radius,1-v-1.8*radius)<1.65*radius:
@@ -1239,14 +1256,6 @@ class RainierView:
         if self.climb:return self.climb.controls(width,height)
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
         if self.outing=='needle':buttons.append(('needle_lift','Ground' if self.needle_deck else 'Visit deck',(1,height-6,13,4)))
-        if self.outing in ('market','fishshop') and self.camera and not (self.lens or self.binoculars):
-            from seattle_places import places
-            buttons.append(('shops','Shops',(width-11,height-5,10,4)))
-            fx,fz=places()['Pike Place Fish Market']
-            from pike_market import C,S
-            along_counter=(self.camera[0]-fx)*C-(self.camera[1]-fz)*S
-            if abs(along_counter)<3.2 and math.dist(self.camera[:2],(fx,fz))<13 and self.age>=self.fish_counter.player_ready:
-                buttons.append(('order','Order a fish',(1,height-5,15,4)))
         if not self.regional and self.camera and not (self.lens or self.binoculars):
             position=self.camera[:2]
             if math.dist(position,TROUT_POOL)<=12:
@@ -1367,7 +1376,7 @@ class RainierView:
                     owner.x=owner.z=owner.yaw=0.
                     owner.pitch=-.08
                     self.ride_time=0.
-                    if self.outing in ('market','fishshop'):
+                    if self.outing in market_visit.STREETS:
                         from market_life import Delivery,FishCounter
                         self.shop_target=None
                         self.delivery=Delivery()
@@ -1510,16 +1519,16 @@ class RainierView:
                     landing=(*offset(arcade_origin(),-8,1.8),HEADING+math.pi,0.)
                 self.cruise=False;self.destination=None
                 self.start_outing(target,landing)
-        elif self.outing in ('market','fishshop') and not self.travel_job:
+        elif self.outing in market_visit.STREETS and not self.travel_job:
             from pike_market import offset
             from seattle_places import arcade_origin
             stair=offset(arcade_origin(),-8,5.5)
             if math.hypot(owner.x-stair[0],owner.z-stair[1])<1.05:
                 self.cruise=False;self.destination=None
                 self.start_outing('down5',(-1.,-11.,0.,0.))
-        if self.outing=='gum':
+        if self.outing in market_visit.STREETS:
             cx,cz=market_visit.site('gum')
-            if cz-16<=owner.z<=cz+15:owner.x=max(cx-2.1,min(cx+2.1,owner.x))
+            if abs(owner.x-cx)<2.55 and cz-16<=owner.z<=cz+15:owner.x=max(cx-2.1,min(cx+2.1,owner.x))
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)
         age=owner.clock()-owner.started-owner.paused_total
         if self.fishing.state!='idle':
@@ -1531,14 +1540,16 @@ class RainierView:
 
     def walk_height(self,x,z):
         if self.outing in market_visit.FLOORS:return market_visit.stairs(self.outing,x,z)
-        if self.outing=='overlook':return market_visit.deck_height(lambda px,pz:surface(self.world[0],px,pz),x,z)
         if self.outing=='needle' and self.needle_deck:
             from seattle_places import DECK_HEIGHT,places
             return surface(self.world[0],*places()['Space Needle'])+DECK_HEIGHT
-        if self.outing in ('market','fishshop'):
+        if self.outing in market_visit.STREETS:
             from pike_market import floor_height
             from seattle_places import arcade_origin
-            return floor_height(arcade_origin(),lambda px,pz:surface(self.world[0],px,pz),x,z)
+            terrain=lambda px,pz:surface(self.world[0],px,pz)
+            cx,cz=market_visit.site('overlook')
+            if abs(x-cx)<=6 and -38<=z-cz<=20:return market_visit.deck_height(terrain,x,z)
+            return floor_height(arcade_origin(),terrain,x,z)
         terrain=surface(self.world[0],x,z)
         return terrain if self.regional else valley_floor()[1].height(x,z,terrain)
 
@@ -1701,34 +1712,29 @@ class RainierView:
             else:omit_first,omit_end=base_count,terrain_count
         equipment=(C.c_float*3)(3 if self.outing=="boat" else 2 if self.outing in ("thun","plane") else self.glider.powered,self.glider.bank,self.glider.pitch) if self.glider else None
         if self.outing and getattr(self,'market_snack',None) and not equipment and not (self.lens or self.binoculars):
-            equipment=(C.c_float*3)(5 if self.market_snack=='coffee' else 6,0.,0.)
+            equipment=(C.c_float*3)({'coffee':5,'piroshky':6,'flowers':7,'honey':8}[self.market_snack],0.,0.)
         if self.outing=='ferry':equipment=(C.c_float*3)(4,0.,0.)
         market=None
         actor_count=0
         poses=[]
         ground=self.walk_height
-        if self.outing in ('market','fishshop'):
+        if self.outing in market_visit.STREETS and not self.needle_deck:
+            from market_life import plaza_walkers,street_walkers
             from seattle_places import places
             if math.dist((x,z),places()['Pike Place Fish Market'])<120:
                 from market_life import actors
                 poses=actors(self.age,self.walk_height,self.fish_counter.advance(self.age))
                 van=self.delivery.advance(self.age,(x,z),poses,self.walk_height)
                 if van:poses.append(van)
-        elif self.outing in market_visit.FLOORS:
-            from market_life import shopper
-            for i in range(4):
-                angle=self.age*(.18+i*.012)+i*1.5
-                px=(i-1.5)*1.5+.46*math.sin(angle)
-                pz=1.5+4.5*math.cos(angle)
-                heading=math.degrees(math.atan2(.46*math.cos(angle),-4.5*math.sin(angle)))
-                poses.append((0,px,0.,pz,heading,(self.age*9+i*2)%12,shopper(self.outing,i)))
-        elif self.outing=='needle':
-            from market_life import plaza_walkers
-            from seattle_places import places
+            poses.extend(street_walkers(self.age,ground,x,z))
             nx,nz=places()['Space Needle']
             if math.hypot(x-nx,z-(nz-183))<140:
-                ground=lambda px,pz:surface(field,px,pz)
-                poses=plaza_walkers(self.age,ground)
+                poses.extend(plaza_walkers(self.age,ground))
+        elif self.outing in market_visit.FLOORS:
+            from market_life import stroll
+            for i,lane in enumerate((-4.4,-1.55,1.55,4.4)):
+                dx,dz,heading,gait,identity=stroll(self.outing,i,self.age,8.)
+                poses.append((0,lane+dx,0.,dz,math.degrees(heading),gait,identity))
         if poses:
             actor_count=len(poses)
             packed=[]
@@ -1803,6 +1809,9 @@ class RainierView:
                 label=next(k for k,v in market_visit.DESTINATIONS.items() if v==self.outing)
                 if self.outing in market_visit.FLOORS and z>3:
                     label=market_visit.FLOORS[self.outing][int(x>0)]
+                if self.outing in market_visit.STREETS and self.shop_target:
+                    from seattle_places import bearing_label
+                    label=bearing_label(self.shop_target,x,z)
                 ink.label(1,h-5,label,0xFFF6DD)
             if self.outing in ('ferry','wheel','market','fishshop','needle','hoh'):
                 place={'ferry':'Seattle – Bainbridge ferry','wheel':'Pier 57 · Great Wheel','market':'Pike Place Market','fishshop':'Pike Place Fish Market','needle':'Space Needle','hoh':'Hoh Rain Forest'}

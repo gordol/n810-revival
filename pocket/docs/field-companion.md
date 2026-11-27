@@ -659,10 +659,9 @@ The approach width uses approximate cross-sections from the
 [City of Seattle 2023 building outlines](https://catalog.data.gov/dataset/building-outlines-2023).
 Building heights, windows, stalls and interior fittings are illustrative.
 
-Choose **Explore → Seattle → Fish counter**. Tap **Order a fish** to see a
+Choose **Explore → Seattle → Fish counter**. Walk up and tap the fish on the ice to see a
 simulated order pass from the front display to the wrapping counter. Some
-visitors browse and others buy. Nearby **Shops** lists six mapped businesses
-and lets you follow a compass bearing. Vendor locations come from
+visitors browse and others buy. Tap flowers or honey at their displays to carry them. Tap the freestanding **Directory** sign by the arcade entrance to choose a shop bearing. Vendor locations come from
 [OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
 The order sequence follows the [Market's description](https://www.pikeplacemarket.org/ufaq/wondering-when-they-throw-the-fish/).
 The shoppers, wildlife and occasional authorized delivery are simulated.

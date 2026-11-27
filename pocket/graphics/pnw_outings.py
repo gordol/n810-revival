@@ -201,8 +201,11 @@ def build_world(outing):
         from rainier_pixels import surface
         def quad(points,color,material=0.):
             for i in (0,1,2,0,2,3):mesh.extend((*points[i],*color,material))
-        def box(x,z,y,width,depth,height,color,material=0.):
+        def box(x,z,y,width,depth,height,color,material=0.,rotation=None):
             base=[(x+sx*width/2,y,z+sz*depth/2) for sx,sz in ((-1,-1),(1,-1),(1,1),(-1,1))]
+            if rotation:
+                c,s=rotation
+                base=[(x+c*(px-x)-s*(pz-z),y,z+s*(px-x)+c*(pz-z)) for px,_,pz in base]
             top=[(px,y+height,pz) for px,_,pz in base]
             quad(top,color)
             for i in range(4):

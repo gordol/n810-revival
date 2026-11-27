@@ -136,6 +136,13 @@ def build(center,height,quad):
                 r=rng.uniform(.065,.12)
                 y=1.13+r*.4
                 panel(((cx-r,y,cz),(cx,y+r,cz-.04),(cx+r,y,cz),(cx,y-r,cz+.04)),tone)
+    # Freestanding directory faces the arriving visitor beside the entrance.
+    block(-3.03,-2.97,0,1.08,-1.90,-1.80,trim)
+    block(-3.73,-2.27,1.,1.96,-1.94,-1.83,(.22,.30,.27))
+    lettering('Directory',-3.60,1.66,-1.95,.21,(.99,.91,.70))
+    for j in range(3):
+        wall(-3.58,-2.92+.16*(j%2),1.48-.14*j,1.51-.14*j,-1.95,(.80,.75,.57))
+        wall(-2.78,-2.44,1.48-.14*j,1.51-.14*j,-1.95,(.67,.76,.70))
     # Pendant globes and the surviving Loback sign seen down the Main Arcade.
     for u in range(-24,54,4):
         block(u-.018,u+.018,2.96,3.55,2.67,2.71,iron)

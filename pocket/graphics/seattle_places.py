@@ -47,6 +47,15 @@ def space_needle(height,quad):
              (162.7,13),(164.2,6),(166.7,3),(TIP_HEIGHT,.12))
     loft([ring(x,z,h,r,64) for h,r in profile],[steel,ivory,ivory,glass,ivory,ivory,ivory,steel,ivory])
 
+    loft([ring(x,z,DECK_HEIGHT-.3,21.3,64),ring(x,z,DECK_HEIGHT,21.3,64),
+          ring(x,z,DECK_HEIGHT,17.9,64)],[steel,ivory])
+    loft([ring(x,z,DECK_HEIGHT+1.00,21.3,64),ring(x,z,DECK_HEIGHT+1.04,21.3,64)],[steel])
+    for i in range(64):
+        a=i*math.tau/64
+        px,pz=x+21.3*math.cos(a),z+21.3*math.sin(a)
+        loft([ring(px,pz,DECK_HEIGHT,.045,4),ring(px,pz,DECK_HEIGHT+1,.045,4)],[steel])
+
+
 @lru_cache(maxsize=1)
 def delivery_route():
     from pnw_outings import location
@@ -56,13 +65,6 @@ def delivery_route():
             pos=location('sound',float(row['latitude']),float(row['longitude']))
             if not points or points[-1]!=pos:points.append(pos)
     return tuple(points)
-    loft([ring(x,z,DECK_HEIGHT-.3,21.3,64),ring(x,z,DECK_HEIGHT,21.3,64),
-          ring(x,z,DECK_HEIGHT,17.9,64)],[steel,ivory])
-    loft([ring(x,z,DECK_HEIGHT+1.00,21.3,64),ring(x,z,DECK_HEIGHT+1.04,21.3,64)],[steel])
-    for i in range(64):
-        a=i*math.tau/64
-        px,pz=x+21.3*math.cos(a),z+21.3*math.sin(a)
-        loft([ring(px,pz,DECK_HEIGHT,.045,4),ring(px,pz,DECK_HEIGHT+1,.045,4)],[steel])
 
 
 def buildings(height,quad):

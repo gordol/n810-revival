@@ -15,6 +15,13 @@ BOUQUET=1<<15
 def shopper(site,number,seed=CITY_SEED):
     return zlib.crc32(f'{seed}/{site}/{number}'.encode())&0x7fff
 
+def leashed_dog(owner,heading,phase,ground):
+    x,z=owner[1],owner[3]
+    dx=x+.76*math.cos(heading)+.30*math.sin(heading)
+    dz=z-.76*math.sin(heading)+.30*math.cos(heading)
+    dog_ground=ground(dx,dz)
+    return (7,dx,dog_ground,dz,owner[4],phase,owner[2]-dog_ground)
+
 def plaza_walkers(age,ground):
     """A short outdoor promenade on the south approach to the Space Needle."""
     from seattle_places import places
@@ -27,12 +34,45 @@ def plaza_walkers(age,ground):
         z=cz-183+(9+i)*math.cos(angle)
         heading=math.atan2((16+i)*math.cos(angle),-(9+i)*math.sin(angle))
         rows.append((0,x,ground(x,z),z,math.degrees(heading),(age*(10+i)+i)%12,identity))
-        if i==0:
-            # Follow beside the walker on the plaza's outdoor path.
-            dx=x+.76*math.cos(heading)+.30*math.sin(heading)
-            dz=z-.76*math.sin(heading)+.30*math.cos(heading)
-            dog_ground=ground(dx,dz)
-            rows.append((7,dx,dog_ground,dz,math.degrees(heading),age*6,rows[-1][2]-dog_ground))
+        if i==0:rows.append(leashed_dog(rows[-1],heading,age*6,ground))
+    return rows
+
+def stroll(site_name,i,age,length):
+    """Walk a rounded lane at constant speed with stride timed to distance."""
+    identity=shopper(site_name,i)
+    radius=.42+.08*(i%3)
+    bend=math.pi*radius
+    speed=.86+.08*(identity%6)
+    t=(age*speed+identity*.31)%(2*(length+bend))
+    turnback=t>=length+bend
+    if turnback:t-=length+bend
+    if t<length:
+        dx,dz,heading=radius,t-length/2,0.
+    else:
+        angle=(t-length)/radius
+        dx,dz,heading=radius*math.cos(angle),length/2+radius*math.sin(angle),-angle
+    if turnback:dx,dz,heading=-dx,-dz,heading+math.pi
+    stature=.93+.020*((identity>>7)&7)
+    return dx,dz,heading,(age*speed*12/(1.10*stature)+i*3)%12,identity
+
+def street_walkers(age,ground,x,z):
+    """Local foot traffic on the boardwalk, in the alley and outside the bakery."""
+    from market_visit import site,storefront_point,storefront_frame
+    rows=[]
+    for key,length,width,count in (('overlook',15,2.8,5),('gum',10,1.2,3),('bakery',6,1.5,3)):
+        cx,cz=site(key)
+        if math.hypot(cx-x,cz-z)>80:continue
+        for i in range(count):
+            dx,dz,heading,gait,identity=stroll(key,i,age,length)
+            lane=width*(2*i/(count-1)-1)
+            px,pz=cx+lane+dx,cz+dz
+            if key=='bakery':
+                px,pz=storefront_point(-1+dz,-4.6+lane+dx)
+                _,_,c,s=storefront_frame()
+                heading=math.atan2(c,s)-heading
+            rows.append((0,px,ground(px,pz),pz,math.degrees(heading),gait,identity))
+            if key=='overlook' and i==1:
+                rows.append(leashed_dog(rows[-1],heading,age*6,ground))
     return rows
 
 class FishCounter:

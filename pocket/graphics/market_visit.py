@@ -12,9 +12,25 @@ DESTINATIONS={'DownUnder level 5':'down5','DownUnder level 4':'down4','DownUnder
 SITES={'gum':(47.60836,-122.34027),'overlook':(47.60991,-122.34355),
        'stadiums':(47.5952,-122.3321),'ballpark':(47.5914,-122.3325),'bakery':(47.60993,-122.34246)}
 
+STREETS=frozenset(SITES) | {'market','fishshop','needle'}
+
+@lru_cache(maxsize=None)
 def site(key):
     from pnw_outings import location
     return location('sound',*SITES[key])
+
+@lru_cache(maxsize=1)
+def storefront_frame():
+    # Adjacent frontage vertices from the bundled OSM way 367894552.
+    from pnw_outings import location
+    x,z=location('sound',47.6099559,-122.3425691)
+    ex,ez=location('sound',47.6097481,-122.3422163)
+    length=math.hypot(ex-x,ez-z)
+    return x,z,(ex-x)/length,(ez-z)/length
+
+def storefront_point(across,depth):
+    x,z,c,s=storefront_frame()
+    return x+c*across-s*depth,z+s*across+c*depth
 
 def deck_height(ground,x,z):
     cx,cz=site('overlook')
@@ -26,7 +42,9 @@ def deck_height(ground,x,z):
 def arrival(key):
     if key in FLOORS:return -3.75,-7.,.04,0.
     x,z=site(key)
-    if key=='bakery':return x-3,z-5,.48,.02
+    if key=='bakery':
+        _,_,c,s=storefront_frame()
+        return *storefront_point(1,-8),math.atan2(-s,c)+.22,.02
     if key=='gum':return x,z-12,0.,0.
     if key=='overlook':return x-3.1,z+17,math.pi-.14,.09
     if key=='ballpark':return x+245,z-104,-1.17,-.08
@@ -74,8 +92,8 @@ def lettering(text,x,y,z,size,quad,color):
 def stairs(key,x,z):
     if z>=-5:return 0.
     steps=min(18,max(0,int((-5-z)/.40)))
-    if -2<=x<=-.2:return steps*.095
-    if .2<=x<=2 and key!='down3':return -steps*.095
+    if -2<=x<0:return steps*.095
+    if 0<=x<=2 and key!='down3':return -steps*.095
     return 0.
 
 def stair_exit(key,x,z):
@@ -116,6 +134,19 @@ def indoor(key):
         for i in range(4):
             j=(i+1)%4
             quad((pts[i],pts[j],top[j],top[i]),tuple(v*(.82+.04*i) for v in c),.253)
+    def vessel(x,y,z,rings,color):
+        # Revolved profiles share rims; the open lip shows the shaded interior.
+        segments=14
+        for k in range(segments):
+            a,b=math.tau*k/segments,math.tau*(k+1)/segments
+            def rim(t,r,h):return x+r*math.cos(t),y+h,z+r*math.sin(t)
+            for (r,h),(rr,hh) in zip(rings,rings[1:]):
+                shade=.86+.14*math.cos(a)
+                quad((rim(a,r,h),rim(b,r,h),rim(b,rr,hh),rim(a,rr,hh)),
+                     tuple(c*shade for c in color))
+            r,h=rings[-1]
+            quad((rim(a,r,h),rim(b,r,h),rim(b,.78*r,h-.025),rim(a,.78*r,h-.025)),
+                 tuple(v*.62 for v in color))
     rng=random.Random(int(key[-1]))
     wood=(.43,.30,.20);cream=(.83,.76,.61)
     for row in range(52):
@@ -152,6 +183,8 @@ def indoor(key):
                 for z in (7.,10.8):
                     box(x+dx,.72,z,1.28,.09,.86,wood)
                     box(x+dx,0,z,.12,.72,.12,wood)
+                    vessel(x+dx-.24,.81,z+.12,((.07,0),(.095,.12),(.10,.13)),cream)
+                    vessel(x+dx+.23,.81,z-.08,((.09,0),(.16,.025),(.17,.031)),(.74,.77,.68))
                     for dz in (-.65,.65):
                         box(x+dx,.38,z+dz,.52,.08,.48,wood)
                         box(x+dx,0,z+dz,.22,.38,.22,wood)
@@ -161,8 +194,19 @@ def indoor(key):
                 box(x,y,12.25,6.8,.08,.77,wood)
                 for k in range(13):
                     color=rng.choice(((.35,.52,.57),(.76,.38,.28),(.67,.61,.39),(.46,.40,.53)))
-                    box(x-3+k*.49,y+.08,12.14,.36,rng.uniform(.20,.42),.18,color)
-        if key=='down3':
+                    xx=x-3+k*.49
+                    if key=='down3' and side or key=='down5':
+                        neck=rng.uniform(.045,.095);h=rng.uniform(.21,.37)
+                        vessel(xx,y+.08,12.12,((.08,0),(.14,.09),(.12,h*.65),(neck,h*.9),(neck+.012,h)),color)
+                    elif key=='down4' and side:
+                        # Card decks and nested magician's cups.
+                        if k%2:vessel(xx,y+.08,12.12,((.12,0),(.073,.18),(.07,.19)),(.64,.47,.25))
+                        else:
+                            for j in range(3):
+                                box(xx,y+.08+j*.05,12.14,.28,.046,.18,color if j%2 else cream)
+                    else:
+                        box(xx,y+.08,12.14,.36,rng.uniform(.20,.42),.18,color)
+        if key=='down3' and not side:
             # Matted prints and canvases on the gallery wall.
             for k in range(5):
                 zz=-7+k*3.45
@@ -187,11 +231,26 @@ def indoor(key):
     count=len(mesh)//7
     return field,Vec(0,0,0),mesh,count,array('I',[0]),(),count,None
 
-def outdoor(ground,quad,box):
-    cx,cz=site('bakery')
+def storefronts(ground,world_quad,world_box):
+    _,_,c,s=storefront_frame()
+    def quad(points,color):
+        vertices=[]
+        for across,y,depth in points:
+            x,z=storefront_point(across,depth)
+            vertices.append((x,y,z))
+        world_quad(vertices,color)
+    def box(across,depth,y,w,d,h,color,material=0.):
+        x,z=storefront_point(across,depth)
+        world_box(x,z,y,w,d,h,color,material,rotation=(c,s))
     for i,(name,color) in enumerate((('Piroshky Piroshky',(.42,.16,.11)),('Starbucks Coffee',(.13,.27,.21)))):
-        x,z=cx-8*i,cz+7*i;y=ground(x,z)
+        x,z=4-10.6*i,-.85;y=ground(*storefront_point(x,z))
         box(x,z+2,y-.5,7.2,4.2,4.4,(.44,.36,.28))
+        for bay in range(3):
+            wx=x-2.28+2.28*bay
+            box(wx,z-.24,y+1.13,2.18,.055,1.16,(.31,.40,.38),.244)
+            box(wx-1.1,z-.28,y+.96,.075,.10,1.40,color)
+            box(wx,z-.29,y+2.10,2.18,.08,.055,(.67,.53,.32))
+            box(wx,z-.33,y+2.28,1.88,.09,.045,(.98,.83,.53),.247)
         box(x,z-.18,y+2.36,7.15,.15,.75,color)
         lettering(name,x-3.27,y+2.52,z-.27,.44,quad,(.98,.90,.70))
         box(x,z-.43,y+.96,6.8,.12,1.32,(.28,.36,.37),.244)
@@ -207,6 +266,9 @@ def outdoor(ground,quad,box):
                 else:
                     quad((edge(a,.16,.94),edge(b,.16,.94),edge(b,.095,1.04),edge(a,.095,1.04)),(.79,.46,.19))
                     quad((edge(a,.095,1.04),edge(b,.095,1.04),(xx,y+1.06,z-1.08),(xx,y+1.06,z-1.08)),(.88,.58,.29))
+
+def outdoor(ground,quad,box):
+    storefronts(ground,quad,box)
     cx,cz=site('gum')
     rng=random.Random(1428)
     for side in (-1,1):
@@ -285,7 +347,7 @@ def outdoor(ground,quad,box):
 class DistrictMap:
     """Pocket map with a street inset and a cutaway of the shopping floors."""
     # Map coordinates are schematic; vertically stacked shops need a cutaway.
-    pins=(('overlook','Overlook Walk',.13,.29),('bakery','Coffee / bakery',.51,.16),
+    pins=(('needle','Space Needle',.25,.015),('overlook','Overlook Walk',.13,.29),('bakery','Coffee / bakery',.51,.16),
           ('market','Main Arcade',.69,.38),('gum','Gum Wall',.75,.57),
           ('wheel','Great Wheel',.18,.69),('stadiums','Lumen Field',.71,.80),
           ('ballpark','T-Mobile Park',.78,.94))

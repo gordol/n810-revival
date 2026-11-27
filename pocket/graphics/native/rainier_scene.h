@@ -148,7 +148,7 @@ static GLuint rainier_program(void){
   "col*=1.-.25*smoothstep(.60,.78,seams);}"
   "if(tint.a>.52 && tint.a<.54){float gravel=noise(pos.xz*3.6);"
   "float grains=noise(pos.xz*16.)-.5;col*=.75+.44*gravel+.20*grains*(1.-smoothstep(6.,22.,distanceToEye));}"
-  "if(tint.a>.25 && tint.a<.45){vec2 flow=vec2(tint.r*12.-6.,tint.g*4096.-waterTime*.95);"
+  "if(regional==0 && tint.a>.25 && tint.a<.45){vec2 flow=vec2(tint.r*12.-6.,tint.g*4096.-waterTime*.95);"
   "float current=noise(flow*vec2(.8,.38));float riffle=sin(flow.y*5.3+4.*current+flow.x*.8);"
   "col=mix(vec3(.105,.285,.275),vec3(.25,.44,.43),current);"
   "float facing=abs(normalize(waterEye-pos).y);float calm=1.-smoothstep(2.,10.,length((pos.xz-vec2(15.,8.))*vec2(1.,.7)));"
@@ -318,7 +318,7 @@ static void flight_equipment(const float *flight,int w,int h){
  glTranslatef(0,.17f*flight[2],0);
  glDisable(GL_DEPTH_TEST);glUseProgram(0);
  if(flight[0]>=5.f){
-  glTranslatef(.87f,1.16f,-1.88f);
+  glTranslatef(.87f,-1.05f,-1.88f);glScalef(1,-1,1);
   if(flight[0]==5.f){
    glRotatef(-18.f,1,0,0);
    glBegin(GL_QUAD_STRIP);
@@ -330,6 +330,23 @@ static void flight_equipment(const float *flight,int w,int h){
    }glEnd();glBegin(GL_TRIANGLE_FAN);glColor3f(.21f,.13f,.08f);glVertex3f(0,-.36f,0);
    for(int i=0;i<=40;i++)glVertex3f(.19f*sinf(i*.15707963f),-.36f,.19f*cosf(i*.15707963f));
    glEnd();
+  }else if(flight[0]==7.f){
+   glScalef(2.f,-2.f,2.f);glTranslatef(.19f,-.91f,-.14f);
+   market_flowers();
+  }else if(flight[0]==8.f){
+   for(int band=0;band<3;band++){
+    float y=band==0?-.22f:band==1?-.15f:.08f;
+    float end=band==0?-.15f:band==1?.08f:.24f,r=band==0?.157f:.15f;
+    glBegin(GL_QUAD_STRIP);
+    for(int i=0;i<=32;i++){
+     float a=i*.19634954f,light=.8f+.18f*cosf(a);
+     glColor3f((band==0?.74f:band==1?.83f:.97f)*light,
+               (band==0?.64f:band==1?.43f:.83f)*light,(band==1?.12f:.44f)*light);
+     glVertex3f(r*cosf(a),y,r*sinf(a));glVertex3f(r*cosf(a),end,r*sinf(a));
+    }
+    glEnd();
+   }
+   market_body(0,-.22f,0,.157f,.022f,.157f,.72f,.62f,.38f);
   }else{
    glRotatef(-24.f,0,0,1);market_body(0,0,0,.30f,.18f,.15f,.85f,.51f,.20f);
    for(int j=-2;j<=2;j++)market_body(j*.08f,-.09f,.10f,.028f,.044f,.031f,.97f,.71f,.36f);
