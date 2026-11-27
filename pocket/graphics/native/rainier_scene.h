@@ -558,7 +558,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  for(unsigned i=0;i<nh;i++){
   const float *p=hikers+i*3,*coat=coats[i];
   glPushMatrix();glTranslatef(p[0],p[1],p[2]);
-  market_person_draw(&s->people[i%2],0,12.f,coat);
+  market_person_draw(&s->people[i%2],0,12.5f+.45f*sinf(age*.57f+i*1.9f),coat);
   glPopMatrix();
  }
  if(market_count)market_people(s,market,market_count);

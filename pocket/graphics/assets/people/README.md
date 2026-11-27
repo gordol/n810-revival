@@ -17,7 +17,7 @@ blender -b --python-exit-code 1 -P pocket/tools/bake_market_person.py -- maya.gl
 ```
 
 The bake removes the handheld accessory, simplifies the mesh, atlases the
-materials, and samples the rig for a looping stride, a standing pose and a
-fish-counter reach. Each pose is based at the lowest point of its shoes.
+materials, and samples the rig for a looping stride, two asymmetrical standing poses, a
+one-handed toss and a two-handed catch. Each pose is based at the lowest point of its shoes.
 The renderer interpolates adjacent poses on the GPU. Scene coordinates use
 metres with +Y up and +Z forward.

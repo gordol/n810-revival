@@ -11,7 +11,7 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
  struct posed_person *model=&s->people[slot];
  memcpy(header,data,sizeof(header));
  unsigned nv=header[1],ni=header[2],frames=header[3],w=header[4],h=header[5];
- if(memcmp(data,"NPC2",4)||!nv||nv>100000||!ni||ni>500000||frames!=17||w!=2048||h!=2048)
+ if(memcmp(data,"NPC3",4)||!nv||nv>100000||!ni||ni>500000||frames!=16||w!=2048||h!=2048)
   return SDL_SetError("Invalid market person");
  size_t geometry=4u*ni+12u*nv*(1u+frames);
  if(sizeof(header)+sizeof(model->sole)+geometry+4u*w*h!=bytes)return SDL_SetError("Invalid market mesh length");
@@ -63,14 +63,27 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
 
 static void market_person_draw(struct posed_person *model,int kind,float pose,const float *coat){
  if(!model->program)return;
- /* Frames 0..11 form one stride. 12 is idle, 13..16 are the counter reach. */
- float phase=kind==1?13.f+3.f*pose:pose;
- unsigned a=(unsigned)phase,b=a<12?(a+1)%12:(a>=13 && a<16?a+1:a);
+ /* Strides wrap. The standing keys share planted feet. A throw or
+    catch starts from its own resting stance; pose 18 settles from a stride. */
+ unsigned a,b;
+ float weight;
+ if(pose<12.f){
+  a=(unsigned)pose;b=(a+1)%12;weight=pose-a;
+ }else if(pose<14.f){
+  a=12;b=13;weight=pose-12.f;
+ }else if(pose<16.f){
+  a=12;b=14;weight=pose-14.f;
+ }else if(pose<18.f){
+  a=13;b=15;weight=pose-16.f;
+ }else{
+  a=0;b=12;weight=pose-18.f;
+ }
+ weight=fmaxf(0.f,fminf(1.f,weight));
  glPushAttrib(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT|GL_CURRENT_BIT);
  glDisable(GL_TEXTURE_2D);glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
  for(int side=0;side<2;side++){
   const float *from=model->sole[a][side],*to=model->sole[b][side];
-  float weight=phase-a,x=from[0]+weight*(to[0]-from[0]),z=from[2]+weight*(to[2]-from[2]);
+  float x=from[0]+weight*(to[0]-from[0]),z=from[2]+weight*(to[2]-from[2]);
   float gap=from[1]+weight*(to[1]-from[1]),opacity=.52f*fmaxf(0.f,1.f-gap/.22f);
   glBegin(GL_TRIANGLE_FAN);glColor4f(.07f,.06f,.05f,opacity);glVertex3f(x,.006f,z);
   glColor4f(.08f,.07f,.06f,0.f);
@@ -93,7 +106,7 @@ static void market_person_draw(struct posed_person *model,int kind,float pose,co
  glClientActiveTexture(GL_TEXTURE2);glEnableClientState(GL_TEXTURE_COORD_ARRAY);glTexCoordPointer(3,GL_SHORT,12,(const void *)(pb+6));
  glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,model->atlas);
  glUseProgram(model->program);
- glUniform1f(glGetUniformLocation(model->program,"blend"),phase-a);
+ glUniform1f(glGetUniformLocation(model->program,"blend"),weight);
  glUniform3fv(glGetUniformLocation(model->program,"coat"),1,coat);
  glUniform1i(glGetUniformLocation(model->program,"worker"),kind==1);
  glDrawElements(GL_TRIANGLES,model->ni,GL_UNSIGNED_INT,0);

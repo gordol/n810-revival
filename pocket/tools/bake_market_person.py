@@ -9,7 +9,7 @@ from pathlib import Path
 
 import bpy
 import numpy as np
-from mathutils import Matrix,Vector
+from mathutils import Matrix,Quaternion,Vector
 from PIL import Image
 
 source,destination=map(Path,sys.argv[sys.argv.index('--')+1:])
@@ -84,18 +84,57 @@ def aim(bone,direction):
     b.matrix=Matrix.Translation(transform.translation)@rot.to_matrix().to_4x4()@Matrix.Translation(-transform.translation)@transform
     bpy.context.view_layer.update()
 
+def relax_hand(side,open_hand):
+    # Curl each phalanx toward the palm. Derive the flexion axis from
+    # the hand itself so it mirrors correctly on the opposite side.
+    bones=arm.data.bones
+    knuckle=bones['middle_01_'+side]
+    across=bones['index_01_'+side].head_local-bones['pinky_01_'+side].head_local
+    palm=across.cross(knuckle.tail_local-knuckle.head_local).normalized()
+    if palm.dot(bones['thumb_03_'+side].tail_local-knuckle.head_local)<0:palm.negate()
+    for finger,angle in (('index',13),('middle',19),('ring',24),('pinky',29)):
+        for joint,factor in (('01',1.),('02',1.15),('03',.55)):
+            name=f'{finger}_{joint}_{side}'
+            bone=bones[name]
+            axis=(bone.tail_local-bone.head_local).cross(palm)
+            local=bone.matrix_local.to_3x3().inverted()@axis
+            arm.pose.bones[name].rotation_quaternion=Quaternion(local,math.radians(angle*factor*(.4 if open_hand else 1.)))
+    bpy.context.view_layer.update()
+
 poses=[];contacts=[]
-for frame in range(17):
-    if frame<12:scene.frame_set(frame*2)
+for frame in range(16):
+    if frame<12:
+        scene.frame_set(frame*2)
     else:
-        if frame==12:
-            arm.animation_data_clear()
-            for bone in arm.pose.bones:bone.matrix_basis=Matrix.Identity(4)
+        if frame==12:arm.animation_data_clear()
+        # Reset each key so the rotations below are absolute. Both planted
+        # stances share their foot positions, including through a reach.
+        for bone in arm.pose.bones:bone.matrix_basis=Matrix.Identity(4)
+        bpy.context.view_layer.update()
+        left=frame in (13,15)
+        lean=1 if left else -1
+        for name,axis,degrees in (('spine_01','Y',2.8*lean),('spine_02','Z',4*lean),
+                                  ('neck_01','Z',7*lean),('head','X',-3 if left else 2)):
+            bone=arm.pose.bones[name]
+            pivot=Matrix.Translation(bone.head)
+            world_axis=arm.matrix_world.inverted().to_3x3()@Vector({'X':(1,0,0),'Y':(0,1,0),'Z':(0,0,1)}[axis])
+            bone.matrix=pivot@Matrix.Rotation(math.radians(degrees),4,world_axis)@pivot.inverted()@bone.matrix
             bpy.context.view_layer.update()
-        t=max(0,frame-13)/3
         for side,sign in (('l',1),('r',-1)):
-            aim('upperarm_'+side,(.15*sign,-(.12+1.15*t),-.98+.64*t))
-            aim('lowerarm_prox_'+side,(-.08*sign,-(.24+1.0*t),-.9+1.25*t))
+            bent=(sign==lean)
+            upper=(.10*sign,-(.16 if bent else .05),-.98)
+            lower=(-.29*sign if bent else -.12*sign,-(.55 if bent else .28),-.85)
+            if frame==14 and side=='r':
+                upper=(.14,-.84,-.51)
+                lower=(.10,-.96,.29)
+            if frame==15:
+                upper=(.20*sign,-.58,-.72)
+                lower=(-.32*sign,-.86,.32)
+            aim('upperarm_'+side,upper)
+            aim('lowerarm_prox_'+side,lower)
+            reaching=frame==15 or (frame==14 and side=='r')
+            if not reaching:aim('hand_'+side,(-.12*sign,-(.45 if bent else .19),-.95))
+            relax_hand(side,reaching)
     graph=bpy.context.evaluated_depsgraph_get()
     points=[];normals=[];sole=None
     for o,used in topology:
@@ -122,7 +161,7 @@ for frame in range(17):
     nn=nn[:,[0,2,1]];nn[:,2]*=-1
     nn/=np.maximum(1e-7,np.linalg.norm(nn,axis=1)[:,None])
     poses.append(np.column_stack((pp*10000,nn*32767)).round().astype('<i2').tobytes())
-blob=struct.pack('<4s5I',b'NPC2',vertex_count,len(indices),len(poses),atlas.width,atlas.height)
+blob=struct.pack('<4s5I',b'NPC3',vertex_count,len(indices),len(poses),atlas.width,atlas.height)
 blob+=np.asarray(contacts,dtype='<f4').tobytes()
 blob+=np.asarray(indices,dtype='<u4').tobytes()+np.asarray(uvs,dtype='<f4').tobytes()
 destination.write_bytes(zlib.compress(blob+b''.join(poses)+atlas.tobytes(),9))

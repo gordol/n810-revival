@@ -36,29 +36,73 @@ def actors(age,ground,since):
         x,z=offset(center,u,v)
         rows.append((kind,x,height,z,math.degrees(HEADING+heading),pose,palette))
 
-    phase=age%32
-    # A shopper approaches, orders, waits for wrapping and walks away.
-    walk=min(1.,phase/11.)
-    u=-8.5+walk*10
-    v=-3.+walk*5.
-    if phase>18:
-        u+=1.2*(phase-18)
-        v-=min(5.,phase-18)
     def walker(u,v,heading,gait,palette):
         actor(0,u,v,ground(*offset(center,u,v)),heading,gait,palette)
-    walker(u,v,.9 if phase<11 else 1.95 if phase>18 else 0,
-           (age*11)%12 if phase<11 or phase>18 else 12,2)
-    for i in range(4):
-        t=(age+i*13)%70
-        east=t<35
-        walker(-20+(t if east else 70-t)*1.3,-4.4-(i%2)*1.4,
-               math.pi/2 if east else -math.pi/2,(age*12.5+i*2.3)%12,i+1)
+
+    # One continuous stroll past the counter. Slow into the stop and turn
+    # toward the staff while waiting, then turn back before stepping away.
+    phase=(age-18)%32
+    if phase<25:
+        # Half-second acceleration ramps. Integrating speed keeps both the
+        # foot cycle and the position continuous at the two ends of the walk.
+        distance=phase-.25
+        if phase<.5:distance=phase**2
+        if phase>24.5:distance=24.5-(25-phase)**2
+        progress=distance/24.5
+        angle=math.tau*progress
+        u=1.5+6.4*math.sin(angle)
+        v=2.-3.6*(1-math.cos(angle))
+        heading=math.atan2(6.4*math.cos(angle),-3.6*math.sin(angle))
+        gait=(progress*24*12)%12
+    else:
+        u,v=1.5,2.
+        wait=phase-25
+        settle=min(1.,wait/.7,(7.-wait)/.7)
+        settle=settle*settle*(3-2*settle)
+        heading=math.pi/2-1.38*settle
+        gait=18+settle
+        if .7<wait<6.3:
+            gait=12+.48*math.sin(math.pi*(wait-.7)/5.6)**2
+    walker(u,v,heading,gait,2)
+
+    # Rounded ends let people walk back through the arcade without spinning
+    # in place. Each follows their own pace, lane and stride length.
+    for i,speed in enumerate((.91,1.16,1.03,1.30)):
+        radius=.78+i*.11
+        straight=39.
+        bend=math.pi*radius
+        along=(age*speed+i*19.7)%(2*(straight+bend))
+        lane=-5.1-i*.48
+        if along<straight:
+            u,v,heading=-18+along,lane+radius,math.pi/2
+        elif along<straight+bend:
+            turn=(along-straight)/radius
+            u,v,heading=21+radius*math.sin(turn),lane+radius*math.cos(turn),math.pi/2+turn
+        elif along<2*straight+bend:
+            u,v,heading=21-(along-straight-bend),lane-radius,-math.pi/2
+        else:
+            turn=(along-2*straight-bend)/radius
+            u,v,heading=-18-radius*math.sin(turn),lane-radius*math.cos(turn),-math.pi/2+turn
+        gait=(age*speed/(1.22+i*.055)*12+i*2.3)%12
+        walker(u,v,heading,gait,i+1)
     if since is None:since=-1.
     t=max(0.,min(1.,(since-.8)/.95))
     sender=ground(*offset(center,1.7,3.35))
     catcher=ground(*offset(center,3.4,6.25))
-    actor(1,1.7,3.35,sender,.25,math.sin(math.pi*t),0)
-    actor(1,3.4,6.25,catcher,math.pi,math.sin(math.pi*t),1)
+    def worker_pose(catching):
+        # Settle from idle before the toss. The receiver anticipates the
+        # arrival and lowers their hands after the sender has followed through.
+        start,peak,end=(.75,1.75,2.40) if catching else (.16,.8,1.44)
+        rest=1. if catching else 0.
+        idle=.5+.46*math.sin(age*(.67 if catching else .51)+(2.2 if catching else 0.))
+        if start<=since<=end:
+            reach=(since-start)/(peak-start) if since<peak else (end-since)/(end-peak)
+            return (16 if catching else 14)+reach*reach*(3-2*reach)
+        settle=max(0.,since/start) if since<start else max(0.,1.-(since-end)/.55)
+        settle=settle*settle*(3-2*settle)
+        return 12+idle+(rest-idle)*settle
+    actor(1,1.7,3.35,sender,.25,worker_pose(False),0)
+    actor(1,3.4,6.25,catcher,math.pi,worker_pose(True),1)
     if 0<=since<=2.45:
         actor(2,1.7+1.7*t,3.72+2.18*t,sender+(catcher-sender)*t+1.08+4.8*t*(1-t),1.3+.7*t,.18-.38*t)
     if 2.45<since<4.4:actor(6,3.4,6.4,catcher+1.05,0,0)

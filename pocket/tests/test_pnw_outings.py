@@ -51,6 +51,29 @@ class OutingTests(unittest.TestCase):
         arc=actors(14,lambda x,z:0,1.275)
         self.assertGreater(next(a[2] for a in arc if a[0]==2),2.)
 
+    def test_market_walks_close_without_teleports_or_pivot_snaps(self):
+        from market_life import actors
+        def walkers(age):
+            return [a for a in actors(age,lambda x,z:0,None) if a[0]==0]
+        previous=walkers(0)
+        for i in range(1,901):
+            current=walkers(i*.1)
+            for last,now in zip(previous,current):
+                self.assertLess(math.hypot(now[1]-last[1],now[3]-last[3]),.22)
+                self.assertLess(abs(math.remainder(now[4]-last[4],360)),18)
+            previous=current
+
+    def test_workers_rest_independently_and_reach_in_sequence(self):
+        from market_life import actors
+        def poses(age,since):
+            return [a[5] for a in actors(age,lambda x,z:0,since) if a[0]==1]
+        idle=poses(5,None)
+        self.assertTrue(all(12<=pose<=13 for pose in idle))
+        self.assertNotAlmostEqual(idle[0],idle[1])
+        self.assertTrue(all(a!=b for a,b in zip(idle,poses(6,None))))
+        self.assertAlmostEqual(poses(10,.8)[0],15.)
+        self.assertAlmostEqual(poses(11,1.75)[1],17.)
+
     def test_staff_stand_on_the_rendered_slab_and_street_matches_mesh(self):
         from market_life import actors
         from pike_market import build,floor_height,offset
@@ -77,7 +100,7 @@ class OutingTests(unittest.TestCase):
             path=pocket/'graphics'/'assets'/'people'/f'{name}.zlib'
             data=zlib.decompress(path.read_bytes())
             magic,nv,ni,frames,w,h=struct.unpack_from('<4s5I',data)
-            self.assertEqual((magic,frames),(b'NPC2',17))
+            self.assertEqual((magic,frames),(b'NPC3',16))
             offset=24
             for frame in range(frames):
                 _,left,_,_,right,_=struct.unpack_from('<6f',data,offset+frame*24)
