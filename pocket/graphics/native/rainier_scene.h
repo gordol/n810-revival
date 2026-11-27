@@ -9,7 +9,7 @@ static GLuint rainier_program(void){
   "distanceToEye=length(eye.xyz);gl_Position=gl_ProjectionMatrix*eye;}";
  const char *fs="#version 120\n"
   "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
-  "uniform vec4 supplies;uniform int camp;uniform int season;uniform float originY;uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;uniform sampler2D flightPhoto;uniform vec3 photoArea;uniform vec3 flightAreas[53];uniform int photoSlot;"
+  "uniform vec4 supplies;uniform int camp;uniform int season;uniform float originY;uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;uniform sampler2D flightPhoto;uniform vec3 photoArea;uniform vec3 flightAreas[109];uniform int photoSlot;"
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
   "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
@@ -135,7 +135,7 @@ static GLuint rainier_program(void){
   "vec2 cell=mod(floor(pos.xz/8192.+.5),5.);vec3 area=flightAreas[int(cell.x+5.*cell.y)];"
   "vec2 d=abs(pos.xz-area.xy);if(max(d.x,d.y)<area.z)discard;}"
   "if(base || photoSlot>=28){for(int j=25;j<28;j++){vec3 a=flightAreas[j];vec2 d=abs(pos.xz-a.xy);if(max(d.x,d.y)<a.z)discard;}}"
-  "if(base){vec2 cell=mod(floor(pos.xz/32768.+.5),5.);vec3 a=flightAreas[28+int(cell.x+5.*cell.y)];"
+  "if(base){vec2 cell=mod(floor(pos.xz/32768.+.5),9.);vec3 a=flightAreas[28+int(cell.x+9.*cell.y)];"
   "vec2 d=abs(pos.xz-a.xy);if(max(d.x,d.y)<a.z)discard;}}"
   "if(regional==2 && abs(tint.a-.219)<.0001 && photoArea.z>0.)"
   "col=texture2D(flightPhoto,(pos.xz-photoArea.xy)/photoArea.z+.5).rgb;"
@@ -325,7 +325,7 @@ static void flight_sail_vertex(int powered,float u,float chord,float puff,float 
 
 int pocket_scene_drop_flight_photo(void *ptr,unsigned slot){
  struct gpu_scene *s=ptr;
- if(!s||slot>=53||scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
+ if(!s||slot>=109||scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
  glDeleteTextures(1,&s->flight_photo[slot]);glDeleteBuffers(1,&s->flight_mesh[slot]);
  s->flight_photo[slot]=s->flight_mesh[slot]=s->flight_count[slot]=0;
  s->flight_areas[slot][2]=0;
@@ -333,7 +333,7 @@ int pocket_scene_drop_flight_photo(void *ptr,unsigned slot){
 }
 int pocket_scene_flight_photo(void *ptr,unsigned slot,unsigned pixels,const unsigned char *rgb,float x,float z,const float *mesh,unsigned count){
  struct gpu_scene *s=ptr;
- if(!s||slot>=53||(pixels!=512 && pixels!=1024 && pixels!=2048)||!mesh||!count||count>128*128*6||!rgb||scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
+ if(!s||slot>=109||(pixels!=512 && pixels!=1024 && pixels!=2048)||!mesh||!count||count>128*128*6||!rgb||scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
  glPushAttrib(GL_TEXTURE_BIT);glActiveTexture(GL_TEXTURE1);
  glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
  glPixelStorei(GL_UNPACK_ALIGNMENT,1);glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
@@ -728,7 +728,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glUniform1i(glGetUniformLocation(s->rainier_program,"flightPhoto"),1);
  GLint photo_area=glGetUniformLocation(s->rainier_program,"photoArea");
  glUniform3f(photo_area,0,0,0);
- glUniform3fv(glGetUniformLocation(s->rainier_program,"flightAreas[0]"),53,s->flight_areas[0]);
+ glUniform3fv(glGetUniformLocation(s->rainier_program,"flightAreas[0]"),109,s->flight_areas[0]);
  float stretch=.55f+2.3f*(1.f-daylight);
  glUniform2f(glGetUniformLocation(s->rainier_program,"shadowStep"),cosf(sun_angle)*stretch,sinf(sun_angle)*stretch);
  glUniform2f(glGetUniformLocation(s->rainier_program,"shadeCenter"),center_x,center_z);
@@ -761,7 +761,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   GLint photo_slot=glGetUniformLocation(s->rainier_program,"photoSlot");
   float sy=sinf(yaw),cy=cosf(yaw),sp=sinf(pitch),cp=cosf(pitch);
   float tx=(float)(wide/.2),ty=(float)(half/.2),kx=sqrtf(1+tx*tx),ky=sqrtf(1+ty*ty);
-  for(unsigned slot=0;slot<53;slot++){
+  for(unsigned slot=0;slot<109;slot++){
    if(!s->flight_count[slot])continue;
    float radius=s->flight_areas[slot][2];
    /* DEM samples range from sea level to 5000 metres. */

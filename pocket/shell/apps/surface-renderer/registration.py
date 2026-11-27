@@ -460,7 +460,7 @@ def outdoor_descriptor():
     return dict(id='rainier-walk',title='Rainier walk',preferred_size=(90,32),minimum_size=(22,12),category='Experiments',
         description='Explore Rainier terrain and wildlife. On mobile, follow the Ohanapecosh blueberry trail.',
         settings=(dict(id='touch-controls',label='Touch controls',kind='choice',choices=(WAYPOINT,TWIN_THUMB),default=WAYPOINT),
-                  dict(id='flight-horizon',label='Aerial horizon range',kind='choice',choices=('Auto','Local','50 km','80 km'),default='Auto'),
+                  dict(id='flight-horizon',label='Aerial horizon range',kind='choice',choices=('Auto','Local','50 km','80 km','90 km','120 km'),default='Auto'),
                   dict(id='ground-source',label='Local flight surface',kind='choice',choices=('Aerial','Drawn terrain'),default='Aerial'),
                   dict(id='stick-layout',label='Controller sticks',kind='choice',choices=('Standard','Southpaw'),default='Standard'),
                   dict(id='look-speed',label='Controller look',kind='choice',choices=('Gentle','Standard','Quick'),default='Standard'),

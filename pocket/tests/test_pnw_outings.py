@@ -126,10 +126,10 @@ class OutingTests(unittest.TestCase):
         from unittest.mock import patch
         horizon=pnw_terrain.FlightHorizon()
         self.addCleanup(horizon.close)
-        def settle(x):
+        def settle(x,setting='Auto'):
             removed=[]
-            for i in range(40):
-                drops,_=horizon.update(x,0,None,'Auto')
+            for i in range(100):
+                drops,_=horizon.update(x,0,None,setting)
                 removed.extend(drops)
                 if not horizon.job:return removed
                 horizon.job.result()
@@ -137,13 +137,19 @@ class OutingTests(unittest.TestCase):
         with patch('pnw.terrain.flight_patch',return_value=(b'image',None)), patch(
                 'pnw.terrain.available_memory',return_value=4*1024**3) as memory:
             settle(0)
-            self.assertEqual(len(horizon.resident),28)
+            self.assertEqual(len(horizon.resident),52)
             pins={i:horizon.resident[i] for i in (25,26,27)}
             settle(3*pnw_terrain.HORIZON_WIDTH)
             self.assertEqual({i:horizon.resident[i] for i in pins},pins)
-            memory.return_value=1024**3
+            memory.return_value=None
             horizon.next_sample=0
-            self.assertEqual(len(settle(3*pnw_terrain.HORIZON_WIDTH)),16)
+            settle(0)
+            self.assertEqual(len(horizon.resident),52)
+            settle(0,'120 km')
+            self.assertEqual(len(horizon.resident),84)
+            memory.return_value=800*1024**2
+            horizon.next_sample=0
+            self.assertEqual(len(settle(0)),72)
             self.assertEqual(len(horizon.resident),12)
             memory.return_value=128*1024**2
             horizon.next_sample=0

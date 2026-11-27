@@ -397,26 +397,35 @@ class FlightHorizon:
         self.retry={}
         self.settled=None
         self.next_sample=0.
-        self.auto=1
+        self.auto=90
 
     def update(self,x,z,field,setting):
         now=time.monotonic()
         if setting=='Auto' and now>=self.next_sample:
             free=available_memory()
-            self.auto=1 if free is None else 0 if free<512*1024**2 else 2 if free>2*1024**3 else 1
+            self.auto=90
+            if free is not None and free<1024**3:
+                self.auto=0 if free<512*1024**2 else 50
             self.next_sample=now+30.
-        rings={'Local':0,'50 km':1,'80 km':2}.get(setting,self.auto)
-        cx,cz=(round(v/HORIZON_WIDTH) for v in (x,z))
-        neighborhood=(cx,cz,rings)
+        radius={'Local':0,'50 km':50,'80 km':80,'90 km':90,'120 km':120}.get(setting,self.auto)
+        if radius in (0,50,80):
+            rings={0:0,50:1,80:2}[radius]
+            cx,cz=(round(v/HORIZON_WIDTH) for v in (x,z))
+            west,east,south,north=cx-rings,cx+rings,cz-rings,cz+rings
+        else:
+            metres=radius*1000
+            west,east,south,north=(math.floor(v/HORIZON_WIDTH+.5)
+                                   for v in (x-metres,x+metres,z-metres,z+metres))
+        neighborhood=(west,east,south,north,radius)
         if self.settled==neighborhood:return [],None
         self.settled=None
         wanted={}
-        if rings:
+        if radius:
             # Slots 25..27 are always reserved for detailed landmark scenery.
             for i,key in enumerate(LANDMARKS):wanted[25+i]=(key,PATCH_WIDTH)
-            grid=sorted(((i,j) for i in range(cx-rings,cx+rings+1) for j in range(cz-rings,cz+rings+1)),
+            grid=sorted(((i,j) for i in range(west,east+1) for j in range(south,north+1)),
                         key=lambda ij:(ij[0]*HORIZON_WIDTH-x)**2+(ij[1]*HORIZON_WIDTH-z)**2)
-            for i,j in grid:wanted[28+i%5+5*(j%5)]=((8*i,8*j),HORIZON_WIDTH)
+            for i,j in grid:wanted[28+i%9+9*(j%9)]=((8*i,8*j),HORIZON_WIDTH)
         removed=[slot for slot in self.resident if slot not in wanted]
         for slot in removed:del self.resident[slot]
         self.retry={item:t for item,t in self.retry.items() if t>now and wanted.get(item[0])==item[1]}

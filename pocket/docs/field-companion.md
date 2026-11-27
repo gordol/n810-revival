@@ -684,17 +684,19 @@ spans 8.192 km, for about 41 km across when loaded. Aerial requests use
 4 m/pixel under the aircraft, 8 m/pixel in the first ring and 16 m/pixel in
 the outer ring. Two background workers prioritize nearby tiles.
 
-In **Settings → Rainier walk → Aerial horizon range**, choose **50 km** or
-**80 km** for a second layer of USGS imagery and elevation. These are nominal
-half-widths of square neighborhoods snapped to a 32.768 km tile grid. The
+In **Settings → Rainier walk → Aerial horizon range**, choose **Auto** (the default)
+or a fixed range of **50, 80, 90 or 120 km**. The 90 and 120 km settings
+request every tile in a square extending that far from the aircraft in each
+direction. The 50 and 80 km presets use smaller tile-centered neighborhoods. The
 distant imagery is 32 m/pixel. Three 8 m/pixel patches stay with Rainier,
 Elliott Bay and the Tacoma waterfront as the aircraft moves. A separate worker
 loads these landmarks and the horizon in Aerial mode. First visits need network
 coverage. Choose **Local** to use only the existing nearby imagery.
 
 **Auto** samples available system memory every 30 seconds during flight. It
-uses Local below 512 MiB, the middle range up to 2 GiB, and the widest range
-above that. If the memory reading is unavailable it selects the middle range.
+requests 90 km unless available memory falls below 1 GiB, when it selects
+50 km, or below 512 MiB, when it selects Local. An unavailable memory reading
+uses the 90 km default.
 Shrinking the range releases unneeded horizon textures and terrain buffers.
 Aircraft can cross the prepared overview boundary. Beyond it, terrain needs cached
 elevation or a successful elevation download in Aerial mode. Mountain relief uses
