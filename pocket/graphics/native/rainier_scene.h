@@ -94,6 +94,24 @@ static GLuint rainier_program(void){
   "float whorl=fract(h*7.+.18*sin(pos.x+pos.z));float side=abs(2.*tint.r-1.);"
   "if(side>(1.-h)*(.68+.75*whorl)+.08)discard;"
   "float light=.78+.27*whorl+.16*noise(pos.xz*1.4);col=vec3(.55*tint.g,tint.g,tint.b)*light;}"
+  "if(regional==2 && abs(tint.a-.237)<.0001){vec2 p=pos.xz*vec2(2.,4.);p.x+=.5*mod(floor(p.y),2.);"
+  "vec2 edge=abs(fract(p)-.5);float mortar=smoothstep(.435,.49,max(edge.x,edge.y));"
+  "float joint=mortar*(1.-smoothstep(.12,.65,length(fwidth(pos.xz*4.))));"
+  "col*=.85+.23*hash(floor(p))-.35*joint;}"
+  "if(regional==2 && abs(tint.a-.228)<.0001){vec2 uv=vec2((pos.x+pos.z)/3.1,pos.y/3.65);"
+  "vec2 edge=abs(fract(uv)-.5);float glass=(1.-smoothstep(.33,.43,edge.x))*(1.-smoothstep(.30,.40,edge.y));"
+  "float variation=hash(floor(uv));vec3 pane=mix(vec3(.17,.27,.32),vec3(.45,.58,.64),variation);"
+  "col=mix(col,mix(pane,col,.48),glass*(1.-smoothstep(.14,.6,length(fwidth(uv)))));}"
+  "if(regional==2 && tint.a>.2001 && tint.a<=.2161){vec3 photo=texture2D(forestShade,pos.xz/shadeCenter+.5).rgb;"
+  "col=photo*(.93+.28*(tint.g-.30));}"
+  "if(regional!=0 && animal==0 && abs(tint.a-.20)<.0001){"
+  "vec2 chop=pos.xz*.26;float drift=noise(chop*.17);float fp=length(fwidth(chop));"
+  "float wave=(noise(chop+vec2(waterTime*.55,drift*2.))-.5)*(1.-smoothstep(.4,2.,fp));"
+  "wave+=.36*(noise(chop*3.+vec2(drift,-waterTime))-.5)*(1.-smoothstep(.12,.8,fp));"
+  "float facing=abs(normalize(waterEye-pos).y);"
+  "vec3 n=normalize(vec3(.18*wave,1.,.12*(drift-.5)));vec3 ray=reflect(normalize(pos-waterEye),n);"
+  "col=mix(vec3(.059,.21,.24),skyColor(vec3(ray.x,max(.015,ray.y),ray.z)),.13+.56*pow(1.-facing,4.));"
+  "col+=vec3(.045,.055,.055)*wave*(1.-smoothstep(12.,70.,length(fwidth(pos.xz))));}"
   // World-space clusters, shoots and needle tips. Fade subpixel octaves
   // toward their mean so distant foliage holds together during camera motion.
   "if(animal==0 && tint.a>=.499 && tint.a<.516){"
@@ -280,6 +298,43 @@ static void flight_equipment(const float *flight,int w,int h){
  glRotatef(-7.f*flight[1],0,0,1);
  glTranslatef(0,.17f*flight[2],0);
  glDisable(GL_DEPTH_TEST);glUseProgram(0);
+ if(flight[0]>=2.f){
+  if(flight[0]==2.f){
+   /* Cowling and the two narrow windscreen pillars of a light aircraft. */
+   glBegin(GL_TRIANGLE_FAN);glColor3f(.18f,.23f,.25f);glVertex3f(0,-2.2f,-2.3f);
+   for(int i=0;i<=32;i++){
+    float a=i*.098175f;glColor3f(.29f+.19f*sinf(a),.36f+.16f*sinf(a),.38f+.15f*sinf(a));
+    glVertex3f(1.55f*cosf(a),-1.9f+.64f*sinf(a),-2.3f);
+   }glEnd();
+   for(int side=-1;side<=1;side+=2){
+    glColor3f(.24f,.27f,.26f);glBegin(GL_QUADS);
+    glVertex3f(side*1.55f,-1.7f,-2);glVertex3f(side*1.64f,-1.7f,-2);
+    glVertex3f(side*1.24f,2,-2);glVertex3f(side*1.15f,2,-2);glEnd();
+   }
+  }else if(flight[0]==3.f){
+   glBegin(GL_TRIANGLES);glColor3f(.67f,.74f,.72f);glVertex3f(-1.7f,-1.8f,-1.5f);
+   glVertex3f(0,-.9f,-3.3f);glColor3f(.38f,.49f,.50f);glVertex3f(1.7f,-1.8f,-1.5f);glEnd();
+  }else{
+   /* Painted deck, bulwark, uprights and stainless top rail. */
+   glBegin(GL_QUADS);
+   glColor3f(.22f,.31f,.29f);glVertex3f(-3,-1.7f,-1.1f);glVertex3f(3,-1.7f,-1.1f);
+   glVertex3f(3,-1.7f,-2.8f);glVertex3f(-3,-1.7f,-2.8f);
+   glColor3f(.75f,.78f,.73f);glVertex3f(-3,-1.7f,-2.8f);glVertex3f(3,-1.7f,-2.8f);
+   glVertex3f(3,-1.29f,-2.8f);glVertex3f(-3,-1.29f,-2.8f);
+   for(int i=-2;i<=2;i++){
+    float u=.58f+1.18f*i;
+    glColor3f(.68f,.72f,.70f);glVertex3f(u,-1.35f,-2.8f);glVertex3f(u+.036f,-1.35f,-2.8f);
+    glVertex3f(u+.036f,-.73f,-2.8f);glVertex3f(u,-.73f,-2.8f);
+   }
+   for(int i=0;i<2;i++){
+    float v=-.75f-i*.30f;
+    glColor3f(.56f,.62f,.61f);glVertex3f(-3,v,-2.8f);glVertex3f(3,v,-2.8f);
+    glColor3f(.87f,.90f,.86f);glVertex3f(3,v+.034f,-2.8f);glVertex3f(-3,v+.034f,-2.8f);
+   }
+   glEnd();
+  }
+  return;
+ }
  for(int side=-1;side<=1;side+=2){
   if(powered){
    glColor3f(.32f,.33f,.29f);glBegin(GL_LINES);
@@ -422,7 +477,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  float stretch=.55f+2.3f*(1.f-daylight);
  glUniform2f(glGetUniformLocation(s->rainier_program,"shadowStep"),cosf(sun_angle)*stretch,sinf(sun_angle)*stretch);
  glUniform2f(glGetUniformLocation(s->rainier_program,"shadeCenter"),center_x,center_z);
- glUniform1i(glGetUniformLocation(s->rainier_program,"regional"),lens<0);
+ glUniform1i(glGetUniformLocation(s->rainier_program,"regional"),lens==-2?2:lens<0);
  if(shadows){
   if(!s->rainier_shadow)glGenTextures(1,&s->rainier_shadow);
   glBindTexture(GL_TEXTURE_2D,s->rainier_shadow);
@@ -434,7 +489,11 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
   glPixelStorei(GL_UNPACK_ALIGNMENT,1);glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
   glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);glPixelStorei(GL_UNPACK_SKIP_ROWS,0);
-  glTexImage2D(GL_TEXTURE_2D,0,GL_LUMINANCE,canopy_size,canopy_size,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,shadows);
+  if(lens==-2){
+   glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,1280,1536,0,GL_RGB,GL_UNSIGNED_BYTE,shadows);
+   glGenerateMipmap(GL_TEXTURE_2D);
+   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
+  }else glTexImage2D(GL_TEXTURE_2D,0,GL_LUMINANCE,canopy_size,canopy_size,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,shadows);
   glPopClientAttrib();
  }else glBindTexture(GL_TEXTURE_2D,s->rainier_shadow);
  glUniform1i(glGetUniformLocation(s->rainier_program,"highDetail"),high);

@@ -634,3 +634,19 @@ edge of the playable terrain still forces a descent.
 region. The bike follows a fictional gravel figure eight near Paradise, slowing
 on the climbs and picking up speed downhill. Tap **Brake** or **Pedal** (Space
 or A / Cross), and **Dismount** (B / Circle) to explore on foot at that spot.
+
+### Puget Sound and Olympic outings
+
+In Rainier Walk, open **Explore** and choose **Fly**, **On the water**,
+**Seattle waterfront**, **Mountain sports**, or **On foot**. The plane can start above Rainier
+or Pierce County Airport (Thun Field). Open the flight wheel for fast cruise
+or to change the navigation waypoint. The ferry follows an accelerated
+Seattle–Bainbridge route. Explore stays available during the ride.
+
+The first visit downloads Terrarium elevation tiles for the Sound or the
+Hoh visitor center. Puget Sound also uses an aerial image from the USGS
+National Map Imagery service. Pocket keeps both in the private Rainier Walk
+cache for offline use. Flights use roughly 415 m elevation samples with
+a finer aerial texture. Hoh uses a separate local grid. The city buildings,
+market stalls, wheel, and ferry course are illustrative game scenery.
+Station Map's bundled regional relief uses elevation bands.

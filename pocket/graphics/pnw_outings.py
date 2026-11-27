@@ -1,0 +1,373 @@
+"""Offline georeferenced outings using Mapzen Terrarium elevation tiles."""
+from array import array
+from concurrent.futures import ThreadPoolExecutor
+import math
+import os
+from pathlib import Path
+import random
+import subprocess
+import sys
+import tempfile
+from urllib.parse import urlencode
+from urllib.request import urlopen
+from urllib.error import URLError
+import zlib
+
+# Centre, zoom, source pixels per vertex, columns and rows.
+GRIDS={'sound':(47.23,-122.18,9,2,241,289),'hoh':(47.861,-123.935,15,2,257,257)}
+PLACES=(('Thun Field',47.104,-122.287),('Tacoma waterfront',47.266,-122.449),
+        ('Tacoma Narrows Airport',47.268,-122.578),('Seattle waterfront',47.604,-122.339),
+        ('Rainier',46.852,-121.760))
+BAY=(47.295,-122.435)
+OUTINGS={'Plane from Rainier':'plane','Plane from Thun Field':'thun',
+         'Boat on Commencement Bay':'boat','Hoh Rain Forest walk':'hoh','Bainbridge ferry':'ferry','Seattle Great Wheel':'wheel',
+         'Pike Place Market':'market'}
+
+def pixel(lat,lon,zoom):
+    scale=256*(1<<zoom)
+    return (lon+180)*scale/360,(1-math.asinh(math.tan(math.radians(lat)))/math.pi)*scale/2
+
+def layout(region):
+    lat,lon,zoom,step,nx,nz=GRIDS[region]
+    cx,cy=map(round,pixel(lat,lon,zoom))
+    spacing=40075016.686*math.cos(math.radians(lat))*step/(256*(1<<zoom))
+    return cx,cy,spacing
+
+def location(region,lat,lon):
+    _,_,zoom,step,_,_=GRIDS[region]
+    cx,cy,spacing=layout(region)
+    px,py=pixel(lat,lon,zoom)
+    return (px-cx)*spacing/step,(cy-py)*spacing/step
+
+WHEEL=(47.6062,-122.3425)
+MARKET=(47.6095,-122.3418)
+# Illustrative ferry course through Elliott Bay and Eagle Harbor.
+FERRY=tuple(location('sound',*p) for p in ((47.6032,-122.3485),(47.602,-122.368),
+    (47.595,-122.44),(47.596,-122.485),(47.617,-122.497),(47.622,-122.509)))
+
+def ride_pose(outing,elapsed):
+    if outing=='wheel':
+        x,z=location('sound',*WHEEL)
+        phase=elapsed*math.tau/100.
+        return x,z+23*math.sin(phase),1.45,-.04,4+23*(1-math.cos(phase))
+    legs=[(a,b,math.dist(a,b)) for a,b in zip(FERRY,FERRY[1:])]
+    length=sum(d for _,_,d in legs)
+    along=elapsed*45%(2*length)
+    returning=along>length
+    if returning:along=2*length-along
+    for (x,z),(ex,ez),d in legs:
+        if along<=d:
+            t=along/d
+            return x+(ex-x)*t,z+(ez-z)*t,math.atan2(ex-x,ez-z)+math.pi*(1-returning),.015,5.
+        along-=d
+    return *FERRY[-1],0.,0.,5.
+
+def convert(region,folder):
+    from PIL import Image
+    _,_,_,step,nx,nz=GRIDS[region]
+    cx,cy,_=layout(region)
+    values=array('h')
+    tiles={}
+    for row in range(nz):
+        py=cy+(nz//2-row)*step
+        for col in range(nx):
+            px=cx+(col-nx//2)*step
+            key=px//256,py//256
+            if key not in tiles:
+                with Image.open(folder/f'{key[0]}-{key[1]}.png') as im:
+                    if im.size!=(256,256):raise ValueError('Invalid elevation tile')
+                    tiles[key]=im.convert('RGB')
+            r,g,_=tiles[key].getpixel((px%256,py%256))
+            values.append(256*r+g-32768)
+    if sys.byteorder!='little':values.byteswap()
+    (folder/'grid').write_bytes(zlib.compress(values.tobytes()))
+
+def elevations(region):
+    from data_paths import rainier_cache
+    _,_,zoom,step,nx,nz=GRIDS[region]
+    cx,cy,_=layout(region)
+    dest=rainier_cache()/f'{region}-terrarium-v1.i16.zlib'
+    def read(path):
+        data=array('h')
+        data.frombytes(zlib.decompress(path.read_bytes()))
+        if len(data)!=nx*nz:raise ValueError('Incomplete outing grid')
+        if sys.byteorder!='little':data.byteswap()
+        return data
+    try:return read(dest)
+    except (FileNotFoundError,zlib.error,ValueError):pass
+    dest.parent.mkdir(parents=True,exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=dest.parent) as tmp:
+        folder=Path(tmp)
+        def fetch(key):
+            x,y=key
+            url=f'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{zoom}/{x}/{y}.png'
+            with urlopen(url,timeout=15) as stream:data=stream.read(300001)
+            if len(data)>300000:raise ValueError('Oversize elevation tile')
+            (folder/f'{x}-{y}.png').write_bytes(data)
+        cols=range((cx-nx//2*step)//256,(cx+nx//2*step)//256+1)
+        rows=range((cy-nz//2*step)//256,(cy+nz//2*step)//256+1)
+        with ThreadPoolExecutor(max_workers=4) as pool:list(pool.map(fetch,((x,y) for x in cols for y in rows)))
+        convert_local(folder,region,lambda:convert(region,folder))
+        result=read(folder/'grid')
+        (folder/'grid').replace(dest)
+        return result
+
+# A 5:6 export matches the 240 by 288 Sound grid cells.
+IMAGE_SIZE=(1280,1536)
+
+def aerial_url():
+    _,_,zoom,step,nx,nz=GRIDS['sound']
+    cx,cy,_=layout('sound')
+    world=40075016.68557849
+    scale=world/(256*(1<<zoom))
+    x=cx*scale-world/2
+    y=world/2-cy*scale
+    w=(nx-1)*step*scale/2
+    h=(nz-1)*step*scale/2
+    args={'bbox':','.join(map(str,(x-w,y-h,x+w,y+h))),'bboxSR':3857,
+          'imageSR':3857,'size':','.join(map(str,IMAGE_SIZE)),'format':'jpg','f':'image'}
+    return 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?'+urlencode(args)
+
+def decode_aerial(folder):
+    from PIL import Image
+    with Image.open(folder/'image.jpg') as im:
+        if im.size!=IMAGE_SIZE:raise ValueError('Unexpected aerial extent')
+        rgb=im.convert('RGB').transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+        (folder/'rgb').write_bytes(rgb.tobytes())
+
+def convert_local(folder,mode,convert_image):
+    if os.environ.get('POCKET_TERMUX')=='1':
+        script=folder/'pnw_outings.py'
+        script.write_bytes(Path(__file__).read_bytes())
+        subprocess.run(['proot-distro','login','pocket-maps','--bind',str(folder),'--',
+                        '/usr/bin/python3',str(script),mode,str(folder)],check=True,timeout=45)
+    else:convert_image()
+
+def sound_aerial():
+    from data_paths import rainier_cache
+    dest=rainier_cache()/'sound-usgs-1280x1536-v1.rgb'
+    expected=math.prod(IMAGE_SIZE)*3
+    def read(path):
+        if path.stat().st_size!=expected:raise ValueError('Incomplete aerial texture')
+        return bytearray(path.read_bytes())
+    try:return read(dest)
+    except (FileNotFoundError,ValueError):pass
+    # A cached heightfield remains playable when the imagery server is offline.
+    try:
+        with tempfile.TemporaryDirectory(dir=dest.parent) as tmp:
+            folder=Path(tmp)
+            with urlopen(aerial_url(),timeout=12) as stream:data=stream.read(expected+1)
+            if len(data)>expected:return None
+            (folder/'image.jpg').write_bytes(data)
+            convert_local(folder,'aerial',lambda:decode_aerial(folder))
+            rgb=read(folder/'rgb')
+            (folder/'rgb').replace(dest)
+            return rgb
+    except (OSError,ValueError,URLError,subprocess.SubprocessError):return None
+
+def build_world(outing):
+    from geometry import Vec
+    from summit_detail import RegionalTerrain
+    region='hoh' if outing=='hoh' else 'sound'
+    raw=elevations(region)
+    _,_,_,_,nx,nz=GRIDS[region]
+    _,_,d=layout(region)
+    field=RegionalTerrain(nx,nz,Vec(-(nx//2)*d,0,-(nz//2)*d),d,d,tuple(max(0,v) for v in raw),'meters')
+    mesh=array('f')
+    aerial=sound_aerial() if region=='sound' else None
+    rows=[]
+    for j in range(nz):
+        row=[]
+        for i in range(nx):
+            k=j*nx+i
+            y=field.values[k]
+            dx=(field.values[j*nx+min(nx-1,i+1)]-field.values[j*nx+max(0,i-1)])/(2*d)
+            dz=(field.values[min(nz-1,j+1)*nx+i]-field.values[max(0,j-1)*nx+i])/(2*d)
+            shade=max(.45,min(1.2,.88+.52*(dx-dz)))
+            color=(.11,.32,.37) if raw[k]<=0 else (.88,.92,.95) if y>2400 else (.28,.39,.24)
+            row.append((field.origin.x+i*d,y,field.origin.z+j*d,*(v*shade for v in color),.216 if aerial is not None and raw[k]>0 else .20 if raw[k]<=0 else .974 if region=='hoh' else .0))
+        rows.append(row)
+    # Keep 384-vertex culling batches spatially compact in both dimensions.
+    for z0 in range(0,nz-1,8):
+        for x0 in range(0,nx-1,8):
+            for j in range(z0,min(nz-1,z0+8)):
+                a,b=rows[j:j+2]
+                for i in range(x0,min(nx-1,x0+8)):
+                    for v in (a[i],b[i],a[i+1],a[i+1],b[i],b[i+1]):mesh.extend(v)
+    if region=='sound':
+        from rainier_pixels import surface
+        def quad(points,color,material=0.):
+            for i in (0,1,2,0,2,3):mesh.extend((*points[i],*color,material))
+        def box(x,z,y,width,depth,height,color,material=0.):
+            base=[(x+sx*width/2,y,z+sz*depth/2) for sx,sz in ((-1,-1),(1,-1),(1,1),(-1,1))]
+            top=[(px,y+height,pz) for px,_,pz in base]
+            quad(top,color)
+            for i in range(4):
+                j=(i+1)%4
+                shade=(.78,.91,.84,.69)[i]
+                quad((base[i],base[j],top[j],top[i]),tuple(c*shade for c in color),material)
+        # Game scenery at named locations. Runway paint follows the sampled terrain.
+        for name,lat,lon in (PLACES[0],PLACES[2]):
+            x,z=location(region,lat,lon)
+            a=math.radians(165 if name=='Thun Field' else 170)
+            def strip(width,start,end,color):
+                for side,t in ((-1,start),(1,start),(-1,end),(-1,end),(1,start),(1,end)):
+                    xx=x+t*math.sin(a)+side*width*math.cos(a)
+                    zz=z+t*math.cos(a)-side*width*math.sin(a)
+                    mesh.extend((xx,field.height(xx,zz)+2.,zz,*color,0.))
+            for t in range(-500,500,25):
+                strip(14,t,t+25,(.19,.20,.21))
+                if t%50==0:strip(.9,t,t+15,(.94,.93,.80))
+        for name,lat,lon in (PLACES[1],PLACES[3]):
+            rng=random.Random(name)
+            x,z=location(region,lat,lon)
+            for col in range(10):
+                for row in range(18):
+                    xx=x+col*96+rng.uniform(-12,12)
+                    zz=z+(row-8)*106+rng.uniform(-15,15)
+                    y=surface(field,xx,zz)
+                    if y<4:continue
+                    width,depth=rng.uniform(30,63),rng.uniform(34,76)
+                    tower=math.exp(-((col-4)**2+(row-9)**2)/15)
+                    height=rng.uniform(14,48)+tower*rng.uniform(40,200)
+                    color=rng.choice(((.41,.51,.56),(.47,.49,.51),(.59,.47,.40),(.44,.57,.63)))
+                    box(xx,zz,y-2,width,depth,height,color,.228)
+                    box(xx,zz,y+height-2,width*.65,depth*.66,rng.uniform(2,10),color,.228)
+        # Long timber piers and gabled sheds step out into Elliott Bay.
+        for lat,lon,length in ((47.6056,-122.3412,108),(47.6065,-122.3418,122),
+                               (47.6075,-122.3423,112),(47.6093,-122.3441,94)):
+            x,z=location(region,lat,lon)
+            deck=surface(field,x,z)+2.
+            box(x,z,deck-1.2,length,29,1.2,(.42,.34,.25))
+            for u in range(-int(length/2)+3,int(length/2),7):
+                for side in (-1,1):
+                    box(x+u,z+side*13,deck-11,.7,.7,10.,(.22,.22,.17))
+            box(x+5,z,deck,length*.79,19.,6.,(.64,.42,.32),.228)
+            for side in (-1,1):
+                eave=z+side*10.
+                left=x+5-length*.41
+                right=x+5+length*.41
+                quad(((left,deck+6,eave),(right,deck+6,eave),(right,deck+10,z),
+                      (left,deck+10,z)),(.33,.38,.39))
+        # Smith Tower's stepped shaft and pyramid roof, south of downtown.
+        x,z=location(region,47.6019,-122.3318)
+        base=surface(field,x,z)
+        box(x,z,base,44,44,80,(.77,.73,.65),.228)
+        box(x,z,base+80,25,25,57,(.83,.81,.74),.228)
+        roof=[(x+sx*13,base+137,z+sz*13) for sx,sz in ((-1,-1),(1,-1),(1,1),(-1,1))]
+        for j in range(4):
+            for pt in (roof[j],roof[(j+1)%4],(x,base+158,z)):
+                mesh.extend((*pt,.31+j*.045,.36+j*.035,.36,0.))
+        x,z=location('sound',*WHEEL)
+        base=field.height(x,z)+27
+        # Two rims, axle braces and radial spokes facing Elliott Bay.
+        def beam(a,b,width,color):
+            dx,dy,dz=(v-u for u,v in zip(a,b))
+            length=math.hypot(dy,dz) or 1.
+            uy,uz=width*dz/length,-width*dy/length
+            for point,side in ((a,-1),(a,1),(b,-1),(b,-1),(a,1),(b,1)):
+                mesh.extend((point[0],point[1]+side*uy,point[2]+side*uz,*color,0.))
+        for side in (-1,1):
+            xx=x+side*2.
+            for j in range(48):
+                a=j*math.tau/48;b=(j+1)*math.tau/48
+                tip=(xx,base+24*math.cos(a),z+24*math.sin(a))
+                beam(tip,(xx,base+24*math.cos(b),z+24*math.sin(b)),.45,(.89,.89,.84))
+                if j%2==0:beam((xx,base,z),tip,.13,(.70,.76,.78))
+            for foot in (-1,1):beam((xx,base-26,z+foot*10),(xx,base,z),.65,(.42,.48,.51))
+        for j in range(32):
+            a=j*math.tau/32
+            zz=z+24*math.sin(a)
+            y=base+24*math.cos(a)-2.4
+            box(x,zz,y,3.8,2.3,1.15,(.80,.83,.81))
+            box(x,zz,y+1.15,3.5,2.,1.05,(.24,.38,.45))
+            box(x,zz,y+2.2,3.8,2.3,.18,(.84,.85,.80))
+        x,z=location('sound',*MARKET)
+        # Market entrance: red tube lettering on an open steel frame and a
+        # clock. Keep the sky visible through the sign from the street.
+        def sign_bar(ax,ay,bx,by,z,width,color):
+            length=math.hypot(bx-ax,by-ay)
+            dx,dy=width*(by-ay)/length,width*(ax-bx)/length
+            quad(((ax-dx,ay-dy,z),(ax+dx,ay+dy,z),(bx+dx,by+dy,z),(bx-dx,by-dy,z)),color)
+        sign_z=z+9
+        sign_y=surface(field,x,sign_z)
+        steel=(.19,.20,.17)
+        for side in (-1,1):
+            box(x+side*4.8,sign_z,sign_y-.8,.16,.21,8.8,steel)
+        for h in (4.8,5.4,7.35):
+            box(x,sign_z,sign_y+h,9.8,.19,.105,steel)
+        for j in range(8):
+            start=x-4.8+1.2*j
+            sign_bar(start,sign_y+4.8,start+1.2,sign_y+5.4,sign_z,.045,steel)
+        letters={'M':('0006336660',),'A':('003660', '1252'),
+                 'R':('00064663533303','3360'),'K':('0006','0366','0360'),
+                 'E':('66060060','0333'),'T':('0666','3630')}
+        red=(1.,.14,.095)
+        for j,c in enumerate('MARKET'):
+            for stroke in letters[c]:
+                points=[(x-4.48+j*1.16+int(stroke[k])*.145,sign_y+5.65+int(stroke[k+1])*.23)
+                        for k in range(0,len(stroke),2)]
+                for a,b in zip(points,points[1:]):sign_bar(*a,*b,sign_z-.13,.055,red)
+        clock_x,clock_y=x+3.45,sign_y+6.35
+        for j in range(48):
+            a,b=j*math.tau/48,(j+1)*math.tau/48
+            for angle,r in ((a,0),(a,.9),(b,.9)):
+                mesh.extend((clock_x+r*math.cos(angle),clock_y+r*math.sin(angle),sign_z-.16,.92,.87,.69,0.))
+            if j%4==0:
+                sign_bar(clock_x+.70*math.cos(a),clock_y+.70*math.sin(a),
+                         clock_x+.84*math.cos(a),clock_y+.84*math.sin(a),sign_z-.18,.027,steel)
+        for dx,dy in ((-.31,.39),(.54,.27)):
+            sign_bar(clock_x,clock_y,clock_x+dx,clock_y+dy,sign_z-.2,.036,steel)
+        # Pavers follow the same triangles as the player's feet.
+        for j in range(-14,66,2):
+            ends=[(x+sx*4.8,z+j+step) for sx,step in ((-1,0),(1,0),(1,2),(-1,2))]
+            quad([(xx,surface(field,xx,zz)+.045,zz) for xx,zz in ends],(.42,.39,.36),.237)
+        rng=random.Random(1907)
+        for side in (-1,1):
+            for row in range(12):
+                xx,zz=x+side*5.5,z+row*5
+                y=surface(field,xx,zz)
+                box(xx+side*2,zz,y-1,3.,4.9,5.6,(.59,.36,.26),.228)
+                box(xx,zz,y-.25,1.15,4.4,1.18,(.48,.34,.20))
+                for edge in (-1,1):
+                    box(xx-side*.6,zz+2.3*edge,y-.3,.09,.09,3.27,(.27,.29,.24))
+                for band in range(8):
+                    zz0=zz-2.5+band*.625
+                    color=(.66,.16,.12) if band%2 else (.91,.81,.61)
+                    quad(((xx-side*.9,y+2.85,zz0),(xx+side*1.7,y+3.65,zz0),
+                          (xx+side*1.7,y+3.65,zz0+.625),(xx-side*.9,y+2.85,zz0+.625)),color)
+                for bin_index in range(6):
+                    basket=zz-1.8+bin_index*.68
+                    box(xx,basket,y+.93,.98,.59,.18,(.53,.37,.19))
+                    color=rng.choice(((.82,.23,.09),(.86,.59,.10),(.39,.59,.19),(.70,.12,.16)))
+                    for offset in (-.25,0,.25):
+                        box(xx+offset,basket,y+1.11,.20,.43,rng.uniform(.12,.23),color)
+    else:
+        from forest_floor import broadleaf_clump,nurse_log,fern
+        rng=random.Random(47861)
+        def face(a,b,c,color,material=0.):
+            materials=material if isinstance(material,tuple) else (material,)*3
+            for v,m in zip((a,b,c),materials):
+                mesh.extend((v.x,v.y,v.z,*(k/255 for k in color),m))
+        # Clumps within the opening sightline give the rainforest a middle
+        # storey. Keep an irregular gap through the centre for the walker.
+        for _ in range(85):
+            z=rng.uniform(-15,40)
+            x=rng.choice((-1,1))*rng.uniform(1.8,18)+1.15*math.sin(z*.22)
+            y=field.height(x,z)
+            if rng.random()<.67:fern(x,z,y,rng.uniform(.7,1.55),face,rng,compact=True)
+            else:broadleaf_clump(x,y,z,rng.uniform(.55,1.1),(73,113,57),face,rng)
+        for _ in range(40):
+            x,z=rng.uniform(-80,80),rng.uniform(-80,80)
+            a=rng.random()*math.tau
+            nurse_log(x,z,math.sin(a),math.cos(a),field.height,face,rng)
+            for _ in range(3):
+                px,pz=x+rng.uniform(-2,2),z+rng.uniform(-2,2)
+                fern(px,pz,field.height(px,pz),rng.uniform(.6,1.4),face,rng,compact=True)
+    count=len(mesh)//7
+    return field,Vec(0,0,0),mesh,count,array('I',[0]),(),count,aerial
+
+if __name__=='__main__':
+    folder=Path(sys.argv[2])
+    if sys.argv[1]=='aerial':decode_aerial(folder)
+    else:convert(sys.argv[1],folder)

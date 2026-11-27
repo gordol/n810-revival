@@ -435,3 +435,99 @@ class BikeLoop:
         x,z=self.position(self.angle)
         tx,tz=self.position(self.angle+.01)
         return x,z,math.atan2(tx-x,tz-z),.10
+
+class ExploreMenu(HikeMenu):
+    groups={'Fly':('Plane from Rainier','Plane from Thun Field','Hang glide','Paramotor'),
+            'Mountain sports':('Put on skis','Climb summit ice','Mountain bike loop'),
+            'On the water':('Boat on Commencement Bay','Bainbridge ferry'),
+            'Seattle waterfront':('Pike Place Market','Seattle Great Wheel'),
+            'On foot':('Hoh Rain Forest walk','Local trails and activities')}
+
+    def __init__(self,view):
+        super().__init__(view)
+        self.group=None
+
+    def lines(self,width):
+        v=self.view
+        if v.travel_job:return ('Preparing terrain…','Opening the offline elevation grid.')
+        if v.party:return ('Explore','Local trails and activities','Back')
+        if self.group:return (self.group,'',*self.groups[self.group],'','Back',v.travel_error[:width])
+        return ('Explore','',*self.groups,'','Return to Ohanapecosh' if v.regional else 'Back',v.travel_error[:width])
+
+    def tap_xy(self,x,y):
+        from pnw_outings import OUTINGS
+        v=self.view
+        if v.travel_job:return True
+        rows=self.lines(80)
+        label=rows[int(y)] if 0<=y<len(rows) else ''
+        if label in self.groups:self.group=label
+        elif label in ('Hang glide','Paramotor',*self.groups['Mountain sports']):
+            if v.regional and not v.outing:
+                return not v.start_mountain_sport(label)
+            v.start_region()
+            v.pending_sport=label
+        elif label in OUTINGS:v.start_outing(OUTINGS[label])
+        elif label=='Local trails and activities':
+            if v.outing:v.return_to_valley()
+            v.notebook=HikeMenu(v)
+        elif label=='Return to Ohanapecosh':v.return_to_valley();return False
+        elif label=='Back':
+            if not self.group:return False
+            self.group=None
+        return True
+
+
+class SoundVehicle(HangGlider):
+    def __init__(self,kind,field):
+        from pnw_outings import BAY,PLACES,location
+        from types import SimpleNamespace
+        self.kind=kind
+        self.boat=kind=='boat'
+        self.stops=[(name,*location('sound',lat,lon)) for name,lat,lon in PLACES]
+        self.target_index=3 if self.boat else 1 if kind=='thun' else 0
+        x,z=location('sound',*BAY) if self.boat else self.stops[0 if kind=='thun' else 4][1:]
+        super().__init__(SimpleNamespace(x=x,z=z,heading=0),field.height,True)
+        self.altitude=0. if self.boat else field.height(x,z)+350.
+        self.speed=0. if self.boat else 80.
+        _,tx,tz=self.stops[self.target_index]
+        self.heading=math.atan2(tx-x,tz-z)
+
+    def toggle_motor(self):
+        self.target_index=(self.target_index+1)%len(self.stops)
+
+    def advance(self,dt,height,limits):
+        roll=self.stick+self.drag[0]+('right' in self.keys)-('left' in self.keys)
+        pitch=self.pitch_stick+self.drag[1]+('up' in self.keys)-('down' in self.keys)
+        smooth=-math.expm1(-3*dt)
+        self.bank+=(max(-1.,min(1.,roll))-self.bank)*smooth
+        self.pitch+=(max(-1.,min(1.,pitch))-self.pitch)*smooth
+        cruise=(22. if self.fast else 10.) if self.boat else (150. if self.fast else 80.)
+        if self.boat and self.descending:cruise=0.
+        self.speed+=(cruise-self.speed)*(-math.expm1(-dt))
+        self.heading+=self.bank*dt*(.64 if self.boat else .38)
+        west,east,south,north=limits
+        x=max(west,min(east,self.x+self.speed*dt*math.sin(self.heading)))
+        z=max(south,min(north,self.z+self.speed*dt*math.cos(self.heading)))
+        ground=height(x,z)
+        if self.boat and ground>.01:self.speed=0.
+        else:self.x,self.z=x,z
+        if not self.boat:
+            self.altitude=max(ground+6.,self.altitude-dt*(36*self.pitch+12*self.descending))
+        self.clearance=max(0.,self.altitude-ground)
+        return self.x,self.z,self.heading,.06+(.08 if self.boat else .40)*self.pitch
+
+    def wheel_items(self):
+        items=super().wheel_items()
+        return [(action,'Waypoint' if action=='motor' else ('Go' if self.descending else 'Stop')
+                 if self.boat and action=='descend' else label,angle) for action,label,angle in items]
+
+    def controls(self,w,h):
+        if not self.menu and self.boat:return [('wheel','Helm',(w-11,0,11,3))]
+        return super().controls(w,h)
+
+    def draw(self,ink,w,h):
+        super().draw(ink,w,h)
+        name,x,z=self.stops[self.target_index]
+        bearing=round(math.degrees(math.atan2(x-self.x,z-self.z)))%360
+        ink.label(1,h-3,name,0xFFF4DC)
+        ink.label(1,h-2,f'{math.hypot(x-self.x,z-self.z)/1000:.1f} km  {bearing:03d} deg',0xFFF4DC)

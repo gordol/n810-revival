@@ -60,6 +60,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                 if not self.pixel_scene:return super().poll_interval()
                 if not self._sync() or self.pixel_scene.error:return None
                 if self.pixel_scene.world is None:return .1
+                if getattr(self.pixel_scene,'outing',None) and not self.pixel_scene.notebook:return 1/45
                 moving=any(self.drag_axes) or self.held_motion.held
                 changed=self.pixel_scene.camera!=(self.x,self.z,self.yaw,self.pitch)
                 return 1/35 if moving or changed else 1/20

@@ -1,6 +1,6 @@
 """Perspective terrain for the graphical Rainier walk. World coordinates are metres."""
 from array import array
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from functools import lru_cache
 import ctypes as C
 import math
@@ -16,7 +16,7 @@ from river_camp import CAMP, OVERLOOK, SUPPLIES, camp_materials, campsite, river
 from river_detail import RiverQuality, shade_tree
 from forest_floor import blade, broadleaf_clump, fern, nurse_log, snag, spruce_sprays, trail_cover
 from rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
-from rainier_hike import HikeMenu, ReliefMap, bounds, region_field, summit_start
+from rainier_hike import ExploreMenu,SoundVehicle,HikeMenu, ReliefMap, bounds, region_field, summit_start
 from valley_map import ValleyMap
 from river_fishing import Fishing,vibration,watch_rod
 from river_party import PartyMenu
@@ -696,6 +696,8 @@ def build_world(high=True,plant_sites=None,regional=False):
 
 
 class RainierView:
+    outing=pending_outing=None
+    ride_time=0.
     bike=glider=climb=None
     pad_sticks=(0.,0.,0.,0.)
     name='Rainier walk'
@@ -786,12 +788,13 @@ class RainierView:
         else:hint=f'Berries {len(trail.picked)}/3'
         family='Family'
         if self.party:family=f'{len(self.party.roster)} here' if self.party.roster else 'Finding'
-        labels=('Stop' if self.cruise else 'Walk',hint,'Hike',family,'Mute' if self.sound else 'Sound')
+        labels=('Stop' if self.cruise else 'Walk',hint,'Explore',family,'Mute' if self.sound else 'Sound')
         if self.regional:
             field=self.world[0]
-            elevation=round(surface(field,*self.camera[:2])) if self.camera else 0
-            labels=(labels[0],f'{elevation} m','Hike','Mute' if self.sound else 'Sound','Map')
-            if self.glider:labels=('Land','Restart','Hike',labels[3],'Map')
+            elevation=round(self.walk_height(*self.camera[:2])) if self.camera else 0
+            labels=(labels[0],f'{elevation} m','Explore','Mute' if self.sound else 'Sound','Map')
+            if self.outing in ('ferry','wheel'):labels=('Exit','Restart','Explore',labels[3],'')
+            if self.glider:labels=('Stop' if self.outing else 'Land','Restart','Explore',labels[3],'Map')
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
@@ -803,18 +806,27 @@ class RainierView:
             self.landing_sound=False
             self.pixel_dirty=True
             return True
+        if self.outing in ('ferry','wheel'):
+            if width//6<=x<width*3//7:self.ride_time=0.
+            elif x<width*4//7:
+                self.outing='waterfront'
+                self.cruise=False
+                self.destination=None
+                self.notebook=ExploreMenu(self)
+            return True
         if self.glider:
             if x<width//6:self.end_flight()
             elif x<width*3//7:
                 powered=self.glider.powered
                 self.end_flight()
-                self.start_glide(powered)
+                if self.outing:self.glider=SoundVehicle(self.outing,self.world[0])
+                else:self.start_glide(powered)
             else:
                 self.end_flight()
                 if x>=width*3//4:
                     self.notebook=ReliefMap(self)
                     self.album_loaded=None
-                else:self.notebook=HikeMenu(self)
+                else:self.notebook=ExploreMenu(self)
             return True
         self.bike=None
         self.climb=None
@@ -841,7 +853,7 @@ class RainierView:
         elif width*3//7<=x<width*4//7 or self.regional:
             self.destination=None
             self.cruise=self.trail.guiding=False
-            self.notebook=HikeMenu(self)
+            self.notebook=ExploreMenu(self)
         elif x>=width*3//4:self.sound=not self.sound
         elif x>=width*4//7:
             self.destination=None
@@ -1046,6 +1058,20 @@ class RainierView:
             scale=3.2*dt/max(1.,math.hypot(sideways,back))
             owner._translate(-back,sideways,scale)
 
+    def start_mountain_sport(self,label):
+        if not getattr(self.world[0],'inset',None):
+            self.travel_error='This activity needs the Rainier summit terrain.'
+            return False
+        if label=='Mountain bike loop':
+            if not self.meadow_site:
+                self.travel_error='Meadow terrain unavailable.'
+                return False
+            self.start_bike()
+        elif label=='Put on skis':self.start_ski()
+        elif label=='Climb summit ice':self.start_climb()
+        else:self.start_glide(powered=label=='Paramotor')
+        return True
+
     def start_bike(self):
         from rainier_hike import BikeLoop
         self.bike=BikeLoop(self.meadow_site)
@@ -1162,6 +1188,7 @@ class RainierView:
         self.hint_until=self.age+2.
 
     def walk_tools(self,width,height):
+        if self.outing in ('ferry','wheel'):return []
         if self.glider:return self.glider.controls(width,height)
         if self.bike:return [('dismount','Dismount',(0,0,11,3)),
                             ('pedal','Brake' if self.bike.pedaling else 'Pedal',(width//2-6,height-4,12,4))]
@@ -1218,7 +1245,19 @@ class RainierView:
             self.cruise=self.binoculars=self.lens=False
             self.zoom=1.
 
+    def start_outing(self,outing):
+        from pnw_outings import build_world as build_outing
+        self.pending_outing=outing
+        self.travel_error=''
+        if self.outing and self.outing!='hoh' and outing!='hoh' and self.world:
+            self.travel_job=Future()
+            self.travel_job.set_result(self.world)
+            return
+        self.travel_pool=ThreadPoolExecutor(max_workers=1)
+        self.travel_job=self.travel_pool.submit(build_outing,outing)
+
     def start_region(self,lookout_arrival=False,meadow_arrival=False):
+        self.pending_outing=self.pending_sport=None
         self.meadow_arrival=meadow_arrival
         self.lookout_arrival=lookout_arrival
         self.travel_error=''
@@ -1228,6 +1267,7 @@ class RainierView:
     def return_to_valley(self):
         self.release()
         self.regional=False
+        self.outing=None
         self.lookout_site=self.trip_pose=None
         self.notebook=None
         self.pixel_dirty=True
@@ -1236,6 +1276,7 @@ class RainierView:
         if self.travel_pool:self.travel_pool.shutdown(wait=False,cancel_futures=True)
         self.travel_pool=self.travel_job=None
         self.regional=False
+        self.outing=self.pending_outing=None
         self.map_position=self.valley_pose=self.notebook=None
 
     def close(self):
@@ -1249,28 +1290,55 @@ class RainierView:
             try:world=self.travel_job.result()
             except Exception as error:self.travel_error=str(error)
             else:
-                self.valley_pose=(owner.x,owner.z,owner.yaw,owner.pitch)
-                self.release()
+                if not self.regional:self.valley_pose=(owner.x,owner.z,owner.yaw,owner.pitch)
+                if self.world is world:
+                    self.bike=self.glider=self.climb=self.destination=None
+                    self.stop_ski()
+                else:self.release()
+                self.photo_hint=''
                 self.world=world
                 self.regional=True
                 self.lens=self.binoculars=False
                 self.zoom=1.
                 self.review_key=self.notebook=None
                 owner.cancel_keys()
-                owner.x,owner.z=summit_start(world[0])
-                owner.yaw,owner.pitch=0.,-.38
-                self.meadow_site=lookout.location(world[0],paradise.LATITUDE,paradise.LONGITUDE)
+                self.outing=self.pending_outing
+                self.lookout_site=self.meadow_site=None
                 self.flower_sites=[]
-                if self.meadow_site:
-                    mx,mz=self.meadow_site
-                    self.flower_sites=[(key,mx+dx,mz+dz) for key,dx,dz in paradise.patches()]
-                    if self.meadow_arrival:self.visit_meadow()
-                site_xz=lookout.location(world[0])
-                if site_xz:
-                    self.lookout_site=(*site_xz,lookout.base_level(lambda x,z:surface(world[0],x,z),*site_xz))
-                    if self.lookout_arrival:self.visit_lookout()
+                self.trip_pose=self.map_position=None
+                self.cruise=self.trail.guiding=self.lens=self.binoculars=False
+                if self.outing:
+                    from pnw_outings import ride_pose
+                    owner.x=owner.z=owner.yaw=0.
+                    owner.pitch=-.08
+                    self.ride_time=0.
+                    if self.outing in ('plane','thun','boat'):
+                        self.glider=SoundVehicle(self.outing,world[0])
+                    elif self.outing=='market':
+                        from pnw_outings import MARKET,location
+                        x,z=location('sound',*MARKET)
+                        owner.x,owner.z=x,z-6
+                        owner.yaw=.07
+                    elif self.outing in ('ferry','wheel'):
+                        owner.x,owner.z,owner.yaw,owner.pitch,_=ride_pose(self.outing,0)
+                else:
+                    owner.x,owner.z=summit_start(world[0])
+                    owner.yaw,owner.pitch=0.,-.38
+                    self.meadow_site=lookout.location(world[0],paradise.LATITUDE,paradise.LONGITUDE)
+                    self.flower_sites=[]
+                    if self.meadow_site:
+                        mx,mz=self.meadow_site
+                        self.flower_sites=[(key,mx+dx,mz+dz) for key,dx,dz in paradise.patches()]
+                        if self.meadow_arrival:self.visit_meadow()
+                    site_xz=lookout.location(world[0])
+                    if site_xz:
+                        self.lookout_site=(*site_xz,lookout.base_level(lambda x,z:surface(world[0],x,z),*site_xz))
+                        if self.lookout_arrival:self.visit_lookout()
+                    if self.pending_sport and not self.start_mountain_sport(self.pending_sport):
+                        self.notebook=ExploreMenu(self)
+                    self.pending_sport=None
             finally:
-                self.travel_pool.shutdown(wait=False)
+                if self.travel_pool:self.travel_pool.shutdown(wait=False)
                 self.travel_pool=self.travel_job=None
         if self.error:return
         if self.world is None:
@@ -1299,6 +1367,12 @@ class RainierView:
             self.valley_pose=None
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
+        if self.outing in ('ferry','wheel') and not self.notebook:
+            from pnw_outings import ride_pose
+            old_yaw=ride_pose(self.outing,self.ride_time)[2]
+            self.ride_time+=dt
+            owner.x,owner.z,heading,_,_=ride_pose(self.outing,self.ride_time)
+            owner.yaw+=heading-old_yaw
         if self.bike:owner.x,owner.z,owner.yaw,owner.pitch=self.bike.advance(dt,self.walk_height)
         if any(self.pad_sticks) and not (self.bike or self.ski or self.climb or self.glider or self.notebook or self.album):
             self.walk_with_controller(owner,dt)
@@ -1367,6 +1441,9 @@ class RainierView:
                 bottom=surface(field,cx,cz-7.4)
                 step=min(14,int((z-cz+7.4)/.3)+1)
                 ground=bottom+(base+lookout.DECK-bottom)*step/14
+        if self.outing in ('ferry','wheel'):
+            from pnw_outings import ride_pose
+            ground+=ride_pose(self.outing,self.ride_time)[4]
         if self.glider:ground=self.glider.altitude
         if getattr(self,"ski",None):ground+=self.ski.lift
         return x,ground-origin.y+1.25,z
@@ -1491,7 +1568,9 @@ class RainierView:
         center=(0,0)
         stand_ptr=None
         upload_shade=self.upload
-        if self.regional:
+        sound_region=self.outing is not None and self.outing!='hoh'
+        if sound_region:center=((field.nx-1)*field.dx,(field.nz-1)*field.dz)
+        if self.regional and self.outing in (None,'hoh'):
             center=self.stand_center
             if center is None or max(abs(x-center[0]),abs(z-center[1]))>64:
                 center=(96*round(x/96),96*round(z/96))
@@ -1509,11 +1588,12 @@ class RainierView:
             near=math.hypot(max(west-x,0.,x-east),max(south-z,0.,z-north))<600.
             if near:omit_first,omit_end=base_count-6*summit_approach.COLUMNS*summit_approach.ROWS,base_count
             else:omit_first,omit_end=base_count,terrain_count
-        equipment=(C.c_float*3)(self.glider.powered,self.glider.bank,self.glider.pitch) if self.glider else None
+        equipment=(C.c_float*3)(3 if self.outing=="boat" else 2 if self.outing in ("thun","plane") else self.glider.powered,self.glider.bank,self.glider.pitch) if self.glider else None
+        if self.outing=='ferry':equipment=(C.c_float*3)(4,0.,0.)
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high or self.regional else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
                        x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
-                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end,equipment)
+                       C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-2 if sound_region else -1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end,equipment)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
             self.release()
@@ -1556,6 +1636,9 @@ class RainierView:
                     ink.label(1,7,f'Reeled {round(100*(1-self.fishing.remaining))}%   Tension',0xFFF6DA)
                     ink.fill((1,8.1,18,.36),0x283832FF)
                     ink.fill((1,8.1,18*self.fishing.tension,.36),0xFD996EFF)
+            if self.outing in ('ferry','wheel','market','hoh'):
+                place={'ferry':'Seattle – Bainbridge ferry','wheel':'Pier 57 · Great Wheel','market':'Pike Place Market','hoh':'Hoh Rain Forest'}
+                ink.label(1,h-5,place[self.outing],0xFFF6DD)
             if self.glider:self.glider.draw(ink,w-2,h-3)
             if self.climb:self.climb.draw(ink,w-2,h-3)
             if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y)
