@@ -2,10 +2,13 @@
 from array import array
 import math
 import random
+from struct import Struct
 
 from pnw import market_visit
 from pnw.terrain import GRIDS,elevations,layout,location,sound_aerial
 from pnw.hiking import HangGlider,HikeMenu
+
+_VERTEX = Struct('=7f')
 
 PLACES=(('Thun Field',47.104,-122.287),('Tacoma waterfront',47.266,-122.449),
         ('Tacoma Narrows Airport',47.268,-122.578),('Seattle waterfront',47.604,-122.339),
@@ -80,33 +83,12 @@ def build_world(outing,*,require_cache=False):
     return field,Vec(0,0,0),mesh,count,array('I',[0]),(),count,aerial
 
 def build_mesh(region,field,raw,aerial):
-    from geometry import Vec
-    nx,nz=field.nx,field.nz
-    d=field.dx
-    mesh=array('f')
-    rows=[]
-    for j in range(nz):
-        row=[]
-        for i in range(nx):
-            k=j*nx+i
-            y=field.values[k]
-            dx=(field.values[j*nx+min(nx-1,i+1)]-field.values[j*nx+max(0,i-1)])/(2*d)
-            dz=(field.values[min(nz-1,j+1)*nx+i]-field.values[max(0,j-1)*nx+i])/(2*d)
-            shade=max(.45,min(1.2,.88+.52*(dx-dz)))
-            color=(.11,.32,.37) if raw[k]<=0 else (.88,.92,.95) if y>2400 else (.28,.39,.24)
-            row.append((field.origin.x+i*d,y,field.origin.z+j*d,*(v*shade for v in color),.216 if aerial is not None and raw[k]>0 else .20 if raw[k]<=0 else .974 if region=='hoh' else .0))
-        rows.append(row)
-    # Keep 384-vertex culling batches spatially compact in both dimensions.
-    for z0 in range(0,nz-1,8):
-        for x0 in range(0,nx-1,8):
-            for j in range(z0,min(nz-1,z0+8)):
-                a,b=rows[j:j+2]
-                for i in range(x0,min(nx-1,x0+8)):
-                    for v in (a[i],b[i],a[i+1],a[i+1],b[i],b[i+1]):mesh.extend(v)
+    mesh = terrain_grid_mesh(field, raw, aerial, region)
     if region=='sound':
         from pnw.scene import surface
         def quad(points,color,material=0.):
-            for i in (0,1,2,0,2,3):mesh.extend((*points[i],*color,material))
+            a,b,c,d = (_VERTEX.pack(*point,*color,material) for point in points)
+            mesh.frombytes(b''.join((a,b,c,a,c,d)))
         def box(x,z,y,width,depth,height,color,material=0.,rotation=None):
             base=[(x+sx*width/2,y,z+sz*depth/2) for sx,sz in ((-1,-1),(1,-1),(1,1),(-1,1))]
             if rotation:
@@ -213,6 +195,36 @@ def build_mesh(region,field,raw,aerial):
             for _ in range(3):
                 px,pz=x+rng.uniform(-2,2),z+rng.uniform(-2,2)
                 fern(px,pz,field.height(px,pz),rng.uniform(.6,1.4),face,rng,compact=True)
+    return mesh
+
+def terrain_grid_mesh(field, raw, aerial, region):
+    nx,nz=field.nx,field.nz
+    d=field.dx
+    mesh=array('f')
+    rows=[]
+    for j in range(nz):
+        row=[]
+        for i in range(nx):
+            k=j*nx+i
+            y=field.values[k]
+            dx=(field.values[j*nx+min(nx-1,i+1)]-field.values[j*nx+max(0,i-1)])/(2*d)
+            dz=(field.values[min(nz-1,j+1)*nx+i]-field.values[max(0,j-1)*nx+i])/(2*d)
+            shade=max(.45,min(1.2,.88+.52*(dx-dz)))
+            color=(.11,.32,.37) if raw[k]<=0 else (.88,.92,.95) if y>2400 else (.28,.39,.24)
+            material = .20 if raw[k]<=0 else .216 if aerial is not None else .974 if region=='hoh' else .0
+            r,g,b = color
+            row.append(_VERTEX.pack(field.origin.x+i*d,y,field.origin.z+j*d,
+                                    r*shade,g*shade,b*shade,material))
+        rows.append(row)
+    # Keep 384-vertex culling batches spatially compact in both dimensions.
+    for z0 in range(0,nz-1,8):
+        for x0 in range(0,nx-1,8):
+            vertices=[]
+            for j in range(z0,min(nz-1,z0+8)):
+                a,b=rows[j:j+2]
+                for i in range(x0,min(nx-1,x0+8)):
+                    vertices.extend((a[i],b[i],a[i+1],a[i+1],b[i],b[i+1]))
+            mesh.frombytes(b''.join(vertices))
     return mesh
 
 
