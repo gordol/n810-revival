@@ -17,7 +17,7 @@ from pnw.river_detail import RiverQuality, shade_tree
 from pnw.forest_floor import blade, broadleaf_clump, fern, nurse_log, snag, spruce_sprays, trail_cover
 from pnw.rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from pnw import market_visit
-from pnw.outings import ExploreMenu,SoundVehicle
+from pnw.outings import ExploreMenu,PauseMenu,SoundVehicle
 from pnw.hiking import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from pnw.valley_map import ValleyMap
 from pnw.river_fishing import Fishing,vibration,watch_rod
@@ -938,6 +938,7 @@ class RainierView:
                 elif action=='family':self.notebook=PartyMenu(self,ski=True)
                 else:self.ski.action(action)
             elif action=='launch':self.start_glide()
+            elif action=='pause':self.pause_game()
             elif self.glider:
                 flight=self.glider
                 if action=='motor':flight.toggle_motor()
@@ -1081,8 +1082,29 @@ class RainierView:
         self.trail.guiding=True
         return True
 
+    def pause_game(self):
+        self.pause_previous=self.notebook
+        if self.glider:self.glider.menu=False
+        self.notebook=PauseMenu(self)
+        self.pause_owner.cancel_keys()
+        self.pause_started=self.pause_owner.clock()-self.pause_owner.paused_total
+        self.pixel_dirty=True
+
+    def resume_game(self):
+        owner=self.pause_owner
+        owner.paused_total+=max(0.,owner.clock()-owner.paused_total-self.pause_started)
+        self.last_tick=owner.clock()
+        self.notebook=self.pause_previous
+        self.pixel_dirty=True
+
     def controller_button(self,button):
-        # SDL standard face buttons (south/east) and D-pad left/right.
+        if isinstance(self.notebook,PauseMenu):
+            self.notebook.button(button)
+            self.pixel_dirty=True
+            return
+        if button==6 and self.world and not self.travel_job:
+            self.pause_game()
+            return
         if self.notebook:
             if isinstance(self.notebook,DiscoveryBook):
                 if button==1:self.notebook=None
@@ -1094,9 +1116,16 @@ class RainierView:
             if button==1:self.bike=None
             return
         if self.glider:
-            if self.outing in ('thun','plane') and button in (6,11,12):
-                if button==6:self.glider.next_lesson()
-                else:self.glider.flaps=max(0,min(2,self.glider.flaps+(1 if button==12 else -1)))
+            if self.outing in ('thun','plane') and button==4:
+                self.glider.menu=not self.glider.menu
+                self.glider.cancel_input()
+            elif self.outing in ('thun','plane') and self.glider.menu:
+                if button==11:self.glider.toggle_speed()
+                elif button==13:self.glider.toggle_motor()
+                elif button==14:self.glider.descending=not self.glider.descending
+                self.glider.menu=False
+            elif self.outing in ('thun','plane') and button in (11,12):
+                self.glider.flaps=max(0,min(2,self.glider.flaps+(1 if button==12 else -1)))
             elif button==1:self.end_flight()
             elif button==3:self.glider.toggle_speed()
             elif button==2 and self.glider.powered:self.glider.toggle_motor()
@@ -1602,8 +1631,9 @@ class RainierView:
 
     def draw_rainier(self,ctx):
         self.pixel_dirty=False
+        paused=isinstance(self.notebook,PauseMenu)
         book=isinstance(self.notebook,DiscoveryBook)
-        if self.world is None or self.camera is None or (self.notebook and not book and not isinstance(self.notebook,(ReliefMap,market_visit.DistrictMap))):return ()
+        if self.world is None or self.camera is None or (self.notebook and not paused and not book and not isinstance(self.notebook,(ReliefMap,market_visit.DistrictMap))):return ()
         field,origin,data,terrain_count,indices,spans,base_count,shadows=self.world
         self.quality.frame(self.age)
         high=self.quality.high and not self.regional
@@ -1654,7 +1684,7 @@ class RainierView:
                 skis=math.sqrt(speed)*(.65+.45*abs(math.sin(self.ski.angle)))
             sound=ctx.lib.pocket_scene_summit_sound
             sound.argtypes=[C.c_void_p,C.c_int,C.c_float,C.c_float,C.c_int]
-            sound(ctx.handle,self.sound,wind,skis,self.landing_sound)
+            sound(ctx.handle,self.sound and not paused,wind,skis,self.landing_sound)
             self.landing_sound=False
         else:
             voices=nearby_calls(self.subjects,x,eye,z)
@@ -1666,7 +1696,7 @@ class RainierView:
             gain=next((gain for key,_,gain in voices if key==self.last_caller),0.)
             sound=ctx.lib.pocket_scene_river_sound
             sound.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_float,C.c_int,C.c_float]
-            sound(ctx.handle,self.sound,self.cue,river_gain(x,z,site()[1]),voice,gain)
+            sound(ctx.handle,self.sound and not paused,self.cue,river_gain(x,z,site()[1]),voice,gain)
         self.cue=0
         draw.argtypes=[C.c_void_p]+[C.c_int]*4+[C.c_void_p,C.c_uint,C.c_uint,C.c_void_p,
                        C.c_uint,C.POINTER(AnimalDraw),C.c_uint]+[C.c_float]*6+[C.c_int,C.c_float,C.c_int,C.c_int,C.c_void_p,C.POINTER(C.c_float),C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_int,C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_int,C.c_int,C.c_float,C.c_float,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint,C.c_uint,C.c_uint,C.c_uint,C.POINTER(C.c_float),C.POINTER(C.c_float),C.c_uint]
@@ -1829,7 +1859,8 @@ class RainierView:
         if self.upload:self.world=field,origin,None,terrain_count,None,spans,base_count,None
         self.upload=False
         ink=Ink(ctx,rect)
-        if book:
+        if paused:self.notebook.draw(ink,w-2,h-3)
+        elif book:
             def picture(path,box):
                 bx,by,bw,bh=box
                 print_photo(path,(rect[0]+bx*8,rect[1]+by*16,bw*8,bh*16))

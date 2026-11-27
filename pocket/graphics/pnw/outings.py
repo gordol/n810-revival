@@ -273,6 +273,81 @@ class ExploreMenu(HikeMenu):
         return True
 
 
+class PauseMenu:
+    """Shared local pause screen, navigable by controller or touch."""
+    def __init__(self,view):
+        self.view=view
+        self.page='Paused'
+        self.selected=0
+        self.guide_page=0
+
+    def rows(self):
+        if self.page=='Flight controls':
+            prefs=self.view.app_context.preferences
+            return ('Pitch: '+prefs['flight-pitch'],'Roll: '+prefs['flight-roll'],'Back')
+        if self.page=='Flight guide':
+            return ('Next page','Back')
+        flight=self.view.outing in ('plane','thun') and self.view.glider
+        rows=('Resume','Flight controls','Flight guide')
+        return rows+('Leave aircraft',) if flight else rows
+
+    def lines(self,width):
+        return ()
+
+    def draw(self,ink,width,height):
+        panel=min(width,36)
+        ink.fill((0,0,width,height),0x10192378)
+        ink.fill((0,0,panel,height),0x122024EF)
+        title=self.page if self.page!='Flight guide' else f'Flight guide  {self.guide_page+1}/3'
+        ink.label(1,.4,title,0xF6EFCE)
+        for i,label in enumerate(self.rows()):
+            y=2+i*2
+            if i==self.selected:
+                ink.fill((.5,y,panel-1,1.9),0x3E6159FF)
+                ink.fill((.5,y,.3,1.9),0xF0CC78FF)
+            ink.label(1.6,y+.42,label[:panel-2],0xFFF6DA)
+        hints=(('Left stick: roll / pitch','Right stick: look','LB / RB: rudder'),
+               ('LT / RT: throttle','D-pad down/up: flaps out/in','D-pad left/right: glance'),
+               ('A: takeoff / approach','X: waypoint   Y: cruise','Stall: nose down, add power'))
+        footer=hints[self.guide_page] if self.page=='Flight guide' else ('A: select   B: back',)
+        y=2+2*len(self.rows())
+        for i,line in enumerate(footer):
+            if y+i<height:ink.label(1,y+i,line[:panel-1],0xC3D2CA)
+
+    def tap_xy(self,x,y):
+        index=(int(y)-2)//2
+        if 0<=x<36 and 0<=index<len(self.rows()):
+            self.selected=index
+            self.activate()
+        return self.view.notebook is self
+
+    def activate(self,direction=1):
+        label=self.rows()[self.selected]
+        if self.page=='Flight controls' and label!='Back':
+            key,choices=(('flight-pitch',('Pull to climb','Push to climb')) if self.selected==0
+                         else ('flight-roll',('Gentle','Standard','Quick')))
+            context=self.view.app_context
+            value=choices[(choices.index(context.preferences[key])+direction)%len(choices)]
+            context.registry.set_setting(context.identifier,key,value)
+        elif label=='Next page':self.guide_page=(self.guide_page+1)%3
+        elif label=='Resume':self.view.resume_game()
+        elif label=='Leave aircraft':
+            self.view.resume_game()
+            self.view.end_flight()
+        else:
+            self.page='Paused' if label=='Back' else label
+            self.selected=0
+
+    def button(self,button):
+        if button in (11,12):
+            self.selected=(self.selected+(1 if button==12 else -1))%len(self.rows())
+        elif button==0:self.activate()
+        elif button in (13,14) and self.page=='Flight controls' and self.selected<2:
+            self.activate(1 if button==14 else -1)
+        elif button==6 or (button==1 and self.page=='Paused'):self.view.resume_game()
+        elif button==1:self.page='Paused';self.selected=0
+
+
 class SoundVehicle(HangGlider):
     def __init__(self,kind,field):
         from types import SimpleNamespace
@@ -297,7 +372,7 @@ class SoundVehicle(HangGlider):
         self.roll_angle=self.roll_rate=0.
         self.look=(0.,0.)
         self.look_yaw=self.look_pitch=0.
-        self.lesson=0
+        self.roll_gain=1.
         self.throttle=48./118.
         self.roll_state=None
         if kind=='thun':
@@ -313,9 +388,6 @@ class SoundVehicle(HangGlider):
         super().cancel_input()
         self.rudder=self.throttle_rate=0.
         self.look=(0.,0.)
-
-    def next_lesson(self):
-        self.lesson=(self.lesson+1)%4
 
     def toggle_speed(self):
         super().toggle_speed()
@@ -364,7 +436,7 @@ class SoundVehicle(HangGlider):
         if self.boat:
             self.bank+=(roll-self.bank)*smooth
         else:
-            self.roll_rate+=(roll*math.radians(95)-self.roll_rate)*smooth
+            self.roll_rate+=(roll*self.roll_gain*math.radians(95)-self.roll_rate)*smooth
             self.roll_angle=math.remainder(self.roll_angle+self.roll_rate*dt,math.tau)
             self.bank=self.roll_angle/math.radians(55)
         self.pitch+=(max(-1.,min(1.,pitch))-self.pitch)*smooth
@@ -418,6 +490,7 @@ class SoundVehicle(HangGlider):
 
     def controls(self,w,h):
         if not self.menu and self.boat:return [('wheel','Helm',(w-11,0,11,3))]
+        if not self.menu:return [('wheel','Flight',(w-11,0,11,3)),('pause','Pause',(w-11,3,11,3))]
         return super().controls(w,h)
 
     def draw(self,ink,w,h):
@@ -438,9 +511,6 @@ class SoundVehicle(HangGlider):
                f'{round(self.clearance)} m AGL')
         status='STALL: nose down + power' if self.stalled else f'Flaps {self.flaps*10} deg'
         lines+=(status,)
-        lessons=((),('1/3   Take off','A / Cross: runway assist','RT / LT: power up / down','Pull left stick back to climb'),
-                 ('2/3   Turn and look','Hold left stick sideways to roll','LB / RB: left / right rudder','Right stick or D-pad L/R: look'),
-                 ('3/3   Slow flight','D-pad down/up: flaps out/in','Slow + nose high: stall','Ease nose down, add power'))
-        lines+=lessons[self.lesson]+('Start: next / finish',) if self.lesson else ('Start: flight lesson',)
+        lines+=('Start: pause   View: wheel',)
         ink.fill((.5,.6,min(w,max(map(len,lines))+1),len(lines)+.6),0x14231FE8)
         for i,line in enumerate(lines):ink.label(1,1+i,line,0xEEE8CC)

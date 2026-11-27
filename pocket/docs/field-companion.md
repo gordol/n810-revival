@@ -647,8 +647,12 @@ attitude indicator, and altitude above sea level in feet. On the altimeter,
 the longest hand makes one turn per 1,000 feet, the middle hand per 10,000,
 and the shortest per 100,000. The navigation display gives terrain clearance in metres.
 
-Press Start / Options in the plane to open the three-page controller flight lesson.
-Press it again to advance or close the last page. At Thun Field, A / Cross starts
+Start / Options pauses local play. Press it again to resume. In the pause menu,
+D-pad up/down moves the selection, A / Cross selects, and B / Circle goes back.
+Flight controls saves your pitch direction and aileron response. Flight guide lists
+the bindings. In the plane you can also tap Pause. The View / Create button opens the
+flight wheel while flying. Press D-pad up for cruise power, left for the next
+waypoint, right for takeoff or approach, or down to close. At Thun Field, A / Cross starts
 the assisted takeoff. The left stick operates the ailerons and elevator. Hold it
 sideways for a continuous roll, use the opposite direction to level the wings,
 and pull back to raise the nose. The right stick looks around the cockpit.

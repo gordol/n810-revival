@@ -45,6 +45,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             self.touch_walk=(0.,0.)
             self.controls=app_context.preferences['touch-controls'] if app_context else WAYPOINT
             self.pixel_scene=pixel_scene
+            if pixel_scene and app_context:self.set_flight_controls(app_context.preferences)
             self.download_pool=None
             self.download_job=None
             self.download_message='USGS elevation is required for this walk.'
@@ -69,6 +70,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
         def poll(self,force=False):
             if not self.needs_grid:
                 if not self._sync():return
+                if getattr(getattr(self.pixel_scene,'notebook',None),'button',None):return
                 self.advance_drag()
                 if self.pixel_scene:
                     now=self.clock()
@@ -94,7 +96,13 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
         def _translate(self,forward,sideways,distance,heading=None):
             super()._translate(forward,sideways,distance*getattr(self.pixel_scene,'pace',1.),heading)
 
+        def set_flight_controls(self,preferences):
+            if self.pixel_scene:
+                self.pixel_scene.pitch_sign=1. if preferences.get('flight-pitch')=='Push to climb' else -1.
+                self.pixel_scene.roll_gain={'Gentle':.6,'Standard':1.,'Quick':1.35}[preferences.get('flight-roll','Standard')]
+
         def preferences_changed(self,preferences):
+            self.set_flight_controls(preferences)
             self.cancel_pointer()
             self.controls=preferences['touch-controls']
 
@@ -357,7 +365,21 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                 return True
             return False
 
+        def pause_key(self,key,press=True):
+            scene=self.pixel_scene
+            menu=getattr(scene,'notebook',None)
+            paused=hasattr(menu,'button')
+            if paused:
+                button={'up':11,'down':12,'left':13,'right':14,'enter':0,'\r':0,'escape':1,'\x1b':1,'pause':6}.get(key)
+                if press and button is not None:scene.controller_button(button)
+                return True
+            if key in ('pause','escape','\x1b') and getattr(scene,'pause_owner',None) and scene.world and not menu:
+                if press:scene.controller_button(6)
+                return True
+            return False
+
         def key_event(self,key,kind,now):
+            if self.pause_key(key,kind=='press'):return True
             scene=self.pixel_scene
             if getattr(scene,'bike',None) and key in ('space',' ','enter'):
                 if kind=='press' and self.ground_key(key):return True
@@ -380,6 +402,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             return super().key_event(key,kind,now)
 
         def key(self,key,now=None):
+            if self.pause_key(key):return True
             if self.flight_key(key) or self.ground_key(key):return True
             climb=getattr(self.pixel_scene,'climb',None)
             if climb and climb.raised and key.lower()=='g':
@@ -430,6 +453,8 @@ def outdoor_descriptor():
     """Optional app reference; Runtime owns canonical discovery/menu inclusion."""
     return dict(id='rainier-walk',title='Rainier walk',preferred_size=(90,32),minimum_size=(22,12),category='Experiments',
         description='Explore Rainier terrain and wildlife. On mobile, follow the Ohanapecosh blueberry trail.',
-        settings=(dict(id='touch-controls',label='Touch controls',kind='choice',choices=(WAYPOINT,TWIN_THUMB),default=WAYPOINT),),
+        settings=(dict(id='touch-controls',label='Touch controls',kind='choice',choices=(WAYPOINT,TWIN_THUMB),default=WAYPOINT),
+                  dict(id='flight-pitch',label='Flight stick pitch',kind='choice',choices=('Pull to climb','Push to climb'),default='Pull to climb'),
+                  dict(id='flight-roll',label='Aileron response',kind='choice',choices=('Gentle','Standard','Quick'),default='Standard')),
         help=(('Explore',('W/S walk; A/D strafe; arrows turn.','I/K look up/down; ground follows metre-scale terrain.','O opens saved terrain viewpoints in Scenery.',
                           'Fictional ruins; real elevation data; existing Lab marmot/eagle.')),),factory=create_outdoors)

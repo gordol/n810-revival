@@ -324,6 +324,28 @@ class OutingTests(unittest.TestCase):
         for _ in range(30):plane.advance(.05,ground,limits)
         self.assertFalse(plane.stalled)
 
+    def test_dpad_distinguishes_pause_wheel_and_live_flight(self):
+        from pnw.scene import RainierView
+        from unittest.mock import Mock
+        view=RainierView(SimpleNamespace())
+        view.outing='plane'
+        view.world=(object(),)
+        plane=view.glider=SoundVehicle('plane',SimpleNamespace(height=lambda x,z:0.))
+        view.pause_owner=SimpleNamespace(clock=Mock(side_effect=[10.,13.,13.]),paused_total=0.,cancel_keys=Mock())
+        view.controller_button(6)
+        view.controller_button(12)
+        self.assertEqual(view.notebook.rows()[view.notebook.selected],'Flight controls')
+        self.assertEqual(plane.flaps,0)
+        view.controller_button(6)
+        self.assertEqual(view.pause_owner.paused_total,3.)
+        view.controller_button(4)
+        self.assertTrue(plane.menu)
+        view.controller_button(12)
+        self.assertFalse(plane.menu)
+        self.assertEqual(plane.flaps,0)
+        view.controller_button(12)
+        self.assertEqual(plane.flaps,1)
+
     def test_boat_stops_at_land(self):
         boat=SoundVehicle('boat',SimpleNamespace(height=lambda x,z:0))
         start=boat.x,boat.z

@@ -43,6 +43,7 @@ class Platform:
     sys.path.insert(0,str(HERE.parent/'shell/apps/landscape-lab'))
     from pnw.scene import RainierView
     view=RainierView(host);owner=original_rainier(host,pixel_scene=view,**options)
+    view.pause_owner=owner;view.app_context=options.get('app_context')
     owner.yaw=0.;owner.pitch=-.14
     self.register_pixel_view(view);return owner
    registry.entries['rainier-walk']=entry._replace(factory=rainier_factory)

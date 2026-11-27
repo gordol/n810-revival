@@ -133,6 +133,13 @@ class DesktopWindow(Window):
                 scene.glider.stick=scene.pad_sticks[0]
                 scene.glider.pitch_stick=-scene.pad_sticks[1]
                 if scene.outing in ('plane','thun'):
+                    scene.glider.roll_gain=scene.roll_gain
+                    scene.glider.pitch_stick=scene.pad_sticks[1]*scene.pitch_sign
+                    if scene.glider.menu:
+                        scene.glider.stick=scene.glider.pitch_stick=0.
+                        scene.glider.rudder=scene.glider.throttle_rate=0.
+                        scene.glider.look=(0.,0.)
+                        return
                     scene.glider.look=(dpad or scene.pad_sticks[2],scene.pad_sticks[3])
                     scene.glider.rudder=self.lib.pocket_window_flight_rudder()
                     rate=self.lib.pocket_window_flight_throttle()/32767.
