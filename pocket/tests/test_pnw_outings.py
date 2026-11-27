@@ -103,9 +103,12 @@ class OutingTests(unittest.TestCase):
             self.assertEqual((magic,frames),(b'NPC3',16))
             offset=24
             for frame in range(frames):
-                _,left,_,_,right,_=struct.unpack_from('<6f',data,offset+frame*24)
+                lx,left,_,rx,right,_=struct.unpack_from('<6f',data,offset+frame*24)
                 self.assertAlmostEqual(min(left,right),0)
                 self.assertGreaterEqual(max(left,right),0)
+                if frame<12:
+                    self.assertLess(abs(lx-rx),.245)
+                    self.assertLess(max(left,right),.08)
             self.assertEqual(len(data),offset+frames*24+ni*4+nv*12*(1+frames)+w*h*4)
 
     def test_delivery_yields_on_its_mapped_route(self):

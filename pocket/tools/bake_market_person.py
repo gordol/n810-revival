@@ -119,48 +119,132 @@ def hang_wrist(side,forward):
     wrist.matrix=pivot@rotation.to_4x4()@pivot.inverted()@wrist.matrix
     bpy.context.view_layer.update()
 
+def world_head(name):
+    return arm.matrix_world@arm.pose.bones[name].head
+
+def walking_legs(cycle):
+    # Solve to the ankle in metres. Each stance travels back at street speed.
+    # The swing starts and ends at the same velocity as the planted foot.
+    phase=math.tau*cycle
+    pelvis=arm.pose.bones['pelvis']
+    # A small pelvic turn advances the stepping hip; the rib cage counters it.
+    twist=math.radians(3.2)*math.cos(phase)
+    up=arm.matrix_world.inverted().to_3x3()@Vector((0,0,1))
+    pivot=Matrix.Translation(pelvis.head)
+    transform=pivot@Matrix.Rotation(twist,4,up)@pivot.inverted()@pelvis.matrix
+    shift=Vector((.015*math.sin(phase),0,-.046-.012*math.cos(2*phase)))
+    transform.translation+=arm.matrix_world.inverted().to_3x3()@shift
+    pelvis.matrix=transform
+    bpy.context.view_layer.update()
+    spine=arm.pose.bones['spine_02']
+    pivot=Matrix.Translation(spine.head)
+    spine.matrix=pivot@Matrix.Rotation(-1.7*twist,4,up)@pivot.inverted()@spine.matrix
+    bpy.context.view_layer.update()
+    for side,sign in (('l',1),('r',-1)):
+        t=(cycle+(.5 if sign==1 else 0))%1
+        stance=.57
+        stride=1.10
+        forward=stride*(stance/2-t)
+        lift=0.
+        roll=0.
+        if t>=stance:
+            swing=(t-stance)/(1-stance)
+            forward+=stride*swing*swing*(3-2*swing)
+            lift=.065*math.sin(math.pi*swing)**2
+            roll=.18*math.sin(math.tau*swing)
+        hip=world_head('thigh_'+side)
+        knee=world_head('calf_'+side)
+        rest=arm.matrix_world@arm.data.bones['foot_'+side].head_local
+        goal=Vector((sign*(.098+.013*lift/.065),rest.y-forward,rest.z+lift))
+        axis=(goal-hip).normalized()
+        pole=Vector((0,-1,0))
+        pole=(pole-axis*pole.dot(axis)).normalized()
+        thigh=(knee-hip).length
+        calf=arm.pose.bones['calf_'+side]
+        shin=(arm.matrix_world.to_3x3()@(calf.tail-calf.head)).length
+        length=min((goal-hip).length,thigh+shin-.0001)
+        along=(thigh**2-shin**2+length**2)/(2*length)
+        bend=math.sqrt(max(0,thigh**2-along**2))
+        aim('thigh_'+side,axis*along+pole*bend)
+        aim('calf_'+side,goal-world_head('calf_'+side))
+        foot=arm.pose.bones['foot_'+side]
+        # Restore the shoe's rest orientation after solving its parents.
+        basis=arm.data.bones['foot_'+side].matrix_local.copy()
+        # The source foot is a separate root, not a child of the calf.
+        basis.translation=arm.matrix_world.inverted()@goal
+        foot.matrix=basis
+        bpy.context.view_layer.update()
+        if roll:
+            direction=arm.matrix_world.to_3x3()@(foot.tail-foot.head)
+            aim('foot_'+side,Matrix.Rotation(roll,3,'X')@direction)
+
 def walking_arms(phase):
     for side,sign in (('l',1),('r',-1)):
         # Left foot trails at stride zero as the left arm swings forward.
         # Drive the elbow parent shared by the wrist and forearm twist bone.
-        shoulder=sign*.26*math.cos(phase)
-        forearm=.18+sign*.32*math.cos(phase-.18)
-        aim('upperarm_'+side,(sign*.095,-math.sin(shoulder),-math.cos(shoulder)))
-        aim('lowerarm_'+side,(-sign*.055,-math.sin(forearm),-math.cos(forearm)))
+        quiet=pocket_hand and side=='r'
+        shoulder=.04+.025*math.cos(phase) if quiet else sign*.21*math.cos(phase)
+        forearm=.84 if quiet else .19+sign*.24*math.cos(phase-.18)
+        upper_out=.33 if quiet else .27
+        lower_out=-.09 if quiet else .045
+        aim('upperarm_'+side,(sign*upper_out,-math.sin(shoulder),-math.cos(shoulder)))
+        aim('lowerarm_'+side,(sign*lower_out,-math.sin(forearm),-math.cos(forearm)))
         # A sleeve twist bone can point the right way without moving the
         # hand. Check the rendered joint chain before writing the asset.
         bones=arm.pose.bones
         wrist_axis=arm.matrix_world.to_3x3()@(bones['hand_'+side].head-bones['lowerarm_'+side].head)
-        intended=Vector((-sign*.055,-math.sin(forearm),-math.cos(forearm)))
+        intended=Vector((sign*lower_out,-math.sin(forearm),-math.cos(forearm)))
         if wrist_axis.angle(intended)>math.radians(3):
             raise ValueError(f'{side} wrist does not follow its elbow')
-        hang_wrist(side,forearm-.06)
+        hang_wrist(side,.13 if quiet else forearm-.06)
         relax_hand(side,False)
 
-# Discard the accessory pose, including twist bones and individual finger keys.
-# Otherwise evaluating the source action can restore those keys during posing.
-arm_bones=set()
-for side in ('l','r'):
-    upper=arm.pose.bones['upperarm_'+side]
-    arm_bones.update(b.name for b in (upper,*upper.children_recursive))
-action=arm.animation_data.action
-for curve in list(action.fcurves):
-    if any(curve.data_path.startswith(f'pose.bones["{name}"]') for name in arm_bones):
-        action.fcurves.remove(curve)
+def clearance_surfaces():
+    """Keep forearms/hands separate from the shirt body and upper trousers."""
+    result=[]
+    for obj in objects:
+        shirt=any(m.name.endswith(('original top','original bottom')) for m in obj.data.materials)
+        if not shirt and not obj.name.endswith('anatomical body'):continue
+        mesh=obj.data
+        mesh.calc_loop_triangles()
+        groups=[obj.vertex_groups[max(v.groups,key=lambda g:g.weight).group].name if v.groups else ''
+                for v in mesh.vertices]
+        probes=[];clothes=[]
+        for tri in mesh.loop_triangles:
+            ids=tuple(tri.vertices)
+            names=[groups[k] for k in ids]
+            if all(n.startswith(('lowerarm','hand','index','middle','pinky','ring','thumb')) for n in names):
+                probes.append(ids)
+            if shirt and all(n.startswith(('spine','pelvis','thigh','calf')) for n in names):
+                clothes.append(ids)
+        result.append((obj,probes,clothes))
+    return result
 
+def check_clearance(points,arms,clothes,pose):
+    from mathutils.bvhtree import BVHTree
+    limbs=BVHTree.FromPolygons(points,arms,all_triangles=True)
+    torso=BVHTree.FromPolygons(points,clothes,all_triangles=True)
+    if limbs.overlap(torso):raise ValueError(f'Forearm or hand intersects clothing in pose {pose}')
+
+surfaces=clearance_surfaces()
+arm_faces=[];cloth_faces=[];point_count=0
+for obj,probes,fabric in surfaces:
+    arm_faces.extend(tuple(point_count+k for k in tri) for tri in probes)
+    cloth_faces.extend(tuple(point_count+k for k in tri) for tri in fabric)
+    point_count+=len(obj.data.vertices)
+walk_surfaces=[]
+# The imported accessory walk has widely spaced ankles and exaggerated
+# vertical travel. Start each sample from rest to avoid inheriting that pose.
+pocket_hand=any(o.name.startswith('Sam | anatomical body') for o in objects)
+arm.animation_data_clear()
 poses=[];contacts=[]
 for frame in range(16):
+    for bone in arm.pose.bones:bone.matrix_basis=Matrix.Identity(4)
+    bpy.context.view_layer.update()
     if frame<12:
-        for name in arm_bones:arm.pose.bones[name].matrix_basis=Matrix.Identity(4)
-        scene.frame_set(frame*2)
-        bpy.context.view_layer.update()
+        walking_legs(frame/12)
         walking_arms(math.tau*frame/12)
     else:
-        if frame==12:arm.animation_data_clear()
-        # Reset each key so the rotations below are absolute. Both planted
-        # stances share their foot positions, including through a reach.
-        for bone in arm.pose.bones:bone.matrix_basis=Matrix.Identity(4)
-        bpy.context.view_layer.update()
         left=frame in (13,15)
         lean=1 if left else -1
         for name,axis,degrees in (('spine_01','Y',2.8*lean),('spine_02','Z',4*lean),
@@ -172,8 +256,8 @@ for frame in range(16):
             bpy.context.view_layer.update()
         for side,sign in (('l',1),('r',-1)):
             bent=(sign==lean)
-            upper=(.10*sign,-(.16 if bent else .05),-.98)
-            lower=(-.29*sign if bent else -.12*sign,-(.55 if bent else .28),-.85)
+            upper=(.24*sign,-(.16 if bent else .05),-.98)
+            lower=(-.07*sign if bent else .02*sign,-(.55 if bent else .28),-.85)
             if frame==14 and side=='r':
                 upper=(.14,-.84,-.51)
                 lower=(.10,-.96,.29)
@@ -186,6 +270,14 @@ for frame in range(16):
             if not reaching:hang_wrist(side,.27 if bent else .10)
             relax_hand(side,reaching)
     graph=bpy.context.evaluated_depsgraph_get()
+    if frame<12:
+        sampled=[]
+        for obj,_,_ in surfaces:
+            ev=obj.evaluated_get(graph)
+            sampled.extend(tuple(ev.matrix_world@v.co) for v in ev.data.vertices)
+        sampled=np.asarray(sampled)
+        walk_surfaces.append(sampled)
+        check_clearance(sampled,arm_faces,cloth_faces,frame)
     points=[];normals=[];sole=None
     for o,used in topology:
         ev=o.evaluated_get(graph)
@@ -211,6 +303,11 @@ for frame in range(16):
     nn=nn[:,[0,2,1]];nn[:,2]*=-1
     nn/=np.maximum(1e-7,np.linalg.norm(nn,axis=1)[:,None])
     poses.append(np.column_stack((pp*10000,nn*32767)).round().astype('<i2').tobytes())
+# Check the interpolation the GPU actually displays, including the loop seam.
+for frame,start in enumerate(walk_surfaces):
+    end=walk_surfaces[(frame+1)%12]
+    for fraction in (.25,.5,.75):
+        check_clearance(start+(end-start)*fraction,arm_faces,cloth_faces,frame+fraction)
 blob=struct.pack('<4s5I',b'NPC3',vertex_count,len(indices),len(poses),atlas.width,atlas.height)
 blob+=np.asarray(contacts,dtype='<f4').tobytes()
 blob+=np.asarray(indices,dtype='<u4').tobytes()+np.asarray(uvs,dtype='<f4').tobytes()

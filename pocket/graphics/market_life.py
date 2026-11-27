@@ -53,7 +53,7 @@ def actors(age,ground,since):
         u=1.5+6.4*math.sin(angle)
         v=2.-3.6*(1-math.cos(angle))
         heading=math.atan2(6.4*math.cos(angle),-3.6*math.sin(angle))
-        gait=(progress*24*12)%12
+        gait=(progress*29*12)%12
     else:
         u,v=1.5,2.
         wait=phase-25
@@ -83,7 +83,7 @@ def actors(age,ground,since):
         else:
             turn=(along-2*straight-bend)/radius
             u,v,heading=-18-radius*math.sin(turn),lane-radius*math.cos(turn),-math.pi/2+turn
-        gait=(age*speed/(1.22+i*.055)*12+i*2.3)%12
+        gait=(age*speed/(1.10*(.96+.025*(i+1)))*12+i*2.3)%12
         walker(u,v,heading,gait,i+1)
     if since is None:since=-1.
     t=max(0.,min(1.,(since-.8)/.95))
