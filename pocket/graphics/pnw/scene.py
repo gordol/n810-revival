@@ -1094,7 +1094,10 @@ class RainierView:
             if button==1:self.bike=None
             return
         if self.glider:
-            if button==1:self.end_flight()
+            if self.outing in ('thun','plane') and button in (6,11,12):
+                if button==6:self.glider.next_lesson()
+                else:self.glider.flaps=max(0,min(2,self.glider.flaps+(1 if button==12 else -1)))
+            elif button==1:self.end_flight()
             elif button==3:self.glider.toggle_speed()
             elif button==2 and self.glider.powered:self.glider.toggle_motor()
             elif button==0:self.glider.descending=not self.glider.descending
@@ -1743,6 +1746,10 @@ class RainierView:
             setup=ctx.lib.pocket_scene_cockpit
             setup.argtypes=[C.c_void_p,C.c_void_p,C.c_float,C.c_float]
             ctx.check(setup(ctx.handle,None if self.cockpit_ready else panel(),self.glider.speed,self.glider.altitude))
+            look=ctx.lib.pocket_scene_cockpit_look
+            look.argtypes=[C.c_void_p,C.c_float,C.c_float]
+            look.restype=None
+            look(ctx.handle,self.glider.look_yaw,self.glider.look_pitch)
             self.cockpit_ready=True
         if self.outing and getattr(self,'market_snack',None) and not equipment and not (self.lens or self.binoculars):
             equipment=(C.c_float*3)({'coffee':5,'piroshky':6,'flowers':7,'honey':8}[self.market_snack],0.,0.)

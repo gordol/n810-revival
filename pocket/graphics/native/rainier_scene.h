@@ -339,11 +339,16 @@ static void dial_hand(float x,float angle,float reach,float half_width){
  glEnd();glPopMatrix();
 }
 
+void pocket_scene_cockpit_look(void *ptr,float yaw,float pitch){
+ struct gpu_scene *s=ptr;
+ s->cockpit_look_yaw=yaw;s->cockpit_look_pitch=pitch;
+}
+
 static void trainer_panel(struct gpu_scene *s,const float *flight,int w,int h){
  glMatrixMode(GL_PROJECTION);glLoadIdentity();glOrtho(0,w,0,h,-1,1);
  glMatrixMode(GL_MODELVIEW);glLoadIdentity();
  float scale=fminf(w/815.f,h/610.f),edge=w/(2.f*scale);
- glTranslatef(w*.5f,h,0);glScalef(scale,scale,1);glTranslatef(-500,-244,0);
+ glTranslatef(w*(.5f-.62f*tanf(s->cockpit_look_yaw)),h-w*.62f*tanf(s->cockpit_look_pitch),0);glScalef(scale,scale,1);glTranslatef(-500,-244,0);
  glUseProgram(0);glDisable(GL_DEPTH_TEST);glActiveTexture(GL_TEXTURE0);
  /* Enamel engine cover viewed over the padded glare shield. Its far end
     is narrower and higher in the windshield than the near shoulders. */

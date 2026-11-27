@@ -647,15 +647,19 @@ attitude indicator, and altitude above sea level in feet. On the altimeter,
 the longest hand makes one turn per 1,000 feet, the middle hand per 10,000,
 and the shortest per 100,000. The navigation display gives terrain clearance in metres.
 
-For a plane with an SDL game controller, the left stick banks and pitches.
-Pull back to climb. The right stick steers the rudder horizontally.
-Hold RT/R2 to increase throttle or LT/L2 to reduce it, then release to
-hold the setting. The horizon banks with the plane and tighter turns take
-more bank at higher airspeeds. A/Cross starts a takeoff or toggles the
-assisted approach in flight. To land manually, reduce throttle, align with
-the runway below 140 km/h, level the wings and fly a shallow descent.
-Y/Triangle switches cruise speed, X/Square cycles the waypoint, and
-B/Circle exits flight.
+Press Start / Options in the plane to open the three-page controller flight lesson.
+Press it again to advance or close the last page. At Thun Field, A / Cross starts
+the assisted takeoff. The left stick operates the ailerons and elevator. Hold it
+sideways for a continuous roll, use the opposite direction to level the wings,
+and pull back to raise the nose. The right stick looks around the cockpit.
+Hold D-pad left or right for a side glance and release to face forward.
+LB / L1 and RB / R1 apply left and right rudder. RT / R2 adds throttle and
+LT / L2 reduces it. Release the trigger to hold that setting. D-pad down extends
+the flaps by 10 degrees per press, up retracts them. The HUD shows the setting.
+Flaps add drag and lower the simulated stall speed. To recover from the stall
+warning, ease the nose down and add power. A / Cross toggles assisted approach
+in flight. Y / Triangle switches cruise power, X / Square cycles the waypoint,
+and B / Circle exits flight.
 
 **Prepare before playing.** On Android, `make mobile-update` prepares the regional
 terrain before opening Pocket. To prepare without opening the app, use

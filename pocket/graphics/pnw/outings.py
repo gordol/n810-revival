@@ -292,6 +292,12 @@ class SoundVehicle(HangGlider):
 
         self.runways=tuple(runway_geometry())
         self.rudder=self.throttle_rate=0.
+        self.flaps=0
+        self.stalled=False
+        self.roll_angle=self.roll_rate=0.
+        self.look=(0.,0.)
+        self.look_yaw=self.look_pitch=0.
+        self.lesson=0
         self.throttle=48./118.
         self.roll_state=None
         if kind=='thun':
@@ -306,6 +312,10 @@ class SoundVehicle(HangGlider):
     def cancel_input(self):
         super().cancel_input()
         self.rudder=self.throttle_rate=0.
+        self.look=(0.,0.)
+
+    def next_lesson(self):
+        self.lesson=(self.lesson+1)%4
 
     def toggle_speed(self):
         super().toggle_speed()
@@ -324,6 +334,9 @@ class SoundVehicle(HangGlider):
         self.target_index=(self.target_index+1)%len(self.stops)
 
     def advance(self,dt,height,limits):
+        blend=-math.expm1(-8*dt)
+        self.look_yaw+=(1.40*self.look[0]-self.look_yaw)*blend
+        self.look_pitch+=(.68*self.look[1]-self.look_pitch)*blend
         if self.throttle_rate:
             self.throttle=max(0.,min(1.,self.throttle+self.throttle_rate*dt*.35))
             self.fast=self.throttle>=.99
@@ -343,19 +356,29 @@ class SoundVehicle(HangGlider):
             self.clearance=.3
             if self.roll_state=='takeoff' and self.speed>=32:self.roll_state='climbout'
             elif self.roll_state=='rollout' and self.speed==0:self.roll_state='parked'
-            return self.x,self.z,self.heading,.03
+            return self.x,self.z,self.heading+self.look_yaw,.03+self.look_pitch
         roll=self.stick+self.drag[0]+('right' in self.keys)-('left' in self.keys)
         pitch=self.pitch_stick+self.drag[1]+('up' in self.keys)-('down' in self.keys)
         smooth=-math.expm1(-3*dt)
-        self.bank+=(max(-1.,min(1.,roll))-self.bank)*smooth
+        roll=max(-1.,min(1.,roll))
+        if self.boat:
+            self.bank+=(roll-self.bank)*smooth
+        else:
+            self.roll_rate+=(roll*math.radians(95)-self.roll_rate)*smooth
+            self.roll_angle=math.remainder(self.roll_angle+self.roll_rate*dt,math.tau)
+            self.bank=self.roll_angle/math.radians(55)
         self.pitch+=(max(-1.,min(1.,pitch))-self.pitch)*smooth
         cruise=(22. if self.fast else 10.) if self.boat else 32.+118.*self.throttle
         if self.descending:cruise=0. if self.boat else 32.
+        if not self.boat and not self.descending:
+            cruise=max(12.,cruise-8.*(1.-self.throttle)+17.*self.pitch-3.*self.flaps)
         self.speed+=(cruise-self.speed)*(-math.expm1(-dt))
         if self.boat:self.heading+=self.bank*dt*.64
         else:
-            # Coordinated turn rate falls with airspeed for the same bank angle.
-            self.heading+=dt*(9.81*math.tan(math.radians(55)*self.bank)/max(25.,self.speed)+.14*self.rudder)
+            # Bounded lateral lift through knife-edge and inverted attitudes.
+            self.heading+=dt*(9.81*math.sin(self.roll_angle)*(1.-self.pitch)/max(20.,self.speed)+.14*self.rudder)
+            stall_speed=25.-2.*self.flaps+6.*max(0.,-self.pitch)
+            self.stalled=self.roll_state is None and self.speed<stall_speed+(3. if self.stalled else 0.)
         west,east,south,north=limits
         x=max(west,min(east,self.x+self.speed*dt*math.sin(self.heading)))
         z=max(south,min(north,self.z+self.speed*dt*math.cos(self.heading)))
@@ -363,7 +386,10 @@ class SoundVehicle(HangGlider):
         if self.boat and ground>.01:self.speed=0.
         else:self.x,self.z=x,z
         if not self.boat:
-            next_alt=self.altitude-dt*(self.speed*math.sin(.40*self.pitch)+12*self.descending)
+            lift=math.cos(self.roll_angle)
+            next_alt=self.altitude-dt*(self.speed*math.sin(.40*self.pitch)*lift+
+                                       9.*(1.-lift)+12*self.descending)
+            if self.stalled:next_alt=min(next_alt,self.altitude-8.*dt)
             if self.roll_state=='climbout':
                 next_alt=self.altitude+dt*9.
                 if next_alt-ground>=30 or self.descending:self.roll_state=None
@@ -380,7 +406,7 @@ class SoundVehicle(HangGlider):
                     self.descending=False;self.roll_state='rollout'
             self.altitude=max(ground+(.3 if self.roll_state or on_approach else 6.),next_alt)
         self.clearance=max(0.,self.altitude-ground)
-        return self.x,self.z,self.heading,.06+(.08 if self.boat else .40)*self.pitch
+        return self.x,self.z,self.heading+self.look_yaw,.06+(.08 if self.boat else .40)*self.pitch+self.look_pitch
 
     def wheel_items(self):
         items=super().wheel_items()
@@ -410,5 +436,11 @@ class SoundVehicle(HangGlider):
         lines=(name,f'{distance:.1f} km  BRG {bearing:03d}',
                f'HDG {round(math.degrees(self.heading))%360:03d}  {power}',
                f'{round(self.clearance)} m AGL')
-        ink.fill((.5,.6,max(map(len,lines))+1,4.6),0x14231FE8)
+        status='STALL: nose down + power' if self.stalled else f'Flaps {self.flaps*10} deg'
+        lines+=(status,)
+        lessons=((),('1/3   Take off','A / Cross: runway assist','RT / LT: power up / down','Pull left stick back to climb'),
+                 ('2/3   Turn and look','Hold left stick sideways to roll','LB / RB: left / right rudder','Right stick or D-pad L/R: look'),
+                 ('3/3   Slow flight','D-pad down/up: flaps out/in','Slow + nose high: stall','Ease nose down, add power'))
+        lines+=lessons[self.lesson]+('Start: next / finish',) if self.lesson else ('Start: flight lesson',)
+        ink.fill((.5,.6,min(w,max(map(len,lines))+1),len(lines)+.6),0x14231FE8)
         for i,line in enumerate(lines):ink.label(1,1+i,line,0xEEE8CC)

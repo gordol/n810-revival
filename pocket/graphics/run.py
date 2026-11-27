@@ -129,12 +129,15 @@ class DesktopWindow(Window):
             self.lib.pocket_window_pad_sticks(axes)
             scene.pad_sticks=tuple(math.copysign(max(0.,abs(v/32768.)-.18)/.82,v) for v in axes)
             if scene.glider:
-                scene.glider.stick=self.lib.pocket_window_flight_dpad() or scene.pad_sticks[0]
+                dpad=self.lib.pocket_window_flight_dpad()
+                scene.glider.stick=scene.pad_sticks[0]
                 scene.glider.pitch_stick=-scene.pad_sticks[1]
                 if scene.outing in ('plane','thun'):
-                    scene.glider.rudder=scene.pad_sticks[2]
+                    scene.glider.look=(dpad or scene.pad_sticks[2],scene.pad_sticks[3])
+                    scene.glider.rudder=self.lib.pocket_window_flight_rudder()
                     rate=self.lib.pocket_window_flight_throttle()/32767.
                     scene.glider.throttle_rate=rate if abs(rate)>.035 else 0.
+                elif dpad:scene.glider.stick=dpad
 
 def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)

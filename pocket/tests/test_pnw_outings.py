@@ -293,6 +293,37 @@ class OutingTests(unittest.TestCase):
         for _ in range(130):plane.advance(.1,ground,(-1e6,1e6,-1e6,1e6))
         self.assertEqual(plane.roll_state,'parked')
 
+    def test_aircraft_glance_roll_stall_and_recovery(self):
+        ground=lambda x,z:0.
+        limits=(-1e6,1e6,-1e6,1e6)
+        plane=SoundVehicle('plane',SimpleNamespace(height=ground))
+        plane.look=(1.,0.)
+        heading=plane.heading
+        for _ in range(20):pose=plane.advance(.05,ground,limits)
+        self.assertGreater(pose[2]-heading,1.3)
+        self.assertEqual(plane.heading,heading)
+        plane.cancel_input()
+        plane.stick=1.
+        angles=[]
+        for _ in range(90):
+            plane.advance(.05,ground,limits)
+            angles.append(plane.roll_angle)
+        self.assertGreater(max(angles),3.)
+        self.assertLess(min(angles),-3.)
+        self.assertAlmostEqual(plane.look_yaw,0.,places=3)
+        plane.stick=plane.roll_rate=plane.roll_angle=0.
+        plane.throttle=0.
+        plane.pitch_stick=-1.
+        for _ in range(100):plane.advance(.05,ground,limits)
+        self.assertTrue(plane.stalled)
+        altitude=plane.altitude
+        plane.advance(.1,ground,limits)
+        self.assertLess(plane.altitude,altitude)
+        plane.throttle=1.
+        plane.pitch_stick=.3
+        for _ in range(30):plane.advance(.05,ground,limits)
+        self.assertFalse(plane.stalled)
+
     def test_boat_stops_at_land(self):
         boat=SoundVehicle('boat',SimpleNamespace(height=lambda x,z:0))
         start=boat.x,boat.z
