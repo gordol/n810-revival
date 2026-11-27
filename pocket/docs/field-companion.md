@@ -649,13 +649,13 @@ and the shortest per 100,000. The navigation display gives terrain clearance in 
 
 Under **Explore → Fly**, choose **Research jet from Rainier** for a flying start
 above the mountain. This fictional survey aircraft shares the trainer's controls
-and the prepared Puget Sound terrain. Its canopy HUD shows speed in km/h.
+and the prepared Puget Sound terrain.
 Use Y / Triangle for full power, or hold RT / R2 to increase throttle gradually.
 Level full power is about 1,510 km/h. The trainer reaches 540 km/h.
 
 **Thun Field hangar** opens on foot at a fictional open-front hangar beside the runway.
 Walk up to either parked plane and tap Board or press A / Cross. Both start on the
-runway. The jet has retractable gear. Click the right stick (R3) or tap Gear in flight.
+runway. The jet has retractable gear. Click the right stick (R3) or use **Pause → Flight controls → Gear** to cycle it.
 Assisted approach lowers it automatically. The trainer has fixed gear.
 **Skydive over Rainier** starts in free fall. A / Cross opens the parachute, with
 automatic opening near the ground. In **Balloon over the Sound**, A / Cross toggles
@@ -675,8 +675,9 @@ to drawn terrain for missing local patches. Both modes retain the regional overv
 in the distance.
 
 Run `make jet` to start directly in the airborne research jet over Rainier.
-The lower cockpit strip controls throttle in ten-percent steps, cycles flaps
-through 0, 10 and 20 degrees, and toggles landing gear.
+The five instruments below the canopy show heading, airspeed in knots, attitude,
+altitude in feet above sea level, and throttle. Tap Flight in the footer for the
+flight wheel or Pause to open the pause menu.
 
 During Sound outings, Pocket streams a five-by-five neighborhood. Each tile
 spans 8.192 km, for about 41 km across when loaded. Aerial requests use

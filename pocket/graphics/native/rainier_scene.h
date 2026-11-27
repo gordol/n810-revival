@@ -346,13 +346,14 @@ int pocket_scene_cockpit(void *ptr,const unsigned char *pixels,float speed,float
  struct gpu_scene *s=ptr;
  if(!s)return -1;
  s->cockpit_speed=speed;s->cockpit_altitude=altitude;
- if(s->cockpit_panel)return 0;
+ if(s->cockpit_panel && !pixels)return 0;
  if(!pixels || scene_target(s,s->canvas) || SDL_RenderFlush(s->device))return -1;
  glPushAttrib(GL_TEXTURE_BIT);glActiveTexture(GL_TEXTURE0);
  glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
  glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);glPixelStorei(GL_UNPACK_ALIGNMENT,1);
  glPixelStorei(GL_UNPACK_ROW_LENGTH,0);glPixelStorei(GL_UNPACK_SKIP_ROWS,0);glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);
- glGenTextures(1,&s->cockpit_panel);glBindTexture(GL_TEXTURE_2D,s->cockpit_panel);
+ if(!s->cockpit_panel)glGenTextures(1,&s->cockpit_panel);
+ glBindTexture(GL_TEXTURE_2D,s->cockpit_panel);
  glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,1000,244,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
  glGenerateMipmap(GL_TEXTURE_2D);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
@@ -378,23 +379,27 @@ void pocket_scene_cockpit_look(void *ptr,float yaw,float pitch){
  s->cockpit_look_yaw=yaw;s->cockpit_look_pitch=pitch;
 }
 
-static void trainer_panel(struct gpu_scene *s,const float *flight,int w,int h){
+static void instrument_panel(struct gpu_scene *s,const float *flight,int w,int h){
  glMatrixMode(GL_PROJECTION);glLoadIdentity();glOrtho(0,w,0,h,-1,1);
  glMatrixMode(GL_MODELVIEW);glLoadIdentity();
- float scale=fminf(w/815.f,h/610.f),edge=w/(2.f*scale);
+ int jet=flight[0]==9.f;
+ float scale=jet?fminf(w/860.f,h/1060.f):fminf(w/815.f,h/610.f);
+ float edge=w/(2.f*scale);
  glTranslatef(w*(.5f-.62f*tanf(s->cockpit_look_yaw)),h-w*.62f*tanf(s->cockpit_look_pitch),0);glScalef(scale,scale,1);glTranslatef(-500,-244,0);
  glUseProgram(0);glDisable(GL_DEPTH_TEST);glActiveTexture(GL_TEXTURE0);
  /* Enamel engine cover viewed over the padded glare shield. Its far end
     is narrower and higher in the windshield than the near shoulders. */
  glDisable(GL_TEXTURE_2D);glDisable(GL_BLEND);
- glBegin(GL_QUAD_STRIP);
- for(int i=0;i<=48;i++){
-  float a=i*3.141593f/48.f,side=cosf(a),crown=sinf(a);
-  float light=.51f+.24f*crown+.11f*side;
-  glColor3f(light*.90f,light*.94f,light);glVertex2f(500+125*side,-2-17*crown);
-  glColor3f(light*.69f,light*.74f,light*.77f);glVertex2f(500+320*side,44-20*crown);
+ if(!jet){
+  glBegin(GL_QUAD_STRIP);
+  for(int i=0;i<=48;i++){
+   float a=i*3.141593f/48.f,side=cosf(a),crown=sinf(a);
+   float light=.51f+.24f*crown+.11f*side;
+   glColor3f(light*.90f,light*.94f,light);glVertex2f(500+125*side,-2-17*crown);
+   glColor3f(light*.69f,light*.74f,light*.77f);glVertex2f(500+320*side,44-20*crown);
+  }
+  glEnd();
  }
- glEnd();
  glBindTexture(GL_TEXTURE_2D,s->cockpit_panel);glEnable(GL_TEXTURE_2D);
  glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glColor4f(1,1,1,1);
  float ends[4]={fminf(0,500-edge),0,1000,fmaxf(1000,500+edge)};
@@ -404,7 +409,12 @@ static void trainer_panel(struct gpu_scene *s,const float *flight,int w,int h){
   glTexCoord2f(u,0);glVertex2f(ends[i],0);glTexCoord2f(u,1);glVertex2f(ends[i],244);
  }
  glEnd();glDisable(GL_TEXTURE_2D);glDisable(GL_BLEND);
- dial_hand(304,-135.f+270.f*fminf(300.f,s->cockpit_speed*1.9438445f)/300.f,56,3);
+ float max_knots=jet?900.f:300.f;
+ dial_hand(304,-135.f+270.f*fminf(max_knots,s->cockpit_speed*1.9438445f)/max_knots,56,3);
+ if(jet){
+  dial_hand(159,flight[3]*57.29578f,37,2.4f);
+  dial_hand(841,-130.f+260.f*flight[4],36,2.4f);
+ }
  float feet=s->cockpit_altitude*3.28084f;
  dial_hand(696,feet*.0036f,22,5);dial_hand(696,feet*.036f,36,3.8f);dial_hand(696,feet*.36f,56,2.3f);
  glPushMatrix();glTranslatef(500,146,0);glRotatef(-55.f*flight[1],0,0,1);
@@ -458,7 +468,7 @@ static void research_cockpit(struct gpu_scene *s,const float *flight,int w,int h
  glRectf(-.10f,-.003f,-.05f,.003f);glRectf(.05f,-.003f,.10f,.003f);
 }
 static void flight_equipment(struct gpu_scene *s,const float *flight,int w,int h){
- if(flight[0]==9.f){research_cockpit(s,flight,w,h);return;}
+ if(flight[0]==9.f){research_cockpit(s,flight,w,h);instrument_panel(s,flight,w,h);return;}
  int powered=flight[0]>.5f;
  float aspect=(float)w/h;
  glMatrixMode(GL_PROJECTION);glLoadIdentity();
@@ -530,7 +540,7 @@ static void flight_equipment(struct gpu_scene *s,const float *flight,int w,int h
  }
  if(flight[0]>=2.f){
   if(flight[0]==2.f){
-   trainer_panel(s,flight,w,h);
+   instrument_panel(s,flight,w,h);
   }else if(flight[0]==3.f){
    glBegin(GL_TRIANGLES);glColor3f(.67f,.74f,.72f);glVertex3f(-1.7f,-1.8f,-1.5f);
    glVertex3f(0,-.9f,-3.3f);glColor3f(.38f,.49f,.50f);glVertex3f(1.7f,-1.8f,-1.5f);glEnd();

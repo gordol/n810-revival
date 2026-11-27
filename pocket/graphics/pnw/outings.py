@@ -353,7 +353,12 @@ class PauseMenu:
             return ('Sticks: '+prefs['stick-layout'],'Look: '+prefs['look-speed'],'Back')
         if self.page=='Flight controls':
             prefs=self.view.app_context.preferences
-            return ('Pitch: '+prefs['flight-pitch'],'Roll: '+prefs['flight-roll'],'Back')
+            rows=('Pitch: '+prefs['flight-pitch'],'Roll: '+prefs['flight-roll'])
+            flight=self.view.glider
+            if self.view.outing in ('jet','hangar-jet') and flight:
+                rows+=('Reduce throttle','Increase throttle',f'Flaps: {flight.flaps*10} deg',
+                       'Gear: '+('down' if flight.gear_down else 'up'))
+            return (*rows,'Back')
         if self.page=='Flight guide':
             return ('Next page','Back')
         flight=self.view.outing in AIRCRAFT and self.view.glider
@@ -397,6 +402,14 @@ class PauseMenu:
                          else ('look-speed',('Gentle','Standard','Quick')))
             context=self.view.app_context
             context.registry.set_setting(context.identifier,key,choices[(choices.index(context.preferences[key])+direction)%len(choices)])
+        elif self.page=='Flight controls' and label in ('Reduce throttle','Increase throttle'):
+            flight=self.view.glider
+            flight.throttle=max(0.,min(1.,flight.throttle+(.1 if label=='Increase throttle' else -.1)))
+            flight.fast=flight.throttle>=.99
+        elif self.page=='Flight controls' and label.startswith('Flaps:'):
+            self.view.glider.flaps=(self.view.glider.flaps+direction)%3
+        elif self.page=='Flight controls' and label.startswith('Gear:'):
+            self.view.glider.toggle_gear()
         elif self.page=='Flight controls' and label!='Back':
             key,choices=(('flight-pitch',('Pull to climb','Push to climb')) if self.selected==0
                          else ('flight-roll',('Gentle','Standard','Quick')))
@@ -646,23 +659,9 @@ class SoundVehicle(HangGlider):
     def controls(self,w,h):
         if not self.menu and self.boat:return [('wheel','Helm',(w-11,0,11,3))]
         if not self.menu and self.aircraft is RESEARCH_JET:
-            labels=(('power-down','Pwr -'),('power-up','Pwr +'),('flaps',f'Flap {10*self.flaps}'),
-                    ('gear','Gear '+('DN' if self.gear_down else 'UP')))
-            switches=[(key,label,(i*w//4,h-3,(i+1)*w//4-i*w//4,3)) for i,(key,label) in enumerate(labels)]
-            return [('wheel','Flight',(w-9,0,9,2)),('pause','Pause',(w-9,2,9,2)),*switches]
+            return []
         if not self.menu:return [('wheel','Flight',(w-11,0,11,3)),('pause','Pause',(w-11,3,11,3))]
         return super().controls(w,h)
-
-    def draw_switch(self,ink,action,box,label):
-        x,y,w,h=box
-        ink.fill(box,0x151B20FF)
-        ink.fill((x+.14,y+.15,w-.28,h-.30),0x353F44FF)
-        ink.fill((x+.18,y+.15,w-.36,.09),0x879294FF)
-        ink.fill((x+.18,y+h-.27,w-.36,.12),0x20272AFF)
-        ink.label(x+(w-len(label[:w]))/2,y+.63,label[:w],0xEFF3E8)
-        level=self.throttle if action.startswith('power-') else self.flaps/2 if action=='flaps' else float(self.gear_down)
-        ink.fill((x+w*.18,y+2.08,w*.64,.21),0x121A1AFF)
-        if level:ink.fill((x+w*.18,y+2.08,w*.64*level,.21),0x94D4B0FF)
 
     def draw(self,ink,w,h):
         name,x,z=self.stops[self.target_index]
@@ -678,12 +677,7 @@ class SoundVehicle(HangGlider):
                 ink.sector(w/2,h/2,self.radius(w,h),angle)
         power='APPR' if self.descending else f'THR {round(100*self.throttle)}%'
         if self.aircraft is RESEARCH_JET:
-            speed=f'{self.speed*1.94384:.0f} KT'
-            agl=f'{self.clearance*3.28084:.0f} FT AGL'
-            heading=round(math.degrees(self.heading))%360
-            ink.label(.5,.5,f'{speed}   {agl}',0xE3F7E9)
-            ink.label(.5,1.6,f'HDG {heading:03d}   {power}',0xE3F7E9)
-            ink.label(.5,h-4.3,'STALL' if self.stalled else f'{name}  {distance:.1f} km  {bearing:03d}°',0xFFCD79)
+            if self.stalled:ink.label(w/2-2,h*.58,'STALL',0xFFCD79)
             return
         lines=(name,f'{distance:.1f} km  BRG {bearing:03d}',
                f'HDG {round(math.degrees(self.heading))%360:03d}  {power}',

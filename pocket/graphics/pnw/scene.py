@@ -778,7 +778,7 @@ class RainierView:
         self.stand_center=None
         self.stand_count=0
         self.person_slots=set()
-        self.cockpit_ready=False
+        self.cockpit_kind=None
         self.upload=True
         self.context=None
         self.error=''
@@ -810,12 +810,21 @@ class RainierView:
                 exit_label='Ashore' if self.outing=='ferry' and ferry_stop(self.ride_time) else 'Exit'
                 labels=(exit_label,'Restart','Explore',labels[3],'Map')
             if self.glider:labels=('Stop' if self.outing else 'Land','Restart','Explore',labels[3],'Map')
+        if self.glider and self.outing in ('jet','hangar-jet'):labels=('Stop','Flight','Explore','Pause','Map')
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
         return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
 
     def footer(self,x,width):
+        if self.glider and self.outing in ('jet','hangar-jet'):
+            if width//6<=x<width*3//7:
+                self.glider.menu=not self.glider.menu
+                self.pixel_dirty=True
+                return True
+            if width*4//7<=x<width*3//4:
+                self.pause_game()
+                return True
         if x>=width*3//4 and not self.album and self.outing in (
                 'market','fishshop','needle','wheel','ferry',*market_visit.DESTINATIONS.values()):
             self.cruise=False;self.destination=None
@@ -947,11 +956,6 @@ class RainierView:
                 else:self.ski.action(action)
             elif action=='launch':self.start_glide()
             elif action in BAYS:self.start_outing(action)
-            elif action in ('power-down','power-up'):
-                self.glider.throttle=max(0.,min(1.,self.glider.throttle+(.1 if action=='power-up' else -.1)))
-                self.glider.fast=self.glider.throttle>=.99
-            elif action=='flaps':self.glider.flaps=(self.glider.flaps+1)%3
-            elif action=='gear':self.glider.toggle_gear()
             elif action=='air-action':self.glider.action()
             elif action=='pause':self.pause_game()
             elif self.glider:
@@ -1269,7 +1273,7 @@ class RainierView:
         self.stand_center=None
         self.stand_count=0
         self.person_slots=set()
-        self.cockpit_ready=False
+        self.cockpit_kind=None
         self.upload=True
         self.camera=None
         self.error=''
@@ -1841,12 +1845,14 @@ class RainierView:
             equipment_pitch=-self.glider.elevation/.40 if self.outing in AIRCRAFT else self.glider.pitch
             if self.outing!='skydive' or mode:equipment=(C.c_float*3)(mode,self.glider.bank,equipment_pitch)
         if self.glider and self.outing in AIRCRAFT:
-            if self.outing not in ('jet','hangar-jet'):
-                from pnw.cockpit import panel
-                setup=ctx.lib.pocket_scene_cockpit
-                setup.argtypes=[C.c_void_p,C.c_void_p,C.c_float,C.c_float]
-                ctx.check(setup(ctx.handle,None if self.cockpit_ready else panel(),self.glider.speed,self.glider.altitude))
-                self.cockpit_ready=True
+            from pnw.cockpit import panel
+            jet=self.outing in ('jet','hangar-jet')
+            setup=ctx.lib.pocket_scene_cockpit
+            setup.argtypes=[C.c_void_p,C.c_void_p,C.c_float,C.c_float]
+            pixels=panel(jet) if self.cockpit_kind!=jet else None
+            ctx.check(setup(ctx.handle,pixels,self.glider.speed,self.glider.altitude))
+            self.cockpit_kind=jet
+            if jet:equipment=(C.c_float*5)(mode,self.glider.bank,equipment_pitch,self.glider.heading,self.glider.throttle)
             look=ctx.lib.pocket_scene_cockpit_look
             look.argtypes=[C.c_void_p,C.c_float,C.c_float]
             look.restype=None
@@ -1981,8 +1987,6 @@ class RainierView:
                 if self.glider and self.glider.menu:
                     bx,by,bw,bh=box
                     ink.label(bx+(bw-len(label))/2,by+(bh-1)/2,label,0xFFF6DA)
-                elif self.outing in ('jet','hangar-jet') and action in ('power-down','power-up','flaps','gear'):
-                    self.glider.draw_switch(ink,action,box,label)
                 else:ink.button(box,label)
                 if self.ski and action=='brake':
                     bx,by,bw,bh=box

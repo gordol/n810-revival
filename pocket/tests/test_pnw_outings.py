@@ -43,8 +43,9 @@ class OutingTests(unittest.TestCase):
                 self.assertEqual(len(panel()),1000*244*4)
                 panel.cache_clear()
                 self.assertEqual(len(panel()),1000*244*4)
+                self.assertNotEqual(panel(True),panel())
             finally:panel.cache_clear()
-            self.assertEqual(runner.call_count,4)
+            self.assertEqual(runner.call_count,5)
 
     def test_streamed_imagery_and_relief_restore_offline(self):
         from io import BytesIO
@@ -75,23 +76,17 @@ class OutingTests(unittest.TestCase):
                 fallback,_=pnw_terrain.load_surface((0,0),field,'Aerial',2048)
             self.assertEqual(fallback,rgb)
 
-    def test_jet_console_switches_at_portrait_and_landscape_sizes(self):
+    def test_jet_instruments_leave_the_canopy_free_of_touch_targets(self):
         from pnw.scene import RainierView
-        for w,h in ((36,58),(96,27)):
+        for kind in ('jet','hangar-jet'):
             view=RainierView.__new__(RainierView)
-            view.album=[]
-            view.ski=None
-            view.outing='jet'
-            jet=view.glider=SoundVehicle('jet',SimpleNamespace(height=lambda x,z:0.))
-            power=jet.throttle
-            for action in ('power-down','power-up','flaps','gear'):
-                x,y,width,height=next(box for key,_,box in jet.controls(w,h) if key==action)
-                self.assertGreaterEqual(y,h-3)
-                self.assertTrue(view.scene_tap(x+width/2,y+height/2,w,h))
-                if action=='power-down':self.assertAlmostEqual(jet.throttle,power-.1)
-            self.assertAlmostEqual(jet.throttle,power)
-            self.assertEqual(jet.flaps,1)
-            self.assertTrue(jet.gear_down)
+            view.outing=kind
+            jet=view.glider=SoundVehicle(kind,SimpleNamespace(height=lambda x,z:0.))
+            for w,h in ((36,58),(96,27)):
+                self.assertEqual(jet.controls(w,h),[])
+                self.assertTrue(view.footer(w//3,w))
+                self.assertIn('fast',[action for action,_,_ in jet.controls(w,h)])
+                view.footer(w//3,w)
 
     def test_aircraft_crosses_prepared_boundary_while_boat_stays_inside(self):
         ground=lambda x,z:0.

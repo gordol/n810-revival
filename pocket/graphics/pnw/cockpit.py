@@ -1,11 +1,11 @@
-"""Paint the fixed trainer instrument faces once; their hands move in OpenGL."""
+"""Paint the fixed cockpit instrument faces once; their hands move in OpenGL."""
 from functools import lru_cache
 import math
 import random
 
 
 @lru_cache(maxsize=1)
-def panel():
+def panel(jet=False):
     import os
     if os.environ.get('POCKET_TERMUX')=='1':
         import tempfile
@@ -16,7 +16,7 @@ def panel():
         cache=rainier_cache()
         cache.mkdir(parents=True,exist_ok=True)
         key=hashlib.sha256(Path(__file__).read_bytes()).digest()
-        target=cache/'cockpit-panel.rgba'
+        target=cache/('jet-panel.rgba' if jet else 'cockpit-panel.rgba')
         try:
             with target.open('rb') as source:
                 if source.read(len(key))==key:
@@ -25,16 +25,16 @@ def panel():
         except FileNotFoundError:pass
         with tempfile.TemporaryDirectory(dir=cache) as tmp:
             folder=Path(tmp)
-            run_image_worker(Path(__file__),folder)
+            run_image_worker(Path(__file__),folder,'jet' if jet else 'trainer')
             data=(folder/'panel').read_bytes()
             if len(data)!=1000*244*4:raise ValueError('Incomplete cockpit panel')
             output=folder/'cached'
             output.write_bytes(key+data)
             output.replace(target)
             return data
-    return paint_panel()
+    return paint_panel(jet)
 
-def paint_panel():
+def paint_panel(jet=False):
     from PIL import Image, ImageDraw, ImageFont
     width,height=1000,244
     art=Image.new('RGBA',(width,height))
@@ -53,7 +53,7 @@ def paint_panel():
                 rgb=(light*.95,light,light*.99)
             else:
                 light=59+12*math.exp(-((depth-44)/15)**2)-15*y/height-8*u*u
-                rgb=(light*1.04,light,light*.92)
+                rgb=(light*.62,light*.69,light*.72) if jet else (light*1.04,light,light*.92)
             pixels[x,y]=tuple(int(c+noise) for c in rgb)+(255,)
     @lru_cache(None)
     def font(size):
@@ -87,13 +87,24 @@ def paint_panel():
                 angle=-135+270*i/60 if speed else i*7.2
                 d.line((radial(cx,52 if i%5==0 else 57,angle),radial(cx,62,angle)),fill=ivory,width=2)
                 if i%5==0 and (not speed or i%10==0):
-                    label(*radial(cx,44,angle),str(i*5 if speed else i//5),13)
+                    label(*radial(cx,44,angle),str(i*(15 if jet else 5) if speed else i//5),13)
             if speed:
-                d.arc((cx-64,82,cx+64,210),-184,-39,fill=(82,158,110),width=3)
+                if not jet:d.arc((cx-64,82,cx+64,210),-184,-39,fill=(82,158,110),width=3)
                 label(cx,173,'KNOTS',9)
             else:label(cx,171,'FEET',9)
         label(cx,216,title,9,(194,192,174))
     for cx in (159,841):
+        if jet:
+            for r,tone in ((53,(18,22,24)),(50,(85,91,92)),(47,(12,19,21))):
+                ellipse(cx,146,r,tone)
+            compass=cx==159
+            for j in range(36 if compass else 21):
+                angle=j*10 if compass else -130+j*13
+                major=j%(9 if compass else 5)==0
+                d.line((radial(cx,36 if major else 40,angle),radial(cx,44,angle)),fill=ivory,width=2)
+                if major:label(*radial(cx,29,angle),'NESW'[j//9] if compass else str(j*5),11)
+            label(cx,210,'HEADING' if compass else 'THR %',11)
+            continue
         # Adjustable eyeball air vents set into the outer panel.
         ellipse(cx,145,34,(24,25,24));ellipse(cx,144,31,(103,102,94))
         ellipse(cx,145,28,(34,36,35));ellipse(cx+2,145,22,(12,14,14))
@@ -106,4 +117,4 @@ def paint_panel():
 if __name__=='__main__':
     import sys
     from pathlib import Path
-    (Path(sys.argv[1])/'panel').write_bytes(paint_panel())
+    (Path(sys.argv[-1])/'panel').write_bytes(paint_panel(sys.argv[1]=='jet'))
