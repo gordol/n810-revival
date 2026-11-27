@@ -29,6 +29,7 @@ struct gpu_scene {
  struct wildlife_gl wildlife;
  SDL_AudioDeviceID river_audio;int river_audio_failed,river_cue,river_note,animal_voice,animal_sample;unsigned river_seed;float river_low;
  float wind_low,wind_gust,snow_gain,landing_env;
+ float river_level,animal_gain,wind_level,ski_level;
  struct river_bounds {float x,y,z,r;} *river_blocks;
  SDL_Texture *river_print;int print_w,print_h;
  struct posed_person {GLuint program,mesh,atlas;unsigned nv,ni,skin_tile;float sole[16][2][3],attachments[16][2][3];} people[2];
