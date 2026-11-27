@@ -247,6 +247,19 @@ class OutingTests(unittest.TestCase):
         self.assertAlmostEqual(plane.speed,0.)
         self.assertIsNotNone(plane.runway_at(plane.x,plane.z))
 
+    def test_plane_manual_approach_and_controller_release(self):
+        ground=lambda x,z:0.
+        plane=SoundVehicle('plane',SimpleNamespace(height=ground))
+        plane.throttle_rate=-1.;plane.rudder=.4
+        for _ in range(40):plane.advance(.1,ground,(-1e6,1e6,-1e6,1e6))
+        self.assertEqual(plane.throttle,0.)
+        plane.cancel_input()
+        self.assertEqual((plane.throttle_rate,plane.rudder),(0.,0.))
+        plane.x,plane.z,plane.heading,_,_=plane.runways[1]
+        plane.altitude=3.;plane.speed=33.;plane.pitch_stick=.16
+        for _ in range(130):plane.advance(.1,ground,(-1e6,1e6,-1e6,1e6))
+        self.assertEqual(plane.roll_state,'parked')
+
     def test_boat_stops_at_land(self):
         boat=SoundVehicle('boat',SimpleNamespace(height=lambda x,z:0))
         start=boat.x,boat.z

@@ -13,9 +13,10 @@ static GLuint rainier_program(void){
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
   "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
-  "uniform vec3 waterEye;uniform vec2 shadeCenter;uniform vec2 shadowStep;uniform int regional;uniform int skyPass;uniform vec4 skyCamera;uniform float daylight;uniform float overcast;"
+  "uniform vec3 waterEye;uniform vec2 shadeCenter;uniform vec2 shadowStep;uniform int regional;uniform int skyPass;uniform vec4 skyCamera;uniform vec2 bankCS;uniform float daylight;uniform float overcast;"
   "vec3 horizon(){return mix(vec3(.095,.13,.20),mix(vec3(.87,.58,.43),vec3(.68,.80,.86),smoothstep(.35,.9,daylight)),daylight);}"
   "vec3 skyDirection(){vec2 uv=vec2(pos.x*skyCamera.z,-pos.y)*skyCamera.w;"
+  "uv=vec2(dot(uv,bankCS),dot(uv,vec2(-bankCS.y,bankCS.x)));"
   "float cp=cos(skyCamera.y),sp=sin(skyCamera.y);float f=cp+uv.y*sp;"
   "return normalize(vec3(uv.x*cos(skyCamera.x)+f*sin(skyCamera.x),uv.y*cp-sp,f*cos(skyCamera.x)-uv.x*sin(skyCamera.x)));}"
   "vec3 skyColor(vec3 dir){"
@@ -250,7 +251,7 @@ static void river_bounds_build(struct gpu_scene *s,const float *vertices,unsigne
  }
 }
 
-static void river_draw_land(struct gpu_scene *s,unsigned count,unsigned skip,float x,float y,float z,float yaw,float pitch,float aspect){
+static void river_draw_land(struct gpu_scene *s,unsigned count,unsigned skip,float x,float y,float z,float yaw,float pitch,float aspect,float cb,float sb){
  if(!s->river_blocks){glDrawArrays(GL_TRIANGLES,(GLint)skip,(GLsizei)(count-skip));return;}
  float sy=sinf(yaw),cy=cosf(yaw),sp=sinf(pitch),cp=cosf(pitch);
  float ty=.5543f,tx=ty*aspect,kx=sqrtf(1+tx*tx),ky=sqrtf(1+ty*ty);
@@ -259,8 +260,9 @@ static void river_draw_land(struct gpu_scene *s,unsigned count,unsigned skip,flo
   struct river_bounds b=s->river_blocks[first/RIVER_BATCH];
   float dx=b.x-x,dy=b.y-y,dz=b.z-z;
   float forward=sy*dx+cy*dz,depth=cp*forward-sp*dy;
-  if(depth+b.r<.2f || fabsf(cy*dx-sy*dz)>depth*tx+b.r*kx ||
-     fabsf(sp*forward+cp*dy)>depth*ty+b.r*ky){
+  float side=cy*dx-sy*dz,up=sp*forward+cp*dy;
+  if(depth+b.r<.2f || fabsf(cb*side-sb*up)>depth*tx+b.r*kx ||
+     fabsf(sb*side+cb*up)>depth*ty+b.r*ky){
    if(first>start)glDrawArrays(GL_TRIANGLES,(GLint)start,(GLsizei)(first-start));
    start=first+RIVER_BATCH;
   }
@@ -314,7 +316,7 @@ static void flight_equipment(const float *flight,int w,int h){
  glMatrixMode(GL_MODELVIEW);glLoadIdentity();
  /* Keep the overhead equipment in view with a tall phone viewport. */
  glScalef(1,1/aspect,1);
- glRotatef(-7.f*flight[1],0,0,1);
+ if(flight[0]!=2.f)glRotatef(-7.f*flight[1],0,0,1);
  glTranslatef(0,.17f*flight[2],0);
  glDisable(GL_DEPTH_TEST);glUseProgram(0);
  if(flight[0]>=5.f){
@@ -495,6 +497,9 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
  glUseProgram(s->rainier_program);
  GLint sky_pass=glGetUniformLocation(s->rainier_program,"skyPass");
+ float roll=aircraft && aircraft[0]==2.f?55.f*aircraft[1]:0.f;
+ float cb=cosf(roll*.017453293f),sb=sinf(roll*.017453293f);
+ glUniform2f(glGetUniformLocation(s->rainier_program,"bankCS"),cb,sb);
  glUniform1i(sky_pass,1);
  glUniform4f(glGetUniformLocation(s->rainier_program,"skyCamera"),yaw,pitch,(float)w/h,.5543f/fmaxf(1.f,focal));
  glUniform1f(glGetUniformLocation(s->rainier_program,"daylight"),daylight);
@@ -509,7 +514,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  double half=.2*.5543/fmaxf(1.f,focal),wide=half*w/h;
  glFrustum(-wide,wide,half,-half,.2,lens<0?330000.:85000.);
  glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
- glScalef(1,1,-1);glRotatef(-pitch*57.29578f,1,0,0);glRotatef(-yaw*57.29578f,0,1,0);
+ glRotatef(roll,0,0,1);glScalef(1,1,-1);glRotatef(-pitch*57.29578f,1,0,0);glRotatef(-yaw*57.29578f,0,1,0);
  glTranslatef(-east,-eye,-north);
  glEnableClientState(GL_VERTEX_ARRAY);glEnableClientState(GL_COLOR_ARRAY);
  glClientActiveTexture(GL_TEXTURE0);glDisableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -549,8 +554,8 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glUniform1i(glGetUniformLocation(s->rainier_program,"highDetail"),high);
  glUniform1i(glGetUniformLocation(s->rainier_program,"animal"),0);
  glUniform1f(blend,0.f);
- if(omit_end)river_draw_land(s,omit_first,0,east,eye,north,yaw,pitch,(float)w/h);
- if(omit_end<terrain_count)river_draw_land(s,terrain_count,omit_end?omit_end:water_count,east,eye,north,yaw,pitch,(float)w/h);
+ if(omit_end)river_draw_land(s,omit_first,0,east,eye,north,yaw,pitch,(float)w/h,cb,sb);
+ if(omit_end<terrain_count)river_draw_land(s,terrain_count,omit_end?omit_end:water_count,east,eye,north,yaw,pitch,(float)w/h,cb,sb);
  if(grove_count && grove_count==s->rainier_grove_count){
   glBindBuffer(GL_ARRAY_BUFFER,s->rainier_grove);
   glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);

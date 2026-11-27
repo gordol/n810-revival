@@ -642,6 +642,16 @@ In Rainier Walk, open **Explore** and choose **Fly**, **On the water**,
 or to change the navigation waypoint. The ferry follows an accelerated
 Seattle–Bainbridge route and pauses for 15 seconds at each landing. Walk through the waterside end of the covered approach at Colman Dock to board. Tap **Ashore** while docked to walk off. **Exit** during the crossing returns to the departure terminal. Explore stays available during the ride.
 
+For a plane with an SDL game controller, the left stick banks and pitches.
+Pull back to climb. The right stick steers the rudder horizontally.
+Hold RT/R2 to increase throttle or LT/L2 to reduce it, then release to
+hold the setting. The horizon banks with the plane and tighter turns take
+more bank at higher airspeeds. A/Cross starts a takeoff or toggles the
+assisted approach in flight. To land manually, reduce throttle, align with
+the runway below 140 km/h, level the wings and fly a shallow descent.
+Y/Triangle switches cruise speed, X/Square cycles the waypoint, and
+B/Circle exits flight.
+
 The first visit downloads Terrarium elevation tiles for the Sound or the
 Hoh visitor center. Puget Sound also uses an aerial image from the USGS
 National Map Imagery service. Pocket keeps both in the private Rainier Walk

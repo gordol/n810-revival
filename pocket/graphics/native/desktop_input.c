@@ -27,6 +27,11 @@ void pocket_window_pad_sticks(int axes[4]){
  if(!pad || !input_window || SDL_GetKeyboardFocus()!=input_window->window)return;
  for(int i=0;i<4;i++)axes[i]=SDL_GameControllerGetAxis(pad,(SDL_GameControllerAxis)i);
 }
+int pocket_window_flight_throttle(void){
+ if(!pad || !input_window || SDL_GetKeyboardFocus()!=input_window->window)return 0;
+ return SDL_GameControllerGetAxis(pad,SDL_CONTROLLER_AXIS_TRIGGERRIGHT)
+      - SDL_GameControllerGetAxis(pad,SDL_CONTROLLER_AXIS_TRIGGERLEFT);
+}
 int pocket_window_flight_dpad(void){
  if(!pad || !input_window || SDL_GetKeyboardFocus()!=input_window->window)return 0;
  return SDL_GameControllerGetButton(pad,SDL_CONTROLLER_BUTTON_DPAD_RIGHT)

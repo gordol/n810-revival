@@ -131,6 +131,10 @@ class DesktopWindow(Window):
             if scene.glider:
                 scene.glider.stick=self.lib.pocket_window_flight_dpad() or scene.pad_sticks[0]
                 scene.glider.pitch_stick=-scene.pad_sticks[1]
+                if scene.outing in ('plane','thun'):
+                    scene.glider.rudder=scene.pad_sticks[2]
+                    rate=self.lib.pocket_window_flight_throttle()/32767.
+                    scene.glider.throttle_rate=rate if abs(rate)>.035 else 0.
 
 def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)

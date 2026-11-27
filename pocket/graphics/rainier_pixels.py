@@ -939,7 +939,7 @@ class RainierView:
             elif self.glider:
                 flight=self.glider
                 if action=='motor':flight.toggle_motor()
-                elif action=='fast':flight.fast=not flight.fast
+                elif action=='fast':flight.toggle_speed()
                 elif action=='descend':flight.descending=not flight.descending
                 flight.menu=action=='wheel' and not flight.menu
             elif action=='encore':self.climb.wave=0.
@@ -1093,7 +1093,7 @@ class RainierView:
             return
         if self.glider:
             if button==1:self.end_flight()
-            elif button==3:self.glider.fast=not self.glider.fast
+            elif button==3:self.glider.toggle_speed()
             elif button==2 and self.glider.powered:self.glider.toggle_motor()
             elif button==0:self.glider.descending=not self.glider.descending
         elif self.climb:

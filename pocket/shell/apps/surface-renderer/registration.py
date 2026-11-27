@@ -349,7 +349,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def flight_key(self,key):
             flight=getattr(self.pixel_scene,'glider',None)
-            if flight and key.lower()=='f':flight.fast=not flight.fast;return True
+            if flight and key.lower()=='f':flight.toggle_speed();return True
             if flight and flight.powered and key.lower()=='p':
                 flight.toggle_motor();return True
             if flight and key in ('space',' ','enter','\r'):

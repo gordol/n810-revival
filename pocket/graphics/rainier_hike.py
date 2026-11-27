@@ -323,6 +323,9 @@ class HangGlider:
         self.descending=self.landed=False
         self.clearance=6.
 
+    def toggle_speed(self):
+        self.fast=not self.fast
+
     def toggle_motor(self):
         self.motor=not self.motor
         self.descending=False
@@ -503,6 +506,8 @@ class SoundVehicle(HangGlider):
 
         from pnw_outings import runway_geometry
         self.runways=tuple(runway_geometry())
+        self.rudder=self.throttle_rate=0.
+        self.throttle=48./118.
         self.roll_state=None
         if kind=='thun':
             rx,rz,self.heading,_,_=self.runways[0]
@@ -512,6 +517,14 @@ class SoundVehicle(HangGlider):
             self.speed=0.
             self.roll_state='parked'
             self.target_index=2
+
+    def cancel_input(self):
+        super().cancel_input()
+        self.rudder=self.throttle_rate=0.
+
+    def toggle_speed(self):
+        super().toggle_speed()
+        self.throttle=1. if self.fast else 48./118.
 
     def runway_at(self,x,z):
         for rx,rz,yaw,length,width in self.runways:
@@ -526,6 +539,9 @@ class SoundVehicle(HangGlider):
         self.target_index=(self.target_index+1)%len(self.stops)
 
     def advance(self,dt,height,limits):
+        if self.throttle_rate:
+            self.throttle=max(0.,min(1.,self.throttle+self.throttle_rate*dt*.35))
+            self.fast=self.throttle>=.99
         if self.roll_state in ('parked','takeoff','rollout'):
             if self.roll_state=='parked' and self.descending:
                 self.descending=False
@@ -548,10 +564,13 @@ class SoundVehicle(HangGlider):
         smooth=-math.expm1(-3*dt)
         self.bank+=(max(-1.,min(1.,roll))-self.bank)*smooth
         self.pitch+=(max(-1.,min(1.,pitch))-self.pitch)*smooth
-        cruise=(22. if self.fast else 10.) if self.boat else (150. if self.fast else 80.)
+        cruise=(22. if self.fast else 10.) if self.boat else 32.+118.*self.throttle
         if self.descending:cruise=0. if self.boat else 32.
         self.speed+=(cruise-self.speed)*(-math.expm1(-dt))
-        self.heading+=self.bank*dt*(.64 if self.boat else .38)
+        if self.boat:self.heading+=self.bank*dt*.64
+        else:
+            # Coordinated turn rate falls with airspeed for the same bank angle.
+            self.heading+=dt*(9.81*math.tan(math.radians(55)*self.bank)/max(25.,self.speed)+.14*self.rudder)
         west,east,south,north=limits
         x=max(west,min(east,self.x+self.speed*dt*math.sin(self.heading)))
         z=max(south,min(north,self.z+self.speed*dt*math.cos(self.heading)))
@@ -559,11 +578,12 @@ class SoundVehicle(HangGlider):
         if self.boat and ground>.01:self.speed=0.
         else:self.x,self.z=x,z
         if not self.boat:
-            next_alt=self.altitude-dt*(36*self.pitch+12*self.descending)
+            next_alt=self.altitude-dt*(self.speed*math.sin(.40*self.pitch)+12*self.descending)
             if self.roll_state=='climbout':
                 next_alt=self.altitude+dt*9.
                 if next_alt-ground>=30 or self.descending:self.roll_state=None
-            strip=self.runway_at(x,z) if self.descending else None
+            manual_approach=self.roll_state is None and self.speed<39. and abs(self.bank)<.18 and 0<=self.pitch<=.30
+            strip=self.runway_at(x,z) if self.descending or manual_approach else None
             on_approach=False
             if strip and self.speed<39.:
                 yaw,along,length=strip
@@ -591,6 +611,9 @@ class SoundVehicle(HangGlider):
 
     def draw(self,ink,w,h):
         super().draw(ink,w,h)
+        if not self.boat and not self.menu:
+            power='APPR' if self.descending else f'THR {round(100*self.throttle)}%'
+            ink.label(1,4,f'HDG {round(math.degrees(self.heading))%360:03d}  {power}',0xFFF4DC)
         name,x,z=self.stops[self.target_index]
         bearing=round(math.degrees(math.atan2(x-self.x,z-self.z)))%360
         ink.label(1,h-3,name,0xFFF4DC)
