@@ -772,6 +772,7 @@ class RainierView:
         self.stand_center=None
         self.stand_count=0
         self.person_slots=set()
+        self.cockpit_ready=False
         self.upload=True
         self.context=None
         self.error=''
@@ -1206,6 +1207,7 @@ class RainierView:
         self.stand_center=None
         self.stand_count=0
         self.person_slots=set()
+        self.cockpit_ready=False
         self.upload=True
         self.camera=None
         self.error=''
@@ -1734,6 +1736,12 @@ class RainierView:
             if near:omit_first,omit_end=base_count-6*summit_approach.COLUMNS*summit_approach.ROWS,base_count
             else:omit_first,omit_end=base_count,terrain_count
         equipment=(C.c_float*3)(3 if self.outing=="boat" else 2 if self.outing in ("thun","plane") else self.glider.powered,self.glider.bank,self.glider.pitch) if self.glider else None
+        if self.glider and self.outing in ('thun','plane'):
+            from cockpit import panel
+            setup=ctx.lib.pocket_scene_cockpit
+            setup.argtypes=[C.c_void_p,C.c_void_p,C.c_float,C.c_float]
+            ctx.check(setup(ctx.handle,None if self.cockpit_ready else panel(),self.glider.speed,self.glider.altitude))
+            self.cockpit_ready=True
         if self.outing and getattr(self,'market_snack',None) and not equipment and not (self.lens or self.binoculars):
             equipment=(C.c_float*3)({'coffee':5,'piroshky':6,'flowers':7,'honey':8}[self.market_snack],0.,0.)
         if self.outing=='ferry':equipment=(C.c_float*3)(4,0.,0.)

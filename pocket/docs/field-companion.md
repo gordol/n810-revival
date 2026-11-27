@@ -642,6 +642,11 @@ In Rainier Walk, open **Explore** and choose **Fly**, **On the water**,
 or to change the navigation waypoint. The ferry follows an accelerated
 Seattle–Bainbridge route and pauses for 15 seconds at each landing. Walk through the waterside end of the covered approach at Colman Dock to board. Tap **Ashore** while docked to walk off. **Exit** during the crossing returns to the departure terminal. Explore stays available during the ride.
 
+The trainer panel shows simulated airspeed in knots, pitch and bank on the
+attitude indicator, and altitude above sea level in feet. On the altimeter,
+the longest hand makes one turn per 1,000 feet, the middle hand per 10,000,
+and the shortest per 100,000. The navigation display gives terrain clearance in metres.
+
 For a plane with an SDL game controller, the left stick banks and pitches.
 Pull back to climb. The right stick steers the rudder horizontally.
 Hold RT/R2 to increase throttle or LT/L2 to reduce it, then release to

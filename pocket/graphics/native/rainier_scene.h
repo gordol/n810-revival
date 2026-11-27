@@ -308,7 +308,89 @@ static void flight_sail_vertex(int powered,float u,float chord,float puff,float 
  glVertex3f(3.65f*u,height,-depth+chord*length);
 }
 
-static void flight_equipment(const float *flight,int w,int h){
+int pocket_scene_cockpit(void *ptr,const unsigned char *pixels,float speed,float altitude){
+ struct gpu_scene *s=ptr;
+ if(!s)return -1;
+ s->cockpit_speed=speed;s->cockpit_altitude=altitude;
+ if(s->cockpit_panel)return 0;
+ if(!pixels || scene_target(s,s->canvas) || SDL_RenderFlush(s->device))return -1;
+ glPushAttrib(GL_TEXTURE_BIT);glActiveTexture(GL_TEXTURE0);
+ glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
+ glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);glPixelStorei(GL_UNPACK_ALIGNMENT,1);
+ glPixelStorei(GL_UNPACK_ROW_LENGTH,0);glPixelStorei(GL_UNPACK_SKIP_ROWS,0);glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);
+ glGenTextures(1,&s->cockpit_panel);glBindTexture(GL_TEXTURE_2D,s->cockpit_panel);
+ glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,1000,244,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
+ glGenerateMipmap(GL_TEXTURE_2D);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+ GLint width;glGetTexLevelParameteriv(GL_TEXTURE_2D,0,GL_TEXTURE_WIDTH,&width);
+ glPopClientAttrib();glPopAttrib();
+ if(width!=1000){glDeleteTextures(1,&s->cockpit_panel);s->cockpit_panel=0;return SDL_SetError("Cockpit texture upload failed");}
+ return 0;
+}
+
+static void dial_hand(float x,float angle,float reach,float half_width){
+ glPushMatrix();glTranslatef(x,146,0);glRotatef(angle,0,0,1);
+ glBegin(GL_TRIANGLE_FAN);
+ glColor3f(.92f,.89f,.76f);glVertex2f(0,-reach);glVertex2f(half_width,0);
+ glVertex2f(half_width*.62f,10);glVertex2f(-half_width*.62f,10);glVertex2f(-half_width,0);
+ glEnd();glPopMatrix();
+}
+
+static void trainer_panel(struct gpu_scene *s,const float *flight,int w,int h){
+ glMatrixMode(GL_PROJECTION);glLoadIdentity();glOrtho(0,w,0,h,-1,1);
+ glMatrixMode(GL_MODELVIEW);glLoadIdentity();
+ float scale=fminf(w/815.f,h/610.f),edge=w/(2.f*scale);
+ glTranslatef(w*.5f,h,0);glScalef(scale,scale,1);glTranslatef(-500,-244,0);
+ glUseProgram(0);glDisable(GL_DEPTH_TEST);glActiveTexture(GL_TEXTURE0);
+ /* Enamel engine cover viewed over the padded glare shield. Its far end
+    is narrower and higher in the windshield than the near shoulders. */
+ glDisable(GL_TEXTURE_2D);glDisable(GL_BLEND);
+ glBegin(GL_QUAD_STRIP);
+ for(int i=0;i<=48;i++){
+  float a=i*3.141593f/48.f,side=cosf(a),crown=sinf(a);
+  float light=.51f+.24f*crown+.11f*side;
+  glColor3f(light*.90f,light*.94f,light);glVertex2f(500+125*side,-2-17*crown);
+  glColor3f(light*.69f,light*.74f,light*.77f);glVertex2f(500+320*side,44-20*crown);
+ }
+ glEnd();
+ glBindTexture(GL_TEXTURE_2D,s->cockpit_panel);glEnable(GL_TEXTURE_2D);
+ glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glColor4f(1,1,1,1);
+ float ends[4]={fminf(0,500-edge),0,1000,fmaxf(1000,500+edge)};
+ glBegin(GL_QUAD_STRIP);
+ for(int i=0;i<4;i++){
+  float u=i<2?.0005f:.9995f;
+  glTexCoord2f(u,0);glVertex2f(ends[i],0);glTexCoord2f(u,1);glVertex2f(ends[i],244);
+ }
+ glEnd();glDisable(GL_TEXTURE_2D);glDisable(GL_BLEND);
+ dial_hand(304,-135.f+270.f*fminf(300.f,s->cockpit_speed*1.9438445f)/300.f,56,3);
+ float feet=s->cockpit_altitude*3.28084f;
+ dial_hand(696,feet*.0036f,22,5);dial_hand(696,feet*.036f,36,3.8f);dial_hand(696,feet*.36f,56,2.3f);
+ glPushMatrix();glTranslatef(500,146,0);glRotatef(-55.f*flight[1],0,0,1);
+ float pitch=-flight[2]*35.f;
+ for(int ground=0;ground<=1;ground++){
+  glBegin(GL_QUAD_STRIP);
+  for(int i=0;i<=64;i++){
+   float a=3.141593f*i/64,x=-54.f*cosf(a),cap=54.f*sinf(a),line=fminf(cap,fmaxf(-cap,pitch));
+   if(ground)glColor3f(.64f,.41f,.23f);else glColor3f(.22f,.45f,.61f);
+   glVertex2f(x,ground?line:-cap);
+   if(ground)glColor3f(.40f,.27f,.18f);else glColor3f(.49f,.68f,.75f);
+   glVertex2f(x,ground?cap:line);
+  }
+  glEnd();
+ }
+ glColor3f(.93f,.90f,.80f);glBegin(GL_LINES);
+ for(int j=-2;j<=2;j++){
+  float y=pitch+j*9.f,span=j==0?sqrtf(54*54-y*y):j%2?9.f:15.f;
+  glVertex2f(-span,y);glVertex2f(span,y);
+ }
+ glEnd();glPopMatrix();
+ glColor3f(.98f,.73f,.22f);glRectf(466,144,490,148);glRectf(510,144,534,148);
+ glRectf(497,144,503,149);
+}
+static void flight_equipment(struct gpu_scene *s,const float *flight,int w,int h){
  int powered=flight[0]>.5f;
  float aspect=(float)w/h;
  glMatrixMode(GL_PROJECTION);glLoadIdentity();
@@ -357,12 +439,7 @@ static void flight_equipment(const float *flight,int w,int h){
  }
  if(flight[0]>=2.f){
   if(flight[0]==2.f){
-   /* Only the nose cowling enters the forward view. */
-   glBegin(GL_TRIANGLE_FAN);glColor3f(.18f,.23f,.25f);glVertex3f(0,-2.2f,-2.3f);
-   for(int i=0;i<=32;i++){
-    float a=i*.098175f;glColor3f(.29f+.19f*sinf(a),.36f+.16f*sinf(a),.38f+.15f*sinf(a));
-    glVertex3f(1.55f*cosf(a),-1.9f+.64f*sinf(a),-2.3f);
-   }glEnd();
+   trainer_panel(s,flight,w,h);
   }else if(flight[0]==3.f){
    glBegin(GL_TRIANGLES);glColor3f(.67f,.74f,.72f);glVertex3f(-1.7f,-1.8f,-1.5f);
    glVertex3f(0,-.9f,-3.3f);glColor3f(.38f,.49f,.50f);glVertex3f(1.7f,-1.8f,-1.5f);glEnd();
@@ -672,7 +749,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   glReadPixels(x,y,w,h,GL_RGB,GL_UNSIGNED_BYTE,photo);glPopClientAttrib();
  }
  /* Screen-space trail markers: three berries and a pointer to the next stop. */
- if(aircraft)flight_equipment(aircraft,w,h);
+ if(aircraft)flight_equipment(s,aircraft,w,h);
  glLoadIdentity();glMatrixMode(GL_PROJECTION);glLoadIdentity();glOrtho(0,w,0,h,-1,1);
  glUseProgram(0);glDisable(GL_DEPTH_TEST);
  float radius=(w<h?w:h)*.044f;

@@ -610,11 +610,20 @@ class SoundVehicle(HangGlider):
         return super().controls(w,h)
 
     def draw(self,ink,w,h):
-        super().draw(ink,w,h)
-        if not self.boat and not self.menu:
-            power='APPR' if self.descending else f'THR {round(100*self.throttle)}%'
-            ink.label(1,4,f'HDG {round(math.degrees(self.heading))%360:03d}  {power}',0xFFF4DC)
         name,x,z=self.stops[self.target_index]
         bearing=round(math.degrees(math.atan2(x-self.x,z-self.z)))%360
-        ink.label(1,h-3,name,0xFFF4DC)
-        ink.label(1,h-2,f'{math.hypot(x-self.x,z-self.z)/1000:.1f} km  {bearing:03d} deg',0xFFF4DC)
+        distance=math.hypot(x-self.x,z-self.z)/1000
+        if self.boat:
+            super().draw(ink,w,h)
+            ink.label(1,h-3,name,0xFFF4DC)
+            ink.label(1,h-2,f'{distance:.1f} km  {bearing:03d} deg',0xFFF4DC)
+            return
+        if self.menu:
+            for _,_,angle in self.wheel_items():
+                ink.sector(w/2,h/2,self.radius(w,h),angle)
+        power='APPR' if self.descending else f'THR {round(100*self.throttle)}%'
+        lines=(name,f'{distance:.1f} km  BRG {bearing:03d}',
+               f'HDG {round(math.degrees(self.heading))%360:03d}  {power}',
+               f'{round(self.clearance)} m AGL')
+        ink.fill((.5,.6,max(map(len,lines))+1,4.6),0x14231FE8)
+        for i,line in enumerate(lines):ink.label(1,1+i,line,0xEEE8CC)
