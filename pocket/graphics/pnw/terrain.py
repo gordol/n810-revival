@@ -142,7 +142,7 @@ def sound_aerial():
     except (OSError,ValueError,URLError,subprocess.SubprocessError):return None
 
 
-# Overlapping 8 km exports keep the nearby surface detailed across tile changes.
+# Tile keys use the original cache coordinate system (two steps per tile).
 PATCH_WIDTH=8192
 PATCH_STEP=4096
 PATCH_LIMIT=128*1024**2
@@ -171,15 +171,13 @@ def decode_relief(folder):
 
 def flight_relief(key,field,*,local_only=False):
     from data_paths import rainier_cache
-    from pnw.scene import surface
-    from geometry import HeightField,Vec
-    from struct import Struct
     cache=rainier_cache()/'flight-imagery-v1'
     dest=cache/f'{key[0]}_{key[1]}.dem'
     try:data=dest.read_bytes()
     except FileNotFoundError:data=b''
     if len(data)!=129*129*2:
         if local_only:return None
+        cache.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(dir=cache) as tmp:
             folder=Path(tmp)
             with urlopen(relief_url(key),timeout=8) as stream:raw=stream.read(1024**2+1)
@@ -188,32 +186,48 @@ def flight_relief(key,field,*,local_only=False):
             convert_local(folder,'relief',lambda:decode_relief(folder))
             data=(folder/'height').read_bytes()
             (folder/'height').replace(dest)
+            trim_patch_cache(cache)
     values=array('h')
     values.frombytes(data)
     if sys.byteorder!='little':values.byteswap()
+    return relief_mesh(key,field,values)
+
+def relief_mesh(key,field,values=None):
+    from pnw.hiking import bounds
+    from pnw.scene import surface
+    from geometry import HeightField,Vec
+    from struct import Struct
+    west,east,south,north=bounds(field)
     x0,z0=(v*PATCH_STEP-PATCH_WIDTH/2 for v in key)
-    if max(values)<400:return None
+    inside=west<=x0 and x0+PATCH_WIDTH<=east and south<=z0 and z0+PATCH_WIDTH<=north
+    if not inside and values is None:
+        raise ValueError('Elevation is unavailable beyond the prepared map')
+    cells=128 if values is not None and (not inside or max(values)>=400) else 32
     heights=[]
     rows=[]
     vertex=Struct('=7f').pack
-    step=PATCH_WIDTH/128
+    step=PATCH_WIDTH/cells
     mesh=array('f')
-    for j in range(129):
+    for j in range(cells+1):
         row=[]
-        for i in range(129):
+        for i in range(cells+1):
             x,z=x0+i*step,z0+j*step
-            base=surface(field,x,z)
-            # Keep authored shoreline structures and runways on their existing foundations.
-            weight=max(0.,min(1.,(base-400.)/250.,min(i,j,128-i,128-j)/5.))
-            y=base+weight*(values[j*129+i]-base)
+            y=surface(field,x,z)
+            if values is not None and cells==128:
+                dem=values[j*129+i]
+                if west<=x<=east and south<=z<=north:
+                    # Keep shoreline structures and runways seated on the base mesh.
+                    weight=max(0.,min(1.,(y-400.)/250.,min(i,j,128-i,128-j)/5.))
+                    y+=weight*(dem-y)
+                else:y=dem
             heights.append(y)
             row.append(vertex(x,y,z,.28,.39,.24,.219))
         rows.append(row)
         if j:
             a,b=rows
-            mesh.frombytes(b''.join(v for i in range(128) for v in (a[i],b[i],a[i+1],a[i+1],b[i],b[i+1])))
+            mesh.frombytes(b''.join(v for i in range(cells) for v in (a[i],b[i],a[i+1],a[i+1],b[i],b[i+1])))
             rows.pop(0)
-    return HeightField(129,129,Vec(x0,0,z0),step,step,tuple(heights),'meters'),mesh
+    return HeightField(cells+1,cells+1,Vec(x0,0,z0),step,step,tuple(heights),'meters'),mesh
 
 def flight_patch(key,field=None):
     from data_paths import rainier_cache
@@ -242,18 +256,23 @@ def flight_patch(key,field=None):
         if field is not None:
             try:relief=flight_relief(key,field)
             except (OSError,ValueError,ImportError,subprocess.SubprocessError):pass
-        files=[]
-        for path in cache.iterdir():
-            if path.suffix not in ('.jpg','.dem'):continue
-            try:stat=path.stat()
-            except FileNotFoundError:continue
-            files.append((stat.st_mtime,stat.st_size,path))
-        total=sum(size for _,size,_ in files)
-        for _,size,path in sorted(files):
-            if total<=PATCH_LIMIT:break
-            path.unlink(missing_ok=True)
-            total-=size
+        trim_patch_cache(cache)
+        if field is not None and relief is None:relief=relief_mesh(key,field)
         return pixels,relief
+
+
+def trim_patch_cache(cache):
+    files=[]
+    for path in cache.iterdir():
+        if path.suffix not in ('.jpg','.dem'):continue
+        try:stat=path.stat()
+        except FileNotFoundError:continue
+        files.append((stat.st_mtime,stat.st_size,path))
+    total=sum(size for _,size,_ in files)
+    for _,size,path in sorted(files):
+        if total<=PATCH_LIMIT:break
+        path.unlink(missing_ok=True)
+        total-=size
 
 
 def patch_corner(x,z):
@@ -282,7 +301,7 @@ def draw_map_patch(folder):
         if len(points)>=4:draw.line(points,fill=(64,114,133) if stream else (134,129,113),width=width)
     (folder/'rgb').write_bytes(image.tobytes())
 
-def map_patch(key,field):
+def map_patch(key,field,*,fetch_missing=False):
     """Paint south-first pixels in the same Sound coordinates as the GPU mesh."""
     from types import SimpleNamespace
     import map_geography
@@ -291,7 +310,12 @@ def map_patch(key,field):
     x0,z0=(v*PATCH_STEP-PATCH_WIDTH/2 for v in key)
     bounds=(*patch_corner(x0,z0),*patch_corner(x0+PATCH_WIDTH,z0+PATCH_WIDTH))
     relief=flight_relief(key,field,local_only=True)
-    heights=relief[0] if relief else field
+    if relief is None:
+        try:relief=relief_mesh(key,field)
+        except ValueError:
+            if not fetch_missing:raise
+            relief=flight_relief(key,field)
+    heights=relief[0]
     step=PATCH_WIDTH/128
     base=bytearray()
     for j in range(129):
@@ -328,31 +352,42 @@ def load_surface(key,field,source):
     if source!='Drawn terrain':
         try:return flight_patch(key,field)
         except (OSError,ValueError,ImportError,subprocess.SubprocessError):pass
-    return map_patch(key,field)
+    return map_patch(key,field,fetch_missing=source!='Drawn terrain')
 
 
 class FlightImagery:
     def __init__(self):
         self.pool=ThreadPoolExecutor(max_workers=1)
-        self.job=self.pending=self.loaded=None
-        self.retry=0.
+        self.job=self.pending=None
+        self.resident={}
+        self.retry={}
 
     def update(self,x,z,field,source='Aerial'):
-        key=(round(x/PATCH_STEP),round(z/PATCH_STEP))
-        identity=(key,source)
+        cx,cz=(2*round(v/PATCH_WIDTH) for v in (x,z))
+        wanted=sorted(((cx+dx,cz+dz) for dx in (-2,0,2) for dz in (-2,0,2)),
+                      key=lambda k:(k[0]*PATCH_STEP-x)**2+(k[1]*PATCH_STEP-z)**2)
+        result=None
+        now=time.monotonic()
+        self.retry={k:t for k,t in self.retry.items() if k[0] in wanted and k[1]==source and t>now}
         if self.job is not None:
             if not self.job.done():return
             job,self.job=self.job,None
+            key,requested=self.pending
             try:pixels,relief=job.result()
             except (OSError,ValueError,ImportError,subprocess.SubprocessError):
-                self.retry=time.monotonic()+30.
+                self.retry[self.pending]=now+30.
             else:
-                if self.pending==identity:
-                    self.loaded=identity
-                    return key,pixels,relief
-        if identity!=self.loaded and time.monotonic()>=self.retry:
-            self.pending=identity
-            self.job=self.pool.submit(load_surface,key,field,source)
+                if key in wanted and requested==source:
+                    slot=(key[0]//2)%3+3*((key[1]//2)%3)
+                    self.resident[slot]=self.pending
+                    result=slot,key,pixels,relief
+        for key in wanted:
+            identity=(key,source)
+            if identity not in self.resident.values() and identity not in self.retry:
+                self.pending=identity
+                self.job=self.pool.submit(load_surface,key,field,source)
+                break
+        return result
 
     def close(self):
         self.pool.shutdown(wait=False,cancel_futures=True)

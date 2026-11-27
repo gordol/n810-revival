@@ -674,10 +674,12 @@ mountain relief. **Aerial** uses the USGS photo when available and falls back
 to drawn terrain for missing local patches. Both modes retain the regional overview
 in the distance.
 
-During Sound outings, Pocket requests USGS imagery near the player in overlapping
-8.192 km squares at 8 m/pixel. Mountain relief uses 64 m samples from USGS 3DEP.
-The detail fades into the regional terrain at the edges. Lowland runways and built
-areas keep their existing elevations. Downloads and decoding run in the background.
+During Sound outings, Pocket loads the nearest tile first, then its eight neighbors.
+Each tile spans 8.192 km at 8 m/pixel. A complete neighborhood spans about 24.6 km.
+Aircraft can cross the prepared overview boundary. Beyond it, terrain needs cached
+elevation or a successful elevation download in Aerial mode. Mountain relief uses
+64 m samples from USGS 3DEP. Lowland runways and built areas inside the overview
+keep their existing elevations. Downloads and decoding run in the background.
 The JPEG and elevation cache keeps the most recently visited patches within 128 MiB
 in the private data directory. Cached patches work offline until evicted. For scale,
 a 10 × 10 km area at 1 m/pixel is about 286 MiB of uncompressed RGB imagery before

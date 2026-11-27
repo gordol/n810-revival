@@ -605,8 +605,9 @@ class SoundVehicle(HangGlider):
             self.stalled=self.roll_state is None and self.speed<stall_speed+(3. if self.stalled else 0.)
         west,east,south,north=limits
         ground_speed=self.speed*math.cos(self.elevation)
-        x=max(west,min(east,self.x+ground_speed*dt*math.sin(self.heading)))
-        z=max(south,min(north,self.z+ground_speed*dt*math.cos(self.heading)))
+        x=self.x+ground_speed*dt*math.sin(self.heading)
+        z=self.z+ground_speed*dt*math.cos(self.heading)
+        if self.boat:x,z=max(west,min(east,x)),max(south,min(north,z))
         ground=height(x,z)
         if self.boat and ground>.01:self.speed=0.
         else:self.x,self.z=x,z

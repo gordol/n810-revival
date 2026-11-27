@@ -9,7 +9,7 @@ static GLuint rainier_program(void){
   "distanceToEye=length(eye.xyz);gl_Position=gl_ProjectionMatrix*eye;}";
  const char *fs="#version 120\n"
   "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
-  "uniform vec4 supplies;uniform int camp;uniform int season;uniform float originY;uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;uniform sampler2D flightPhoto;uniform vec3 photoArea;uniform int flightRelief;"
+  "uniform vec4 supplies;uniform int camp;uniform int season;uniform float originY;uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;uniform sampler2D flightPhoto;uniform vec3 photoArea;uniform vec3 flightAreas[9];"
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
   "return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+1.),u.x),u.y);}"
@@ -130,9 +130,10 @@ static GLuint rainier_program(void){
   "vec3 n=normalize(vec3(.18*wave,1.,.12*(drift-.5)));vec3 ray=reflect(normalize(pos-waterEye),n);"
   "col=mix(vec3(.059,.21,.24),skyColor(vec3(ray.x,max(.015,ray.y),ray.z)),.13+.56*pow(1.-facing,4.));"
   "col+=vec3(.045,.055,.055)*wave*(1.-smoothstep(12.,70.,length(fwidth(pos.xz))));}"
-  "if(regional==2 && animal==0 && tint.a>=.1969 && tint.a<=.2191 && photoArea.z>0.){"
-  "vec2 uv=(pos.xz-photoArea.xy)/photoArea.z+.5;vec2 edge=min(uv,1.-uv);"
-  "if(flightRelief!=0 && tint.a<.218 && min(edge.x,edge.y)>0.)discard;float blend=smoothstep(0.,.08,min(edge.x,edge.y));if(blend>0.)col=mix(col,texture2D(flightPhoto,uv).rgb,blend);}"
+  "if(regional==2 && animal==0 && tint.a>=.1969 && tint.a<.218){"
+  "for(int i=0;i<9;i++){vec2 d=abs(pos.xz-flightAreas[i].xy);if(max(d.x,d.y)<flightAreas[i].z)discard;}}"
+  "if(regional==2 && abs(tint.a-.219)<.0001 && photoArea.z>0.)"
+  "col=texture2D(flightPhoto,(pos.xz-photoArea.xy)/photoArea.z+.5).rgb;"
   // World-space clusters, shoots and needle tips. Fade subpixel octaves
   // toward their mean so distant foliage holds together during camera motion.
   "if(animal==0 && tint.a>=.499 && tint.a<.516){"
@@ -311,21 +312,28 @@ static void flight_sail_vertex(int powered,float u,float chord,float puff,float 
  glVertex3f(3.65f*u,height,-depth+chord*length);
 }
 
-int pocket_scene_flight_photo(void *ptr,const unsigned char *rgb,float x,float z){
+int pocket_scene_flight_photo(void *ptr,unsigned slot,const unsigned char *rgb,float x,float z,const float *mesh,unsigned count){
  struct gpu_scene *s=ptr;
- if(!s||!rgb||scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
+ if(!s||slot>=9||!mesh||!count||count>128*128*6||!rgb||scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
  glPushAttrib(GL_TEXTURE_BIT);glActiveTexture(GL_TEXTURE1);
  glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
  glPixelStorei(GL_UNPACK_ALIGNMENT,1);glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
  glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);glPixelStorei(GL_UNPACK_SKIP_ROWS,0);
- if(!s->flight_photo)glGenTextures(1,&s->flight_photo);
- glBindTexture(GL_TEXTURE_2D,s->flight_photo);
+ if(!s->flight_photo[slot])glGenTextures(1,&s->flight_photo[slot]);
+ glBindTexture(GL_TEXTURE_2D,s->flight_photo[slot]);
  glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,1024,1024,0,GL_RGB,GL_UNSIGNED_BYTE,rgb);glGenerateMipmap(GL_TEXTURE_2D);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
  glPopClientAttrib();glPopAttrib();
- s->photo_x=x;s->photo_z=z;return 0;
+ GLint previous;glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&previous);
+ if(!s->flight_mesh[slot])glGenBuffers(1,&s->flight_mesh[slot]);
+ glBindBuffer(GL_ARRAY_BUFFER,s->flight_mesh[slot]);
+ glBufferData(GL_ARRAY_BUFFER,count*7*sizeof(float),mesh,GL_STATIC_DRAW);
+ glBindBuffer(GL_ARRAY_BUFFER,(GLuint)previous);
+ s->flight_count[slot]=(GLsizei)count;
+ s->flight_areas[slot][0]=x;s->flight_areas[slot][1]=z;s->flight_areas[slot][2]=4096.f;
+ return 0;
 }
 int pocket_scene_cockpit(void *ptr,const unsigned char *pixels,float speed,float altitude){
  struct gpu_scene *s=ptr;
@@ -682,10 +690,10 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glUniform3f(glGetUniformLocation(s->rainier_program,"picked"),picked&1,(picked>>1)&1,(picked>>2)&1);
  glUniform1f(glGetUniformLocation(s->rainier_program,"waterTime"),age);
  glActiveTexture(GL_TEXTURE0);
- glActiveTexture(GL_TEXTURE1);glBindTexture(GL_TEXTURE_2D,s->flight_photo);glActiveTexture(GL_TEXTURE0);
  glUniform1i(glGetUniformLocation(s->rainier_program,"flightPhoto"),1);
- glUniform1i(glGetUniformLocation(s->rainier_program,"flightRelief"),lens==-2 && grove_count && grove_count==s->rainier_grove_count);
- glUniform3f(glGetUniformLocation(s->rainier_program,"photoArea"),s->photo_x,s->photo_z,s->flight_photo?8192.f:0.f);
+ GLint photo_area=glGetUniformLocation(s->rainier_program,"photoArea");
+ glUniform3f(photo_area,0,0,0);
+ glUniform3fv(glGetUniformLocation(s->rainier_program,"flightAreas[0]"),9,s->flight_areas[0]);
  float stretch=.55f+2.3f*(1.f-daylight);
  glUniform2f(glGetUniformLocation(s->rainier_program,"shadowStep"),cosf(sun_angle)*stretch,sinf(sun_angle)*stretch);
  glUniform2f(glGetUniformLocation(s->rainier_program,"shadeCenter"),center_x,center_z);
@@ -713,6 +721,22 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glUniform1f(blend,0.f);
  if(omit_end)river_draw_land(s,omit_first,0,east,eye,north,yaw,pitch,(float)w/h,cb,sb);
  if(omit_end<terrain_count)river_draw_land(s,terrain_count,omit_end?omit_end:water_count,east,eye,north,yaw,pitch,(float)w/h,cb,sb);
+ if(lens==-2){
+  glActiveTexture(GL_TEXTURE1);
+  for(unsigned slot=0;slot<9;slot++){
+   if(!s->flight_count[slot])continue;
+   glBindTexture(GL_TEXTURE_2D,s->flight_photo[slot]);
+   glUniform3f(photo_area,s->flight_areas[slot][0],s->flight_areas[slot][1],8192.f);
+   glBindBuffer(GL_ARRAY_BUFFER,s->flight_mesh[slot]);
+   glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);
+   glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
+   glDrawArrays(GL_TRIANGLES,0,s->flight_count[slot]);
+  }
+  glUniform3f(photo_area,0,0,0);
+  glActiveTexture(GL_TEXTURE0);glBindBuffer(GL_ARRAY_BUFFER,s->rainier_buffer);
+  glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);
+  glColorPointer(4,GL_FLOAT,7*sizeof(float),(const void *)(3*sizeof(float)));
+ }
  if(grove_count && grove_count==s->rainier_grove_count){
   glBindBuffer(GL_ARRAY_BUFFER,s->rainier_grove);
   glVertexPointer(3,GL_FLOAT,7*sizeof(float),0);

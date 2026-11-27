@@ -704,7 +704,7 @@ class RainierView:
     bike=glider=climb=None
     pad_sticks=(0.,0.,0.,0.)
     ground_source='Aerial'
-    flight_surface=None
+    flight_surfaces={}
     look_gain=1.
     name='Rainier walk'
     paces=(('Walk',1.),('Brisk',2.),('Explore',8.))
@@ -722,7 +722,7 @@ class RainierView:
         self.pace_index=0
         self.regional=False
         self.valley_pose=self.map_position=None
-        self.flight_surface=None
+        self.flight_surfaces={}
         self.flight_imagery=None
         self.travel_job=self.travel_pool=None
         self.meadow_site=None
@@ -1245,7 +1245,7 @@ class RainierView:
         self.ski=None
 
     def release(self):
-        self.flight_surface=None
+        self.flight_surfaces={}
         if self.flight_imagery:self.flight_imagery.close();self.flight_imagery=None
         self.bike=self.glider=self.climb=None
         self.stop_ski()
@@ -1589,8 +1589,9 @@ class RainierView:
             self.cue=4;self.cruise=False
         elif len(self.trail.picked)>before:self.cue=len(self.trail.picked)
         self.last_tick=now
-        west,east,south,north=bounds(self.world[0])
-        owner.x=max(west,min(east,owner.x));owner.z=max(south,min(north,owner.z))
+        if not (self.glider and self.outing in AIRCRAFT):
+            west,east,south,north=bounds(self.world[0])
+            owner.x=max(west,min(east,owner.x));owner.z=max(south,min(north,owner.z))
         if self.outing=='needle' and self.needle_deck:
             from pnw.seattle_places import places
             nx,nz=places()['Space Needle']
@@ -1649,10 +1650,12 @@ class RainierView:
             cx,cz=market_visit.site('overlook')
             if abs(x-cx)<=6 and -38<=z-cz<=20:return market_visit.deck_height(terrain,x,z)
             return floor_height(arcade_origin(),terrain,x,z)
-        patch=self.flight_surface
-        if patch:
+        for patch in self.flight_surfaces.values():
             west,east,south,north=bounds(patch)
             if west<=x<=east and south<=z<=north:return surface(patch,x,z)
+        if self.outing in AIRCRAFT:
+            west,east,south,north=bounds(self.world[0])
+            if not (west<=x<=east and south<=z<=north):return 0.
         terrain=surface(self.world[0],x,z)
         return terrain if self.regional else valley_floor()[1].height(x,z,terrain)
 
@@ -1800,16 +1803,11 @@ class RainierView:
             if self.flight_imagery is None:self.flight_imagery=FlightImagery()
             patch=self.flight_imagery.update(x,z,field,self.ground_source)
             if patch:
-                (ix,iz),rgb,relief=patch
-                self.flight_surface=None
-                self.stand_count=0
-                if relief:
-                    self.flight_surface,stand=relief
-                    stand_ptr=stand.buffer_info()[0]
-                    self.stand_count=len(stand)//7
+                slot,(ix,iz),rgb,(heights,mesh)=patch
                 upload=ctx.lib.pocket_scene_flight_photo
-                upload.argtypes=[C.c_void_p,C.c_char_p,C.c_float,C.c_float]
-                ctx.check(upload(ctx.handle,rgb,ix*PATCH_STEP,iz*PATCH_STEP))
+                upload.argtypes=[C.c_void_p,C.c_uint,C.c_char_p,C.c_float,C.c_float,C.c_void_p,C.c_uint]
+                ctx.check(upload(ctx.handle,slot,rgb,ix*PATCH_STEP,iz*PATCH_STEP,mesh.buffer_info()[0],len(mesh)//7))
+                self.flight_surfaces[slot]=heights
         if sound_region:center=((field.nx-1)*field.dx,(field.nz-1)*field.dz)
         if self.regional and self.outing in (None,'hoh'):
             center=self.stand_center

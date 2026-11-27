@@ -71,6 +71,44 @@ class OutingTests(unittest.TestCase):
                 rgb2,(fine2,mesh2)=pnw_terrain.flight_patch((0,0),field)
             self.assertEqual((rgb,fine.values,vertices),(rgb2,fine2.values,mesh2))
 
+    def test_aircraft_crosses_prepared_boundary_while_boat_stays_inside(self):
+        ground=lambda x,z:0.
+        for mode in ('jet','boat'):
+            vehicle=SoundVehicle(mode,SimpleNamespace(height=ground))
+            vehicle.x=vehicle.z=vehicle.heading=0.
+            vehicle.advance(.5,ground,(-1.,1.,-1.,1.))
+            if mode=='boat':self.assertEqual(vehicle.z,1.)
+            else:self.assertGreater(vehicle.z,1.)
+
+    def test_neighborhood_keeps_inflight_neighbor_and_reuses_six_tiles_after_crossing(self):
+        from unittest.mock import patch
+        imagery=pnw_terrain.FlightImagery()
+        self.addCleanup(imagery.close)
+        width=pnw_terrain.PATCH_WIDTH
+        with patch('pnw.terrain.load_surface',return_value=(b'image',None)) as load:
+            imagery.update(0,0,None)
+            self.assertEqual(imagery.pending[0],(0,0))
+            for i in range(9):
+                imagery.job.result()
+                self.assertIsNotNone(imagery.update(width*.51,0,None))
+            self.assertEqual(len(imagery.resident),9)
+            self.assertIsNone(imagery.job)
+            imagery.update(width*1.51,0,None)
+            for i in range(3):
+                imagery.job.result()
+                imagery.update(width*1.51,0,None)
+            self.assertIsNone(imagery.job)
+            self.assertEqual(load.call_count,12)
+
+    def test_exterior_tile_renders_real_lowland_elevation(self):
+        from geometry import HeightField,Vec
+        field=HeightField(2,2,Vec(-4096,0,-4096),8192,8192,(200,)*4,'meters')
+        dem=[65]*(129*129)
+        patch,mesh=pnw_terrain.relief_mesh((4,0),field,dem)
+        self.assertEqual(set(patch.values),{65.})
+        self.assertEqual(set(mesh[1::7]),{65.})
+        with self.assertRaises(ValueError):pnw_terrain.relief_mesh((4,0),field)
+
     def test_drawn_surface_uses_map_vectors_and_preserves_islands_offline(self):
         from unittest.mock import patch
         from geometry import HeightField,Vec
