@@ -7,6 +7,7 @@ void *pocket_window_open_mobile(int);
 int pocket_window_close(void *);
 int pocket_window_event(int[6]);
 int pocket_window_capture(void *,int);
+void pocket_window_dynamic(void *,int);
 void pocket_window_coordinates(void *,int *,int *);
 int main(void){
  void *w=pocket_window_open(-1);CHECK(w);CHECK(!SDL_IsTextInputActive());
@@ -18,9 +19,20 @@ int main(void){
  CHECK(pocket_window_capture(w,1)==0);while(pocket_window_event(out)){}
  SDL_zero(e);e.type=SDL_MOUSEMOTION;e.motion.xrel=17;e.motion.yrel=-9;CHECK(SDL_PushEvent(&e)==1);
  CHECK(pocket_window_event(out)==1&&out[0]==5&&out[1]==17&&out[2]==-9);
- SDL_zero(e);e.type=SDL_WINDOWEVENT;e.window.event=SDL_WINDOWEVENT_FOCUS_LOST;CHECK(SDL_PushEvent(&e)==1);
+ SDL_zero(e);e.type=SDL_WINDOWEVENT;e.window.windowID=SDL_GetWindowID(*(SDL_Window**)w);e.window.event=SDL_WINDOWEVENT_FOCUS_LOST;CHECK(SDL_PushEvent(&e)==1);
  int lost=0;for(unsigned i=0;i<100;i++){int got=pocket_window_event(out);if(got&&out[0]==6){lost=1;break;}SDL_Delay(2);}
  CHECK(lost&&!SDL_GetRelativeMouseMode());
+ SDL_Window *helper=SDL_CreateWindow("offscreen",0,0,400,400,SDL_WINDOW_HIDDEN);CHECK(helper);
+ while(pocket_window_event(out)){}
+ pocket_window_dynamic(w,1);
+ SDL_Event sizes[2];SDL_zero(sizes);
+ sizes[0].type=SDL_WINDOWEVENT;sizes[0].window.event=SDL_WINDOWEVENT_SIZE_CHANGED;
+ sizes[0].window.windowID=SDL_GetWindowID(helper);sizes[0].window.data1=sizes[0].window.data2=400;
+ sizes[1]=sizes[0];sizes[1].window.windowID=SDL_GetWindowID(*(SDL_Window**)w);
+ sizes[1].window.data1=1728;sizes[1].window.data2=992;
+ CHECK(SDL_PeepEvents(sizes,2,SDL_ADDEVENT,0,0)==2);
+ CHECK(pocket_window_event(out)&&out[0]==8&&out[1]==1728&&out[2]==992);
+ SDL_DestroyWindow(helper);pocket_window_dynamic(w,0);
  SDL_SetWindowSize(*(SDL_Window**)w,1000,800);SDL_Delay(50);while(pocket_window_event(out)){}
  int x=500,y=400;pocket_window_coordinates(w,&x,&y);CHECK(abs(x-400)<=1&&abs(y-240)<=1);
  CHECK(pocket_window_capture(w,0)==0);pocket_window_close(w);

@@ -117,7 +117,10 @@ class Platform:
   scale=max(1,min(self.ui_scale,width/min_width,height/min_height))
   self.resize(int(width/(8*scale)),int(height/(16*scale)))
  def resize(self,cols,rows):
-  self.size=(max(40,min(512,cols)),max(14,min(256,rows)));self.renderer.resize(*self.size)
+  size=(max(40,min(512,cols)),max(14,min(256,rows)))
+  if size==self.size:return
+  self.renderer.resize(*size)
+  self.size=size
   if self.display and hasattr(self.display,"set_canvas"):self.display.set_canvas(self.size[0]*8,self.size[1]*16)
   self.resized=True;self.dirty=True
  def events(self):

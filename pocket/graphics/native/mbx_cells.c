@@ -10,6 +10,7 @@
 #include <GL/osmesa.h>
 #endif
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "pixel_target_impl.h"
@@ -64,6 +65,12 @@ int pocket_mbx_stage(void *ptr,unsigned index,const unsigned char *mask,unsigned
  if(!c->valid||c->fg!=fg||c->bg!=bg||memcmp(c->mask,mask,16)){c->fg=fg;c->bg=bg;memcpy(c->mask,mask,16);c->valid=c->dirty=1;}
  return 0;
 }
+static int reject_cell(const char *reason,uint32_t index,uint32_t ch,uint64_t ink){
+ static char detail[160];
+ snprintf(detail,sizeof(detail),"%s at cell %u, glyph U+%04X, ink 0x%llx",reason,index,ch,(unsigned long long)ink);
+ failure=detail;
+ return -1;
+}
 /* Existing native export format: index:u32, glyph:u32, ink:u64. */
 static int find_glyph(const uint32_t *codes,unsigned count,uint32_t ch){
  unsigned lo=0,hi=count;while(lo<hi){unsigned m=lo+(hi-lo)/2;if(codes[m]<ch)lo=m+1;else hi=m;}
@@ -87,11 +94,14 @@ static uint16_t rgb565(uint64_t v){return ((v>>8)&0xf800)|((v>>5)&0x7e0)|((v>>3)
 int pocket_mbx_stage_batch(void *ptr,const void *data,size_t bytes,const uint32_t *codes,
  const unsigned char *glyphs,unsigned count,const uint32_t *palette,unsigned palettes,unsigned fallback){
  struct renderer *r=ptr;const unsigned char *records=data;
- if(!r||(bytes&&!data)||bytes%16||bytes>(size_t)r->cols*r->rows*16||!codes||!glyphs||!count||count>65536||!palette||!palettes||palettes>256||fallback>65535)return -1;
+ if(!r||(bytes&&!data)||bytes%16||bytes>(size_t)r->cols*r->rows*16||!codes||!glyphs||!count||count>65536||!palette||!palettes||palettes>256||fallback>65535){failure="invalid cell batch parameters";return -1;}
  for(unsigned i=0;i<bytes/16;++i){uint32_t index,ch;uint64_t ink;
   memcpy(&index,records+16*i,4);memcpy(&ch,records+16*i+4,4);memcpy(&ink,records+16*i+8,8);
-  if(index>=r->cols*r->rows||find_glyph(codes,count,ch)<0||(ink<(UINT64_C(1)<<24)&&ink>=palettes)||(ink&(UINT64_C(1)<<55)))return -1;
-  if(ink>=(UINT64_C(1)<<49)&&(!(ink&(UINT64_C(1)<<49))||!(ink&(UINT64_C(1)<<48))||((ink>>50)&3)<1||((ink>>50)&3)>2||((ink>>50)&3)>=palettes||(ink&~((UINT64_C(1)<<53)-1))))return -1;
+  if(index>=r->cols*r->rows)return reject_cell("cell index outside canvas",index,ch,ink);
+  if(find_glyph(codes,count,ch)<0)return reject_cell("glyph absent from font",index,ch,ink);
+  if(ink<(UINT64_C(1)<<24)&&ink>=palettes)return reject_cell("color index outside palette",index,ch,ink);
+  if(ink&(UINT64_C(1)<<55))return reject_cell("unresolved frame color",index,ch,ink);
+  if(ink>=(UINT64_C(1)<<49)&&(!(ink&(UINT64_C(1)<<49))||!(ink&(UINT64_C(1)<<48))||((ink>>50)&3)<1||((ink>>50)&3)>2||((ink>>50)&3)>=palettes||(ink&~((UINT64_C(1)<<53)-1))))return reject_cell("invalid frame color",index,ch,ink);
  }
  unsigned changed=0;
  for(unsigned i=0;i<bytes/16;++i){uint32_t index,ch,colors;uint64_t ink;
@@ -218,9 +228,10 @@ void pocket_mbx_close(void *ptr){struct renderer *r=ptr;if(r){if(r->gl){if(pocke
 /* Model viewport to physical desktop mapping, validated before staging. */
 int pocket_mbx_stage_region(void *ptr,const void *data,size_t bytes,const uint32_t *codes,const unsigned char *glyphs,unsigned count,const uint32_t *palette,unsigned palettes,unsigned fallback,unsigned width,unsigned height,unsigned x,unsigned y){
  struct renderer *r=ptr;
- if(!r||!width||!height||width>r->cols||height>r->rows||x>r->cols-width||y>r->rows-height||bytes>(size_t)width*height*16||bytes%16||(bytes&&!data))return -1;
- unsigned char *records=bytes?malloc(bytes):NULL;if(bytes&&!records)return -1;if(bytes)memcpy(records,data,bytes);
- for(size_t at=0;at<bytes;at+=16){uint32_t index;memcpy(&index,records+at,4);if(index>=width*height){free(records);return -1;}index=(y+index/width)*r->cols+x+index%width;memcpy(records+at,&index,4);}
+ if(!r||!width||!height||width>r->cols||height>r->rows||x>r->cols-width||y>r->rows-height){failure="viewport outside canvas";return -1;}
+ if(bytes>(size_t)width*height*16||bytes%16||(bytes&&!data)){failure="invalid region record count";return -1;}
+ unsigned char *records=bytes?malloc(bytes):NULL;if(bytes&&!records){failure="region allocation failed";return -1;}if(bytes)memcpy(records,data,bytes);
+ for(size_t at=0;at<bytes;at+=16){uint32_t index;memcpy(&index,records+at,4);if(index>=width*height){failure="cell index outside viewport";free(records);return -1;}index=(y+index/width)*r->cols+x+index%width;memcpy(records+at,&index,4);}
  int result=pocket_mbx_stage_batch(ptr,records,bytes,codes,glyphs,count,palette,palettes,fallback);free(records);return result;
 }
 int pocket_mbx_text(void *ptr,unsigned x,unsigned y,const uint32_t *text,unsigned length,const uint32_t *codes,const unsigned char *glyphs,unsigned count,unsigned fg,unsigned bg){

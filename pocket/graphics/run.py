@@ -196,7 +196,7 @@ def main():
                 control.advance(time.monotonic(),room);room.set_eye_height(340.+control.height)
                 if not room._active() and window.captured:window.capture(False)
             if DEVELOPMENT and (args.resize_check and time.monotonic()-start>1+resize_stage and resize_stage<3):
-                sizes=((1120,800),(640,448),(1280,864));w,h=sizes[resize_stage]
+                sizes=((1728,992),(640,448),(1728,992));w,h=sizes[resize_stage]
                 window.lib.pocket_window_set_size.argtypes=[C.c_void_p,C.c_int,C.c_int]
                 window.lib.pocket_window_set_size(window.handle,w,h);resize_stage+=1
         if args.seconds and time.monotonic()-start>=args.seconds:platform.closed=True

@@ -80,11 +80,11 @@ class Renderer:
    indices=h.composed_indices
    if not isinstance(indices,memoryview):indices=memoryview(array('I',indices))
    records=native.lib.export_cells(native.front.pointer,indices)
-   drawn=self.lib.pocket_mbx_stage_region(self.handle,C.c_char_p(records),len(records),self.font_codes,self.font_bits,len(self.font_codes),packed,len(packed),fallback,h.width,h.height,*getattr(h,"origin",(0,0)))
+   origin=getattr(h,'origin',(0,0))
+   drawn=self.lib.pocket_mbx_stage_region(self.handle,C.c_char_p(records),len(records),self.font_codes,self.font_bits,len(self.font_codes),packed,len(packed),fallback,h.width,h.height,*origin)
    if drawn<0:
-    import struct
-    missing=sorted({ch for _,ch,_ in struct.iter_unpack('<IIQ',records) if ch not in self.font_codes})
-    raise ValueError('Native MBX batch rejected; missing glyphs='+str(missing)+' region='+str((h.width,h.height,getattr(h,'origin',(0,0)))))
+    reason=self.lib.pocket_mbx_error().decode()
+    raise ValueError(f'Native MBX batch rejected: {reason}, canvas={self.size}, viewport={(h.width,h.height)}, origin={origin}, cells={len(indices)}')
   except Exception:
    h.invalidate((0,0,100,30));raise
   self.cells_drawn+=drawn;self.bulk_batches+=1

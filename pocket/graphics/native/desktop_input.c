@@ -117,6 +117,7 @@ int pocket_window_event(int out[6]){
   }
   if(e.type==SDL_QUIT){out[0]=1;return 1;}
   if(e.type==SDL_WINDOWEVENT){
+   if(!input_window || e.window.windowID!=SDL_GetWindowID(input_window->window))continue;
    if(e.window.event==SDL_WINDOWEVENT_FOCUS_GAINED)SDL_StopTextInput();
    if(e.window.event==SDL_WINDOWEVENT_FOCUS_LOST){memset(contacts,0,sizeof contacts);SDL_SetRelativeMouseMode(SDL_FALSE);out[0]=6;return 1;}
    if(e.window.event==SDL_WINDOWEVENT_SIZE_CHANGED&&dynamic_canvas){out[0]=8;out[1]=e.window.data1;out[2]=e.window.data2;return 1;}
