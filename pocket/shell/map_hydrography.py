@@ -29,6 +29,20 @@ def tile(name,digest):
  return polygons
 tile.cache_clear=tile_bytes.cache_clear
 def labels():return index(signature()).get('labels',[]) if signature() else []
+def polygons_in(bounds):
+ identity=signature()
+ if not identity:return
+ data=index(identity);step=data['step'];a,b,c,d=data['coverage']
+ west,south,east,north=bounds
+ for iy in range(math.floor(max(south,b)/step),math.floor(min(north,d)/step)+1):
+  for ix in range(math.floor(max(west,a)/step),math.floor(min(east,c)/step)+1):
+   row=data['tiles'].get(f'{ix},{iy}')
+   if row is None:continue
+   for poly in tile(row['file'],row['sha256']):
+    pa,pb,pc,pd_=poly['bbox']
+    if pc<west or pa>east or pd_<south or pb>north:continue
+    yield poly
+
 def mask(view):
  identity=signature()
  if not identity:return None
@@ -40,7 +54,7 @@ def mask(view):
  west=view.center[1]-(w-1)/2*dx;north=view.center[0]+(h-1)/2*dy;east=west+(w-1)*dx;south=north-(h-1)*dy
  a,b,c,d=data['coverage']
  if east<a or west>c or north<b or south>d:return None
- image=Image.new('L',(w,h),1);draw=ImageDraw.Draw(image);step=data['step']
+ image=Image.new('L',(w,h),1)
  coverage=data.get('coverage_geometry')
  if coverage:
   image=Image.new('L',(w,h),255);draw=ImageDraw.Draw(image)
@@ -50,21 +64,17 @@ def mask(view):
  scale=4 if w*h<=250000 else 2 if w*h<=1000000 else 1
  offset=(scale-1)/2
  water=Image.new('L',(w*scale,h*scale),0)
- for iy in range(math.floor(max(south,b)/step),math.floor(min(north,d)/step)+1):
-  for ix in range(math.floor(max(west,a)/step),math.floor(min(east,c)/step)+1):
-   row=data['tiles'].get(f'{ix},{iy}')
-   if row is None:continue
-   for poly in tile(row['file'],row['sha256']):
-    pa,pb,pc,pd_=poly['bbox']
-    if pc<west or pa>east or pd_<south or pb>north or poly['area']<dx*dy/8:continue
-    left=max(0,math.floor((pa-west)/dx*scale+offset));right=min(w*scale,math.ceil((pc-west)/dx*scale+offset)+1)
-    top=max(0,math.floor((north-pd_)/dy*scale+offset));bottom=min(h*scale,math.ceil((north-pb)/dy*scale+offset)+1)
-    if right<=left or bottom<=top:continue
-    # Union independent polygon masks, preserving islands and overlaps. A small
-    # pond must not become a whole blue map cell merely through pixel rounding.
-    part=Image.new('L',(right-left,bottom-top),0);pd=ImageDraw.Draw(part)
-    for n,ring in enumerate(poly['rings']):pd.polygon([((lon-west)/dx*scale+offset-left,(north-lat)/dy*scale+offset-top) for lon,lat in ring],fill=255 if n==0 else 0)
-    water.paste(255,(left,top),part)
+ for poly in polygons_in((west,south,east,north)):
+  pa,pb,pc,pd_=poly['bbox']
+  if poly['area']<dx*dy/8:continue
+  left=max(0,math.floor((pa-west)/dx*scale+offset));right=min(w*scale,math.ceil((pc-west)/dx*scale+offset)+1)
+  top=max(0,math.floor((north-pd_)/dy*scale+offset));bottom=min(h*scale,math.ceil((north-pb)/dy*scale+offset)+1)
+  if right<=left or bottom<=top:continue
+  # Union independent polygon masks, preserving islands and overlaps. A small
+  # pond must not become a whole blue map cell merely through pixel rounding.
+  part=Image.new('L',(right-left,bottom-top),0);pd=ImageDraw.Draw(part)
+  for n,ring in enumerate(poly['rings']):pd.polygon([((lon-west)/dx*scale+offset-left,(north-lat)/dy*scale+offset-top) for lon,lat in ring],fill=255 if n==0 else 0)
+  water.paste(255,(left,top),part)
  result=np.asarray(image).astype('i1');lon=west+np.arange(w)*dx;lat=north-np.arange(h)*dy
  result[np.asarray(water.resize((w,h),Image.Resampling.BOX))>=128]=0
  # An inland-water inventory describes water presence, not land/ocean absence.

@@ -98,6 +98,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def set_flight_controls(self,preferences):
             if self.pixel_scene:
+                self.pixel_scene.ground_source=preferences.get('ground-source','Aerial')
                 self.pixel_scene.southpaw=preferences.get('stick-layout')=='Southpaw'
                 self.pixel_scene.look_gain={'Gentle':.65,'Standard':1.,'Quick':1.4}[preferences.get('look-speed','Standard')]
                 self.pixel_scene.pitch_sign=1. if preferences.get('flight-pitch')=='Push to climb' else -1.
@@ -458,6 +459,7 @@ def outdoor_descriptor():
     return dict(id='rainier-walk',title='Rainier walk',preferred_size=(90,32),minimum_size=(22,12),category='Experiments',
         description='Explore Rainier terrain and wildlife. On mobile, follow the Ohanapecosh blueberry trail.',
         settings=(dict(id='touch-controls',label='Touch controls',kind='choice',choices=(WAYPOINT,TWIN_THUMB),default=WAYPOINT),
+                  dict(id='ground-source',label='Local flight surface',kind='choice',choices=('Aerial','Drawn terrain'),default='Aerial'),
                   dict(id='stick-layout',label='Controller sticks',kind='choice',choices=('Standard','Southpaw'),default='Standard'),
                   dict(id='look-speed',label='Controller look',kind='choice',choices=('Gentle','Standard','Quick'),default='Standard'),
                   dict(id='flight-pitch',label='Flight stick pitch',kind='choice',choices=('Pull to climb','Push to climb'),default='Pull to climb'),

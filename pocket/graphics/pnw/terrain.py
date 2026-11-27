@@ -1,6 +1,7 @@
 """Offline georeferenced outings using Mapzen Terrarium elevation tiles."""
 from array import array
 from concurrent.futures import ThreadPoolExecutor
+import json
 import math
 import os
 from pathlib import Path
@@ -168,7 +169,7 @@ def decode_relief(folder):
     if sys.byteorder!='little':values.byteswap()
     (folder/'height').write_bytes(values.tobytes())
 
-def flight_relief(key,field):
+def flight_relief(key,field,*,local_only=False):
     from data_paths import rainier_cache
     from pnw.scene import surface
     from geometry import HeightField,Vec
@@ -178,6 +179,7 @@ def flight_relief(key,field):
     try:data=dest.read_bytes()
     except FileNotFoundError:data=b''
     if len(data)!=129*129*2:
+        if local_only:return None
         with tempfile.TemporaryDirectory(dir=cache) as tmp:
             folder=Path(tmp)
             with urlopen(relief_url(key),timeout=8) as stream:raw=stream.read(1024**2+1)
@@ -254,14 +256,90 @@ def flight_patch(key,field=None):
         return pixels,relief
 
 
+def patch_corner(x,z):
+    cx,cy,spacing=layout('sound')
+    _,_,zoom,step,_,_=GRIDS['sound']
+    size=256*(1<<zoom)
+    px=cx+x*step/spacing
+    py=cy-z*step/spacing
+    return px/size*360-180,math.degrees(math.atan(math.sinh(math.pi*(1-2*py/size))))
+
+def draw_map_patch(folder):
+    """Pillow-only stage shared with the isolated Android map worker."""
+    from PIL import Image,ImageDraw
+    image=Image.frombytes('RGB',(129,129),(folder/'base').read_bytes())
+    image=image.resize((1024,1024),Image.Resampling.BILINEAR,box=(.5,.5,128.5,128.5))
+    features=json.loads((folder/'features').read_text())
+    draw=ImageDraw.Draw(image)
+    for rings in features['water']:
+        # Preserve terrain and islands inside polygon holes.
+        mask=Image.new('1',image.size)
+        pen=ImageDraw.Draw(mask)
+        for i,ring in enumerate(rings):
+            if len(ring)>=6:pen.polygon(ring,fill=i==0)
+        image.paste((47,92,107),(0,0,1024,1024),mask)
+    for points,stream,width in features['lines']:
+        if len(points)>=4:draw.line(points,fill=(64,114,133) if stream else (134,129,113),width=width)
+    (folder/'rgb').write_bytes(image.tobytes())
+
+def map_patch(key,field):
+    """Paint south-first pixels in the same Sound coordinates as the GPU mesh."""
+    from types import SimpleNamespace
+    import map_geography
+    import map_hydrography
+    from pnw.scene import surface
+    x0,z0=(v*PATCH_STEP-PATCH_WIDTH/2 for v in key)
+    bounds=(*patch_corner(x0,z0),*patch_corner(x0+PATCH_WIDTH,z0+PATCH_WIDTH))
+    relief=flight_relief(key,field,local_only=True)
+    heights=relief[0] if relief else field
+    step=PATCH_WIDTH/128
+    base=bytearray()
+    for j in range(129):
+        z=z0+j*step
+        for i in range(129):
+            x=x0+i*step
+            y=surface(heights,x,z)
+            slope=(surface(heights,x-step,z)-surface(heights,x+step,z)
+                   +surface(heights,x,z+step)-surface(heights,x,z-step))/(2*step)
+            shade=max(.60,min(1.17,.92+.25*slope))
+            color=(47,92,107) if y<=0 else (213,220,223) if y>2350 else (135,133,117) if y>1550 else (85,109,84)
+            base.extend(min(255,round(c*shade)) for c in color)
+    def points(coords):
+        line=[]
+        for lon,lat in coords:
+            x,z=location('sound',lat,lon)
+            line.extend((round((x-x0)/8-.5),round((z-z0)/8-.5)))
+        return line
+    features={'water':[[points(ring) for ring in poly['rings']] for poly in map_hydrography.polygons_in(bounds)],'lines':[]}
+    view=SimpleNamespace(bbox=bounds,span=PATCH_WIDTH/1000,ground_m_per_halfcell=8.)
+    streams,roads,_=map_geography.selected_geography(None,view,forest_roads=True)
+    for group,stream in ((streams,True),(roads,False)):
+        for feature in group:
+            width=2 if feature.get('kind') in ('motorway','trunk','river') else 1
+            features['lines'].append((points(feature['points']),stream,width))
+    with tempfile.TemporaryDirectory() as tmp:
+        folder=Path(tmp)
+        (folder/'base').write_bytes(base)
+        (folder/'features').write_text(json.dumps(features,separators=(',',':')))
+        convert_local(folder,'map',lambda:draw_map_patch(folder))
+        return (folder/'rgb').read_bytes(),relief
+
+def load_surface(key,field,source):
+    if source!='Drawn terrain':
+        try:return flight_patch(key,field)
+        except (OSError,ValueError,ImportError,subprocess.SubprocessError):pass
+    return map_patch(key,field)
+
+
 class FlightImagery:
     def __init__(self):
         self.pool=ThreadPoolExecutor(max_workers=1)
         self.job=self.pending=self.loaded=None
         self.retry=0.
 
-    def update(self,x,z,field):
+    def update(self,x,z,field,source='Aerial'):
         key=(round(x/PATCH_STEP),round(z/PATCH_STEP))
+        identity=(key,source)
         if self.job is not None:
             if not self.job.done():return
             job,self.job=self.job,None
@@ -269,12 +347,12 @@ class FlightImagery:
             except (OSError,ValueError,ImportError,subprocess.SubprocessError):
                 self.retry=time.monotonic()+30.
             else:
-                if self.pending==key:
-                    self.loaded=key
+                if self.pending==identity:
+                    self.loaded=identity
                     return key,pixels,relief
-        if key!=self.loaded and time.monotonic()>=self.retry:
-            self.pending=key
-            self.job=self.pool.submit(flight_patch,key,field)
+        if identity!=self.loaded and time.monotonic()>=self.retry:
+            self.pending=identity
+            self.job=self.pool.submit(load_surface,key,field,source)
 
     def close(self):
         self.pool.shutdown(wait=False,cancel_futures=True)
@@ -289,7 +367,8 @@ def run_image_worker(source,folder,*args):
 
 if __name__=='__main__':
     folder=Path(sys.argv[2])
-    if sys.argv[1]=='relief':decode_relief(folder)
+    if sys.argv[1]=='map':draw_map_patch(folder)
+    elif sys.argv[1]=='relief':decode_relief(folder)
     elif sys.argv[1]=='patch':decode_aerial(folder,(1024,1024))
     elif sys.argv[1]=='aerial':decode_aerial(folder)
     else:convert(sys.argv[1],folder)

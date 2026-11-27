@@ -665,6 +665,15 @@ the burner. The balloon rises with heat and otherwise descends as the wind carri
 regional simulator. Southpaw swaps the two sticks before activity-specific controls.
 Flight pitch direction and aileron response remain separately adjustable.
 
+In Pocket Settings, open **Rainier walk → Local flight surface**. **Drawn terrain**
+colors nearby ground by elevation and slope, then draws roads, streams and water
+polygons from the same installed map data as Station Map. Vector coverage follows
+the prepared map area. Islands remain visible through holes in water polygons.
+This mode builds local surface patches offline and can reuse previously cached
+mountain relief. **Aerial** uses the USGS photo when available and falls back
+to drawn terrain for missing local patches. Both modes retain the regional overview
+in the distance.
+
 During Sound outings, Pocket requests USGS imagery near the player in overlapping
 8.192 km squares at 8 m/pixel. Mountain relief uses 64 m samples from USGS 3DEP.
 The detail fades into the regional terrain at the edges. Lowland runways and built

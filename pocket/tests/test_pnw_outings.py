@@ -71,6 +71,26 @@ class OutingTests(unittest.TestCase):
                 rgb2,(fine2,mesh2)=pnw_terrain.flight_patch((0,0),field)
             self.assertEqual((rgb,fine.values,vertices),(rgb2,fine2.values,mesh2))
 
+    def test_drawn_surface_uses_map_vectors_and_preserves_islands_offline(self):
+        from unittest.mock import patch
+        from geometry import HeightField,Vec
+        from struct import Struct
+        field=HeightField(2,2,Vec(-8192,0,-8192),16384,16384,(125,)*4,'meters')
+        def coords(*points):
+            return [pnw_terrain.patch_corner(x,z) for x,z in points]
+        water={'rings':[coords((-2500,-2500),(2500,-2500),(2500,2500),(-2500,2500)),
+                        coords((-400,-400),(400,-400),(400,400),(-400,400))]}
+        road={'kind':'primary','points':coords((-3000,1024),(3000,1024))}
+        with patch('pnw.terrain.urlopen',side_effect=AssertionError('downloaded while drawing terrain')), \
+                patch('map_hydrography.polygons_in',return_value=(water,)), \
+                patch('map_geography.selected_geography',return_value=((),(road,),())):
+            rgb,_=pnw_terrain.load_surface((0,0),field,'Drawn terrain')
+        def color(x,y):return Struct('3B').unpack_from(rgb,3*(1024*y+x))
+        self.assertEqual(color(512,700),(47,92,107))
+        self.assertEqual(color(512,512),color(512,1000))
+        self.assertEqual(color(512,640),(134,129,113))
+        self.assertEqual(color(512,384),(47,92,107))
+
     def test_aerial_registration(self):
         args=parse_qs(urlparse(pnw_terrain.aerial_url()).query)
         x0,y0,x1,y1=map(float,args['bbox'][0].split(','))

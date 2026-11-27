@@ -703,6 +703,7 @@ class RainierView:
     needle_deck=False
     bike=glider=climb=None
     pad_sticks=(0.,0.,0.,0.)
+    ground_source='Aerial'
     flight_surface=None
     look_gain=1.
     name='Rainier walk'
@@ -1793,7 +1794,7 @@ class RainierView:
         if sound_region and self.outing not in market_visit.FLOORS:
             from pnw.terrain import FlightImagery,PATCH_STEP
             if self.flight_imagery is None:self.flight_imagery=FlightImagery()
-            patch=self.flight_imagery.update(x,z,field)
+            patch=self.flight_imagery.update(x,z,field,self.ground_source)
             if patch:
                 (ix,iz),rgb,relief=patch
                 self.flight_surface=None
