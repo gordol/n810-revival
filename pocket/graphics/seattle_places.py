@@ -97,7 +97,7 @@ class MarketDirectory:
 
     def lines(self,width):
         return ('Market directory','','Choose a shop for a bearing.','',
-                *self.names,'','Clear bearing','Back','','© OpenStreetMap contributors')
+                *self.names,'','Clear bearing','Back')
 
     def tap_xy(self,x,y):
         labels=self.lines(80)

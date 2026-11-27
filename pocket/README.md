@@ -59,3 +59,11 @@ try; Nokia packaging has a distinct build and acceptance path in
 
 Version 0.1.0 names the integrated source release. It does not certify every
 physical radio, input, or long-session path. [Release notes](docs/releases-0.1.0.md).
+
+## Rainier Walk credits
+
+Seattle landmarks, building footprints, and the delivery route use map data
+© OpenStreetMap contributors, available under the
+[Open Database License](https://www.openstreetmap.org/copyright).
+In the game, open **Explore → Credits**. The [Seattle asset notes](graphics/assets/seattle/README.md)
+identify the source features and how the extracts were prepared.

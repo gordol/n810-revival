@@ -450,9 +450,12 @@ class ExploreMenu(HikeMenu):
     def lines(self,width):
         v=self.view
         if v.travel_job:return ('Preparing terrain…','Opening the offline elevation grid.')
-        if v.party:return ('Explore','Local trails and activities','Back')
+        if self.group=='Credits':
+            return ('Credits','','Seattle map data','© OpenStreetMap contributors',
+                    'Open Database License (ODbL)','openstreetmap.org/copyright','','Back')
+        if v.party:return ('Explore','Local trails and activities','Credits','Back')
         if self.group:return (self.group,'',*self.groups[self.group],'','Back',v.travel_error[:width])
-        return ('Explore','',*self.groups,'','Return to Ohanapecosh' if v.regional else 'Back',v.travel_error[:width])
+        return ('Explore','',*self.groups,'Credits','','Return to Ohanapecosh' if v.regional else 'Back',v.travel_error[:width])
 
     def tap_xy(self,x,y):
         from pnw_outings import OUTINGS
@@ -460,7 +463,7 @@ class ExploreMenu(HikeMenu):
         if v.travel_job:return True
         rows=self.lines(80)
         label=rows[int(y)] if 0<=y<len(rows) else ''
-        if label in self.groups:self.group=label
+        if label in self.groups or label=='Credits':self.group=label
         elif label in ('Hang glide','Paramotor',*self.groups['Mountain sports']):
             if v.regional and not v.outing:
                 return not v.start_mountain_sport(label)

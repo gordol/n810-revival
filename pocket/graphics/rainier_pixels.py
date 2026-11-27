@@ -1733,8 +1733,6 @@ class RainierView:
                         from seattle_places import bearing_label
                         label=bearing_label(self.shop_target,x,z)
                 ink.label(1,h-7 if self.outing in ('market','fishshop') else h-5,label,0xFFF6DD)
-            if sound_region:
-                ink.label(1,3 if self.glider else h-4,'© OpenStreetMap contributors',0xDBE3D9)
             if self.glider:self.glider.draw(ink,w-2,h-3)
             if self.climb:self.climb.draw(ink,w-2,h-3)
             if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y)
