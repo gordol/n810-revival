@@ -141,3 +141,5 @@ Airport pavement is paged with nearby buildings. Traffic follows the local
 primary, secondary and tertiary roads during outdoor outings.
 
 The auto shop inventory contains named OpenStreetMap nodes tagged `shop=car_repair` in the regional extract (© OpenStreetMap contributors, ODbL). In a car, select **Auto shop** to mark the nearest one. Park within 35 metres to repair, repaint or switch between street and factory tuning.
+
+Locality labels use nearby OpenStreetMap place nodes. The coordinates show the player’s projected world position in decimal degrees.

@@ -2377,6 +2377,9 @@ class RainierView:
             if not self.road and self.outing in ('ferry','wheel','market','fishshop','needle','hoh'):
                 place={'ferry':'Seattle – Bainbridge ferry','wheel':'Pier 57 · Great Wheel','market':'Pike Place Market','fishshop':'Pike Place Fish Market','needle':'Space Needle','hoh':'Hoh Rain Forest'}
                 label=place[self.outing]
+                if self.outing=='market':
+                    from pnw.street_map import neighborhood
+                    label=neighborhood(math.floor(x/32),math.floor(z/32))
                 if self.outing in ('market','fishshop'):
                     from pnw.seattle_places import market_shops
                     distance,name=min((math.dist((x,z),point),name) for name,point in market_shops().items())
@@ -2385,6 +2388,11 @@ class RainierView:
                         from pnw.seattle_places import bearing_label
                         label=bearing_label(self.shop_target,x,z)
                 ink.label(1,h-7 if self.outing in ('market','fishshop') else h-5,label,0xFFF6DD)
+            if self.on_city_foot() or self.road:
+                from pnw.street_map import coordinates,neighborhood
+                area=neighborhood(math.floor(x/32),math.floor(z/32))
+                lat,lon=coordinates(x,z)
+                ink.label(1,4,f'{area}  {lat:.4f}, {lon:.4f}'[:w-4],0xEEE8CC)
             if sound_region and patrol and patrol.patrol and patrol.pursuit in ('following','Traffic stop'):
                 label='* WANTED - POLICE PURSUIT' if patrol.pursuit=='following' else '* WANTED - TRAFFIC STOP'
                 ink.label(1,3,label[:w-4],0xFFD15A)
