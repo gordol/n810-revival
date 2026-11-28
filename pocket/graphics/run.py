@@ -162,7 +162,7 @@ class DesktopWindow(Window):
 def main():
     p=argparse.ArgumentParser(description=__doc__,allow_abbrev=False)
     p.add_argument('--state',type=Path,default=Path.home()/'.local/state/current-world/graphics')
-    p.add_argument('--outing',choices=('pickup','kayak','canoe','helicopter','boat','sounder','cascades','link','tline','jet','hangar','scuba','market','bakery','gum','car','sports-car','scooter','motorcycle','bicycle','tacoma-car','tacoma-motorcycle','tacoma-bicycle'),help='Open directly at a regional destination or in a vehicle')
+    p.add_argument('--outing',choices=('pickup','electric','kayak','canoe','helicopter','boat','sounder','cascades','link','tline','jet','hangar','scuba','market','bakery','gum','car','sports-car','scooter','motorcycle','bicycle','tacoma-car','tacoma-motorcycle','tacoma-bicycle'),help='Open directly at a regional destination or in a vehicle')
     p.add_argument('--explore',action='store_true',help='Open Rainier Walk and Northwest outings at startup')
     p.add_argument('--mobile-shell',action='store_true')
     p.add_argument('--ui-scale',type=int,choices=(1,2,3,4),default=2 if os.environ.get('POCKET_TERMUX')=='1' else 1,help='Scale desktop pixels and pointer targets together')

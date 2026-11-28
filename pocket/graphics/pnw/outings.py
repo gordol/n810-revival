@@ -45,7 +45,7 @@ OUTINGS={'Helicopter at Thun Field':'helicopter','Thun Field hangar':'hangar','S
 
 ROAD_RIDES={'Market delivery car':'car','Market motorcycle':'motorcycle','Market bicycle':'bicycle'}
 ROAD_RIDES.update({f'Tacoma {kind}':f'tacoma-{kind}' for kind in ('car','motorcycle','bicycle')})
-ROAD_RIDES.update({'Market rental scooter':'scooter','Pickup':'pickup','Sports car to Tacoma':'sports-car'})
+ROAD_RIDES.update({'Market rental scooter':'scooter','Pickup':'pickup','Electric':'electric','Sports car to Tacoma':'sports-car'})
 OUTINGS.update(ROAD_RIDES)
 OUTINGS.update(rail.RIDES)
 OUTINGS.update(market_visit.DESTINATIONS)
@@ -367,6 +367,7 @@ class StreetRide:
         self.overhead=False
         self.kind=kind.removeprefix('tacoma-')
         if kind=='pickup':self.kind='sports-car'
+        if kind=='electric':self.kind='sports-car'
         self.assist=os.environ.get('POCKET_KID_MODE')=='1'
         self.route=(next(points for name,_,points,_,_ in street_lines('tacoma') if name=='Dock Street' and len(points)>=30)
                     if kind.startswith('tacoma-') else delivery_route())
@@ -385,6 +386,7 @@ class StreetRide:
         self.slip=self.spin=self.damage=0.
         self.actor_kind=10 if self.kind=="sports-car" else 5
         if kind=='pickup':self.actor_kind=17
+        if kind=='electric':self.actor_kind=18
         self.paint=0
         self.siren=False
         self.stop_target=None
@@ -457,13 +459,13 @@ class StreetRide:
         steer=max(-1.,min(1.,sticks[0]+self.drag[0]+('right' in self.keys)-('left' in self.keys)))
         pedal=max(-1.,min(1.,-sticks[1]+self.drag[1]+('up' in self.keys)-('down' in self.keys)))
         maximum={'car':12.,'motorcycle':16.,'bicycle':6.,'scooter':5.5,'sports-car':62.}[self.kind]
-        maximum={11:25.,12:29.,9:58.}.get(self.actor_kind,maximum)
+        maximum={11:25.,12:29.,17:40.,18:51.,9:58.}.get(self.actor_kind,maximum)
         if self.tuned:maximum*=1.12
         target=(pedal if pedal else float(self.cruise))*maximum*(1.-.60*self.damage)
         if self.assist:target=max(0.,min(5.,target))
         else:target=max(-2.5,target)
         change=(target-self.speed)*(-math.expm1(-dt*(3 if target==0 else 1.4)))
-        if self.kind=='sports-car':change=max(-11*dt,min(({11:2.,12:1.5}.get(self.actor_kind,7.))*(1.3 if self.tuned else 1.)*dt,change))
+        if self.kind=='sports-car':change=max(-11*dt,min(({11:2.,12:1.5,17:4.,18:9.}.get(self.actor_kind,7.))*(1.3 if self.tuned else 1.)*dt,change))
         self.speed+=change
         self.steer+=(steer-self.steer)*(-math.expm1(-dt*6))
         distance=self.speed*dt

@@ -116,10 +116,26 @@ def pickup():
     wheels([-1.72,1.64],1.,.40,set())
 
 
+def electric():
+    shell([(-2.21,.79,.42,.89),(-1.76,.91,.34,1.02),(.85,.91,.34,.95),(2.24,.78,.43,.71)],PAINT)
+    shell([(-1.95,.79,.87,.96),(-1.12,.77,.91,1.37),(-.38,.72,.91,1.51),
+           (.39,.72,.88,1.46),(1.42,.81,.83,.94)],GLASS)
+    wheels([-1.39,1.39],.94,.34,set())
+    for side in (-1,1):
+        box((side*.65,.73,2.12),(.45,.05,.13),HEAD)
+        box((side*.83,1.13,-.39),(.06,.46,.08),RUBBER)
+        box((side*.88,.96,-.56),(.05,.05,.19),CHROME)
+    box((0,.80,-2.18),(1.49,.05,.06),TAIL)
+
+
 def bake(name):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     if name=='pickup':
         pickup()
+        export(name)
+        return
+    if name=='electric':
+        electric()
         export(name)
         return
     if name in ('sedan','crossover','patrol'):
@@ -186,4 +202,4 @@ def export(name):
     (OUTPUT/(name+'.zlib')).write_bytes(zlib.compress(blob,9))
 
 
-for vehicle in ('tractor-trailer','transit-bus','delivery-van','sedan','crossover','patrol','pickup'):bake(vehicle)
+for vehicle in ('tractor-trailer','transit-bus','delivery-van','sedan','crossover','patrol','pickup','electric'):bake(vehicle)

@@ -391,7 +391,7 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
    glEnd();glPopAttrib();
   }
   glRotatef(p[4],0,1,0);
-  if(kind==5 || kind==9 || (kind>=10 && kind<=12) || kind==14 || kind==17 || kind==15){
+  if(kind==5 || kind==9 || (kind>=10 && kind<=12) || kind==14 || kind==17 || kind==18 || kind==15){
    /* Rotate a rigid chassis on its longitudinal grade. */
    float yaw=p[4]*.017453293f;
    float grade=fminf(.28f,fmaxf(-.28f,p[7]*sinf(yaw)+p[8]*cosf(yaw)));
@@ -439,13 +439,13 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
      market_tied_hair(hair,locks,pose<12.f?sinf(pose*.5235988f):0.f);
     glPopMatrix();
    }
-  }else if(kind==5 || kind==10 || kind==11 || kind==12 || kind==14 || kind==17 || kind==15){
+  }else if(kind==5 || kind==10 || kind==11 || kind==12 || kind==14 || kind==17 || kind==18 || kind==15){
    glPushMatrix();
    if((int)pose&16){
     glRotatef(4.f,0,0,1);
     glScalef(1.02f,.94f,.91f);
    }
-   unsigned slot=kind==5?1:kind==11?2:kind==12?3:kind==14?4:kind==17?7:kind==15?5:0;
+   unsigned slot=kind==5?1:kind==11?2:kind==12?3:kind==14?4:kind==17?7:kind==18?8:kind==15?5:0;
    unsigned paint=(unsigned)p[6];
    if(paint<32 && s->vehicle_mesh[slot])detailed_vehicle(s,slot,paint,(int)pose);
    else if(kind==11 || kind==12)heavy_vehicle(kind,(int)pose);

@@ -2057,7 +2057,7 @@ class RainierView:
             sound=ctx.lib.pocket_scene_road_sound
             sound.argtypes=[C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_float,C.c_int]
             sound(ctx.handle,self.sound and not paused,self.road.speed,
-                  int(self.road.kind in ('sports-car','car','motorcycle'))+2*int(self.road.siren),getattr(self,'traffic_gain',0.),(-round(100*self.traffic.impact) if self.traffic.impact else self.traffic.horn))
+                  int(self.road.actor_kind!=18 and self.road.kind in ('sports-car','car','motorcycle'))+2*int(self.road.siren),getattr(self,'traffic_gain',0.),(-round(100*self.traffic.impact) if self.traffic.impact else self.traffic.horn))
             self.traffic.impact=0.
             self.traffic.horn=False
         elif self.regional:
@@ -2144,7 +2144,7 @@ class RainierView:
                 from pathlib import Path
                 upload=ctx.lib.pocket_scene_vehicle_mesh
                 upload.argtypes=[C.c_void_p,C.c_uint,C.POINTER(C.c_uint),C.c_char_p,C.c_uint]
-                for slot,model in enumerate(('coupe','delivery-van','transit-bus','tractor-trailer','sedan','crossover','patrol','pickup')):
+                for slot,model in enumerate(('coupe','delivery-van','transit-bus','tractor-trailer','sedan','crossover','patrol','pickup','electric')):
                     mesh=zlib.decompress((Path(__file__).resolve().parents[1]/'assets/seattle'/(model+'.zlib')).read_bytes())
                     groups=(C.c_uint*29).from_buffer_copy(mesh)
                     ctx.check(upload(ctx.handle,slot,groups,mesh[116:],(len(mesh)-116)//24))
@@ -2372,7 +2372,7 @@ class RainierView:
             packed=[]
             for pose in poses:
                 slopes=(0.,0.)
-                if pose[0] in (5,9,10,11,12,14,17,15):
+                if pose[0] in (5,9,10,11,12,14,17,18,15):
                     px,py,pz=pose[1:4]
                     angle=math.radians(pose[4])
                     sn,cs=math.sin(angle),math.cos(angle)
