@@ -192,14 +192,30 @@ def streets(height,quad,field=None):
     junctions={}
     for name,kind,points,half,crossings in (*tacoma_corridor(),*street_lines('seattle'),*street_lines('tacoma')):
         for pt in (points[0],points[-1]):junctions.setdefault(pt,set()).add(name)
+        # Adjacent road strips share a cross-section, through each bend.
+        def normal(a,b):
+            dx,dz=b[0]-a[0],b[1]-a[1]
+            length=math.hypot(dx,dz)
+            return (dz/length,-dx/length) if length else (0.,0.)
+        normals=[normal(a,b) for a,b in zip(points,points[1:])]
+        def join(a,b):
+            divisor=1+a[0]*b[0]+a[1]*b[1]
+            if divisor<.25:return b
+            return ((a[0]+b[0])/divisor,(a[1]+b[1])/divisor)
+        edges=[normals[0],*(join(a,b) for a,b in zip(normals,normals[1:])),normals[-1]]
         for i,((x,z),(ex,ez)) in enumerate(zip(points,points[1:])):
             length=math.hypot(ex-x,ez-z)
             if length<.2:continue
             dx,dz=(ex-x)/length,(ez-z)/length
+            def offset_point(d,w):
+                f=d/length
+                a,b=edges[i:i+2]
+                return (x+d*dx+w*(a[0]+f*(b[0]-a[0])),
+                        z+d*dz+w*(a[1]+f*(b[1]-a[1])))
             def band(left,right,t,end,lift,color,material=0.):
                 corners=[]
                 for d,w in ((t,left),(end,left),(end,right),(t,right)):
-                    px,pz=x+d*dx+w*dz,z+d*dz-w*dx
+                    px,pz=offset_point(d,w)
                     corners.append((px,pz))
                 pavement(corners,color,.249 if left==-half and right==half else material,lift)
             for t in range(0,math.ceil(length),16):
@@ -215,8 +231,7 @@ def streets(height,quad,field=None):
                         for (u,h),(v,k),shade in zip(profile,profile[1:],(.43,.54,.67,.58,.49)):
                             wall=[]
                             for along,lateral,rise in ((t,u,h),(end,u,h),(end,v,k),(t,v,k)):
-                                px=x+along*dx+lateral*dz
-                                pz=z+along*dz-lateral*dx
+                                px,pz=offset_point(along,lateral)
                                 wall.append((px,height(px,pz)+rise,pz))
                             quad(wall,(shade,shade*.99,shade*.95),0.)
                         for stripe in (-half/3,half/3):
