@@ -743,6 +743,8 @@ class RainierView:
         self.cruise_heading=None
         self.sound=True
         self.landing_sound=False
+        from pnw.traffic import Traffic
+        self.traffic=Traffic()
         self.notebook=None
         self.lens=self.binoculars=False
         self.zoom=1.
@@ -1625,7 +1627,13 @@ class RainierView:
             owner.x,owner.z,heading,_,_=ride_pose(self.outing,self.ride_time)
             owner.yaw+=heading-old_yaw
         if self.road and not self.notebook:
-            owner.x,owner.z,owner.yaw,owner.pitch=self.road.advance(dt,self.pad_sticks)
+            road=self.road
+            old=(road.x,road.z)
+            owner.x,owner.z,owner.yaw,owner.pitch=road.advance(dt,self.pad_sticks)
+            if not road.assist and self.traffic.contact(road.x,road.z) and not self.traffic.contact(*old):
+                owner.x,owner.z=road.x,road.z=old
+                road.speed=0.
+                self.traffic.horn=True
             field=self.world[0]
             if self.road.bridge_roads is None:
                 from pnw.seattle_places import BridgeRoads
@@ -1819,7 +1827,8 @@ class RainierView:
             sound=ctx.lib.pocket_scene_road_sound
             sound.argtypes=[C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_float,C.c_int]
             sound(ctx.handle,self.sound and not paused,self.road.speed,
-                  self.road.kind in ('sports-car','car','motorcycle'),getattr(self,'traffic_gain',0.),False)
+                  self.road.kind in ('sports-car','car','motorcycle'),getattr(self,'traffic_gain',0.),self.traffic.horn)
+            self.traffic.horn=False
         elif self.regional:
             speed=self.ski.speed/28. if self.ski else 0.
             wind=.46+.15*self.weather+.30*speed
@@ -2010,21 +2019,16 @@ class RainierView:
                 dx,dz,heading,gait,identity=stroll(self.outing,i,self.age,8.)
                 poses.append((0,lane+dx,0.,dz,math.degrees(heading),gait,identity))
         self.traffic_gain=0.
-        if self.road:
-            from pnw.seattle_places import corridor_path,corridor_position,corridor_sample
-            position=corridor_position(x,z)
-            if position:
-                chainage,_,kind=position
-                speed=24. if kind=='freeway' else 8.
-                gap=82. if kind=='freeway' else 60.
-                offset=self.age*speed
-                first=math.floor((chainage-offset)/gap)
-                for i in range(first-3,first+5):
-                    at=i*gap+offset
-                    if not 0.<at<corridor_path()[1][-1] or len(poses)>=30:continue
-                    px,pz,angle=corridor_sample(at,2.8 if kind=='freeway' and i%2 else 1.3)
-                    self.traffic_gain=max(self.traffic_gain,1./(1.+math.hypot(x-px,z-pz)/12.)**2)
-                    poses.append((5 if i%4==0 else 10,px,ground(px,pz)+.06,pz,math.degrees(angle),0.,1+i%4))
+        if self.road or (sound_region and self.outing in AIRCRAFT):
+            altitude=max(0.,eye+origin.y-ground(x,z))
+            radius=400. if self.road else min(2400.,650.+altitude)
+            if altitude<4000.:
+                driver=self.road if self.road and self.road.bridge_roads and self.road.bridge_roads.deck is None else None
+                cars=self.traffic.update(x,z,self.age,radius,driver)
+                for distance,px,pz,angle,index,braking in cars[:max(0,30-len(poses))]:
+                    self.traffic_gain=max(self.traffic_gain,1./(1.+distance/12.)**2)
+                    poses.append((5 if index%4==0 else 10,px,ground(px,pz)+.06,pz,
+                                  math.degrees(angle),float(braking),1+index%4))
         if self.road and self.road.patrol and math.dist((x,z),self.road.patrol)<240 and len(poses)<32:
             px,pz=self.road.patrol
             flash=self.age%1 if self.road.pursuit=='following' else -1.
