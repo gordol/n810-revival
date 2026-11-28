@@ -39,7 +39,7 @@ HANGAR=location('sound',PLACES[0][1],PLACES[0][2])
 HANGAR=(HANGAR[0]+70.,HANGAR[1])
 BAYS={'thun':(-8.,'Trainer'),'hangar-jet':(8.,'Research jet')}
 AIR_SPORTS=('skydive','balloon','scuba')
-OUTINGS={'Thun Field hangar':'hangar','Skydive over Rainier':'skydive','Balloon over the Sound':'balloon','Plane from Rainier':'plane','Plane from Thun Field':'thun','Research jet from Rainier':'jet',
+OUTINGS={'Helicopter at Thun Field':'helicopter','Thun Field hangar':'hangar','Skydive over Rainier':'skydive','Balloon over the Sound':'balloon','Plane from Rainier':'plane','Plane from Thun Field':'thun','Research jet from Rainier':'jet',
          'Boat on Commencement Bay':'boat','Puget Sound kelp dive':'scuba','Hoh Rain Forest walk':'hoh','Bainbridge ferry':'ferry','Seattle Great Wheel':'wheel',
          'Pike Place Market':'market','Fish counter':'fishshop','Space Needle':'needle'}
 
@@ -606,7 +606,7 @@ class StreetRide:
 
 
 class ExploreMenu(HikeMenu):
-    groups={'Fly':('Thun Field hangar','Skydive over Rainier','Balloon over the Sound','Plane from Rainier','Plane from Thun Field','Research jet from Rainier','Hang glide','Paramotor'),
+    groups={'Fly':('Helicopter at Thun Field','Thun Field hangar','Skydive over Rainier','Balloon over the Sound','Plane from Rainier','Plane from Thun Field','Research jet from Rainier','Hang glide','Paramotor'),
             'Mountain sports':('Put on skis','Climb summit ice','Mountain bike loop'),
             'Passenger rail':tuple(rail.RIDES),
             'City rides':tuple(ROAD_RIDES),
@@ -1113,3 +1113,10 @@ class SoundVehicle(HangGlider):
         lines+=('Start: pause   View: wheel',)
         ink.fill((.5,.6,min(w,max(map(len,lines))+1),len(lines)+.6),0x14231FE8)
         for i,line in enumerate(lines):ink.label(1,1+i,line,0xEEE8CC)
+
+
+def regional_vehicle(kind,field):
+    if kind=='helicopter':
+        from pnw.light_craft import Helicopter
+        return Helicopter(field)
+    return SoundVehicle(kind,field)

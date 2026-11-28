@@ -18,7 +18,7 @@ from pnw.forest_floor import blade, broadleaf_clump, fern, nurse_log, snag, spru
 from pnw.rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from pnw import market_visit
 from pnw import rail
-from pnw.outings import AIRCRAFT,AIR_SPORTS,start_sport,HANGAR,BAYS,ExploreMenu,PauseMenu,SoundVehicle
+from pnw.outings import AIRCRAFT,AIR_SPORTS,start_sport,HANGAR,BAYS,ExploreMenu,PauseMenu,regional_vehicle
 from pnw.hiking import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from pnw.valley_map import ValleyMap
 from pnw.river_fishing import Fishing,vibration,watch_rod
@@ -1033,7 +1033,7 @@ class RainierView:
                 powered=self.glider.powered
                 self.end_flight()
                 if self.outing in AIR_SPORTS:self.glider=start_sport(self.outing,self.world[0])
-                elif self.outing:self.glider=SoundVehicle(self.outing,self.world[0])
+                elif self.outing:self.glider=regional_vehicle(self.outing,self.world[0])
                 else:self.start_glide(powered)
             else:
                 self.end_flight()
@@ -1730,8 +1730,8 @@ class RainierView:
                         self.shop_target=None
                         self.delivery=Delivery()
                         self.fish_counter=FishCounter()
-                    if self.outing in AIRCRAFT or self.outing=='boat':
-                        self.glider=SoundVehicle(self.outing,world[0])
+                    if self.outing in AIRCRAFT or self.outing in ('boat','helicopter'):
+                        self.glider=regional_vehicle(self.outing,world[0])
                     elif self.outing=='hangar':
                         owner.x,owner.z=HANGAR[0],HANGAR[1]-45
                         owner.pitch=-.055
@@ -2227,7 +2227,7 @@ class RainierView:
             else:omit_first,omit_end=base_count,terrain_count
         equipment=None
         if self.glider:
-            mode={'scuba':15,'boat':3,'jet':9,'hangar-jet':9,'skydive':int(getattr(self.glider,'open',False))*10,'balloon':11}.get(self.outing,2 if self.outing in AIRCRAFT else self.glider.powered)
+            mode={'helicopter':17,'scuba':15,'boat':3,'jet':9,'hangar-jet':9,'skydive':int(getattr(self.glider,'open',False))*10,'balloon':11}.get(self.outing,2 if self.outing in AIRCRAFT else self.glider.powered)
             equipment_pitch=-self.glider.elevation/.40 if self.outing in AIRCRAFT else self.glider.pitch
             if self.outing!='skydive' or mode:equipment=(C.c_float*3)(mode,self.glider.bank,equipment_pitch)
         if self.glider and self.outing in AIRCRAFT:

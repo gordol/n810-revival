@@ -708,6 +708,19 @@ static void flight_equipment(struct gpu_scene *s,const float *flight,int w,int h
  if(flight[0]!=2.f)glRotatef(-7.f*flight[1],0,0,1);
  glTranslatef(0,.17f*flight[2],0);
  glDisable(GL_DEPTH_TEST);glUseProgram(0);
+ if(flight[0]==17.f){
+  /* Two curved windshield posts leave the pilot a view down to the skids. */
+  glDisable(GL_TEXTURE_2D);glColor3f(.14f,.17f,.18f);
+  for(int side=-1;side<=1;side+=2){
+   glBegin(GL_QUAD_STRIP);
+   for(int i=0;i<=12;i++){
+    float u=i/12.f,x=side*(1.03f+.24f*sinf(u*3.14159f));
+    glVertex3f(x,1.4f-2.8f*u,-1.6f);glVertex3f(x+side*.065f,1.4f-2.8f*u,-1.6f);
+   }
+   glEnd();
+  }
+  return;
+ }
  if(flight[0]==10.f || flight[0]==11.f){
   glDisable(GL_TEXTURE_2D);
   int balloon=flight[0]==11.f;
