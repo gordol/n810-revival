@@ -746,6 +746,7 @@ class RainierView:
         self.landing_sound=False
         from pnw.traffic import Traffic
         self.traffic=Traffic()
+        self.parked_cars=[]
         self.neighborhood=None
         self.notebook=None
         self.lens=self.binoculars=False
@@ -820,10 +821,53 @@ class RainierView:
         if self.outing=='scuba':labels=('Surface','Restart','Explore','Mute' if self.sound else 'Sound','Pause')
         if self.outing in rail.RIDES.values():labels=('Exit','Next stop','Explore','Mute' if self.sound else 'Sound','Pause')
         if self.road:labels=('Exit','Stop' if self.road.cruise else 'Go','Explore','Pause','View (0)' if self.road.has_car_camera else 'Restart')
+        if not self.road and self.outing in ('market','tacoma'):
+            labels=('Enter car',*labels[1:])
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
         return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
+
+    def change_car(self):
+        if self.road:
+            road=self.road
+            if road.has_car_camera:
+                road.cancel_input()
+                road.cruise=False
+                road.speed=road.spin=road.slip=0.
+                self.parked_cars.append(road)
+                self.trip_pose=(road.x+2.1*math.cos(road.heading),road.z-2.1*math.sin(road.heading),road.heading,0.)
+            self.road=None
+        elif self.camera and self.outing in ('market','tacoma'):
+            from pnw.outings import StreetRide
+            from pnw.traffic import vehicle_type
+            x,z=self.camera[:2]
+            parked=min(self.parked_cars,key=lambda r:math.hypot(x-r.x,z-r.z),default=None)
+            distance,key,body=self.traffic.nearest_car(x,z)
+            parked_dist=math.inf if parked is None else math.hypot(x-parked.x,z-parked.z)
+            if min(distance,parked_dist)>5.:
+                self.photo_hint='Move closer to a vehicle'
+                self.hint_until=self.age+2.
+            elif parked_dist<=distance:
+                self.road=parked
+                self.parked_cars.remove(parked)
+            else:
+                road=StreetRide('sports-car')
+                self.traffic.take(key,body)
+                road.x,road.z,road.heading=body.x,body.z,body.heading
+                road.chase_heading=body.heading
+                road.speed=body.vx*math.sin(body.heading)+body.vz*math.cos(body.heading)
+                road.spin,road.damage=body.spin,body.damage
+                road.actor_kind=vehicle_type(key[0]+key[2])
+                road.paint=1+(key[0]+key[2])%4
+                road.overhead=True
+                self.road=road
+                road.alert_patrol(self.traffic.bodies.values())
+            self.destination=None
+            self.cruise=False
+        else:return False
+        self.pixel_dirty=True
+        return True
 
     def footer(self,x,width):
         if self.outing in rail.RIDES.values():
@@ -842,8 +886,10 @@ class RainierView:
             else:self.pause_game()
             self.pixel_dirty=True
             return True
+        if not self.road and self.outing in ('market','tacoma') and x<width//6:
+            return self.change_car()
         if self.road:
-            if x<width//6:self.road=None
+            if x<width//6:self.change_car()
             elif x<width*3//7:self.road.cruise=not self.road.cruise
             elif x<width*4//7:self.notebook=ExploreMenu(self)
             elif x<width*3//4:self.pause_game()
@@ -1644,6 +1690,7 @@ class RainierView:
             owner.x,owner.z,owner.yaw,owner.pitch=road.advance(dt,self.pad_sticks)
             if not road.assist and (not road.bridge_roads or road.bridge_roads.deck is None):
                 self.traffic.strike(road,old)
+                if self.traffic.impact>.65:road.alert_patrol(self.traffic.bodies.values())
                 owner.x,owner.z=road.x,road.z
             field=self.world[0]
             if self.road.bridge_roads is None:
@@ -2044,9 +2091,9 @@ class RainierView:
                 dx,dz,heading,gait,identity=stroll(self.outing,i,self.age,8.)
                 poses.append((0,lane+dx,0.,dz,math.degrees(heading),gait,identity))
         self.traffic_gain=0.
-        if self.road or (sound_region and self.outing in AIRCRAFT):
+        if self.road or (sound_region and self.outing in (*AIRCRAFT,'market','tacoma')):
             altitude=max(0.,eye+origin.y-ground(x,z))
-            radius=400. if self.road else min(2400.,650.+altitude)
+            radius=400. if self.outing not in AIRCRAFT else min(2400.,650.+altitude)
             if altitude<4000.:
                 driver=self.road if self.road and self.road.bridge_roads and self.road.bridge_roads.deck is None else None
                 cars=self.traffic.update(x,z,self.age,radius,driver)
@@ -2058,6 +2105,14 @@ class RainierView:
                     from pnw.traffic import vehicle_type
                     poses.append((vehicle_type(index),px,ground(px,pz)+.06,pz,
                                   math.degrees(angle),float(lamps),1+index%4))
+        if sound_region and self.outing not in market_visit.FLOORS:
+            for car in self.parked_cars:
+                if len(poses)>=30:break
+                if math.hypot(car.x-x,car.z-z)<350:
+                    y=surface(field,car.x,car.z)
+                    if car.bridge_roads:y=car.bridge_roads.sample(car.x,car.z,y)
+                    poses.append((car.actor_kind,car.x,y+.05,car.z,math.degrees(car.heading),
+                                  16*int(car.damage>.35),car.paint))
         if self.road and self.road.patrol and math.dist((x,z),self.road.patrol)<240 and len(poses)<32:
             px,pz=self.road.patrol
             flash=self.age%1 if self.road.pursuit=='following' else -1.

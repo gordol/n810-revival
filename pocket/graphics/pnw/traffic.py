@@ -82,6 +82,7 @@ class Traffic:
         self.visible=[]
         self.bodies={}
         self.wrecks={}
+        self.taken={}
         self.impact=0.
 
     def update(self,x,z,age,radius,driver=None):
@@ -90,6 +91,7 @@ class Traffic:
         visible=[];active={};offsets={}
         occupied={}
         self.bodies={}
+        self.taken={key:pos for key,pos in self.taken.items() if math.dist((x,z),pos)<radius+100}
         for key,body in list(self.wrecks.items()):
             if math.hypot(x-body.x,z-body.z)>radius+100:
                 del self.wrecks[key]
@@ -119,7 +121,7 @@ class Traffic:
                 leader=math.inf
                 for n in sorted(ids,reverse=True):
                     key=(direction,lane,n)
-                    if key in self.wrecks:continue
+                    if key in self.wrecks or key in self.taken:continue
                     at,speed,blocked=self.cars.get(key,(n*gap+shift,pace,False))
                     if not 0<=at<=ends[-1]:continue
                     lateral=self.offsets.get(key,home)
@@ -167,6 +169,16 @@ class Traffic:
         self.cars=active
         self.visible=sorted(visible)
         return self.visible
+
+    def nearest_car(self,x,z):
+        return min(((math.hypot(body.x-x,body.z-z),key,body)
+                    for rows in (self.bodies,self.wrecks) for key,body in rows.items()),
+                   key=lambda entry:entry[0],default=(math.inf,None,None))
+
+    def take(self,key,body):
+        self.taken[key]=(body.x,body.z)
+        self.bodies.pop(key,None)
+        self.wrecks.pop(key,None)
 
     def strike(self,road,previous):
         sn,cs=math.sin(road.heading),math.cos(road.heading)

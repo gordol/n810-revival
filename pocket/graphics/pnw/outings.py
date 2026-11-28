@@ -399,6 +399,17 @@ class StreetRide:
             self.pursuit='parked'
             self.tracks=deque()
 
+    def alert_patrol(self,traffic):
+        if not self.patrol or self.pursuit=='following':return
+        if math.dist(self.patrol,(self.x,self.z))>140:
+            candidates=[body for body in traffic if 45<math.hypot(body.x-self.x,body.z-self.z)<140]
+            if not candidates:return
+            source=min(candidates,key=lambda body:math.hypot(body.x-self.x,body.z-self.z))
+            self.patrol=(source.x+3*math.cos(source.heading),source.z-3*math.sin(source.heading))
+            self.patrol_heading=source.heading
+        self.tracks.clear()
+        self.pursuit='following'
+
     def advance_patrol(self,dt):
         x,z=self.patrol
         gap=math.hypot(self.x-x,self.z-z)
@@ -643,7 +654,7 @@ class PauseMenu:
         footer=hints[self.guide_page] if self.page=='Flight guide' else ('A: select   B: back',)
         if self.page=='Driving controls':
             footer=('W/S or up/down: gas / brake','A/D or left/right: steer','Space or Go: hold accelerator')
-            if self.view.road.has_car_camera:footer+=('0 or View: switch camera',)
+            if self.view.road.has_car_camera:footer+=('0 or View: switch camera','E or Exit: leave vehicle',)
         y=2+2*len(self.rows())
         for i,line in enumerate(footer):
             if y+i<height:ink.label(1,y+i,line[:panel-1],0xC3D2CA)
