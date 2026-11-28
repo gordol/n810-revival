@@ -746,6 +746,7 @@ class RainierView:
         self.landing_sound=False
         from pnw.traffic import Traffic
         self.traffic=Traffic()
+        self.street_walls=self.nearby_walls=None
         self.parked_cars=[]
         self.parked_bike=None
         self.third_person=False
@@ -1733,6 +1734,11 @@ class RainierView:
                 self.traffic.strike(road,old)
                 if self.traffic.impact>.65:road.alert_patrol(self.traffic.bodies.values())
                 owner.x,owner.z=road.x,road.z
+            from pnw.vehicle_impact import strike_scenery
+            walls=[wall for wall in (self.street_walls,self.nearby_walls) if wall]
+            if walls and not road.assist:
+                strike_scenery(road,old,self.walk_height,walls)
+                owner.x,owner.z=road.x,road.z
             field=self.world[0]
             if self.road.bridge_roads is None:
                 from pnw.seattle_places import BridgeRoads
@@ -2057,8 +2063,11 @@ class RainierView:
         if sound_region and self.outing not in (*market_visit.FLOORS,'scuba'):
             from pnw.regional_scenery import Neighborhood
             if self.neighborhood is None:self.neighborhood=Neighborhood()
-            stand=self.neighborhood.update(x,z,self.walk_height)
+            from pnw.vehicle_impact import StreetObstacles
+            if self.upload:self.street_walls=StreetObstacles(data,terrain_count)
+            stand=self.neighborhood.update(x,z,lambda px,pz:surface(field,px,pz))
             if stand is not None:
+                self.nearby_walls=StreetObstacles(stand,len(stand)//7)
                 stand_ptr=stand.buffer_info()[0];self.stand_count=len(stand)//7
         if sound_region:center=((field.nx-1)*field.dx,(field.nz-1)*field.dz)
         if self.regional and self.outing in (None,'hoh'):

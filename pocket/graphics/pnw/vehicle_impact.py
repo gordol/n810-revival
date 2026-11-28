@@ -86,3 +86,64 @@ def collide(a, b):
         body.spin = max(-3.,min(3.,body.spin + sign*impulse*lever*inertia))
         body.damage = min(1., body.damage + max(0., abs(delta)-1.5)/26.)
     return closing
+
+
+class StreetObstacles:
+    """Index upright faces of the same local meshes used for rendering."""
+    def __init__(self, mesh, vertices):
+        self.cells = {}
+        for i in range(0, vertices * 7, 21):
+            ax, ay, az = mesh[i:i+3]
+            bx, by, bz = mesh[i+7:i+10]
+            cx, cy, cz = mesh[i+14:i+17]
+            low, high = min(ay, by, cy), max(ay, by, cy)
+            if high-low < .65:
+                continue
+            # Each wall quad has a vertical edge. Also accept tapered trunks.
+            if abs(ax-bx)+abs(az-bz) < .35 and abs(ay-by) > .6:
+                bx, bz = cx, cz
+            elif abs(ax-cx)+abs(az-cz) < .35 and abs(ay-cy) > .6:
+                pass
+            elif abs(bx-cx)+abs(bz-cz) >= .35 or abs(by-cy) <= .6:
+                continue
+            edge = (ax, az, bx-ax, bz-az, low, high)
+            for u in range(math.floor((min(ax,bx)-1.4)/16), math.floor((max(ax,bx)+1.4)/16)+1):
+                for v in range(math.floor((min(az,bz)-1.4)/16), math.floor((max(az,bz)+1.4)/16)+1):
+                    self.cells.setdefault((u,v), set()).add(edge)
+
+    def contact(self, x, z, y, radius):
+        for ax,az,dx,dz,low,high in self.cells.get((math.floor(x/16),math.floor(z/16)), ()):
+            if not low-.1 <= y <= high+.1:
+                continue
+            t=max(0.,min(1.,((x-ax)*dx+(z-az)*dz)/max(.0001,dx*dx+dz*dz)))
+            nx,nz=x-ax-t*dx,z-az-t*dz
+            distance=math.hypot(nx,nz)
+            if .00001 < distance < radius:
+                return nx/distance,nz/distance
+        return None
+
+
+def strike_scenery(ride, previous, height, layers):
+    dx,dz=ride.x-previous[0],ride.z-previous[1]
+    steps=max(1,math.ceil(math.hypot(dx,dz)/.45))
+    sn,cs=math.sin(ride.heading),math.cos(ride.heading)
+    length={11:5.8,12:7.8}.get(ride.actor_kind,2.2)
+    radius=1.2 if ride.actor_kind in (11,12) else .95
+    for i in range(1,steps+1):
+        x,z=previous[0]+dx*i/steps,previous[1]+dz*i/steps
+        y=height(x,z)+.75
+        for j in range(math.ceil(length*2)+1):
+            u=(length-radius)*(2*j/math.ceil(length*2)-1)
+            for layer in layers:
+                normal=layer.contact(x+sn*u,z+cs*u,y,radius)
+                if not normal:continue
+                nx,nz=normal
+                vx,vz=sn*ride.speed+cs*ride.slip,cs*ride.speed-sn*ride.slip
+                inward=vx*nx+vz*nz
+                if inward>=0:continue
+                ride.x,ride.z=x-dx/steps,z-dz/steps
+                vx-=nx*inward
+                vz-=nz*inward
+                ride.speed,ride.slip=vx*sn+vz*cs,vx*cs-vz*sn
+                ride.damage=min(1.,ride.damage+max(0.,-inward-3.)/60)
+                return
