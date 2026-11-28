@@ -272,8 +272,36 @@ def streets(height,quad,field=None):
     signs=[(entrance[0]-35,'I-5 SOUTH'),(merge[0]+65,'SOUTH  I-5'),
            (exit_mark[0]-300,'TACOMA  EXIT')]
     signs.extend((along,'I-5  TACOMA') for along in range(5500,int(exit_mark[0])-500,12000))
-    for along,label in signs:
-        x,z,angle=corridor_sample(along,9.4)
+    boards=[(*corridor_sample(along,10.8),[label],False) for along,label in signs]
+    from pnw.terrain import location
+    roads=freeway_data()['roads']
+    ends={}
+    for _,kind,tags,coords in roads:
+        if kind=='motorway' and tags.get('maxspeed'):
+            ends.setdefault(tuple(coords[-1]),set()).add(tags['maxspeed'])
+    for (_,kind,tags,coords),(_,_,points,half,_) in zip(roads,freeway_lines()):
+        limit=tags.get('maxspeed','')
+        previous=ends.get(tuple(coords[0]),set())
+        if kind!='motorway' or not previous or not limit.endswith(' mph') or limit in previous:continue
+        (ax,az),(bx,bz)=points[:2]
+        angle=math.atan2(bx-ax,bz-az)
+        boards.append((ax+(half+2.5)*math.cos(angle),az-(half+2.5)*math.sin(angle),
+                       angle,['SPEED LIMIT',limit.split()[0]],True))
+    _,_,cells=corridor_path()
+    for ref,lon,lat,name in freeway_data()['exits']:
+        px,pz=location('sound',lat/1e7,lon/1e7)
+        candidates=[]
+        for start,ax,az,dx,dz,length,_,kind,_ in cells.get((math.floor(px/64),math.floor(pz/64)),()):
+            if kind!='freeway':continue
+            t=max(0.,min(length,(px-ax)*dx+(pz-az)*dz))
+            candidates.append((math.hypot(px-ax-t*dx,pz-az-t*dz),start+t))
+        if candidates and min(candidates)[0]<12:
+            at=min(candidates)[1]-402.336
+            if at>0:boards.append((*corridor_sample(at,12.5),['EXIT '+ref,'1/4 MILE'],False))
+    for along in range(9000,int(exit_mark[0])-1600,16000):
+        miles=round((corridor_path()[1][-1]-along)/1609.344)
+        boards.append((*corridor_sample(along,12.5),['TACOMA',f'{miles} MILES'],False))
+    for x,z,angle,lines,regulatory in boards:
         py=height(x,z)
         dx,dz=math.sin(angle),math.cos(angle)
         def sign_face(points,color):
@@ -282,10 +310,13 @@ def streets(height,quad,field=None):
             sign_face([(lateral-.06,0,.06),(lateral+.06,0,.06),(lateral+.06,4,.06),
                        (lateral-.06,4,.06)],(.46,.49,.47))
         for width,bottom,top,offset,color in ((2.,2.4,4.,0.,(.85,.88,.83)),
-                (1.94,2.46,3.94,-.01,(.035,.25,.15))):
+                (1.94,2.46,3.94,-.01,(.90,.90,.84) if regulatory else (.035,.25,.15))):
             sign_face([(-width,bottom,offset),(width,bottom,offset),(width,top,offset),
                        (-width,top,offset)],color)
-        lettering(label,-1.76,2.94,-.025,.48,sign_face,(.96,.97,.88),board_width=3.52)
+        ink=(.07,.075,.07) if regulatory else (.96,.97,.88)
+        for index,label in enumerate(lines):
+            bottom=2.94 if len(lines)==1 else 3.33-index*.63
+            lettering(label,-1.76,bottom,-.025,.48,sign_face,ink,board_width=3.52)
     for (x,z),names in junctions.items():
         if '2nd Avenue' not in names or len(names)<2:continue
         name=next(iter(sorted(names-{'2nd Avenue'})))
