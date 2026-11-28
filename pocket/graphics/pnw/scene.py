@@ -2057,7 +2057,7 @@ class RainierView:
             sound=ctx.lib.pocket_scene_road_sound
             sound.argtypes=[C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_float,C.c_int]
             sound(ctx.handle,self.sound and not paused,self.road.speed,
-                  int(self.road.actor_kind!=18 and self.road.kind in ('sports-car','car','motorcycle'))+2*int(self.road.siren),getattr(self,'traffic_gain',0.),(-round(100*self.traffic.impact) if self.traffic.impact else self.traffic.horn))
+                  (4 if self.road.actor_kind==18 else int(self.road.kind in ('sports-car','car','motorcycle')))+2*int(self.road.siren),getattr(self,'traffic_gain',0.),(-round(100*self.traffic.impact) if self.traffic.impact else self.traffic.horn))
             self.traffic.impact=0.
             self.traffic.horn=False
         elif self.regional:

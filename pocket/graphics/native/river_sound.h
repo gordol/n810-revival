@@ -28,8 +28,12 @@ static void SDLCALL mix_walk_sound(void *ptr,Uint8 *stream,int bytes){
    s->engine_pitch+=.001f*(s->engine_hz-s->engine_pitch);
    s->engine_phase=fmodf(s->engine_phase+6.2831853f*s->engine_pitch/22050.f,6.2831853f);
    float phase=s->engine_phase;
+   if(s->electric_drive){
+    signal+=.038f*sinf(phase)+.012f*sinf(2*phase);
+   }else{
    float exhaust=.5f+.5f*sinf(phase);
    signal+=.16f*sinf(phase)+.038f*sinf(2*phase)+(.18f+.32f*exhaust)*s->river_low;
+   }
   }
   if(s->passing_gain>0.f){
    s->passing_phase=fmodf(s->passing_phase+.033f,6.2831853f);
@@ -76,7 +80,7 @@ static void SDLCALL mix_walk_sound(void *ptr,Uint8 *stream,int bytes){
 }
 
 static int walk_sound(void *ptr,int enabled,int cue,float river,int voice,float gain,
-                      float wind,float skis,int landed,float engine,float passing,int honk,int siren){
+                      float wind,float skis,int landed,float engine,float passing,int honk,int siren,int electric_drive){
  struct gpu_scene *s=ptr;
  if(!s)return -1;
  if(!enabled){
@@ -93,7 +97,7 @@ static int walk_sound(void *ptr,int enabled,int cue,float river,int voice,float 
   if(!s->river_audio){s->river_audio_failed=1;return -1;}
  }
  SDL_LockAudioDevice(s->river_audio);
- s->siren=siren;
+ s->siren=siren;s->electric_drive=electric_drive;
  s->engine_hz=engine;s->passing_gain=passing;
  if(honk>0)s->horn_env=1.f;
  if(honk<0)s->crash_env=fminf(1.f,-honk*.01f);
@@ -107,17 +111,18 @@ static int walk_sound(void *ptr,int enabled,int cue,float river,int voice,float 
 }
 
 int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river,int voice,float gain){
- return walk_sound(ptr,enabled,cue,river,voice,gain,0.f,0.f,0,0.f,0.f,0,0);
+ return walk_sound(ptr,enabled,cue,river,voice,gain,0.f,0.f,0,0.f,0.f,0,0,0);
 }
 
 int pocket_scene_summit_sound(void *ptr,int enabled,float wind,float skis,int landed){
- return walk_sound(ptr,enabled,0,0.f,0,0.f,wind,skis,landed,0.f,0.f,0,0);
+ return walk_sound(ptr,enabled,0,0.f,0,0.f,wind,skis,landed,0.f,0.f,0,0,0);
 }
 
 int pocket_scene_road_sound(void *ptr,int enabled,float speed,int motor,float passing,int honk){
  float velocity=fabsf(speed);
  const float ratios[]={3.4f,2.25f,1.6f,1.22f,.97f,.78f};
  int gear=velocity<8?0:velocity<14?1:velocity<21?2:velocity<30?3:velocity<40?4:5;
- float firing=motor?fminf(110.f,31.f+velocity*ratios[gear]*1.6f):0.f;
- return walk_sound(ptr,enabled,0,0.f,0,0.f,fminf(.6f,velocity*.013f),0.f,0,firing,passing,honk,motor&2);
+ int electric=motor&4;
+ float firing=electric?(velocity>.2f?78.f+4.f*velocity:0.f):motor&1?fminf(110.f,31.f+velocity*ratios[gear]*1.6f):0.f;
+ return walk_sound(ptr,enabled,0,0.f,0,0.f,fminf(.6f,velocity*.013f),0.f,0,firing,passing,honk,motor&2,electric);
 }
