@@ -79,7 +79,7 @@ class Neighborhood:
         mesh=array('f');self.places=[];self.signals=[];self.parking={}
         def face(vertices,color,material):
             for px,py,pz in vertices:mesh.extend((px,py,pz,*color,material))
-        service_signs(x,z,ground,face)
+        services=service_signs(x,z,ground,face)
         for tx,tz in sorted(((cell[0]+dx,cell[1]+dz) for dx in (-1,0,1) for dz in (-1,0,1)),
                             key=lambda ij:math.hypot(x-(ij[0]+.5)*512,z-(ij[1]+.5)*512)):
             from pnw.regional_roads import tile
@@ -147,6 +147,14 @@ class Neighborhood:
                     material=.229 if height>28 else .228
                     if abs(a[1]-b[1])>abs(a[0]-b[0]):material-=.002
                     face((av,bv,bt,av,bt,at),tone,material)
+                # Attach the bay to the footprint that actually contains the POI.
+                for shop,curb in services:
+                    sx,sz=shop
+                    if not (min(a for a,_ in points)<=sx<=max(a for a,_ in points)
+                            and min(b for _,b in points)<=sz<=max(b for _,b in points)):continue
+                    inside=sum((a[1]>sz)!=(b[1]>sz) and sx<a[0]+(b[0]-a[0])*(sz-a[1])/(b[1]-a[1])
+                               for a,b in zip(points,points[1:]+points[:1]))%2
+                    if inside:service_bay(points,curb,ground,face)
                 if roof:
                     for tri in roof_faces(points):face([(u,top,v) for u,v in tri],(.42,.43,.42),0.)
         return mesh
@@ -159,9 +167,11 @@ class Neighborhood:
 def service_signs(x,z,ground,face):
     from pnw.market_visit import lettering
     from pnw.seattle_places import repair_shops,service_frontage
+    services=[]
     for name,point in repair_shops():
         if math.dist((x,z),point)>630:continue
         (u,v),(nx,nz)=service_frontage(point)
+        services.append((point,(u,v)))
         y=ground(u,v)
         # Place the sign behind the curb; leave the service stop clear.
         def panel(vertices,color):
@@ -173,3 +183,28 @@ def service_signs(x,z,ground,face):
         rect(-2.4,2.0,2.4,2.18,-.04,(.89,.48,.08))
         lettering('AUTO SERVICE',-2.3,3.05,-.05,.65,panel,(.96,.96,.86),board_width=4.6)
         lettering(name.upper()[:32],-2.2,2.38,-.05,.39,panel,(.95,.83,.46),board_width=4.4)
+    return services
+
+
+def service_bay(points,curb,ground,face):
+    walls=[(a,b) for a,b in zip(points,points[1:]+points[:1]) if math.dist(a,b)>4.5]
+    if not walls:return
+    def midpoint(wall):
+        a,b=wall
+        return (a[0]+b[0])/2,(a[1]+b[1])/2
+    a,b=min(walls,key=lambda wall:math.dist(midpoint(wall),curb))
+    u,v=midpoint((a,b))
+    length=math.dist(a,b)
+    dx,dz=(b[0]-a[0])/length,(b[1]-a[1])/length
+    side=math.copysign(1.,(curb[0]-u)*dz-(curb[1]-v)*dx)
+    width=min(3.4,length/2-.25)
+    def panel(left,bottom,right,top,offset,color):
+        pts=[]
+        for t,h in ((left,bottom),(right,bottom),(right,top),(left,top)):
+            x,z=u+t*dx+side*dz*offset,v+t*dz-side*dx*offset
+            pts.append((x,ground(x,z)+h,z))
+        face((pts[0],pts[1],pts[2],pts[0],pts[2],pts[3]),color,0.)
+    panel(-width-.12,.03,width+.12,3.9,.12,(.13,.19,.22))
+    panel(-width,.06,width,3.65,.16,(.58,.62,.62))
+    for i in range(1,12):panel(-width,i*.30,width,i*.30+.035,.18,(.33,.37,.38))
+    for i in (-.62,0,.62):panel((i-.22)*width,2.63,(i+.22)*width,3.06,.20,(.18,.29,.36))
