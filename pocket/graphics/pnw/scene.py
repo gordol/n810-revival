@@ -751,6 +751,7 @@ class RainierView:
         self.parked_cars=[]
         self.street_walls=self.nearby_walls=None
         self.traffic_bridges=None
+        self.walk_bridges=None
         self.vehicle_damage=True
         self.patrol_owner=None
         self.gait_phase=0.
@@ -870,7 +871,7 @@ class RainierView:
         return True
 
     def on_city_foot(self):
-        return (self.regional and self.outing and not (self.road or self.glider or self.ski or self.bike or self.climb)
+        return (getattr(self,"regional",False) and self.outing and not (self.road or self.glider or self.ski or self.bike or self.climb)
                 and self.outing not in ('hoh','wheel','ferry','scuba',*rail.RIDES.values(),*market_visit.FLOORS))
 
     def change_car(self):
@@ -880,6 +881,8 @@ class RainierView:
                 road.cancel_input()
                 road.cruise=False
                 road.speed=road.spin=road.slip=0.
+                from copy import copy
+                self.walk_bridges=copy(road.bridge_roads)
                 self.parked_cars.append(road)
                 self.patrol_owner=road if road.patrol else None
                 self.third_person=True
@@ -1891,6 +1894,10 @@ class RainierView:
             cx,cz=market_visit.site('gum')
             if abs(owner.x-cx)<2.55 and cz-16<=owner.z<=cz+15:owner.x=max(cx-2.1,min(cx+2.1,owner.x))
         if self.on_city_foot():
+            if self.walk_bridges is None:
+                from pnw.seattle_places import BridgeRoads
+                self.walk_bridges=BridgeRoads(lambda u,v:surface(self.world[0],u,v))
+            self.walk_bridges.sample(owner.x,owner.z,surface(self.world[0],owner.x,owner.z),update=True)
             owner.x,owner.z=self.traffic.separate_walker(owner.x,owner.z,self.walk_height(owner.x,owner.z))
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)
         age=owner.clock()-owner.started-owner.paused_total
@@ -1917,12 +1924,9 @@ class RainierView:
             ground=surface(self.world[0],x,z)
             if self.road.bridge_roads and self.road.bridge_roads.deck is not None:
                 return self.road.bridge_roads.sample(x,z,ground)
-        if not self.road and self.outing in market_visit.STREETS:
-            for parked in reversed(self.parked_cars):
-                if parked.bridge_roads and parked.bridge_roads.deck is not None and math.hypot(parked.x-x,parked.z-z)<30:
-                    bed=surface(self.world[0],x,z)
-                    deck=parked.bridge_roads.sample(x,z,bed)
-                    if deck>bed:return deck
+        if self.on_city_foot() and self.walk_bridges and self.walk_bridges.deck is not None:
+            bed=surface(self.world[0],x,z)
+            return self.walk_bridges.sample(x,z,bed)
         if self.outing in market_visit.STREETS:
             from pnw.pike_market import floor_height
             from pnw.seattle_places import arcade_origin
