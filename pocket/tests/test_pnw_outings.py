@@ -302,6 +302,23 @@ class OutingTests(unittest.TestCase):
             def downhill(x,z):return 30.-.10*math.dist((x,z),center)
             self.assertAlmostEqual(floor_height(center,downhill,*offset(center,u,v)),30.065,places=3)
 
+    def test_both_shoppers_have_recolorable_tops_and_trousers(self):
+        import struct
+        import zlib
+        for name in ('sam','maya'):
+            data=zlib.decompress((pocket/'graphics'/'assets'/'people'/f'{name}.zlib').read_bytes())
+            _,nv,ni,frames,w,h=struct.unpack_from('<4s5I',data)
+            uv=24+frames*24+ni*4
+            atlas=uv+nv*12*(frames+1)
+            cloth=set()
+            for u,v,material in struct.iter_unpack('<3f',data[uv:uv+nv*12]):
+                if material in (1.,2.):
+                    cloth.add(material)
+                    pixel=atlas+4*(int(v*h)*w+int(u*w))
+                    r,g,b=data[pixel:pixel+3]
+                    self.assertEqual((r,g),(g,b),name)
+            self.assertEqual(cloth,{1.,2.},name)
+
     def test_baked_people_have_a_supporting_shoe_in_each_pose(self):
         import struct
         import zlib

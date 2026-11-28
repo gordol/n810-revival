@@ -200,7 +200,11 @@
       "kind": "authored-data"
     },
     "pocket/graphics/assets/people/maya.zlib": {
-      "sha256": "7f71be03a791285550b0521320266f61f4c67522ebea1363d77ca93f62558b78",
+      "sha256": "5c6623e3b1a5cc704126076d26672c0c8e083629b535f98b16d8ea91f8693383",
+      "kind": "authored-data"
+    },
+    "pocket/graphics/assets/seattle/materials.rgba.zlib": {
+      "sha256": "384486e3710ce485ff2abbe1547adcd082c126e26cc8df5a7250ac72613626b2",
       "kind": "authored-data"
     }
   }

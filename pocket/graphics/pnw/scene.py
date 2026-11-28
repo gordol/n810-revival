@@ -1886,6 +1886,11 @@ class RainierView:
             if sound_region and self.outing not in (*market_visit.FLOORS,'scuba'):
                 from pnw.seattle_places import arcade_origin
                 from pnw.pike_market import offset
+                from pathlib import Path
+                materials=zlib.decompress((Path(__file__).resolve().parents[1]/'assets/seattle/materials.rgba.zlib').read_bytes())
+                upload=ctx.lib.pocket_scene_market_materials
+                upload.argtypes=[C.c_void_p,C.c_char_p,C.c_uint]
+                if upload(ctx.handle,materials,len(materials)):raise RuntimeError('Market surface texture upload failed')
                 sx,sz=offset(arcade_origin(),0,-1.45)
                 spots=[(sx,surface(field,*arcade_origin())+4.25,sz),*market_visit.alley_lamps(lambda x,z:surface(field,x,z))]
                 lamps=(C.c_float*12)(*(v for px,py,pz in spots for v in (px-origin.x,py-origin.y,pz-origin.z)))

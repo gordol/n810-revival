@@ -63,8 +63,8 @@ def build(center,height,quad):
         for side,shade in ((left,.68),(right,.80)):
             panel(((side,bottom,front),(side,bottom,back),(side,top,back),(side,top,front)),
                   tuple(c*shade for c in color),material)
-        wall(left,right,bottom,top,back,color)
-        panel(((left,top,front),(right,top,front),(right,top,back),(left,top,back)),color)
+        wall(left,right,bottom,top,back,color,material)
+        panel(((left,top,front),(right,top,front),(right,top,back),(left,top,back)),color,material)
     def stroke(x,y,ex,ey,depth,r,color,material=0.):
         length=math.hypot(ex-x,ey-y)
         dx,dy=r*(ey-y)/length,r*(x-ex)/length
@@ -74,14 +74,14 @@ def build(center,height,quad):
         from pnw.market_visit import lettering as typeset
         typeset(words,x,y,depth,size,lambda points,tone:panel(points,tone,.247),color)
 
-    def turned(x,y,z,radius,depth,profile,color,sides=12):
+    def turned(x,y,z,radius,depth,profile,color,sides=12,material=0.):
         """Bake a ring profile into the same static market mesh as the counter."""
         for j in range(sides):
             a,b=math.tau*j/sides,math.tau*(j+1)/sides
             def rim(t,r,h):return x+radius*r*math.cos(t),y+h,z+depth*r*math.sin(t)
             for (r,h),(rr,hh) in zip(profile,profile[1:]):
                 shade=.84+.12*math.cos(a+.6)+.060*(rr<r)
-                panel((rim(a,r,h),rim(b,r,h),rim(b,rr,hh),rim(a,rr,hh)),tuple(shade*c for c in color))
+                panel((rim(a,r,h),rim(b,r,h),rim(b,rr,hh),rim(a,rr,hh)),tuple(shade*c for c in color),material)
 
     def ticket(x,z,y,name):
         wall(x-.19,x+.19,y,y+.18,z,(.72,.11,.075))
@@ -122,10 +122,17 @@ def build(center,height,quad):
                     if kind=='produce':
                         profile=(((.34,0),(.43,.085),(1,.10),(.77,.14),(0,.15)),
                                  ((.23,0),(.35,.065),(.96,.115),(1,.13),(.48,.116),(0,.093)),
-                                 ((.30,0),(1,.047),(.80,.11),(.26,.165),(0,.17)),
-                                 ((.50,0),(1,.05),(.89,.11),(.49,.135),(0,.126)))[j]
+                                 ((.29,0),(.78,.016),(.96,.038),(1,.066),(.86,.093),(.53,.126),(.34,.16),(.18,.174),(0,.172)),
+                                 ((.38,0),(.70,.012),(.90,.030),(1,.057),(.98,.084),(.85,.110),(.63,.128),(.38,.137),(.17,.133),(0,.123)))[j]
                         tone=((.61,.42,.25),(.94,.56,.15),(.69,.73,.25),(.84,.18,.10))[j]
-                        turned(xx,y,zz,.085,.080,profile,tone)
+                        radius=rng.uniform(.077,.095)
+                        blush=rng.uniform(.79,1.04)
+                        skin=(tone[0]*blush,tone[1]*rng.uniform(.83,1.12),tone[2])
+                        turned(xx,y,zz,radius,.081,profile,skin,16,.259)
+                        if j>=2 and row%2==1 and k<3:
+                            turned(xx+.078,y+.084,zz+.094,radius*.96,.079,profile,skin,16,.259)
+                        if j>=2:
+                            turned(xx,y+profile[-1][1]-.004,zz,.004,.005,((1,0),(.63,.023),(0,.024)),(.34,.23,.11),6)
                     elif j<2:
                         tone=(.66,.60,.46) if j==0 else (.12,.16,.21)
                         turned(xx,y,zz,.072,.091,((.77,0),(1,.018),(.75,.038),(0,.048)),tone,10)
@@ -198,23 +205,29 @@ def build(center,height,quad):
                 wall(left,left+.88,1.10,2.72,.315,(.57,.69,.73),.244)
                 wall(left,left+.88,2.77,3.11,.315,(.69,.77,.79),.244)
             block(u-1.92,u+1.92,.89,1.04,.30,.57,(.46,.45,.38))
-        wall(u-1.98,u+1.98,.6,2.85,8.65,(.34,.23,.16))
+        wall(u-1.98,u+1.98,.6,2.85,8.65,(.34,.23,.16),.257)
         for y in (1.1,1.74,2.38):
-            block(u-1.75,u+1.75,y,y+.09,8.1,8.7,trim)
+            block(u-1.75,u+1.75,y,y+.09,8.1,8.7,trim,.257)
             for k in range(7):
                 xx=u-1.53+.45*k
-                block(xx,xx+.3,y+.09,y+rng.uniform(.25,.51),8.21,8.60,
-                      rng.choice(((.68,.48,.25),(.51,.31,.22),(.76,.62,.39))))
+                top=y+rng.uniform(.29,.49)
+                carton=rng.choice(((.51,.28,.12),(.36,.12,.10),(.66,.49,.22),(.25,.36,.23)))
+                block(xx,xx+.3,y+.09,top,8.21,8.60,carton)
+                wall(xx+.025,xx+.275,y+.12,top-.022,8.203,(.83,.75,.57))
+                for line in range(3):
+                    yy=y+.145+.028*line
+                    wall(xx+.055,xx+.24-line*.018,yy,yy+.009,8.198,carton)
+                wall(xx+.04,xx+.26,top-.076,top-.037,8.198,carton)
         wall(u-.38,u+.38,2.8,2.94,3.7,(.99,.84,.54),.247)
         if i==-2:
             wall(u-1.6,u+1.6,2.34,2.95,5.9,(.18,.25,.22))
             lettering('DownUnder',u-1.33,2.45,5.87,.34,(.95,.87,.70))
             continue
         if i in (0,1):continue  # Open passage into the arcade.
-        block(u-1.65,u+1.65,.72,1.02,4.5,6,(.25,.29,.24))
+        block(u-1.65,u+1.65,.72,1.02,4.5,6,(.25,.29,.24),.257)
         for leg in (-1.47,1.47):
-            block(u+leg-.04,u+leg+.04,-1,.72,4.57,4.66,trim)
-        block(u-1.61,u+1.61,.28,.32,4.66,5.9,(.36,.32,.24))
+            block(u+leg-.04,u+leg+.04,-1,.72,4.57,4.66,trim,.257)
+        block(u-1.61,u+1.61,.28,.32,4.66,5.9,(.36,.32,.24),.257)
         feature={-3:'spice',3:'fish',5:'produce',6:'cherries'}.get(i)
         if feature:
             merchandise(u,feature)
@@ -275,14 +288,18 @@ def build(center,height,quad):
         wall(-2.78,-2.44,1.48-.14*j,1.51-.14*j,-1.95,(.67,.76,.70))
     # Pendant globes and the surviving Loback sign seen down the Main Arcade.
     # Two continuous sloping soffits carry the warm lamps on either side of the aisle.
-    panel(((-28,3.53,1.02),(57,3.53,1.02),(57,3.53,4.20),(-28,3.53,4.20)),(.83,.74,.61))
+    panel(((-28,3.53,1.02),(57,3.53,1.02),(57,3.53,4.20),(-28,3.53,4.20)),(.83,.74,.61),.258)
     for z,direction in ((1.02,-1),(4.20,1)):
         lip=z+.48*direction
-        panel(((-28,3.53,z),(57,3.53,z),(57,3.22,lip),(-28,3.22,lip)),(.84,.73,.55))
+        panel(((-28,3.53,z),(57,3.53,z),(57,3.22,lip),(-28,3.22,lip)),(.84,.73,.55),.258)
         for n in range(71):
             u=-27.6+n*1.19
             turned(u,3.26,z+.31*direction,.048,.048,((.35,0),(1,.037),(.73,.075)),(.96,.85,.64),8)
             wall(u-.036,u+.036,3.283,3.33,z+.31*direction-.045,(1.,.91,.69),.247)
+    for u in range(-26,57,2):
+        turned(u,2.85,5.15,.18,.18,((1,0),(.83,.052),(.28,.125),(.22,.14)),(.19,.25,.22))
+        block(u-.012,u+.012,2.99,3.55,5.14,5.16,iron)
+        panel(((u-.12,2.85,5.06),(u+.12,2.85,5.06),(u+.12,2.85,5.24),(u-.12,2.85,5.24)),(1.,.92,.75),.247)
     for u in range(-24,54,4):
         block(u-.018,u+.018,2.96,3.55,2.67,2.71,iron)
         for k in range(12):

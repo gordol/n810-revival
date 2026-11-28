@@ -51,3 +51,11 @@ The Main Arcade includes reconstructed displays for
 Sosio’s directory entry places it north of Lowell’s and next to Chukar Cherries.
 The game compresses the walk between bays. The display stock, counter dimensions
 and sign positions are visual estimates based on market photographs.
+
+The arcade surface texture packs four grayscale channels from Poly Haven's
+CC0 photographs, resized to 512 pixels per side and contrast-normalized.
+In RGBA order the sources are [Oak Wood Planks](https://polyhaven.com/a/oak_wood_planks),
+[Terracotta Floor Tiles](https://polyhaven.com/a/terracotta_floor_tiles),
+[Red Brick Pavers](https://polyhaven.com/a/red_brick_pavers) and
+[Plastered Wall](https://polyhaven.com/a/plastered_wall). The GPU repeats
+each channel independently and tints it with the scene material color.

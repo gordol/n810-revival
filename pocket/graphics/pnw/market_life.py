@@ -147,7 +147,7 @@ def actors(age,ground,since):
         straight=39.
         bend=math.pi*radius
         along=(age*speed+i*19.7)%(2*(straight+bend))
-        lane=-5.1-i*.48
+        lane=2.65 if i%2 else -5.1-i*.48
         if along<straight:
             u,v,heading=-18+along,lane+radius,math.pi/2
         elif along<straight+bend:

@@ -2,13 +2,13 @@
  * directly, preserving the renderer state used by subsequent UI drawing. */
 static GLuint rainier_program(void){
  const char *vs="#version 120\n"
-  "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
-  "uniform float poseBlend;uniform int skyPass;"
-  "void main(){if(skyPass!=0){pos=gl_Vertex.xyz;distanceToEye=0.;tint=vec4(1.);gl_Position=gl_Vertex;return;}pos=mix(gl_Vertex.xyz,gl_MultiTexCoord0.xyz,poseBlend);tint=gl_Color;"
+  "varying vec3 pos,relativePos;varying vec4 tint;varying float distanceToEye;"
+  "uniform vec3 waterEye;uniform float poseBlend;uniform int skyPass;"
+  "void main(){if(skyPass!=0){pos=gl_Vertex.xyz;relativePos=pos;distanceToEye=0.;tint=vec4(1.);gl_Position=gl_Vertex;return;}pos=mix(gl_Vertex.xyz,gl_MultiTexCoord0.xyz,poseBlend);relativePos=pos-waterEye;tint=gl_Color;"
   "vec4 eye=gl_ModelViewMatrix*vec4(pos,1.);"
   "distanceToEye=length(eye.xyz);gl_Position=gl_ProjectionMatrix*eye;}";
  const char *fs="#version 120\n"
-  "varying vec3 pos;varying vec4 tint;varying float distanceToEye;"
+  "varying vec3 pos,relativePos;varying vec4 tint;varying float distanceToEye;"
   "uniform vec4 supplies;uniform int camp;uniform int season;uniform float originY;uniform float hazeDensity;uniform float waterTime;uniform vec3 picked;uniform int highDetail;uniform int animal;uniform sampler2D forestShade;uniform sampler2D flightPhoto;uniform vec3 photoArea;uniform vec3 flightAreas[109];uniform int photoSlot;uniform float hiddenPlane;uniform int underwater;"
   "float hash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}"
   "float noise(vec2 p){vec2 i=floor(p),u=fract(p);u=u*u*(3.-2.*u);"
@@ -28,7 +28,7 @@ static GLuint rainier_program(void){
   "float n=.57*noise(p)+.30*noise(2.1*p)+.13*noise(4.4*p);"
   "float cloud=smoothstep(.52-.15*overcast,.78-.12*overcast,n)*smoothstep(.015,.14,alt);"
   "return mix(col,mix(vec3(.13,.16,.22),vec3(.87,.88,.86),daylight),cloud);}"
-  "uniform vec3 marketLamps[4];uniform int marketNear;"
+  "uniform sampler2D marketMaterials;uniform vec3 marketLamps[4];uniform int marketNear;"
   "vec3 lampGlow(vec3 ray,float depth){vec3 glow=vec3(0.);"
   "for(int i=0;i<4;i++){vec3 d=marketLamps[i]-waterEye;float t=dot(d,ray);"
   "if(t>.2 && t<min(depth+.32,45.)){vec3 miss=d-ray*t;float r=length(miss);"
@@ -69,7 +69,7 @@ static GLuint rainier_program(void){
   "col=mix(col,canopy,stand*smoothstep(65.,170.,distanceToEye));}"
   "float footprint=regional!=0?512.:2048.;vec2 uv=(p-shadeCenter)/footprint+.5;"
   "if(daylight>.12 && distanceToEye<340. && max(abs(uv.x-.5),abs(uv.y-.5))<.46){"
-  "vec3 n=cross(dFdx(pos),dFdy(pos));float slope=abs(n.y)>.001?dot(n.xz/n.y,shadowStep):0.;"
+  "vec3 n=cross(dFdx(relativePos),dFdy(relativePos));float slope=abs(n.y)>.001?dot(n.xz/n.y,shadowStep):0.;"
   "float shade=0.;for(int i=0;i<8;i++){float level=.75+float(i)*(1.5+.95*float(i));"
   "float canopy=texture2D(forestShade,uv-shadowStep*level/footprint).r*85.;"
   "shade=max(shade,smoothstep(-.6,.6,canopy-level*(1.-clamp(slope,-1.,.85)))*step(.1,canopy));}"
@@ -79,7 +79,7 @@ static GLuint rainier_program(void){
   "float lensing=sin(7.*pos.z+3.*sin(5.*pos.x+waterTime*.9)+waterTime)*sin(5.*pos.x+1.7*pos.z-waterTime*.8);"
   "col*=.84+.20*stone+.15*grains;col+=vec3(.10,.12,.095)*smoothstep(.60,.95,lensing)*daylight;}"
   "if(highDetail!=0 && tint.a>.46 && tint.a<.50){float bark=noise(vec2((pos.x+pos.z)*21.,pos.y*2.6));col*=.68+.6*bark;}"
-  "if(highDetail!=0 && tint.a>.06 && tint.a<.20){vec3 n=normalize(cross(dFdx(pos),dFdy(pos)));"
+  "if(highDetail!=0 && tint.a>.06 && tint.a<.20){vec3 n=normalize(cross(dFdx(relativePos),dFdy(relativePos)));"
   "float wax=pow(abs(dot(n,normalize(vec3(-.42,.79,-.44)))),14.);col+=vec3(.28,.34,.43)*wax;}"
   "if(animal==0 && tint.a>.020 && tint.a<.040){"
   "vec2 wood=vec2(pos.x+.61*pos.z,2.7*pos.y-.18*pos.z);"
@@ -119,21 +119,23 @@ static GLuint rainier_program(void){
   "float patina=noise(uv*vec2(.45,.18));float grain=(noise(uv*19.)-.5)*(1.-smoothstep(.02,.10,length(fwidth(uv))));"
   "col*=.86+.24*patina+.14*grain;}"
   "if(regional==2 && abs(tint.a-.244)<.0001){vec3 ray=normalize(pos-waterEye);"
-  "vec3 n=normalize(cross(dFdx(pos),dFdy(pos)));vec3 mirror=reflect(ray,n);"
+  "vec3 n=normalize(cross(dFdx(relativePos),dFdy(relativePos)));vec3 mirror=reflect(ray,n);"
   "float skyline=noise(mirror.xz*17.)*.21-.03;"
   "vec3 reflection=mix(vec3(.21,.23,.22),skyColor(vec3(mirror.x,max(.01,mirror.y),mirror.z)),smoothstep(skyline-.015,skyline+.025,mirror.y));"
   "col=mix(col,reflection,.28+.55*pow(1.-abs(dot(ray,n)),3.));}"
-  "if(regional==2 && abs(tint.a-.237)<.0001){vec2 p=pos.xz*vec2(2.,4.);p.x+=.5*mod(floor(p.y),2.);"
-  "vec2 edge=abs(fract(p)-.5);float mortar=smoothstep(.435,.49,max(edge.x,edge.y));"
-  "float joint=mortar*(1.-smoothstep(.12,.65,length(fwidth(pos.xz*4.))));"
-  "col*=.85+.23*hash(floor(p))-.35*joint;}"
-  "if(regional==2 && abs(tint.a-.251)<.0001){vec3 n=normalize(cross(dFdx(pos),dFdy(pos)));vec2 uv=vec2((abs(n.x)>abs(n.z)?pos.z:pos.x)*3.2,pos.y*8.);uv.x+=.5*mod(floor(uv.y),2.);"
+  "if(regional==2 && abs(tint.a-.251)<.0001){vec3 n=normalize(cross(dFdx(relativePos),dFdy(relativePos)));vec2 uv=vec2((abs(n.x)>abs(n.z)?pos.z:pos.x)*3.2,pos.y*8.);uv.x+=.5*mod(floor(uv.y),2.);"
   "vec2 edge=abs(fract(uv)-.5);float joint=smoothstep(.43,.49,max(edge.x,edge.y));"
   "col=mix(col*(.80+.32*hash(floor(uv))),vec3(.32,.29,.26),joint*.65);}"
-  // Arcade quarry tile beneath the covered aisle, aligned with the stall fronts.
-  "if(regional==2 && abs(tint.a-.256)<.0001){vec2 p=vec2(dot(pos.xz,vec2(-.5299,.8480)),dot(pos.xz,vec2(-.8480,-.5299)))*4.;"
-  "vec2 d=abs(fract(p)-.5);float grout=smoothstep(.445,.492,max(d.x,d.y))*(1.-smoothstep(.18,.7,length(fwidth(p))));"
-  "col*=(.88+.16*hash(floor(p)))*(1.-.52*grout);}"
+  // Repeat photo detail in metres. The GPU mipmaps each surface independently.
+  "if(regional==2 && ((tint.a>=.256-.0001 && tint.a<=.258+.0001)||abs(tint.a-.237)<.0001)){"
+  "vec2 axis=vec2(-.5299,.8480),along=vec2(-.8480,-.5299);vec2 floorUV=vec2(dot(pos.xz,axis),dot(pos.xz,along));"
+  "vec3 normal=normalize(cross(dFdx(relativePos),dFdy(relativePos)));vec2 uv=abs(normal.y)>.65?floorUV:vec2(abs(dot(normal.xz,axis))>.7?floorUV.y:floorUV.x,pos.y);"
+  "vec4 scan=texture2D(marketMaterials,uv*(abs(tint.a-.237)<.0001?.42:.65));"
+  "float detail=abs(tint.a-.237)<.0001?scan.b:(tint.a<.2565?scan.g:(tint.a<.2575?scan.r:scan.a));"
+  "col*=.47+1.02*detail;}"
+  "if(regional==2 && abs(tint.a-.259)<.0001){vec2 p=relativePos.xz+vec2(waterEye.x,waterEye.z);"
+  "float blush=noise(p*23.);float skin=noise(p*370.)*(1.-smoothstep(.15,1.,length(fwidth(relativePos.xz*370.))));"
+  "col*=vec3(.83+.25*blush,.71+.43*blush,.76+.31*blush)*(.94+.10*skin);}"
   // Dense layers on the lower Post Alley bricks. Filter sub-pixel pieces at distance.
   "if(regional==2 && abs(tint.a-.255)<.0001){vec2 uv=pos.zy*vec2(32.,38.);"
   "vec2 cell=floor(uv);float seed=hash(cell);vec2 q=fract(uv)-.5+.24*(vec2(seed,hash(cell+7.))-.5);"
@@ -157,7 +159,7 @@ static GLuint rainier_program(void){
   "if(regional==2 && abs(tint.a-.249)<.0001){vec2 p=pos.xz;"
   "float grit=(noise(p*15.)-.5)*(1.-smoothstep(.025,.11,length(fwidth(p))));"
   "col*=.93+.15*noise(p*.24)+.18*grit;}"
-  "if(regional==2 && abs(tint.a-.228)<.0001){vec3 n=normalize(cross(dFdx(pos),dFdy(pos)));"
+  "if(regional==2 && abs(tint.a-.228)<.0001){vec3 n=normalize(cross(dFdx(relativePos),dFdy(relativePos)));"
   "vec2 uv=vec2(abs(n.x)>abs(n.z)?pos.z:pos.x,pos.y)/vec2(2.8,3.65);"
   "vec2 f=fract(uv),e=abs(f-.5);float detail=1.-smoothstep(.12,.55,length(fwidth(uv)));"
   "float glass=(1.-smoothstep(.32,.36,e.x))*(1.-smoothstep(.29,.33,e.y));"
@@ -244,7 +246,22 @@ static GLuint rainier_program(void){
   "snow+=vec3(.021*ripple+.033*grain+.045*(seams-.5)+.040*flecks);"
   "col=mix(col,mix(rock,snow,smoothstep(.78,.94,retention)),smoothstep(2350.,2750.,elev));}"
   "col*=mix(vec3(1.),vec3(.52,.63,.72),castShade);"
-  "float haze=1.-exp(-distanceToEye*hazeDensity);vec3 lit=col*mix(vec3(.24,.32,.47),vec3(1.),daylight);if(regional==2 && abs(tint.a-.247)<.0001)lit=tint.rgb;lit+=marketSpec;if(marketNear!=0)lit+=lampGlow(normalize(pos-waterEye),distanceToEye);gl_FragColor=vec4(mix(mix(lit,reflected,reflection),horizon(),haze),alpha);}";
+  "float haze=1.-exp(-distanceToEye*hazeDensity);vec3 lit=col*mix(vec3(.24,.32,.47),vec3(1.),daylight);"
+  // Nearby pendant and counter lamps illuminate surfaces in the covered arcade.
+  "if(marketNear!=0){vec3 delta=pos-marketLamps[0];vec2 axis=vec2(-.5299,.8480),along=vec2(-.8480,-.5299);"
+  "vec3 local=vec3(dot(delta.xz,axis),delta.y+4.25,dot(delta.xz,along)-1.45);"
+  "if(local.x> -28. && local.x<57. && local.z>-.8 && local.z<8.8 && local.y<3.6){"
+  "vec3 n=normalize(cross(dFdx(relativePos),dFdy(relativePos)));if(dot(n,waterEye-pos)<0.)n=-n;"
+  "vec3 normal=vec3(dot(n.xz,axis),n.y,dot(n.xz,along));"
+  "vec3 eyeDir=normalize(-relativePos);vec3 viewDir=vec3(dot(eyeDir.xz,axis),eyeDir.y,dot(eyeDir.xz,along));"
+  "float spec=0.;float diffuse=0.;for(int i=0;i<2;i++){float spacing=i==0?4.:2.;"
+  "vec3 d=vec3(spacing*floor(local.x/spacing+.5)-local.x,(i==0?2.77:2.86)-local.y,(i==0?2.69:5.15)-local.z);"
+  "float dist2=max(.06,dot(d,d));vec3 lightDir=d*inversesqrt(dist2);"
+  "diffuse+=max(0.,dot(normal,lightDir))*(2.1/(1.+dist2));"
+  "spec+=pow(max(0.,dot(normal,normalize(lightDir+viewDir))),24.)/(1.+dist2);}"
+  "lit=col*(vec3(.45,.39,.34)+daylight*vec3(.15,.22,.30)+vec3(1.,.79,.55)*diffuse);"
+  "if(abs(tint.a-.256)<.0001||abs(tint.a-.244)<.0001||abs(tint.a-.259)<.0001)lit+=vec3(.67,.49,.30)*spec;}}"
+  "if(regional==2 && abs(tint.a-.247)<.0001)lit=tint.rgb;lit+=marketSpec;if(marketNear!=0)lit+=lampGlow(normalize(pos-waterEye),distanceToEye);gl_FragColor=vec4(mix(mix(lit,reflected,reflection),horizon(),haze),alpha);}";
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return 0;
  GLuint frag=wildlife_shader(GL_FRAGMENT_SHADER,fs);if(!frag){glDeleteShader(vert);return 0;}
  GLuint program=glCreateProgram();glAttachShader(program,vert);glAttachShader(program,frag);
@@ -406,6 +423,22 @@ int pocket_scene_flight_photo(void *ptr,unsigned slot,unsigned pixels,const unsi
  glBindBuffer(GL_ARRAY_BUFFER,(GLuint)previous);
  s->flight_count[slot]=(GLsizei)count;
  s->flight_areas[slot][0]=x;s->flight_areas[slot][1]=z;s->flight_areas[slot][2]=slot<28?4096.f:16384.f;
+ return 0;
+}
+int pocket_scene_market_materials(void *ptr,const unsigned char *pixels,unsigned bytes){
+ struct gpu_scene *s=ptr;
+ if(!s||!pixels||bytes!=512u*512u*4u)return -1;
+ if(s->market_materials)return 0;
+ glPushAttrib(GL_TEXTURE_BIT);glActiveTexture(GL_TEXTURE2);
+ glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
+ glPixelStorei(GL_UNPACK_ALIGNMENT,1);glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
+ glPixelStorei(GL_UNPACK_SKIP_ROWS,0);glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);
+ glGenTextures(1,&s->market_materials);glBindTexture(GL_TEXTURE_2D,s->market_materials);
+ glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,512,512,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
+ glGenerateMipmap(GL_TEXTURE_2D);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
+ GLint w;glGetTexLevelParameteriv(GL_TEXTURE_2D,0,GL_TEXTURE_WIDTH,&w);
+ glPopClientAttrib();glPopAttrib();
+ if(w!=512){glDeleteTextures(1,&s->market_materials);s->market_materials=0;return -1;}
  return 0;
 }
 void pocket_scene_market_lights(void *ptr,const float *lamps,int glow){
@@ -847,6 +880,8 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glUniform1f(glGetUniformLocation(s->rainier_program,"originY"),originY);
  glUniform3f(glGetUniformLocation(s->rainier_program,"picked"),picked&1,(picked>>1)&1,(picked>>2)&1);
  glUniform1f(glGetUniformLocation(s->rainier_program,"waterTime"),age);
+ glActiveTexture(GL_TEXTURE2);glBindTexture(GL_TEXTURE_2D,s->market_materials);
+ glUniform1i(glGetUniformLocation(s->rainier_program,"marketMaterials"),2);
  glActiveTexture(GL_TEXTURE0);
  glUniform1i(glGetUniformLocation(s->rainier_program,"flightPhoto"),1);
  GLint photo_area=glGetUniformLocation(s->rainier_program,"photoArea");

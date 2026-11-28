@@ -32,13 +32,17 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
  if(scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
  if(model->program)return 0;
  const char *vs="#version 120\n"
-  "uniform float blend,face;uniform int outfit;varying vec3 body,uv;varying float light;"
+  "uniform float blend,face,skinTile;uniform int outfit;varying vec3 body,uv;varying float light;"
   "void main(){vec3 pos=mix(gl_Vertex.xyz,gl_MultiTexCoord1.xyz,blend)*.0001;"
   "pos.x*=1.+face*smoothstep(1.37,1.54,pos.y);"
   "vec3 n=normalize(mix(gl_Normal,gl_MultiTexCoord2.xyz/32767.,blend));"
-  "body=pos;if(gl_MultiTexCoord0.z>.5&&gl_MultiTexCoord0.z<1.5){"
+  "body=gl_MultiTexCoord3.xyz*.0001;if(gl_MultiTexCoord0.z>.5&&gl_MultiTexCoord0.z<1.5){"
   "if(outfit==3||outfit==6)pos+=n*.013;"
+  "if(outfit==8||outfit==9)pos+=n*(outfit==8?.012:.018);"
+  "if(outfit==10)pos+=n*(.021+.008*cos(body.y*78.));"
   "if(outfit==4)pos+=n*.024*(1.-smoothstep(.15,.22,abs(body.x)));}"
+  "float tile=floor(gl_MultiTexCoord0.x*4.)+4.*floor(gl_MultiTexCoord0.y*4.);"
+  "if(outfit>=8 && outfit<=10 && tile==skinTile && body.y>.82 && body.y<1.40 && abs(body.x)>.105)pos+=n*.009;"
   "light=.68+.33*max(0.,dot(n,normalize(vec3(-.47,.79,.38))))+.09*n.y;"
   "uv=gl_MultiTexCoord0.xyz;gl_Position=gl_ModelViewProjectionMatrix*vec4(pos,1.);}";
  const char *fs="#version 120\n"
@@ -56,8 +60,26 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
   "if(outfit==5)paint=mix(paint,c.r*vec3(.92,.83,.63),smoothstep(1.06,1.08,body.y)*(1.-smoothstep(1.16,1.18,body.y)));"
   "if(outfit==6){float bib=smoothstep(1.20,1.23,body.y);paint=mix(paint,c.r*vec3(.13,.18,.23),bib*.8);}"
   "if(outfit==7)paint=mix(paint,c.r*vec3(.19,.27,.31),arm*smoothstep(1.0,1.18,body.y));}"
+  // Frame-independent cloth coordinates keep seams attached throughout the gait.
+  "if(outfit>=8 && uv.z>.5 && uv.z<1.5){float front=smoothstep(.015,.065,body.z);"
+  "float x=abs(body.x),y=body.y;float seam=fwidth(body.x)+.002;"
+  "if(outfit==8){float opening=.032+.45*max(y-1.14,0.);float neck=front*(1.-smoothstep(opening-seam,opening+seam,x));"
+  "paint=mix(paint,c.rgb*vec3(.95,.86,.70),neck);paint*=1.-front*.24*(1.-smoothstep(.004,.012,abs(x-opening)));}"
+  "if(outfit==9){float phase=body.x*320.+1.8*sin(y*74.);float rib=cos(phase)*(1.-smoothstep(.5,2.8,fwidth(phase)));"
+  "paint*=.96+.14*rib;paint=mix(paint,c.r*vec3(.78,.72,.60),.78*smoothstep(1.26,1.28,y));}"
+  "if(outfit==10){float wave=.5+.5*cos(78.*y+2.5*x);paint*=.74+.31*wave;"
+  "paint=mix(paint,vec3(.70,.66,.61),front*(1.-smoothstep(.002,.005+seam,x)));}"
+  "if(outfit==11){float bib=(1.-smoothstep(.116,.127,x))*(1.-smoothstep(1.25,1.27,y));"
+  "float straps=1.-smoothstep(.013,.022,abs(x-.091));paint=mix(paint,c.r*vec3(.27,.39,.48),max(bib,straps));}}"
+  "if(outfit==11 && uv.z>1.5 && uv.z<2.5)paint=c.rgb*vec3(.27,.39,.48);"
   "if(outfit==3 && uv.z>1.5 && uv.z<2.5)paint=c.rgb*vec3(.49,.42,.31);"
   "float tile=floor(uv.x*4.)+4.*floor(uv.y*4.);if(tile==skinTile)paint*=mix(vec3(1.),vec3(.60,.43,.36),complexion);"
+  // Maya's base top leaves her arms bare. Extend the outer garment onto the
+  // animated arm surface down to the wrist, keeping hands, face and neck free.
+  "if(tile==skinTile && outfit>=8 && outfit<=10 && abs(body.x)>.105 && body.y>.82 && body.y<1.40){"
+  "float cuff=smoothstep(.82,.835,body.y);vec3 sleeve=coat*(.78+.15*smoothstep(.855,.871,body.y));"
+  "if(outfit==10)sleeve*=.82+.18*cos(78.*body.y);if(outfit==9)sleeve=mix(sleeve,vec3(.78,.72,.60),.78*smoothstep(1.26,1.28,body.y));"
+  "paint=mix(paint,sleeve,cuff);}"
   "if(tile==skinTile+2. && hair==2)discard;if(tile==skinTile+2.)paint=mix(paint,vec3(.28)+.68*c.rgb,grey);"
   "if(worker!=0 && uv.z>2.5 && uv.z<3.5)paint=mix(vec3(.075,.08,.07),vec3(.25,.25,.22),c.g);"
   "gl_FragColor=vec4(paint*light,1.);}";
@@ -135,10 +157,11 @@ static void market_person_draw(struct posed_person *model,int kind,float pose,co
  glClientActiveTexture(GL_TEXTURE0);glEnableClientState(GL_TEXTURE_COORD_ARRAY);glTexCoordPointer(3,GL_FLOAT,12,(const void *)uv);
  glClientActiveTexture(GL_TEXTURE1);glEnableClientState(GL_TEXTURE_COORD_ARRAY);glTexCoordPointer(3,GL_SHORT,12,(const void *)pb);
  glClientActiveTexture(GL_TEXTURE2);glEnableClientState(GL_TEXTURE_COORD_ARRAY);glTexCoordPointer(3,GL_SHORT,12,(const void *)(pb+6));
+ glClientActiveTexture(GL_TEXTURE3);glEnableClientState(GL_TEXTURE_COORD_ARRAY);glTexCoordPointer(3,GL_SHORT,12,(const void *)(first+12*step));
  glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,model->atlas);
  glUseProgram(model->program);
  glUniform1f(glGetUniformLocation(model->program,"blend"),weight);
- glUniform1i(glGetUniformLocation(model->program,"outfit"),(identity>>8)&7u);
+ glUniform1i(glGetUniformLocation(model->program,"outfit"),(identity & 64u)?8u+((identity>>8)&3u):((identity>>8)&7u));
  glUniform1f(glGetUniformLocation(model->program,"complexion"),((identity>>1)&7u)/7.f);
  glUniform1i(glGetUniformLocation(model->program,"hair"),(identity>>4)&3u);
  glUniform1f(glGetUniformLocation(model->program,"skinTile"),(float)model->skin_tile);

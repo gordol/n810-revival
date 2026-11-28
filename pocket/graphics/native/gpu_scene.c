@@ -34,7 +34,7 @@ struct gpu_scene {
  SDL_Texture *river_print;int print_w,print_h;
  struct posed_person {GLuint program,mesh,atlas;unsigned nv,ni,skin_tile;float sole[16][2][3],attachments[16][2][3];} people[2];
  GLuint flight_photo[109],flight_mesh[109];GLsizei flight_count[109];GLfloat flight_areas[109][3];
- float market_lamps[12];int market_glow;
+ float market_lamps[12];int market_glow;GLuint market_materials;
  GLuint snack_mesh[2]; GLsizei snack_count[2];
  GLuint cockpit_panel;float cockpit_speed,cockpit_altitude,cockpit_look_yaw,cockpit_look_pitch;
  GLuint rainier_shadow,rainier_bloom,rainier_color;int bloom_w,bloom_h,rainier_bloom_failed;
@@ -572,6 +572,7 @@ void pocket_scene_rainier_release(void *ptr){
  glDeleteTextures(109,s->flight_photo);memset(s->flight_photo,0,sizeof s->flight_photo);
  glDeleteBuffers(109,s->flight_mesh);memset(s->flight_mesh,0,sizeof s->flight_mesh);
  memset(s->flight_count,0,sizeof s->flight_count);memset(s->flight_areas,0,sizeof s->flight_areas);
+ glDeleteTextures(1,&s->market_materials);s->market_materials=0;
  glDeleteBuffers(2,s->snack_mesh);memset(s->snack_mesh,0,sizeof(s->snack_mesh));
  glDeleteTextures(1,&s->cockpit_panel);s->cockpit_panel=0;
  if(!s->rainier_program)return;

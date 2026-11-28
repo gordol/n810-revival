@@ -37,13 +37,19 @@ tile=512
 atlas=Image.new('RGBA',(tile*4,tile*4))
 def srgb(v):
     return round(255*(12.92*v if v<=.0031308 else 1.055*v**(1/2.4)-.055))
+def garment(material):
+    name=material.name
+    if name.endswith(('original top','plum satin full-length top')):return 1
+    if name.endswith(('original bottom','charcoal tailored trousers')):return 2
+    return 0
+
 for i,m in enumerate(materials):
     bsdf=next(n for n in m.node_tree.nodes if n.type=='BSDF_PRINCIPLED')
     base=bsdf.inputs['Base Color']
     tex=next((link.from_node.image for link in base.links if link.from_node.type=='TEX_IMAGE'),None)
-    cloth=m.name.endswith(('original top','original bottom'))
-    if cloth:
-        normal=next(n.image for n in m.node_tree.nodes if n.type=='TEX_IMAGE')
+    if garment(m):
+        normal_map=bsdf.inputs['Normal'].links[0].from_node
+        normal=normal_map.inputs['Color'].links[0].from_node.image
         pixels=np.asarray(Image.open(io.BytesIO(normal.packed_file.data)).convert('RGB').resize((tile,tile)),dtype=float)/127.5-1
         # Carry seams, lapels and fabric folds into the atlas for the mobile pass.
         light=np.clip(.85-.38*pixels[:,:,0]+.48*pixels[:,:,1],.40,1.0)
@@ -73,7 +79,7 @@ for o in objects:
                 u=min(1.,max(0.,u));v=min(1.,max(0.,v))
                 uvs.append(((slot%4*tile+.5+u*(tile-1))/atlas.width,
                             (slot//4*tile+.5+(1-v)*(tile-1))/atlas.height,
-                            1. if mat.name.endswith('original top') else 2. if mat.name.endswith('original bottom') else 3. if 'body.shoes' in mat.name else 0.))
+                            garment(mat) or (3. if 'body.shoes' in mat.name else 0.)))
             indices.append(lookup[key])
     topology.append((o,np.array(original)))
 
@@ -199,8 +205,8 @@ def walking_arms(phase):
         swing=.83 if jacket and side=='r' else 1.
         shoulder=sign*.21*swing*math.cos(phase)
         forearm=.19+sign*.24*swing*math.cos(phase-.18)
-        upper_out=.25 if jacket else .27
-        lower_out=.075 if jacket else .045
+        upper_out=.25 if jacket else .37
+        lower_out=.075 if jacket else .135
         aim('upperarm_'+side,(sign*upper_out,-math.sin(shoulder),-math.cos(shoulder)))
         aim('lowerarm_'+side,(sign*lower_out,-math.sin(forearm),-math.cos(forearm)))
         # A sleeve twist bone can point the right way without moving the
@@ -217,7 +223,7 @@ def clearance_surfaces():
     """Keep forearms/hands separate from the shirt body and upper trousers."""
     result=[]
     for obj in objects:
-        shirt=any(m.name.endswith(('original top','original bottom')) for m in obj.data.materials)
+        shirt=any(garment(m) for m in obj.data.materials)
         if not shirt and not obj.name.endswith('anatomical body'):continue
         mesh=obj.data
         mesh.calc_loop_triangles()
