@@ -93,3 +93,17 @@ in the downtown/Seattle Center area. Source is the City of Seattle's
 [SPR Tree View](https://data.seattle.gov/dataset/SPR-Tree-View/c7dn-wzzd),
 queried in WGS84 within (-122.36, 47.59, -122.326, 47.625).
 Tree crowns and ground cover are procedurally reconstructed.
+
+The bundled neighborhoods.sqlite is an offline corridor extract from the
+[Geofabrik Washington OpenStreetMap download](https://download.geofabrik.de/north-america/us/washington.html),
+© OpenStreetMap contributors, ODbL 1.0. It covers 512-metre cells along the
+drive and passenger rail routes and adjacent cells. Buildings use mapped
+outlines, measured or level-derived heights where tagged, and a 7.5-metre
+fallback height. The runtime loads the surrounding nine cells. The optional
+full regional database can be selected with POCKET_REGION_SCENERY or installed
+as puget-sound-scenery.sqlite in the rainier-walk application data directory.
+
+To build the larger pack from a Washington OSM PBF, use Osmium extract with
+bounds -123.30,46.70,-121.50,48.15, filter w/building, n/shop, n/amenity,
+n/tourism and n/natural=tree, then use osmium export -f geojsonseq. Run
+pocket/tools/bake_region.py with a new database path followed by the sequence.

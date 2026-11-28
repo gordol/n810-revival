@@ -746,6 +746,7 @@ class RainierView:
         self.landing_sound=False
         from pnw.traffic import Traffic
         self.traffic=Traffic()
+        self.neighborhood=None
         self.notebook=None
         self.lens=self.binoculars=False
         self.zoom=1.
@@ -1309,6 +1310,7 @@ class RainierView:
         self.ski=None
 
     def release(self):
+        if self.neighborhood:self.neighborhood.close();self.neighborhood=None
         self.flight_surfaces={}
         if self.flight_imagery:self.flight_imagery.close();self.flight_imagery=None
         if self.flight_horizon:self.flight_horizon.close();self.flight_horizon=None
@@ -1962,6 +1964,12 @@ class RainierView:
                 width=self.flight_horizon.resident[slot][1] if tile is distant else 2*PATCH_STEP
                 ctx.check(upload(ctx.handle,slot,math.isqrt(len(rgb)//3),rgb,ix*PATCH_STEP,iz*PATCH_STEP,width,mesh.buffer_info()[0],len(mesh)//7))
                 self.flight_surfaces[slot]=heights
+        if sound_region and self.outing not in (*market_visit.FLOORS,'scuba'):
+            from pnw.regional_scenery import Neighborhood
+            if self.neighborhood is None:self.neighborhood=Neighborhood()
+            stand=self.neighborhood.update(x,z,lambda px,pz:surface(field,px,pz))
+            if stand is not None:
+                stand_ptr=stand.buffer_info()[0];self.stand_count=len(stand)//7
         if sound_region:center=((field.nx-1)*field.dx,(field.nz-1)*field.dz)
         if self.regional and self.outing in (None,'hoh'):
             center=self.stand_center
@@ -2045,7 +2053,8 @@ class RainierView:
                     self.traffic_gain=max(self.traffic_gain,1./(1.+distance/12.)**2)
                     lamps=int(braking)+2*int(daylight<.65 or bool(self.weather))
                     if (self.age+index*.17)% .78<.39:lamps+=4 if turn<0 else 8 if turn>0 else 0
-                    poses.append((5 if index%4==0 else 10,px,ground(px,pz)+.06,pz,
+                    from pnw.traffic import vehicle_type
+                    poses.append((vehicle_type(index),px,ground(px,pz)+.06,pz,
                                   math.degrees(angle),float(lamps),1+index%4))
         if self.road and self.road.patrol and math.dist((x,z),self.road.patrol)<240 and len(poses)<32:
             px,pz=self.road.patrol
@@ -2074,7 +2083,7 @@ class RainierView:
             packed=[]
             for pose in poses:
                 slopes=(0.,0.)
-                if pose[0] in (0,1,5,10):
+                if pose[0] in (0,1,5,10,11,12,13):
                     px,py,pz=pose[1:4]
                     slopes=(ground(px+.25,pz)-ground(px-.25,pz),
                             ground(px,pz+.25)-ground(px,pz-.25))
@@ -2168,6 +2177,9 @@ class RainierView:
             if self.road:
                 ink.label(1,1,self.road.hint(),0xFFEDBF)
                 self.road.draw_minimap(ink,w-2,h-3)
+                if self.neighborhood and abs(self.road.speed)<12:
+                    place=self.neighborhood.nearby(x,z)
+                    if place:ink.label(1,2,place[:w-4],0xEEE8CC)
             if self.glider:self.glider.draw(ink,w-2,h-3)
             if self.climb:self.climb.draw(ink,w-2,h-3)
             if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y)

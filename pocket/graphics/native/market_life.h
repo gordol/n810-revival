@@ -91,6 +91,32 @@ static void street_vehicle(int van,unsigned paint,int lamps){
   }
  }
 }
+static void heavy_vehicle(int kind,int lamps){
+ int bus=kind==11;
+ if(bus){
+  market_panel(0,.44f,0,1.24f,2.62f,5.8f,.22f,.43f,.57f);
+  market_panel(0,1.48f,5.81f,1.10f,1.36f,.02f,.13f,.23f,.28f);
+  for(int side=-1;side<=1;side+=2)for(int n=0;n<8;n++)
+   market_panel(side*1.25f,1.62f,-4.93f+n*1.37f,.015f,1.1f,.61f,.15f,.24f,.27f);
+  market_panel(0,3.07f,-2.f,.75f,.22f,1.5f,.65f,.66f,.62f);
+ }else{
+  market_panel(0,.60f,5.7f,1.22f,2.76f,1.75f,.53f,.22f,.15f);
+  market_panel(0,1.79f,7.46f,1.03f,1.04f,.03f,.13f,.20f,.23f);
+  market_panel(0,1.04f,-2.12f,1.28f,3.03f,5.68f,.74f,.75f,.72f);
+  for(int n=0;n<21;n++)for(int side=-1;side<=1;side+=2)
+   market_panel(side*1.29f,1.20f,-7.65f+n*.54f,.018f,2.66f,.028f,.59f,.60f,.58f);
+ }
+ for(int side=-1;side<=1;side+=2){
+  for(int n=0;n<(bus?2:4);n++){
+   float axle=bus?(n?3.7f:-3.4f):(float[]){6.2f,2.95f,-5.5f,-6.8f}[n];
+   market_body(side*1.17f,.52f,axle,.24f,.54f,.54f,.09f,.10f,.10f);
+   market_body(side*1.36f,.52f,axle,.065f,.29f,.29f,.43f,.45f,.44f);
+  }
+  market_panel(side*.93f,.79f,bus?5.84f:7.49f,.19f,.14f,.025f,1.f,.94f,.78f);
+  market_panel(side*.94f,.98f,bus?-5.84f:-7.83f,.17f,.14f,.025f,lamps&1?1.f:.6f,.035f,.025f);
+ }
+}
+
 static void detailed_coupe(struct gpu_scene *s,unsigned paint,int lamps){
  static const GLfloat colors[][3]={{.68f,.022f,.032f},{.14f,.27f,.41f},{.74f,.69f,.57f},
                                     {.12f,.15f,.18f},{.37f,.035f,.072f}};
@@ -331,7 +357,7 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
   int kind=(int)p[0];
   float pose=p[5];
   glPushMatrix();glTranslatef(p[1],p[2],p[3]);
-  if(kind<=1 || kind==5 || kind==10){
+  if(kind<=1 || kind==5 || (kind>=10 && kind<=12)){
    GLfloat plane[16]={1,p[7],0,0, 0,1,0,0, 0,p[8],1,0, 0,0,0,1};
    glMultMatrixf(plane);
   }
@@ -344,7 +370,7 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
    glEnd();glPopAttrib();
   }
   glRotatef(p[4],0,1,0);
-  if(kind==5 || kind==10){
+  if(kind==5 || (kind>=10 && kind<=12)){
    glPushAttrib(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT);
    glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
    glBegin(GL_TRIANGLE_FAN);glColor4f(.025f,.026f,.032f,.65f);glVertex3f(0,.025f,0);
@@ -383,6 +409,8 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
      market_tied_hair(hair,locks,pose<12.f?sinf(pose*.5235988f):0.f);
     glPopMatrix();
    }
+  }else if(kind==11 || kind==12){
+   heavy_vehicle(kind,(int)pose);
   }else if(kind==10 || kind==5){
    if(kind==10 && s->coupe_mesh && p[6]==0)detailed_coupe(s,0,(int)pose);
    else street_vehicle(kind==5,(unsigned)p[6],(int)pose);

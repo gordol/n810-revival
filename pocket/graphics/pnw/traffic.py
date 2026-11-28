@@ -2,7 +2,7 @@
 from bisect import bisect_left
 from functools import lru_cache
 import math
-from pnw.seattle_places import corridor_path, freeway_data
+from pnw.seattle_places import corridor_path, freeway_data, freeway_lines, street_lines
 from pnw.terrain import location
 
 @lru_cache(maxsize=1)
@@ -11,8 +11,36 @@ def routes():
     last=corridor_path()[0][-1]
     south.append((last[1]+last[3]*last[5],last[2]+last[4]*last[5]))
     north=[location('sound',lat/1e7,lon/1e7) for lon,lat in freeway_data()['north']]
+    # Follow directed OSM links onto and off the through carriageway.
+    network=freeway_lines()
+    starts={};finishes={}
+    for _,kind,points,_,_ in network:
+        starts.setdefault(points[0],[]).append((kind,points))
+        finishes.setdefault(points[-1],[]).append((kind,points))
+    extras=[]
+    for _,kind,points,_,_ in network:
+        if kind!='motorway_link':continue
+        adjoining=(*finishes.get(points[0],()),*starts.get(points[-1],()))
+        if not any(k=='motorway' for k,_ in adjoining):continue
+        path=list(points)
+        for backwards,adjacency in ((True,finishes),(False,starts)):
+            used={points}
+            for _ in range(5):
+                end=path[0] if backwards else path[-1]
+                options=[(k,p) for k,p in adjacency.get(end,()) if p not in used]
+                if not options:break
+                k,extension=max(options,key=lambda item:(item[0]=='motorway',len(item[1])))
+                used.add(extension)
+                if backwards:path=list(extension[:-1])+path
+                else:path.extend(extension[1:])
+                if k=='motorway':break
+        if sum(math.dist(a,b) for a,b in zip(path,path[1:]))>250:extras.append(path)
+    for city in ('seattle','tacoma'):
+        for _,kind,points,_,_ in street_lines(city):
+            if kind in ('primary','secondary','tertiary') and math.dist(points[0],points[-1])>100:
+                extras.append(points)
     paths=[]
-    for points in (south,north):
+    for points in (south,north,*extras):
         spans=[];ends=[];cells={};start=0.
         for a,b in zip(points,points[1:]):
             length=math.dist(a,b)
@@ -24,6 +52,20 @@ def routes():
             start+=length;ends.append(start)
         paths.append((spans,ends,cells))
     return paths
+
+@lru_cache(maxsize=1)
+def road_cells():
+    cells={}
+    for direction,(_,_,by_cell) in enumerate(routes()):
+        for cell in by_cell:cells.setdefault(cell,set()).add(direction)
+    return cells
+
+def vehicle_type(identity):
+    value=identity%23
+    return 11 if value==3 else 12 if value==7 else 5 if value%4==0 else 10
+
+def half_length(identity):
+    return {11:5.8,12:7.8}.get(vehicle_type(identity),2.2)
 
 def point(route,at,lane):
     spans,ends,_=route
@@ -47,15 +89,17 @@ class Traffic:
             offset=self.offsets.get(key,(1.8,-1.8)[key[1]])
             for side,center in enumerate((1.8,-1.8)):
                 if abs(offset-center)<2.2:occupied.setdefault((key[0],side),[]).append((key,at))
-        for direction,route in enumerate(routes()):
+        nearby=[(cx,cz) for cx in range(math.floor((x-radius)/256),math.floor((x+radius)/256)+1)
+                          for cz in range(math.floor((z-radius)/256),math.floor((z+radius)/256)+1)]
+        directions={d for cell in nearby for d in road_cells().get(cell,())}
+        for direction in sorted(directions):
+            route=routes()[direction]
             spans,ends,cells=route
-            indices={i for cx in range(math.floor((x-radius)/256),math.floor((x+radius)/256)+1)
-                       for cz in range(math.floor((z-radius)/256),math.floor((z+radius)/256)+1)
-                       for i in cells.get((cx,cz),())}
+            indices={i for cell in nearby for i in cells.get(cell,())}
             if not indices:continue
-            for lane,pace in enumerate((24.,29.)):
+            for lane,pace in enumerate((24.,29.) if direction<2 else (12.,)):
                 home=(1.8,-1.8)[lane]
-                gap=103.+lane*12
+                gap=103.+lane*12 if direction<2 else 245.
                 shift=age*pace+direction*32+lane*48
                 ids={n for i in indices for n in range(math.ceil((spans[i][4]-shift)/gap),
                                                          math.floor((ends[i]-shift)/gap)+1)}
@@ -69,12 +113,12 @@ class Traffic:
                     px,pz,angle=point(route,at,lateral)
                     distance=math.hypot(x-px,z-pz)
                     if distance>radius+30:continue
-                    clearance=leader-at-5.
+                    clearance=leader-at-half_length(n+direction)-1.
                     if driver:
                         dx,dz=driver.x-px,driver.z-pz
                         along=dx*math.sin(angle)+dz*math.cos(angle)
                         across=dx*math.cos(angle)-dz*math.sin(angle)
-                        if abs(across)<2.1 and along>=0:clearance=min(clearance,along-4.8)
+                        if abs(across)<2.1 and along>=0:clearance=min(clearance,along-half_length(n+direction)-2.6)
                         on_freeway=direction==1 or (route is routes()[0] and
                             corridor_path()[0][min(bisect_left(ends,at),len(ends)-1)][7]=='freeway')
                         if on_freeway and lateral==home and 12<along<38 and abs(across)<2.1:
@@ -96,7 +140,7 @@ class Traffic:
                     at+=max(0.,min(clearance,dt*speed))
                     stopped=clearance<5
                     if driver and stopped and not blocked and distance<14:self.horn=True
-                    leader=at
+                    leader=at-half_length(n+direction)
                     active[key]=(at,speed,stopped)
                     px,pz,angle=point(route,at,lateral)
                     visible.append((distance,px,pz,angle,n+direction,speed<pace-2,
@@ -107,8 +151,8 @@ class Traffic:
         return self.visible
 
     def contact(self,x,z):
-        for _,px,pz,angle,*_ in self.visible:
+        for _,px,pz,angle,identity,*_ in self.visible:
             dx,dz=x-px,z-pz
-            if (abs(dx*math.sin(angle)+dz*math.cos(angle))<4.3 and
+            if (abs(dx*math.sin(angle)+dz*math.cos(angle))<half_length(identity)+2.1 and
                 abs(dx*math.cos(angle)-dz*math.sin(angle))<1.85):return True
         return False
