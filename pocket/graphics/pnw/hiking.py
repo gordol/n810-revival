@@ -1,4 +1,5 @@
 """Travel choices and the full prepared Rainier elevation grid."""
+from pnw.units import mph, feet
 import math
 
 from geometry import HeightField,Vec
@@ -421,8 +422,8 @@ class HangGlider:
 
     def draw(self,ink,w,h):
         ink.fill((.5,.6,13,3.6),0x203837DC)
-        ink.label(1,1,f'{round(self.speed*3.6)} km/h',0xFFF4DC)
-        ink.label(1,2,f'{round(self.clearance)} m AGL',0xFFF4DC)
+        ink.label(1,1,f'{mph(self.speed)}',0xFFF4DC)
+        ink.label(1,2,f'{feet(self.clearance)} AGL',0xFFF4DC)
         ink.label(1,3,f'{round(self.altitude)} m ASL',0xFFF4DC)
         if self.menu:
             for _,_,angle in self.wheel_items():

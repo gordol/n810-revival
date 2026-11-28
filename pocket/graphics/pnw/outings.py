@@ -2,6 +2,7 @@
 from array import array
 from dataclasses import dataclass
 from functools import lru_cache
+from pnw.units import mph, feet, road_distance
 import math
 from collections import deque
 import random
@@ -537,14 +538,14 @@ class StreetRide:
         draw.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_int,C.c_void_p,C.c_uint,C.c_uint,C.c_float,C.c_float]
         ink.ctx.check(draw(ink.ctx.handle,x0,y0,size,roads.buffer_info()[0],len(roads)//4,ordinary,
                            size*.5+(ax-size*.5)/edge,size*.5+(ay-size*.5)/edge))
-        units=f'{distance/1000:.1f} km' if distance>=1000 else f'{round(distance)} m'
+        units=road_distance(distance)
         ink.label(1,(y0-ink.y)/16-1,label+' · '+units,0xFFCB68)
 
     def hint(self):
         if self.kind=='sports-car':
             if self.delivered:return 'Arrived · Dock Street, Tacoma'
             if self.patrol and self.pursuit=='following':
-                return f'Pursuit · {round(math.dist(self.patrol,(self.x,self.z)))} m · {round(self.speed*3.6)} km/h'
+                return f'Pursuit · {road_distance(math.dist(self.patrol,(self.x,self.z)))} · {mph(self.speed)}'
             next_point=self.route[min(self.leg,len(self.route)-1)]
             turn=math.remainder(self.bearing(next_point)-self.heading,math.tau)
             arrow='↑' if abs(turn)<.35 else '↓' if abs(turn)>2.65 else '→' if turn>0 else '←'
@@ -552,13 +553,13 @@ class StreetRide:
             from pnw.seattle_places import corridor_position
             position=corridor_position(self.x,self.z)
             note=position[1] if position else street
-            return f'{arrow} {note} · {round(abs(self.speed)*3.6)} km/h'
+            return f'{arrow} {note} · {mph(self.speed)}'
         if self.delivered:return 'Flowers delivered'
         end=self.route[-1]
         turn=math.remainder(self.bearing(end)-self.heading,math.tau)
         arrow='↑' if abs(turn)<.48 else '↓' if abs(turn)>2.65 else '→' if turn>0 else '←'
         metres=round(math.dist((self.x,self.z),end))
-        return f'Flowers {arrow} {metres} m' if metres>6 else 'Stop to deliver flowers'
+        return f'Flowers {arrow} {road_distance(metres)}' if metres>6 else 'Stop to deliver flowers'
 
 
 class ExploreMenu(HikeMenu):
@@ -776,7 +777,7 @@ class AirSport(HangGlider):
         return [('air-action',label,(w-14,0,14,3)),('pause','Pause',(w-14,3,14,3))]
 
     def draw(self,ink,w,h):
-        ink.label(1,1,f'{self.clearance:.0f} m AGL',0xFFF6DA)
+        ink.label(1,1,f'{feet(self.clearance)} AGL',0xFFF6DA)
 
 
 class SoundVehicle(HangGlider):
@@ -1008,11 +1009,11 @@ class SoundVehicle(HangGlider):
     def draw(self,ink,w,h):
         name,x,z=self.stops[self.target_index]
         bearing=round(math.degrees(math.atan2(x-self.x,z-self.z)))%360
-        distance=math.hypot(x-self.x,z-self.z)/1000
+        distance=math.hypot(x-self.x,z-self.z)/1852
         if self.boat:
             super().draw(ink,w,h)
             ink.label(1,h-3,name,0xFFF4DC)
-            ink.label(1,h-2,f'{distance:.1f} km  {bearing:03d} deg',0xFFF4DC)
+            ink.label(1,h-2,f'{distance:.1f} NM  {bearing:03d} deg',0xFFF4DC)
             return
         if self.menu:
             for _,_,angle in self.wheel_items():
@@ -1023,16 +1024,16 @@ class SoundVehicle(HangGlider):
             else:
                 px,pz=taxi_path()[self.taxi_waypoint]
                 bearing=round(math.degrees(math.atan2(px-self.x,pz-self.z)))%360
-                label=f'Taxi {bearing:03d}° · {round(math.hypot(px-self.x,pz-self.z))} m'
+                label=f'Taxi {bearing:03d}° · {feet(math.hypot(px-self.x,pz-self.z))}'
             ink.label(1,1,label,0xFFEDBF)
             return
         power='APPR' if self.descending else f'THR {round(100*self.throttle)}%'
         if self.aircraft is RESEARCH_JET:
             if self.stalled:ink.label(w/2-2,h*.58,'STALL',0xFFCD79)
             return
-        lines=(name,f'{distance:.1f} km  BRG {bearing:03d}',
+        lines=(name,f'{distance:.1f} NM  BRG {bearing:03d}',
                f'HDG {round(math.degrees(self.heading))%360:03d}  {power}',
-               f'{round(self.clearance)} m AGL')
+               f'{feet(self.clearance)} AGL')
         status='STALL: nose down + power' if self.stalled else f'Flaps {self.flaps*10} deg'
         lines+=(status,)
         lines+=('Start: pause   View: wheel',)

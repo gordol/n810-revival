@@ -1,6 +1,7 @@
 """A fictional ski and ice traverse on the registered summit approach DEM."""
 from dataclasses import dataclass
 import json
+from pnw.units import mph
 import math
 import os
 import shutil
@@ -294,7 +295,7 @@ class SkiRun:
             x+=side*1.25
             z-=side*.48
             self.grip_uv=project_subject(camera,aspect,1.,('',x,height(x,z)+.26,z,.8))
-        label=(f'{round(self.speed*3.6)} km/h   {self.score}/4 gates' if self.mode=='ski'
+        label=(f'{mph(self.speed)}   {self.score}/4 gates' if self.mode=='ski'
                else 'Runout   '+str(self.score)+'/4 gates' if self.mode=='bottom'
                else f'{self.hold}/15 grips' if self.mode=='climb' else 'Tap snow to ski')
         if self.course.jumps:
