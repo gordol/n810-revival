@@ -184,6 +184,8 @@ def market_shops():
     # Bearings lead to the reconstructed shop fronts inside the playable arcade.
     shops['Flower farm table']=offset(arcade_origin(),-4,4.5)
     shops['Sunny Honey Company']=offset(arcade_origin(),8,4.5)
+    for name,u in (('MarketSpice',-12),('Pure Food Fish',12),("Sosio's Produce",20),('Chukar Cherries',24)):
+        shops[name]=offset(arcade_origin(),u,4.5)
     return shops
 
 class MarketDirectory:

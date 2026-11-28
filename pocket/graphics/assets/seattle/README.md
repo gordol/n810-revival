@@ -43,3 +43,11 @@ The green siren on the modeled takeaway cups uses the Starbucks mark from
 [Simple Icons 13.0.0](https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/starbucks.svg).
 Starbucks owns the mark. Counter layouts and baked goods are visual reconstructions.
 [Piroshky Piroshky at Pike Place Market](https://www.pikeplacemarket.org/vendor/piroshky-piroshky/)
+
+The Main Arcade includes reconstructed displays for
+[Sosio’s Produce](https://www.pikeplacemarket.org/vendor/sosios-produce/),
+[Pure Food Fish](https://www.pikeplacemarket.org/vendor/pure-food-fish/) and
+[MarketSpice](https://www.pikeplacemarket.org/vendor/market-spice/).
+Sosio’s directory entry places it north of Lowell’s and next to Chukar Cherries.
+The game compresses the walk between bays. The display stock, counter dimensions
+and sign positions are visual estimates based on market photographs.

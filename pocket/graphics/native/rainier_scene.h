@@ -130,6 +130,10 @@ static GLuint rainier_program(void){
   "if(regional==2 && abs(tint.a-.251)<.0001){vec3 n=normalize(cross(dFdx(pos),dFdy(pos)));vec2 uv=vec2((abs(n.x)>abs(n.z)?pos.z:pos.x)*3.2,pos.y*8.);uv.x+=.5*mod(floor(uv.y),2.);"
   "vec2 edge=abs(fract(uv)-.5);float joint=smoothstep(.43,.49,max(edge.x,edge.y));"
   "col=mix(col*(.80+.32*hash(floor(uv))),vec3(.32,.29,.26),joint*.65);}"
+  // Arcade quarry tile beneath the covered aisle, aligned with the stall fronts.
+  "if(regional==2 && abs(tint.a-.256)<.0001){vec2 p=vec2(dot(pos.xz,vec2(-.5299,.8480)),dot(pos.xz,vec2(-.8480,-.5299)))*4.;"
+  "vec2 d=abs(fract(p)-.5);float grout=smoothstep(.445,.492,max(d.x,d.y))*(1.-smoothstep(.18,.7,length(fwidth(p))));"
+  "col*=(.88+.16*hash(floor(p)))*(1.-.52*grout);}"
   // Dense layers on the lower Post Alley bricks. Filter sub-pixel pieces at distance.
   "if(regional==2 && abs(tint.a-.255)<.0001){vec2 uv=pos.zy*vec2(32.,38.);"
   "vec2 cell=floor(uv);float seed=hash(cell);vec2 q=fract(uv)-.5+.24*(vec2(seed,hash(cell+7.))-.5);"

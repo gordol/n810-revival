@@ -19,9 +19,9 @@ FLOORS=((-10,10,-54,-9),(-35,65,-9,-1),(-28,57,-1,9))
 
 def floor_vertex(center,height,u,v):
     raw=height(*offset(center,u,v))
-    # The fish counter stands on a level slab. Its entrance meets the sloping
+    # The arcade counters stand on one continuous raised slab. Its entrance meets the sloping
     # brick street over the final metres; the unmodified DEM stays underneath.
-    across=min(1.,max(0.,(12.-abs(u))/4.))
+    across=max(0.,min(1.,(u+28.)/4.,(57.-u)/4.))
     entry=min(1.,max(0.,(v+3.)/4.))
     return raw+.065+across*entry*max(0.,height(*center)-raw)
 
@@ -74,6 +74,86 @@ def build(center,height,quad):
         from pnw.market_visit import lettering as typeset
         typeset(words,x,y,depth,size,lambda points,tone:panel(points,tone,.247),color)
 
+    def turned(x,y,z,radius,depth,profile,color,sides=12):
+        """Bake a ring profile into the same static market mesh as the counter."""
+        for j in range(sides):
+            a,b=math.tau*j/sides,math.tau*(j+1)/sides
+            def rim(t,r,h):return x+radius*r*math.cos(t),y+h,z+depth*r*math.sin(t)
+            for (r,h),(rr,hh) in zip(profile,profile[1:]):
+                shade=.84+.12*math.cos(a+.6)+.060*(rr<r)
+                panel((rim(a,r,h),rim(b,r,h),rim(b,rr,hh),rim(a,rr,hh)),tuple(shade*c for c in color))
+
+    def ticket(x,z,y,name):
+        wall(x-.19,x+.19,y,y+.18,z,(.72,.11,.075))
+        wall(x-.18,x+.18,y+.01,y+.17,z-.004,(.98,.93,.82))
+        lettering(name,x-.16,y+.065,z-.008,min(.060,.36/len(name)),(.12,.18,.28))
+        block(x-.013,x+.013,y-.13,y,z,z+.018,(.60,.43,.26))
+
+    def merchandise(u,kind):
+        title={'produce':"SOSIO'S FRUIT & PRODUCE",'fish':'PURE FOOD FISH','spice':'MarketSpice','cherries':'CHUKAR CHERRIES'}[kind]
+        backing={'produce':(.10,.21,.16),'fish':(.17,.19,.20),'spice':(.22,.13,.08),'cherries':(.49,.10,.11)}[kind]
+        wall(u-1.76,u+1.76,2.00,2.61,6.36,backing)
+        lettering(title,u-1.58,2.16,6.34,min(.32,4./len(title)),(.98,.83,.56))
+        if kind in ('spice','cherries'):
+            for row in range(3):
+                y=1.03+.26*row
+                z=4.75+.38*row
+                block(u-1.61,u+1.61,1.02,y+.045,z-.18,z+.19,backing)
+                for j in range(15):
+                    x=u-1.43+.202*j
+                    color=((.62,.22,.09),(.43,.24,.09),(.74,.45,.12))[(j//4+row)%3] if kind=='spice' else (.46,.105,.12)
+                    turned(x,y+.045,z,.078,.078,((.92,0),(1,.13),(.88,.15),(.94,.16)),color,10)
+                    turned(x,y+.201,z,.079,.079,((1,0),(1,.018),(0,.018)),(.79,.68,.44),10)
+                    wall(x-.042,x+.042,y+.08,y+.15,z-.078,(.91,.84,.64))
+            return
+        labels=('Porcini','Chanterelles','Pears','Apples') if kind=='produce' else ('Manila clams','Mussels','Rockfish','Salmon')
+        for j,label in enumerate(labels):
+            x=u-1.57+.79*j
+            block(x,x+.74,1.02,1.12,4.55,5.88,(.27,.32,.22) if kind=='produce' else (.72,.77,.76))
+            panel(((x,1.12,4.55),(x+.74,1.12,4.55),(x+.74,1.25,5.88),(x,1.25,5.88)),
+                  (.85,.91,.93) if kind=='fish' else (.24,.34,.20))
+            for row in range(5):
+                for k in range(4):
+                    xx=x+.10+.17*k+rng.uniform(-.025,.025)
+                    zz=4.69+.22*row+rng.uniform(-.04,.04)
+                    y=1.12+.13*(zz-4.55)/1.33
+                    if kind=='fish':
+                        turned(xx,y-.016,zz,.095,.12,((1,0),(.87,.03),(0,.041)),(.87,.93,.94),7)
+                    if kind=='produce':
+                        profile=(((.34,0),(.43,.085),(1,.10),(.77,.14),(0,.15)),
+                                 ((.23,0),(.35,.065),(.96,.115),(1,.13),(.48,.116),(0,.093)),
+                                 ((.30,0),(1,.047),(.80,.11),(.26,.165),(0,.17)),
+                                 ((.50,0),(1,.05),(.89,.11),(.49,.135),(0,.126)))[j]
+                        tone=((.61,.42,.25),(.94,.56,.15),(.69,.73,.25),(.84,.18,.10))[j]
+                        turned(xx,y,zz,.085,.080,profile,tone)
+                    elif j<2:
+                        tone=(.66,.60,.46) if j==0 else (.12,.16,.21)
+                        turned(xx,y,zz,.072,.091,((.77,0),(1,.018),(.75,.038),(0,.048)),tone,10)
+                    elif k==0:
+                        # Fish laid across the length of the tray, with a tapered tail and dark back.
+                        tone=(.91,.33,.19) if j==2 else (.56,.66,.70)
+                        for a,b in zip((0,.08,.22,.43,.54),(.08,.22,.43,.54,.64)):
+                            def section(t,angle):
+                                r=.025+.066*math.sin(math.pi*t/.64)**.72
+                                return xx+t,y+.035+r*math.sin(angle),zz+r*math.cos(angle)
+                            for h in range(10):
+                                t=h*math.tau/10
+                                panel((section(a,t),section(b,t),section(b,t+.6283),section(a,t+.6283)),
+                                      tuple(v*(.80+.18*math.cos(t)) for v in tone))
+                        turned(xx+.055,y+.107,zz-.018,.012,.013,((1,0),(.8,.006),(0,.009)),(.09,.10,.10),8)
+                        panel(((xx+.57,y+.06,zz),(xx+.69,y+.065,zz-.07),(xx+.66,y+.07,zz),(xx+.69,y+.068,zz+.07)),tone)
+            ticket(x+.37,4.64,1.25,label)
+        if kind=='produce':
+            block(u-.012,u+.012,2.47,3.55,5.08,5.11,(.34,.33,.29))
+            for k in range(32):
+                a,b=k*math.tau/32,(k+1)*math.tau/32
+                def dial(t,r):return u+r*math.cos(t),2.29+r*math.sin(t),5.08
+                panel((dial(a,0),dial(a,.19),dial(b,.19),dial(a,0)),(.89,.85,.70))
+                if k%2==0:stroke(*dial(a,.14)[:2],*dial(a,.17)[:2],5.075,.006,(.20,.18,.14))
+            stroke(u,2.29,u+.08,2.40,5.07,.008,(.62,.15,.10))
+            for dx in (-.18,.18):stroke(u,2.10,u+dx,1.78,5.09,.008,(.46,.45,.40))
+            turned(u,1.73,5.09,.23,.17,((.55,0),(1,.052),(0,.049)),(.68,.69,.64))
+
     # A fictional curbside rental stand beside the market entrance.
     pad=floor_height(center,height,*rental_site(center))-level
     wall(3.3,4.8,pad+1.12,pad+1.55,-35.8,(.08,.24,.22))
@@ -110,6 +190,14 @@ def build(center,height,quad):
     for i in range(-7,15):
         u=i*4.
         block(u-.12,u+.12,-2,3.6,-.95,-.70,trim)
+        if 3<=i<=12:
+            # Daylight above the low sill on the opposite side of the aisle.
+            wall(u-1.95,u+1.95,1.02,3.19,.30,(.27,.35,.33))
+            for pane in range(4):
+                left=u-1.88+pane*.95
+                wall(left,left+.88,1.10,2.72,.315,(.57,.69,.73),.244)
+                wall(left,left+.88,2.77,3.11,.315,(.69,.77,.79),.244)
+            block(u-1.92,u+1.92,.89,1.04,.30,.57,(.46,.45,.38))
         wall(u-1.98,u+1.98,.6,2.85,8.65,(.34,.23,.16))
         for y in (1.1,1.74,2.38):
             block(u-1.75,u+1.75,y,y+.09,8.1,8.7,trim)
@@ -123,7 +211,14 @@ def build(center,height,quad):
             lettering('DownUnder',u-1.33,2.45,5.87,.34,(.95,.87,.70))
             continue
         if i in (0,1):continue  # Open passage into the arcade.
-        block(u-1.65,u+1.65,-1,1.02,4.5,6,(.44,.29,.16))
+        block(u-1.65,u+1.65,.72,1.02,4.5,6,(.25,.29,.24))
+        for leg in (-1.47,1.47):
+            block(u+leg-.04,u+leg+.04,-1,.72,4.57,4.66,trim)
+        block(u-1.61,u+1.61,.28,.32,4.66,5.9,(.36,.32,.24))
+        feature={-3:'spice',3:'fish',5:'produce',6:'cherries'}.get(i)
+        if feature:
+            merchandise(u,feature)
+            continue
         if i in (-1,2):
             flowers=i==-1
             sign='FLOWERS' if flowers else 'HONEY'
@@ -179,6 +274,15 @@ def build(center,height,quad):
         wall(-3.58,-2.92+.16*(j%2),1.48-.14*j,1.51-.14*j,-1.95,(.80,.75,.57))
         wall(-2.78,-2.44,1.48-.14*j,1.51-.14*j,-1.95,(.67,.76,.70))
     # Pendant globes and the surviving Loback sign seen down the Main Arcade.
+    # Two continuous sloping soffits carry the warm lamps on either side of the aisle.
+    panel(((-28,3.53,1.02),(57,3.53,1.02),(57,3.53,4.20),(-28,3.53,4.20)),(.83,.74,.61))
+    for z,direction in ((1.02,-1),(4.20,1)):
+        lip=z+.48*direction
+        panel(((-28,3.53,z),(57,3.53,z),(57,3.22,lip),(-28,3.22,lip)),(.84,.73,.55))
+        for n in range(71):
+            u=-27.6+n*1.19
+            turned(u,3.26,z+.31*direction,.048,.048,((.35,0),(1,.037),(.73,.075)),(.96,.85,.64),8)
+            wall(u-.036,u+.036,3.283,3.33,z+.31*direction-.045,(1.,.91,.69),.247)
     for u in range(-24,54,4):
         block(u-.018,u+.018,2.96,3.55,2.67,2.71,iron)
         for k in range(12):
@@ -195,6 +299,19 @@ def build(center,height,quad):
     block(5.91,6.00,2.61,3.42,1.02,4.25,(.16,.20,.24))
     sign_text('WATERFRONT',0,3.04,0,.27,viewpoint_panel,(.55,.69,1.))
     sign_text('VIEWPOINT',.17,2.78,0,.22,viewpoint_panel,(.58,.72,1.))
+    # Visitors approach the hanging signs along the arcade from either end.
+    def reverse_sign(x,right,words,y,size,tone):
+        sign_text(words,0,y,0,size,lambda pts,c:panel([(x+z,h,right-u) for u,h,z in pts],c,.247),tone)
+    reverse_sign(5.90,4.12,'WATERFRONT',3.04,.27,(.55,.69,1.))
+    reverse_sign(5.90,3.95,'VIEWPOINT',2.78,.22,(.58,.72,1.))
+    reverse_sign(5.90,3.72,'& PUBLIC SEATING',2.63,.115,(.68,.78,1.))
+    sign_text('& PUBLIC SEATING',.48,2.63,0,.115,viewpoint_panel,(.68,.78,1.))
+    block(15.9,16.,2.43,3.48,1.45,3.65,(.11,.105,.13))
+    for words,y,size,tone in (("LOWELL'S",3.16,.25,(1.,.70,.16)),('RESTAURANT',2.94,.17,(.96,.93,.86)),
+                              ('COCKTAILS',2.74,.16,(1.,.21,.27)),('WATER VIEW',2.54,.16,(.39,.57,1.))):
+        reverse_sign(15.88,3.50,words,y,size,tone)
+        sign_text(words,0,y,0,size,lambda pts,c:panel([(16.02-z,h,1.55+x) for x,h,z in pts],c,.247),tone)
+    sign_text('QUALITY ALWAYS',.69,2.64,0,.14,sign_panel,(1.,.58,.33))
     sign_text('LOBACK MEAT CO',0,2.86,0,.31,sign_panel,(.95,.35,.18))
     # The OSM shop point registers this bay. A front ice bed faces the
     # customers, with a separate wrapping counter behind the fishmongers.
@@ -377,4 +494,5 @@ def build(center,height,quad):
                 for du,dv in ((0,0),(2,0),(2,2),(0,2)):
                     x,z=offset(center,min(right,u+du),min(back,v+dv))
                     pts.append((x,floor_vertex(center,height,min(right,u+du),min(back,v+dv)),z))
-                quad(pts,(.43,.37,.32) if front<-1 else (.38,.36,.32),.237)
+                if front<-1:quad(pts,(.43,.37,.32),.237)
+                else:quad(pts,(.65,.48,.34),.256)

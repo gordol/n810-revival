@@ -294,12 +294,13 @@ class OutingTests(unittest.TestCase):
         for _,x,y,z,*_ in people:self.assertAlmostEqual(y,floor(x,z))
         tiles=[]
         def capture(points,color,material=0.):
-            if material==.237:tiles.append(points)
+            if material in (.237,.256):tiles.append(points)
         build(center,terrain,capture)
         for x,y,z in [tuple(sum(p[k] for p in tile[:3])/3 for k in range(3)) for tile in tiles[::47]]:
             self.assertAlmostEqual(floor(x,z),y)
-        for u,v in ((1.7,3.35),(3.4,6.25)):
-            self.assertAlmostEqual(floor(*offset(center,u,v)),terrain(*center)+.065,places=3)
+        for u,v in ((1.7,3.35),(3.4,6.25),(-12.,4.5),(20.,4.5)):
+            def downhill(x,z):return 30.-.10*math.dist((x,z),center)
+            self.assertAlmostEqual(floor_height(center,downhill,*offset(center,u,v)),30.065,places=3)
 
     def test_baked_people_have_a_supporting_shoe_in_each_pose(self):
         import struct
