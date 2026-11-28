@@ -26,12 +26,14 @@ based at the lowest point of its shoes.
 The renderer interpolates adjacent poses on the GPU. Scene coordinates use
 metres with +Y up and +Z forward.
 
-Seattle shoppers use a repeatable site and visitor seed to select the base
-mesh, clothing tint, height, width, and head width. Set `POCKET_CITY_SEED`
-before launching Pocket to vary the crowd. Purchases follow the shopper's
-activity and keep the same appearance seed.
+Seattle shoppers keep a stable appearance throughout their visit. Either base
+mesh can wear all 12 top styles, six trouser designs and six shoe designs.
+Each garment draws independently from 20 dyes, giving 240 shirts, 120 pairs
+of trousers and 120 pairs of shoes. These variations reuse the baked meshes
+and material atlas. The same visitor seed selects one of six head looks
+(including a cap), eight hair colors, 16 complexions, height, frame width
+and waist shape. Set `POCKET_CITY_SEED` before launch to vary the crowd.
 
 The renderer reads the hand grip and crown from mesh vertices in each pose
-to position carried bags, caps and cropped curls. Accessories interpolate with the same pose pair as the mesh.
-Seeded outfits add stripes, checks, trouser fabrics and caps. Hair and skin
-materials have independent controls for greying and complexion.
+to position carried bags, bouquets, caps and hair. Accessories interpolate
+with the same pose pair as the mesh.

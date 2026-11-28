@@ -153,7 +153,7 @@ static void plaza_dog(float phase){
 }
 
 /* Rounded crown with a higher hairline at the brow and curls down the nape. */
-static void cropped_curls(float grey){
+static void cropped_curls(const float *color){
  for(int row=0;row<13;row++){
   glBegin(GL_QUAD_STRIP);
   for(int i=0;i<=48;i++){
@@ -163,7 +163,7 @@ static void cropped_curls(float grey){
     float curl=sinf(15*a+.6f*j)*sinf(j*1.8f);
     float radius=sinf(t)*(1.f+.043f*curl);
     float light=.72f+.19f*cosf(t)+.11f*curl;
-    glColor3f(light*(.18f+.39f*grey),light*(.13f+.41f*grey),light*(.105f+.43f*grey));
+    glColor3f(light*color[0],light*color[1],light*color[2]);
     glVertex3f(.123f*radius*sinf(a),-.033f+.125f*cosf(t),.128f*radius*cosf(a));
    }
   }
@@ -192,11 +192,9 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
   glRotatef(p[4],0,1,0);
   if(kind<=1){
    unsigned identity=(unsigned)p[6],seed=identity&32767u;
-   const float *base=coats[(seed>>1)%9];
-   float coat[3];
-   for(unsigned c=0;c<3;c++)coat[c]=base[c]*(.76f+.031f*((seed>>(4+3*c))&7u));
-   float size=kind==1?.96f+.025f*seed:.93f+.020f*((seed>>7)&7u);
-   float width=kind==1?1.02f:.94f+.024f*((seed>>10)&7u);
+   const float *coat=market_dyes[market_choice(seed,2,20)];
+   float size=kind==1?.96f+.025f*seed:.87f+.016f*((seed>>7)&15u);
+   float width=kind==1?1.02f:.89f+.028f*market_choice(seed,11,9);
    glScalef(width,size,size);
    float anchors[2][3]={{0}};
    market_person_draw(&s->people[kind==0 && (seed&1)],kind,pose,kind==1?coats[3+seed]:coat,
@@ -211,10 +209,19 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
     glPushMatrix();glTranslatef(anchors[0][0]+.19f,anchors[0][1]-1.06f,anchors[0][2]-.15f);
     market_flowers();glPopMatrix();
    }
-   unsigned hair=(seed>>4)&3u;
-   if(kind==0 && (hair==1 || hair==2)){
+   unsigned hair=market_choice(seed,8,6);
+   const float *locks=market_hair_colors[market_choice(seed,9,8)];
+   if(kind==0 && hair!=0){
     glPushMatrix();glTranslatef(anchors[1][0]+.044f,anchors[1][1],anchors[1][2]-.041f);
-    if(hair==2)cropped_curls(((seed>>11)&3u)/3.f);
+    if(hair>=2){
+     if(hair==5)glScalef(.94f,.84f,.96f);
+     cropped_curls(locks);
+     if(hair==3)market_body(0,.060f,-.10f,.069f,.068f,.069f,locks[0],locks[1],locks[2]);
+     if(hair==4){
+      for(int side=-1;side<=1;side+=2)
+       market_body(side*.083f,-.064f,-.078f,.061f,.123f,.06f,locks[0],locks[1],locks[2]);
+     }
+    }
     else{
     market_body(0,.025f,0,.113f,.075f,.113f,.23f,.28f,.31f);
     market_body(0,.002f,.115f,.095f,.010f,.080f,.19f,.22f,.24f);}

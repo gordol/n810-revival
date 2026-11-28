@@ -55,7 +55,7 @@ def stroll(site_name,i,age,length):
         angle=(t-length)/radius
         dx,dz,heading=radius*math.cos(angle),length/2+radius*math.sin(angle),-angle
     if turnback:dx,dz,heading=-dx,-dz,heading+math.pi
-    stature=.93+.020*((identity>>7)&7)
+    stature=.87+.016*((identity>>7)&15)
     return dx,dz,heading,(age*speed*12/(1.10*stature)+i*3)%12,identity
 
 def street_walkers(age,ground,x,z):
@@ -159,7 +159,7 @@ def actors(age,ground,since):
             turn=(along-2*straight-bend)/radius
             u,v,heading=-18-radius*math.sin(turn),lane-radius*math.cos(turn),-math.pi/2+turn
         identity=shopper('market',i+1)
-        stature=.93+.020*((identity>>7)&7)
+        stature=.87+.016*((identity>>7)&15)
         gait=(age*speed/(1.10*stature)*12+i*2.3)%12
         walker(u,v,heading,gait,identity)
     # A customer collects flowers from the farm table and carries them
