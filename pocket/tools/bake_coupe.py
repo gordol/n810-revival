@@ -24,7 +24,15 @@ def bake(source):
     groups=[[] for _ in range(29)]
     def visit(index,parent):
         node=gltf['nodes'][index]
-        transform=parent@np.asarray(node.get('matrix',np.eye(4))).reshape(4,4).T
+        local=np.asarray(node.get('matrix',np.eye(4))).reshape(4,4).T.copy()
+        if 'rotation' in node:
+            x,y,z,w=node['rotation']
+            local[:3,:3]=np.array([[1-2*(y*y+z*z),2*(x*y-z*w),2*(x*z+y*w)],
+                                    [2*(x*y+z*w),1-2*(x*x+z*z),2*(y*z-x*w)],
+                                    [2*(x*z-y*w),2*(y*z+x*w),1-2*(x*x+y*y)]])
+        local[:3,:3]*=node.get('scale',[1,1,1])
+        if 'translation' in node:local[:3,3]=node['translation']
+        transform=parent@local
         for child in node.get('children',[]):visit(child,transform)
         if 'mesh' not in node or node.get('name','').startswith(('Interior','Engine')):return
         for prim in gltf['meshes'][node['mesh']]['primitives']:
