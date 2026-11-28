@@ -749,6 +749,7 @@ class RainierView:
         from pnw.traffic import Traffic
         self.traffic=Traffic()
         self.parked_cars=[]
+        self.garage_taken=set()
         self.street_walls=self.nearby_walls=None
         self.traffic_bridges=None
         self.walk_bridges=None
@@ -938,6 +939,10 @@ class RainierView:
                 self.photo_hint='Move closer to a vehicle'
                 self.hint_until=self.age+2.
             elif parked_dist<=distance:
+                slot=getattr(parked,'garage_slot',None)
+                if slot is not None:
+                    self.garage_taken.add(slot)
+                    parked.garage_slot=None
                 self.road=parked
                 self.parked_cars.remove(parked)
             else:
@@ -2178,6 +2183,19 @@ class RainierView:
             if self.upload:self.street_walls=StreetObstacles(data,terrain_count)
             stand=self.neighborhood.update(x,z,lambda px,pz:surface(field,px,pz))
             if stand is not None:
+                from pnw.outings import StreetRide
+                slots=self.neighborhood.parking
+                self.parked_cars[:]=[car for car in self.parked_cars if getattr(car,'garage_slot',None) is None
+                                     or car.garage_slot in slots]
+                occupied={getattr(car,'garage_slot',None) for car in self.parked_cars}
+                for slot,(u,v) in slots.items():
+                    if slot in occupied or slot in self.garage_taken:continue
+                    car=StreetRide('car')
+                    car.x,car.z,car.heading,car.chase_heading=u,v,0.,0.
+                    car.actor_kind=14 if slot[2]%3 else 15
+                    car.paint=(slot[0]+slot[2])%5
+                    car.garage_slot=slot
+                    self.parked_cars.append(car)
                 self.nearby_walls=StreetObstacles(stand,len(stand)//7)
                 stand_ptr=stand.buffer_info()[0];self.stand_count=len(stand)//7
         if sound_region:center=((field.nx-1)*field.dx,(field.nz-1)*field.dz)
