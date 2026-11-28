@@ -751,6 +751,7 @@ class RainierView:
         self.parked_cars=[]
         self.street_walls=self.nearby_walls=None
         self.traffic_bridges=None
+        self.vehicle_damage=True
         self.patrol_owner=None
         self.gait_phase=0.
         self.avatar_pose=12.5
@@ -1768,9 +1769,10 @@ class RainierView:
         if self.road and not self.notebook:
             road=self.road
             old=(road.x,road.z)
+            previous_damage=road.damage
             owner.x,owner.z,owner.yaw,owner.pitch=road.advance(dt,self.pad_sticks)
             if not road.assist:
-                self.traffic.strike(road,old,self.walk_height(*old))
+                self.traffic.strike(road,old,self.walk_height(*old),self.vehicle_damage)
                 if self.traffic.impact>.65:road.alert_patrol(self.traffic.bodies.values())
                 owner.x,owner.z=road.x,road.z
             if road.patrol:
@@ -1791,6 +1793,7 @@ class RainierView:
             if walls and not road.assist:
                 strike_scenery(road,old,self.walk_height,walls)
                 owner.x,owner.z=road.x,road.z
+            if not self.vehicle_damage:road.damage=previous_damage
             field=self.world[0]
             if self.road.bridge_roads is None:
                 from pnw.seattle_places import BridgeRoads
