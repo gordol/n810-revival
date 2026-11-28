@@ -4,7 +4,7 @@ from functools import lru_cache
 import math
 from pnw.seattle_places import corridor_path, freeway_data, freeway_lines, street_lines
 from pnw.terrain import location
-from pnw.vehicle_impact import Body, collide
+from pnw.vehicle_impact import Body, collide, contact
 
 @lru_cache(maxsize=1)
 def routes():
@@ -90,6 +90,11 @@ class Traffic:
         self.last=age
         visible=[];active={};offsets={}
         occupied={}
+        previous=self.bodies
+        space={}
+        def cell(body):return math.floor(body.x/20),math.floor(body.z/20)
+        def reserve(key,body):space.setdefault(cell(body),{})[key]=body
+        for key,body in previous.items():reserve(key,body)
         self.bodies={}
         self.taken={key:pos for key,pos in self.taken.items() if math.dist((x,z),pos)<radius+100}
         for key,body in list(self.wrecks.items()):
@@ -97,6 +102,7 @@ class Traffic:
                 del self.wrecks[key]
                 continue
             body.coast(dt)
+            reserve(key,body)
             identity=key[0]+key[2]
             visible.append((math.hypot(x-body.x,z-body.z),body.x,body.z,body.heading,identity,True,2))
         for key,(at,_,_) in self.cars.items():
@@ -162,6 +168,20 @@ class Traffic:
                     kind=vehicle_type(identity)
                     body=Body(px,pz,angle,speed*math.sin(angle),speed*math.cos(angle),0.,
                               {11:10500.,12:18000.,5:2200.}.get(kind,1500.),half_length(identity),1.2 if kind in (11,12) else .95)
+                    cx,cz=cell(body)
+                    blocked_by_traffic=any(contact(body,other) for u in range(cx-1,cx+2)
+                        for v in range(cz-1,cz+2) for k,other in space.get((u,v),{}).items() if k!=key)
+                    if blocked_by_traffic:
+                        if key not in previous:
+                            del active[key]
+                            continue
+                        body=previous[key]
+                        px,pz,angle=body.x,body.z,body.heading
+                        active[key]=(self.cars[key][0],0.,True)
+                        offsets[key]=self.offsets.get(key,home)
+                        body.vx=body.vz=speed=0.
+                    if key in previous:space.get(cell(previous[key]),{}).pop(key,None)
+                    reserve(key,body)
                     self.bodies[key]=body
                     visible.append((distance,px,pz,angle,n+direction,speed<pace-2,
                                     (1 if home<0 else -1) if 0<abs(lateral+home)<3.6 else 0))
