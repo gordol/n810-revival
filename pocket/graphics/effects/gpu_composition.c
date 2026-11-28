@@ -84,7 +84,7 @@ static PyObject *composition_run(PyObject *args,int mode){
  unsigned at=0;if(base){base_origin[0]=sx[at];base_origin[1]=sy[at++];}
  for(Py_ssize_t i=0;i<count;i++){origins[i*2]=sx[at];origins[i*2+1]=sy[at++];if(application[i].plane){app_origins[i*2]=sx[at];app_origins[i*2+1]=sy[at++];}}
  for(size_t i=0;i<nd;i++){vertices[i*4]=(float)(i%outw)+.5f;vertices[i*4+1]=(float)(i/outw)+.5f;vertices[i*4+2]=(float)(indices[i]%target->w);vertices[i*4+3]=(float)(indices[i]/target->w);}
- GLint old_fbo,old_program,old_active;glGetIntegerv(GL_FRAMEBUFFER_BINDING_EXT,&old_fbo);glGetIntegerv(GL_CURRENT_PROGRAM,&old_program);glGetIntegerv(GL_ACTIVE_TEXTURE,&old_active);glPushAttrib(GL_ALL_ATTRIB_BITS);glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
+ GLint old_fbo,old_program,old_active;glGetIntegerv(GL_FRAMEBUFFER_BINDING_EXT,&old_fbo);glGetIntegerv(GL_CURRENT_PROGRAM,&old_program);glGetIntegerv(GL_ACTIVE_TEXTURE,&old_active);glPushAttrib(GL_ALL_ATTRIB_BITS);glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);cell_transfer_state();
  glMatrixMode(GL_PROJECTION);glPushMatrix();glLoadIdentity();glOrtho(0,outw,0,outh,-1,1);glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
  int error=composition_initialize();if(error)goto restore_compose;
  glUseProgram(composition_program);glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,composition_fbo);glActiveTexture(GL_TEXTURE0);composition_texture(0,atlas_w,atlas_h,atlas);composition_texture(1,outw,outh,NULL);composition_texture(2,outw,outh,NULL);

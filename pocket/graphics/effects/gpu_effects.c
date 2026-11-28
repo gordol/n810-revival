@@ -65,7 +65,19 @@ static void texture(unsigned id,unsigned w,unsigned h,const float *data){
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
  glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA32F_ARB,w,h,0,GL_RGBA,GL_FLOAT,data);
 }
-static unsigned packed(float r,float g,float b){return ((unsigned)r<<16)|((unsigned)g<<8)|(unsigned)b;}
+/* SDL and the world renderer share this context. Float cell planes always
+ * use tightly packed host memory, irrespective of the last texture upload. */
+static void cell_transfer_state(void){
+ glBindBuffer(GL_PIXEL_PACK_BUFFER,0);glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
+ glPixelStorei(GL_PACK_ROW_LENGTH,0);glPixelStorei(GL_UNPACK_ROW_LENGTH,0);
+ glPixelStorei(GL_PACK_SKIP_ROWS,0);glPixelStorei(GL_UNPACK_SKIP_ROWS,0);
+ glPixelStorei(GL_PACK_SKIP_PIXELS,0);glPixelStorei(GL_UNPACK_SKIP_PIXELS,0);
+ glPixelStorei(GL_PACK_ALIGNMENT,4);glPixelStorei(GL_UNPACK_ALIGNMENT,4);
+ glPixelStorei(GL_PACK_SWAP_BYTES,GL_FALSE);glPixelStorei(GL_UNPACK_SWAP_BYTES,GL_FALSE);
+ glClientActiveTexture(GL_TEXTURE0);glBindBuffer(GL_ARRAY_BUFFER,0);
+}
+static unsigned byte_channel(float value){return (unsigned)fminf(255.f,fmaxf(0.f,value));}
+static unsigned packed(float r,float g,float b){return (byte_channel(r)<<16)|(byte_channel(g)<<8)|byte_channel(b);}
 static unsigned channel(double v,unsigned levels){if(v<0)v=0;if(v>255)v=255;return cw_even(cw_even(v*levels/255.)*255./levels);}
 static uint64_t ink(double *f,double *b){unsigned fg=(channel(f[0],31)<<16)|(channel(f[1],63)<<8)|channel(f[2],31);unsigned bg=(channel(b[0],31)<<16)|(channel(b[1],63)<<8)|channel(b[2],31);return (UINT64_C(1)<<48)|((uint64_t)fg<<24)|bg;}
 typedef struct {float x,y,r,g,b,a;double exact[3];int next;} Splat;
@@ -73,7 +85,7 @@ static int gpu_render(Surface *base,PyObject *base_obj,Splat *splat,unsigned cou
  size_t n=(size_t)base->w*base->h;
  GLint old_vertex_clamp,old_fragment_clamp;glGetIntegerv(GL_CLAMP_VERTEX_COLOR_ARB,&old_vertex_clamp);glGetIntegerv(GL_CLAMP_FRAGMENT_COLOR_ARB,&old_fragment_clamp);
  GLint old_fbo,old_program,old_active;glGetIntegerv(GL_FRAMEBUFFER_BINDING_EXT,&old_fbo);glGetIntegerv(GL_CURRENT_PROGRAM,&old_program);glGetIntegerv(GL_ACTIVE_TEXTURE,&old_active);
- glPushAttrib(GL_ALL_ATTRIB_BITS);glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
+ glPushAttrib(GL_ALL_ATTRIB_BITS);glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);cell_transfer_state();
  glMatrixMode(GL_PROJECTION);glPushMatrix();glLoadIdentity();glOrtho(0,base->w,0,base->h,-1,1);glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
  int error=initialize();if(error)goto gpu_restore;
  glDisable(GL_DEPTH_TEST);glDisable(GL_LIGHTING);glDisable(GL_VERTEX_PROGRAM_ARB);glDisable(GL_TEXTURE_2D);glDisable(GL_SCISSOR_TEST);glDisable(GL_DITHER);glViewport(0,0,base->w,base->h);
@@ -147,7 +159,8 @@ static PyObject *flurry(PyObject *self,PyObject *args){
  int error=gpu_render(base,base_obj,splat,count,pixels,0,step,0,NULL);if(error)goto done;
  for(size_t i=0;i<n;i++){
   uint64_t color=(UINT64_C(1)<<48)|((uint64_t)packed(pixels[i*4],pixels[i*4+1],pixels[i*4+2])<<24)|packed(pixels[(n+i)*4],pixels[(n+i)*4+1],pixels[(n+i)*4+2]);
-  if(pixels[i*4+3]>.5f&&first[i]>=0){
+  if(first[i]<0)color=base->ink[i];
+  else if(pixels[i*4+3]>.5f){
    double sum[3]={0,0,0},fg[3],bg[3];for(int at=first[i];at>=0;at=splat[at].next)for(unsigned c=0;c<3;c++){sum[c]+=splat[at].exact[c];if(sum[c]>215)sum[c]=215;}
    for(unsigned c=0;c<3;c++){double under=(base->ink[i]>>(16-c*8))&255;fg[c]=fmin(230,under+sum[c]);bg[c]=fmin(220,under+sum[c]*.45);}
    color=ink(fg,bg);repairs++;
@@ -208,7 +221,8 @@ static PyObject *flux(PyObject *self,PyObject *args){
   uint64_t color=(UINT64_C(1)<<48)|((uint64_t)packed(pixels[i*4],pixels[i*4+1],pixels[i*4+2])<<24)|packed(pixels[(n+i)*4],pixels[(n+i)*4+1],pixels[(n+i)*4+2]);
   unsigned glyph=base->glyph[i];int active=first[i]>=0&&(density[i]>0||glow>0);
   if(active)glyph=density[i]>0?(trails[i]?(unsigned)trails[i]:heads[i]>=3?'+':ascii?'.':0xb7):' ';
-  if(active&&pixels[i*4+3]>.5f){
+  if(!active)color=base->ink[i];
+  else if(pixels[i*4+3]>.5f){
    double amount=0,fg[3],bg[3];for(int at=first[i];at>=0;at=splat[at].next)amount=fmin(2.2,amount+splat[at].exact[0]);
    double phase=(double)(i%w)/w*2.4+(double)(i/w)/h*1.7+t*.12;
    for(unsigned channel_id=0;channel_id<3;channel_id++){
