@@ -7,6 +7,7 @@ static unsigned market_choice(unsigned seed,unsigned channel,unsigned count){
  return x%count;
 }
 
+enum { MARKET_HEAD_LOOKS=9 };
 static const float market_dyes[][3]={
  {.12,.14,.17},{.26,.28,.30},{.48,.48,.46},{.84,.80,.71},{.95,.91,.86},
  {.14,.21,.32},{.24,.36,.51},{.41,.59,.69},{.12,.41,.42},{.27,.43,.34},
@@ -115,7 +116,7 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
   "float cuff=smoothstep(.82,.835,body.y);vec3 sleeve=coat*(.78+.15*smoothstep(.855,.871,body.y));"
   "if(outfit==10)sleeve*=.82+.18*cos(78.*body.y);if(outfit==9)sleeve=mix(sleeve,vec3(.78,.72,.60),.78*smoothstep(1.26,1.28,body.y));"
   "paint=mix(paint,sleeve,cuff);}"
-  "if(tile==skinTile+2. && hair>=2)discard;if(tile==skinTile+2.)paint=hairColor*(.64+1.5*dot(c.rgb,vec3(.30,.59,.11)));"
+  "if(tile==skinTile+2. && hair>=1)discard;if(tile==skinTile+2.)paint=hairColor*(.64+1.5*dot(c.rgb,vec3(.30,.59,.11)));"
   "if(worker!=0 && uv.z>2.5 && uv.z<3.5)paint=mix(vec3(.075,.08,.07),vec3(.25,.25,.22),c.g);"
   "gl_FragColor=vec4(paint*light,1.);}";
 
@@ -198,7 +199,7 @@ static void market_person_draw(struct posed_person *model,int kind,float pose,co
  glUniform1f(glGetUniformLocation(model->program,"blend"),weight);
  glUniform1i(glGetUniformLocation(model->program,"outfit"),kind==1?0:market_choice(identity,1,12));
  glUniform1f(glGetUniformLocation(model->program,"complexion"),market_choice(identity,7,16)/15.f);
- glUniform1i(glGetUniformLocation(model->program,"hair"),kind==0 && anchors?market_choice(identity,8,6):0);
+ glUniform1i(glGetUniformLocation(model->program,"hair"),kind==0 && anchors?market_choice(identity,8,MARKET_HEAD_LOOKS):0);
  glUniform1f(glGetUniformLocation(model->program,"skinTile"),(float)model->skin_tile);
  glUniform3fv(glGetUniformLocation(model->program,"hairColor"),1,market_hair_colors[market_choice(identity,9,8)]);
  glUniform1f(glGetUniformLocation(model->program,"buildShape"),((int)market_choice(identity,10,9)-4)*.05f);
