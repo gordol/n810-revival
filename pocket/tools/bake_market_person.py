@@ -109,7 +109,7 @@ def relax_hand(side,open_hand):
     across=bones['index_01_'+side].head_local-bones['pinky_01_'+side].head_local
     palm=across.cross(knuckle.tail_local-knuckle.head_local).normalized()
     if palm.dot(bones['thumb_03_'+side].tail_local-knuckle.head_local)<0:palm.negate()
-    for finger,angle in (('index',13),('middle',19),('ring',24),('pinky',29)):
+    for finger,angle in (('index',7),('middle',10),('ring',13),('pinky',16)):
         for joint,factor in (('01',1.),('02',1.15),('03',.55)):
             name=f'{finger}_{joint}_{side}'
             bone=bones[name]
@@ -215,9 +215,9 @@ def walking_arms(phase):
         # swing keeps the arms asymmetric without pinning the elbow in place.
         swing=.83 if jacket and side=='r' else 1.
         shoulder=sign*.21*swing*math.cos(phase)
-        forearm=.19+sign*.24*swing*math.cos(phase-.18)
-        upper_out=.25 if jacket else .37
-        lower_out=.075 if jacket else .135
+        forearm=.35+sign*.29*swing*math.cos(phase-.18)
+        upper_out=.22 if jacket else .32
+        lower_out=.065 if jacket else .105
         aim('upperarm_'+side,(sign*upper_out,-math.sin(shoulder),-math.cos(shoulder)))
         aim('lowerarm_'+side,(sign*lower_out,-math.sin(forearm),-math.cos(forearm)))
         # A sleeve twist bone can point the right way without moving the
@@ -227,7 +227,7 @@ def walking_arms(phase):
         intended=Vector((sign*lower_out,-math.sin(forearm),-math.cos(forearm)))
         if wrist_axis.angle(intended)>math.radians(3):
             raise ValueError(f'{side} wrist does not follow its elbow')
-        hang_wrist(side,forearm-.06)
+        hang_wrist(side,forearm-.04)
         relax_hand(side,False)
 
 def clearance_surfaces():
@@ -287,8 +287,8 @@ for frame in range(16):
             bpy.context.view_layer.update()
         for side,sign in (('l',1),('r',-1)):
             bent=(sign==lean)
-            upper=(.24*sign,-(.16 if bent else .05),-.98)
-            lower=(-.07*sign if bent else .02*sign,-(.55 if bent else .28),-.85)
+            upper=(.18*sign,-(.16 if bent else .05),-.98)
+            lower=(.01*sign,-(.41 if bent else .22),-.95)
             if frame==14 and side=='r':
                 upper=(.14,-.84,-.51)
                 lower=(.10,-.96,.29)

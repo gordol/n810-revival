@@ -75,17 +75,15 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
   "float trunk=smoothstep(.22,.77,y)*(1.-smoothstep(1.39,1.53,y));"
   "float thigh=exp(-24.*(y-.62)*(y-.62));"
   "float reach=clamp(x/.15,-1.,1.);"
-  "float arm=smoothstep(.16,.235,abs(x))*smoothstep(.62,.76,y)*(1.-smoothstep(1.38,1.55,y));"
   "vec3 unshaped=pos;"
   "pos.x+=reach*(.080*shape.x*trunk+.045*shape.y*hips+.034*shape.w*belly);"
   "pos.x+=(x-sign(x)*.100)*.53*shape.x*thigh;"
-  "pos.x+=sign(x)*arm*.045*max(0.,shape.x);"
   "float front=smoothstep(-.025,.075,body.z);"
   "pos.z+=core*(front*(.13*shape.x*belly+.063*shape.w*belly+.065*shape.z*bust)"
   "-(1.-front)*hips*(.055*shape.y+.051*shape.x));"
   "pos.z+=(body.z-.02)*.30*shape.x*thigh;"
   "float hand=smoothstep(.145,.18,abs(x))*(1.-smoothstep(.84,.99,y))*smoothstep(.60,.70,y);"
-  "pos=mix(pos,unshaped+vec3(sign(x)*.10*shape.x,0.,0.),hand);"
+  "pos=mix(pos,unshaped+vec3(sign(x)*.080*shape.x,0.,0.),hand);"
   "if(gl_MultiTexCoord0.z>1.5&&gl_MultiTexCoord0.z<2.5){float leg=1.-smoothstep(.49,.78,body.y);"
   "if(pantCut==2||pantCut==4)pos+=n*(.010*leg*smoothstep(.10,.19,body.y));}"
   "if(gl_MultiTexCoord0.z>.5&&gl_MultiTexCoord0.z<1.5){"
@@ -247,7 +245,7 @@ static void market_person_draw(struct posed_person *model,int kind,float pose,co
  glUniform3fv(glGetUniformLocation(model->program,"hairColor"),1,market_hair_swatch(identity));
  int shopper=kind==0 && anchors;
  float mass=((int)market_choice(identity,10,101)-34)/54.f;
- if(shopper)anchors[0][0]-=.10f*mass; /* Both baked grips are the left hand. */
+ if(shopper)anchors[0][0]-=.080f*mass; /* Both baked grips are the left hand. */
  glUniform4f(glGetUniformLocation(model->program,"shape"),shopper?mass:0.f,
              shopper?((int)market_choice(identity,14,101)-38)/63.f:0.f,
              shopper?((int)market_choice(identity,15,101)-31)/62.f:0.f,
