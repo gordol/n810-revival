@@ -48,7 +48,10 @@ regional-scenery:
 	$(PYTHON) tools/prepare_region.py
 
 ifneq ($(REGIONAL_SCENERY),bundled)
-gui explore jet mobile termux-gui: regional-scenery
+gui explore jet mobile termux-gui: regional-scenery-launch
+.PHONY: regional-scenery-launch
+regional-scenery-launch:
+	$(PYTHON) tools/prepare_region.py --launch
 endif
 
 gui: $(MAC_GUI_BOOTSTRAP)

@@ -123,15 +123,19 @@ Keep the attribution and licenses for the selected Overture release with its pac
 
 From the checkout, run `make regional-scenery` to prepare the full regional
 pack. Desktop `make gui EXTRA="--outing sports-car"` and Termux
-`make mobile EXTRA="--outing sports-car"` also run this step automatically.
+`make mobile EXTRA="--outing sports-car"` install it automatically if missing.
 The first run downloads the Washington Geofabrik extract (about 350 MiB), clips
 it with osmium-tool, and installs the indexed database (about 169 MiB) in
 the Pocket data directory. Allow 1 GiB of temporary free space. Later launches
-reuse the installed pack offline. macOS uses Homebrew for osmium-tool and
+reuse the installed pack offline, including after a Git update. Run
+`make regional-scenery` explicitly to upgrade its format. New installations
+retain the clipped source under `$XDG_CACHE_HOME/pocket/rainier-walk`
+(default `~/.cache/pocket/rainier-walk`) for offline rebuilds. Older installs
+need one download on their first explicit upgrade if that cache is missing. macOS uses Homebrew for osmium-tool and
 Termux uses pkg. On Linux install osmium-tool with your package manager.
 Use REGIONAL_SCENERY=bundled to skip preparation when traveling offline.
 
 Regional pack version 2 adds ground-level OSM streets around Thun Field,
-Tacoma Narrows and Sea-Tac. Make upgrades the default installation once.
+Tacoma Narrows and Sea-Tac.
 Airport pavement is paged with nearby buildings. Traffic follows the local
 primary, secondary and tertiary roads during outdoor outings.
