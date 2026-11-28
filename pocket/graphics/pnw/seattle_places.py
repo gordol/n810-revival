@@ -92,7 +92,9 @@ def tacoma_corridor():
 def freeway_data():
     import json
     source=Path(__file__).resolve().parents[1]/'assets/seattle/freeway.json'
-    return json.loads(source.read_text())
+    data=json.loads(source.read_text())
+    data['roads']=[road for road in data['roads'] if int(road[2].get('layer',0))>=0]
+    return data
 
 @lru_cache(maxsize=1)
 def freeway_lines():
