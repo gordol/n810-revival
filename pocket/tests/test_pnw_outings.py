@@ -463,6 +463,17 @@ class OutingTests(unittest.TestCase):
             self.assertTrue(on_road(manual.x,manual.z))
         self.assertFalse(on_road(0,0))
 
+    def test_manual_drive_continues_beyond_indexed_roads(self):
+        from pnw.seattle_places import on_road
+        from unittest.mock import patch
+        with patch.dict('os.environ',POCKET_KID_MODE='0'):
+            car=pnw.StreetRide('car')
+        car.x=car.z=car.heading=0.
+        self.assertFalse(on_road(car.x,car.z))
+        for _ in range(20):car.advance(.1,(0,-1))
+        self.assertGreater(car.speed,10.)
+        self.assertGreater(car.z,10.)
+
     def test_tacoma_corridor_and_fictional_patrol(self):
         from pnw.seattle_places import on_road,tacoma_corridor
         from unittest.mock import patch

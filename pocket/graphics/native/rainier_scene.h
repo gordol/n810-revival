@@ -1166,6 +1166,32 @@ int pocket_scene_river_map(void *ptr,int x,int y,int w,int h,int pw,int ph,const
  return river_image(ptr,x,y,w,h,pw,ph,rgb,0);
 }
 
+/* Heading-up driving inset. Segment endpoints are in local map pixels. */
+int pocket_scene_drive_map(void *ptr,int x,int y,int size,const float *lines,unsigned count,unsigned ordinary,float ramp_x,float ramp_y){
+ struct gpu_scene *s=ptr;
+ if(!s||size<1||ordinary>count||(count&&!lines)||scene_target(s,s->canvas))return -1;
+ SDL_Renderer *r=s->device;
+ SDL_Rect box={x,y,size,size};
+ SDL_SetRenderDrawColor(r,29,40,44,255);
+ if(SDL_RenderFillRect(r,&box))return -1;
+ for(unsigned i=0;i<count;i++){
+  double ax=lines[4*i],ay=lines[4*i+1],bx=lines[4*i+2],by=lines[4*i+3];
+  if(!scene_clip(&ax,&ay,&bx,&by,size-1,size-1))continue;
+  if(i<ordinary)SDL_SetRenderDrawColor(r,155,168,167,255);
+  else SDL_SetRenderDrawColor(r,255,193,85,255);
+  SDL_RenderDrawLineF(r,x+ax,y+ay,x+bx,y+by);
+ }
+ SDL_SetRenderDrawColor(r,255,193,85,255);
+ SDL_Rect ramp={x+(int)ramp_x-2,y+(int)ramp_y-2,5,5};
+ SDL_RenderFillRect(r,&ramp);
+ SDL_SetRenderDrawColor(r,146,173,175,255);
+ SDL_RenderDrawRect(r,&box);
+ SDL_SetRenderDrawColor(r,108,247,242,255);
+ for(int row=0;row<9;row++)
+  SDL_RenderDrawLine(r,x+size/2-row/2,y+size/2-5+row,x+size/2+row/2,y+size/2-5+row);
+ return 0;
+}
+
 /* Botanical line drawings in the margin of a plant discovery page. */
 int pocket_scene_plant_sketch(void *ptr,int x,int y,int w,int h,int kind){
  struct gpu_scene *s=ptr;

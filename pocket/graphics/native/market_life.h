@@ -271,6 +271,15 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
      market_tied_hair(hair,locks,pose<12.f?sinf(pose*.5235988f):0.f);
     glPopMatrix();
    }
+  }else if(kind==10){
+   market_body(0,.66f,0,.94f,.35f,2.15f,.70f,.13f,.075f);
+   market_body(0,1.01f,-.18f,.80f,.34f,1.16f,.14f,.23f,.28f);
+   market_body(0,1.23f,-.26f,.70f,.13f,.64f,.64f,.12f,.07f);
+   for(int side=-1;side<=1;side+=2){
+    for(int axle=-1;axle<=1;axle+=2)
+     market_body(side*.85f,.36f,axle*1.32f,.17f,.34f,.34f,.10f,.11f,.12f);
+    market_panel(side*.58f,.66f,1.97f,.18f,.06f,.08f,.96f,.92f,.74f);
+   }
   }else if(kind==9){
    market_panel(0,.33f,0,.92f,.49f,2.26f,.10f,.13f,.16f);
    market_body(0,.91f,-.10f,.87f,.55f,1.42f,.32f,.39f,.43f);

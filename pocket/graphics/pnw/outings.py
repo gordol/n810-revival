@@ -368,6 +368,7 @@ class StreetRide:
     def __init__(self,kind):
         import os
         from pnw.seattle_places import delivery_route,street_lines,tacoma_corridor
+        self.overhead=False
         self.kind=kind.removeprefix('tacoma-')
         self.assist=os.environ.get('POCKET_KID_MODE')=='1'
         self.route=(next(points for name,_,points,_,_ in street_lines('tacoma') if name=='Dock Street' and len(points)>=30)
@@ -432,7 +433,6 @@ class StreetRide:
         self.drag=(0.,0.)
 
     def advance(self,dt,sticks):
-        from pnw.seattle_places import on_road
         steer=max(-1.,min(1.,sticks[0]+self.drag[0]+('right' in self.keys)-('left' in self.keys)))
         pedal=max(-1.,min(1.,-sticks[1]+self.drag[1]+('up' in self.keys)-('down' in self.keys)))
         maximum={'car':12.,'motorcycle':16.,'bicycle':6.,'scooter':5.5,'sports-car':62.}[self.kind]
@@ -463,13 +463,49 @@ class StreetRide:
             self.heading+=distance*math.tan(steer_angle*self.steer)/wheelbase
             x=self.x+distance*math.sin(self.heading)
             z=self.z+distance*math.cos(self.heading)
-            if on_road(x,z):self.x,self.z=x,z
-            else:self.speed=0.;self.cruise=False
+            self.x,self.z=x,z
         if self.kind=='sports-car' and not self.assist:
             while self.leg<len(self.route)-1 and math.dist((self.x,self.z),self.route[self.leg])<30:self.leg+=1
             self.advance_patrol(dt)
         if abs(self.speed)<.5 and math.dist((self.x,self.z),self.route[-1])<6:self.delivered=True
         return self.x,self.z,self.heading,.045
+
+    @property
+    def has_car_camera(self):
+        return self.kind in ('car','sports-car')
+
+    def draw_minimap(self,ink,width,height):
+        import ctypes as C
+        from pnw.seattle_places import nearby_driving_segments,tacoma_corridor
+        size=min(144,width*3,height*5)
+        if size<40:return
+        x0,y0=ink.x+8,ink.y+height*16-size-6
+        radius=145.+min(110.,abs(self.speed)*2)
+        scale=size/(2*radius)
+        sin,cos=math.sin(self.heading),math.cos(self.heading)
+        def project(x,z):
+            dx,dz=x-self.x,z-self.z
+            return size*.5+scale*(dx*cos-dz*sin),size*.5-scale*(dx*sin+dz*cos)
+        cx,cz=math.floor(self.x/32),math.floor(self.z/32)
+        reach=math.ceil(radius*1.42/32)
+        roads=array('f')
+        def add(segments):
+            for x,z,dx,dz,_,_ in segments:
+                roads.extend((*project(x,z),*project(x+dx,z+dz)))
+        add(nearby_driving_segments(cx,cz,reach,False))
+        ordinary=len(roads)//4
+        add(nearby_driving_segments(cx,cz,reach,True))
+        ramps=[points for name,_,points,_,_ in tacoma_corridor() if name=='Ramp']
+        access=min((ramps[0][0],ramps[-1][-1]),key=lambda p:math.dist(p,(self.x,self.z)))
+        ax,ay=project(*access)
+        edge=max(1.,abs(ax-size*.5)/(size*.5-5),abs(ay-size*.5)/(size*.5-5))
+        draw=ink.ctx.lib.pocket_scene_drive_map
+        draw.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_int,C.c_void_p,C.c_uint,C.c_uint,C.c_float,C.c_float]
+        ink.ctx.check(draw(ink.ctx.handle,x0,y0,size,roads.buffer_info()[0],len(roads)//4,ordinary,
+                           size*.5+(ax-size*.5)/edge,size*.5+(ay-size*.5)/edge))
+        distance=math.dist(access,(self.x,self.z))
+        units=f'{distance/1000:.1f} km' if distance>=1000 else f'{round(distance)} m'
+        ink.label(1,(y0-ink.y)/16-1,'I-5 ramp · '+units,0xFFCB68)
 
     def hint(self):
         if self.kind=='sports-car':

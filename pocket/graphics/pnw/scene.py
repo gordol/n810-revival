@@ -814,7 +814,7 @@ class RainierView:
             if self.glider:labels=('Stop' if self.outing else 'Land','Restart','Explore',labels[3],'Map')
         if self.glider and self.outing in ('jet','hangar-jet'):labels=('Stop','Flight','Explore','Pause','Map')
         if self.outing=='scuba':labels=('Surface','Restart','Explore','Mute' if self.sound else 'Sound','Pause')
-        if self.road:labels=('Exit','Stop' if self.road.cruise else 'Go','Explore','Pause','Restart')
+        if self.road:labels=('Exit','Stop' if self.road.cruise else 'Go','Explore','Pause','View' if self.road.has_car_camera else 'Restart')
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
@@ -834,6 +834,7 @@ class RainierView:
             elif x<width*3//7:self.road.cruise=not self.road.cruise
             elif x<width*4//7:self.notebook=ExploreMenu(self)
             elif x<width*3//4:self.pause_game()
+            elif self.road.has_car_camera:self.road.overhead=not self.road.overhead
             else:self.start_outing(self.pending_outing)
             self.pixel_dirty=True
             return True
@@ -1169,6 +1170,7 @@ class RainierView:
             return
         if self.road:
             if button==0:self.road.cruise=not self.road.cruise
+            if button==8 and self.road.has_car_camera:self.road.overhead=not self.road.overhead
             if button==1:self.road=None
             self.pixel_dirty=True
             return
@@ -2000,6 +2002,15 @@ class RainierView:
             if math.hypot(x-rx,z-rz)<120:
                 identity=shopper('flower delivery',0)|(BOUQUET if self.road.delivered else 0)
                 poses.append((0,rx+1.8,ground(rx+1.8,rz),rz,225.,12.5,identity))
+        camera_x,camera_z=x,z
+        if self.road and self.road.overhead:
+            equipment=None
+            player=(5 if self.road.kind=='car' else 10,x,ground(x,z)+.05,z,math.degrees(yaw),0.,0.)
+            poses=poses[:31]+[player]
+            camera_x=x-3.*math.sin(yaw)
+            camera_z=z-3.*math.cos(yaw)
+            eye=ground(x,z)+14.-origin.y
+            pitch=math.atan2(13.,3.)
         if poses:
             actor_count=len(poses)
             packed=[]
@@ -2026,7 +2037,7 @@ class RainierView:
                 self.person_slots.add(slot)
         result=draw(ctx.handle,*rect,data.buffer_info()[0] if self.upload else None,self.counts[0],terrain_count if high or self.regional else base_count,
                        indices.buffer_info()[0] if self.upload else None,self.counts[1],commands,len(commands),
-                       x,eye,z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
+                       camera_x,eye,camera_z,yaw,pitch,self.age,mask,direction,self.trail.fed,high,
                        C.addressof(C.c_ubyte.from_buffer(shadows)) if upload_shade and shadows is not None else None,hikers_buffer,len(hikers)//3,marker,ripple,-2 if sound_region else -1 if self.regional else int(self.lens or self.binoculars),pixels,photo_index,focal, ((1+int(self.story) if self.tent else 0)+4*self.supplies+32*int(self.camp_built)) if not self.regional else 0,self.season,self.weather,origin.y,daylight,sun_angle,*center,stand_ptr,self.stand_count if self.regional else 0,0 if self.regional else 6*(len(channel().rows)-1),omit_first,omit_end,equipment,market,actor_count)
         self.context=ctx
         if result==-2 and high and self.quality.auto:
@@ -2094,7 +2105,9 @@ class RainierView:
                         from pnw.seattle_places import bearing_label
                         label=bearing_label(self.shop_target,x,z)
                 ink.label(1,h-7 if self.outing in ('market','fishshop') else h-5,label,0xFFF6DD)
-            if self.road:ink.label(1,1,self.road.hint(),0xFFEDBF)
+            if self.road:
+                ink.label(1,1,self.road.hint(),0xFFEDBF)
+                self.road.draw_minimap(ink,w-2,h-3)
             if self.glider:self.glider.draw(ink,w-2,h-3)
             if self.climb:self.climb.draw(ink,w-2,h-3)
             if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y)

@@ -88,10 +88,11 @@ def tacoma_corridor():
         lines.append((name,'freeway' if freeway else 'connector',points,6.2 if freeway else 3.6,(False,)*len(points)))
     return tuple(lines)
 
-@lru_cache(maxsize=1)
-def driving_lanes():
+@lru_cache(maxsize=2)
+def driving_lanes(corridor_only=False):
     cells={}
-    for _,kind,points,width,_ in (*street_lines('seattle'),*street_lines('tacoma'),*tacoma_corridor(),('Delivery','access',delivery_route(),3.,())):
+    lines=tacoma_corridor() if corridor_only else (*street_lines('seattle'),*street_lines('tacoma'),*tacoma_corridor(),('Delivery','access',delivery_route(),3.,()))
+    for _,kind,points,width,_ in lines:
         if kind=='pedestrian':continue
         for (x,z),(ex,ez) in zip(points,points[1:]):
             dx,dz=ex-x,ez-z
@@ -102,6 +103,12 @@ def driving_lanes():
                 for j in range(math.floor((min(z,ez)-width)/32),math.floor((max(z,ez)+width)/32)+1):
                     cells.setdefault((i,j),[]).append(segment)
     return cells
+
+@lru_cache(maxsize=8)
+def nearby_driving_segments(cx,cz,reach,corridor_only):
+    cells=driving_lanes(corridor_only)
+    return tuple({segment for i in range(cx-reach,cx+reach+1) for j in range(cz-reach,cz+reach+1)
+                  for segment in cells.get((i,j),())})
 
 def on_road(x,z):
     for ox,oz,dx,dz,length2,width in driving_lanes().get((math.floor(x/32),math.floor(z/32)),()):
