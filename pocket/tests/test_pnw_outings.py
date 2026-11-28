@@ -432,6 +432,33 @@ class OutingTests(unittest.TestCase):
         self.assertAlmostEqual(max(levels),TIP_HEIGHT)
         self.assertTrue(any(abs(y-DECK_HEIGHT)<1e-5 for y in levels))
 
+    def test_rotorcraft_can_hover_climb_and_land_without_forward_speed(self):
+        ground=lambda x,z:12.
+        craft=pnw.regional_vehicle('helicopter',SimpleNamespace(height=ground))
+        bounds=(craft.x-50,craft.x+50,craft.z-50,craft.z+50)
+        start=craft.x,craft.z
+        craft.toggle_motor()
+        craft.advance(2,ground,bounds)
+        self.assertEqual(craft.clearance,12.)
+        craft.toggle_motor()
+        craft.advance(2,ground,bounds)
+        self.assertEqual((craft.x,craft.z,craft.clearance),(*start,12.))
+        craft.descending=True
+        craft.advance(5,ground,bounds)
+        self.assertEqual(craft.altitude,12.)
+
+    def test_paddle_outings_stop_on_land(self):
+        for kind in ('canoe','kayak'):
+            craft=pnw.regional_vehicle(kind,SimpleNamespace(height=lambda x,z:0.))
+            start=(craft.x,craft.z)
+            bounds=(craft.x-100,craft.x+100,craft.z-100,craft.z+100)
+            craft.keys.add('up')
+            craft.advance(1,lambda x,z:0.,bounds)
+            self.assertGreater(math.dist(start,(craft.x,craft.z)),1.)
+            water=(craft.x,craft.z)
+            craft.advance(1,lambda x,z:2.,bounds)
+            self.assertEqual((craft.x,craft.z,craft.speed),(*water,0.))
+
     def test_round_trips(self):
         duration=pnw.CROSSING+pnw.DOCK_TIME
         self.assertEqual(pnw.ferry_stop(0),'colman')

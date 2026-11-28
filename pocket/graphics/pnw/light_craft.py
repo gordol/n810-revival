@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from pnw.hiking import HangGlider
 from pnw.terrain import location
-from pnw.units import feet, mph
+from pnw.units import mph
 
 
 class Helicopter(HangGlider):
@@ -15,6 +15,10 @@ class Helicopter(HangGlider):
         self.clearance=self.speed=0.
         self.motor=False  # collective climb command starts in hold
 
+    def toggle_motor(self):
+        self.motor=not (self.motor or self.descending)
+        self.descending=False
+
     def advance(self,dt,height,limits):
         turn=self.stick+self.drag[0]+('right' in self.keys)-('left' in self.keys)
         forward=self.pitch_stick+self.drag[1]+('up' in self.keys)-('down' in self.keys)
@@ -22,6 +26,7 @@ class Helicopter(HangGlider):
         self.bank+=(max(-1.,min(1.,turn))-self.bank)*response
         self.heading+=1.15*self.bank*dt
         target=max(-.35,min(1.,forward))*(52. if self.fast else 27.)
+        if self.clearance<=.01 and (not self.motor or self.descending):target=0.
         self.speed+=(target-self.speed)*response
         west,east,south,north=limits
         self.x=max(west,min(east,self.x+math.sin(self.heading)*self.speed*dt))
@@ -33,14 +38,14 @@ class Helicopter(HangGlider):
         return self.x,self.z,self.heading,.04
 
     def wheel_items(self):
-        return [('motor','Hold' if self.motor else 'Climb',math.pi),
+        return [('motor','Hold' if self.motor or self.descending else 'Climb',math.pi),
                 ('descend','Level' if self.descending else 'Lower',0.),
                 ('fast','Cruise' if self.fast else 'Fast',-math.pi/2),
                 ('wheel','Close',math.pi/2)]
 
     def draw(self,ink,w,h):
         super().draw(ink,w,h)
-        ink.label(1,4,f'Helicopter · {feet(self.clearance)} · P climb/hold · Space lower',0xFFF4DC)
+        ink.label(1,4,'P climb/hold · Space lower',0xFFF4DC)
 
 
 class PaddleCraft(HangGlider):
