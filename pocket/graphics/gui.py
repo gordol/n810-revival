@@ -14,5 +14,11 @@ if os.environ.get('POCKET_TERMUX') == '1' and not {'--headless','--help','-h'}.i
         control=TouchInput()
         control.apply()
         print(control.message,file=sys.stderr,flush=True)
+if os.environ.get('POCKET_TERMUX')=='1' or 'com.termux' in os.environ.get('PREFIX',''):
+    # Zink on Android can assert in zink_clear when tracking render passes.
+    flags=os.environ.get('ZINK_DEBUG','').split(',')
+    if not {'rp','norp'}.intersection(flags):
+        os.environ['ZINK_DEBUG']=','.join(filter(None,(*flags,'norp')))
+
 options=['-X','faulthandler'] if '--mobile-shell' in sys.argv else []
 os.execv(sys.executable,[sys.executable,*options,str(here/'run.py'),*sys.argv[1:]])
