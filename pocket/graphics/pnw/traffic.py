@@ -191,7 +191,7 @@ class Traffic:
         return self.visible
 
     def nearest_car(self,x,z):
-        return min(((math.hypot(body.x-x,body.z-z),key,body)
+        return min(((min(math.hypot(u-x,v-z) for u,v in body.discs())-body.radius,key,body)
                     for rows in (self.bodies,self.wrecks) for key,body in rows.items()),
                    key=lambda entry:entry[0],default=(math.inf,None,None))
 

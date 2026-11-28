@@ -411,6 +411,7 @@ class StreetRide:
         self.pursuit='following'
 
     def advance_patrol(self,dt):
+        if self.patrol is None:return
         x,z=self.patrol
         gap=math.hypot(self.x-x,self.z-z)
         if self.pursuit=='parked':
@@ -423,7 +424,7 @@ class StreetRide:
             return
         here=(self.x,self.z)
         if not self.tracks or math.dist(self.tracks[-1],here)>3:self.tracks.append(here)
-        travel=dt*33
+        travel=min(dt*33,max(0.,gap-5.7))
         while self.tracks and travel>0:
             px,pz=self.tracks[0]
             distance=math.hypot(px-x,pz-z)

@@ -748,6 +748,7 @@ class RainierView:
         self.traffic=Traffic()
         self.street_walls=self.nearby_walls=None
         self.parked_cars=[]
+        self.patrol_owner=None
         self.parked_bike=None
         self.third_person=False
         self.neighborhood=None
@@ -870,6 +871,7 @@ class RainierView:
                 road.cruise=False
                 road.speed=road.spin=road.slip=0.
                 self.parked_cars.append(road)
+                self.patrol_owner=road if road.patrol else None
                 self.third_person=True
                 self.trip_pose=(road.x+3.*math.cos(road.heading),road.z-3.*math.sin(road.heading),
                                 road.heading-math.pi/2,.08)
@@ -881,7 +883,18 @@ class RainierView:
             parked=min(self.parked_cars,key=lambda r:math.hypot(x-r.x,z-r.z),default=None)
             distance,key,body=self.traffic.nearest_car(x,z)
             parked_dist=math.inf if parked is None else math.hypot(x-parked.x,z-parked.z)
-            if min(distance,parked_dist)>5.:
+            patrol=self.patrol_owner
+            patrol_dist=math.dist((x,z),patrol.patrol) if patrol and patrol.patrol else math.inf
+            if patrol_dist<=min(5.,parked_dist,distance):
+                road=StreetRide('sports-car')
+                road.x,road.z=patrol.patrol
+                road.heading=road.chase_heading=patrol.patrol_heading
+                road.actor_kind=9
+                road.patrol=patrol.patrol=None
+                self.patrol_owner=None
+                road.overhead=True
+                self.road=road
+            elif min(distance,parked_dist)>5.:
                 self.photo_hint='Move closer to a vehicle'
                 self.hint_until=self.age+2.
             elif parked_dist<=distance:
@@ -899,6 +912,10 @@ class RainierView:
                 road.overhead=True
                 self.road=road
                 road.alert_patrol(self.traffic.bodies.values())
+            if self.road and patrol and patrol is not self.road and patrol.patrol:
+                self.road.patrol,self.road.patrol_heading=patrol.patrol,patrol.patrol_heading
+                self.road.pursuit=patrol.pursuit
+                patrol.patrol=None
             self.destination=None
             self.cruise=False
         else:return False
@@ -1736,6 +1753,19 @@ class RainierView:
                 self.traffic.strike(road,old)
                 if self.traffic.impact>.65:road.alert_patrol(self.traffic.bodies.values())
                 owner.x,owner.z=road.x,road.z
+            if road.patrol:
+                from pnw.vehicle_impact import Body,collide
+                px,pz=road.patrol
+                if math.hypot(px-road.x,pz-road.z)<12:
+                    sn,cs=math.sin(road.heading),math.cos(road.heading)
+                    player=Body(road.x,road.z,road.heading,sn*road.speed+cs*road.slip,
+                                cs*road.speed-sn*road.slip,road.spin,1500.,2.2,.95,road.damage)
+                    unit=Body(px,pz,road.patrol_heading,0.,0.,0.,1800.,2.3,.98)
+                    collide(player,unit)
+                    road.patrol=(unit.x,unit.z)
+                    road.x,road.z=owner.x,owner.z=player.x,player.z
+                    road.speed,road.slip=sn*player.vx+cs*player.vz,cs*player.vx-sn*player.vz
+                    road.spin,road.damage=player.spin,player.damage
             from pnw.vehicle_impact import strike_scenery
             walls=[wall for wall in (self.street_walls,self.nearby_walls) if wall]
             if walls and not road.assist:
@@ -2173,10 +2203,11 @@ class RainierView:
                     reserved.append((car.actor_kind,car.x,y+.05,car.z,math.degrees(car.heading),
                                   16*int(car.damage>.35),car.paint))
             poses=poses[:30-len(reserved)]+reserved
-        if self.road and self.road.patrol and math.dist((x,z),self.road.patrol)<240 and len(poses)<32:
-            px,pz=self.road.patrol
-            flash=self.age%1 if self.road.pursuit=='following' else -1.
-            poses.append((9,px,ground(px,pz),pz,math.degrees(self.road.patrol_heading),flash,0))
+        patrol=self.road or self.patrol_owner
+        if sound_region and patrol and patrol.patrol and math.dist((x,z),patrol.patrol)<240:
+            px,pz=patrol.patrol
+            flash=self.age%1 if patrol.pursuit=='following' else -1.
+            poses.append((9,px,ground(px,pz),pz,math.degrees(patrol.patrol_heading),flash,0))
         if self.road and self.road.kind!='sports-car' and len(poses)<32:
             from pnw.market_life import shopper,BOUQUET
             rx,rz=self.road.route[-1]
