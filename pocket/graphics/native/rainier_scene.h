@@ -485,7 +485,7 @@ void pocket_scene_market_lights(void *ptr,const float *lamps,int glow){
 
 int pocket_scene_vehicle_mesh(void *ptr,unsigned slot,const unsigned *groups,const float *mesh,unsigned count){
  struct gpu_scene *s=ptr;
- if(!s||slot>=7||!mesh||!groups||!count||count>300000)return -1;
+ if(!s||slot>=8||!mesh||!groups||!count||count>300000)return -1;
  if(s->vehicle_mesh[slot])return 0;
  unsigned total=0;
  for(int i=0;i<29;i++){if(groups[i]>count-total)return -1;total+=groups[i];}

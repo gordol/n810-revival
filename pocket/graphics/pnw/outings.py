@@ -45,7 +45,7 @@ OUTINGS={'Helicopter at Thun Field':'helicopter','Thun Field hangar':'hangar','S
 
 ROAD_RIDES={'Market delivery car':'car','Market motorcycle':'motorcycle','Market bicycle':'bicycle'}
 ROAD_RIDES.update({f'Tacoma {kind}':f'tacoma-{kind}' for kind in ('car','motorcycle','bicycle')})
-ROAD_RIDES.update({'Market rental scooter':'scooter','Sports car to Tacoma':'sports-car'})
+ROAD_RIDES.update({'Market rental scooter':'scooter','Pickup':'pickup','Sports car to Tacoma':'sports-car'})
 OUTINGS.update(ROAD_RIDES)
 OUTINGS.update(rail.RIDES)
 OUTINGS.update(market_visit.DESTINATIONS)
@@ -366,6 +366,7 @@ class StreetRide:
         from pnw.seattle_places import delivery_route,street_lines,tacoma_corridor
         self.overhead=False
         self.kind=kind.removeprefix('tacoma-')
+        if kind=='pickup':self.kind='sports-car'
         self.assist=os.environ.get('POCKET_KID_MODE')=='1'
         self.route=(next(points for name,_,points,_,_ in street_lines('tacoma') if name=='Dock Street' and len(points)>=30)
                     if kind.startswith('tacoma-') else delivery_route())
@@ -383,6 +384,7 @@ class StreetRide:
         self.speed=self.steer=0.
         self.slip=self.spin=self.damage=0.
         self.actor_kind=10 if self.kind=="sports-car" else 5
+        if kind=='pickup':self.actor_kind=17
         self.paint=0
         self.siren=False
         self.stop_target=None
