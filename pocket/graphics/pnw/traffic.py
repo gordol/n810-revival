@@ -33,6 +33,7 @@ def point(route,at,lane):
 class Traffic:
     def __init__(self):
         self.cars={}
+        self.offsets={}
         self.last=None
         self.horn=False
         self.visible=[]
@@ -40,7 +41,12 @@ class Traffic:
     def update(self,x,z,age,radius,driver=None):
         dt=min(.15,max(0.,age-self.last)) if self.last is not None else 0.
         self.last=age
-        visible=[];active={}
+        visible=[];active={};offsets={}
+        occupied={}
+        for key,(at,_,_) in self.cars.items():
+            offset=self.offsets.get(key,(1.8,-1.8)[key[1]])
+            for side,center in enumerate((1.8,-1.8)):
+                if abs(offset-center)<2.2:occupied.setdefault((key[0],side),[]).append((key,at))
         for direction,route in enumerate(routes()):
             spans,ends,cells=route
             indices={i for cx in range(math.floor((x-radius)/256),math.floor((x+radius)/256)+1)
@@ -48,7 +54,7 @@ class Traffic:
                        for i in cells.get((cx,cz),())}
             if not indices:continue
             for lane,pace in enumerate((24.,29.)):
-                lateral=(1.8,-1.8)[lane]
+                home=(1.8,-1.8)[lane]
                 gap=103.+lane*12
                 shift=age*pace+direction*32+lane*48
                 ids={n for i in indices for n in range(math.ceil((spans[i][4]-shift)/gap),
@@ -59,6 +65,7 @@ class Traffic:
                     key=(direction,lane,n)
                     at,speed,blocked=self.cars.get(key,(n*gap+shift,pace,False))
                     if not 0<=at<=ends[-1]:continue
+                    lateral=self.offsets.get(key,home)
                     px,pz,angle=point(route,at,lateral)
                     distance=math.hypot(x-px,z-pz)
                     if distance>radius+30:continue
@@ -67,7 +74,23 @@ class Traffic:
                         dx,dz=driver.x-px,driver.z-pz
                         along=dx*math.sin(angle)+dz*math.cos(angle)
                         across=dx*math.cos(angle)-dz*math.sin(angle)
-                        if abs(across)<1.95 and along>=0:clearance=min(clearance,along-4.8)
+                        if abs(across)<2.1 and along>=0:clearance=min(clearance,along-4.8)
+                        on_freeway=direction==1 or (route is routes()[0] and
+                            corridor_path()[0][min(bisect_left(ends,at),len(ends)-1)][7]=='freeway')
+                        if on_freeway and lateral==home and 12<along<38 and abs(across)<2.1:
+                            adjacent=occupied.get((direction,1-lane),())
+                            if all(abs(other-at)>32 for _,other in adjacent):
+                                self.offsets[key]=lateral-home*.001
+                    changing=lateral!=home or self.offsets.get(key,home)!=home
+                    if changing:
+                        target_lane=1-lane
+                        neighbors=occupied.setdefault((direction,target_lane),[])
+                        if all(k==key or abs(other-at)>8 for k,other in neighbors):
+                            lateral+=max(-2.2*dt,min(2.2*dt,-home-lateral))
+                            neighbors.append((key,at))
+                        for k,other in neighbors:
+                            if k!=key and other>at:clearance=min(clearance,other-at-5.)
+                    offsets[key]=lateral
                     target=min(pace,math.sqrt(2*6.*max(0.,clearance-2)))
                     speed+=max(-8.*dt,min(3.*dt,target-speed))
                     at+=max(0.,min(clearance,dt*speed))
@@ -76,7 +99,9 @@ class Traffic:
                     leader=at
                     active[key]=(at,speed,stopped)
                     px,pz,angle=point(route,at,lateral)
-                    visible.append((distance,px,pz,angle,n+direction,speed<pace-2))
+                    visible.append((distance,px,pz,angle,n+direction,speed<pace-2,
+                                    (1 if home<0 else -1) if 0<abs(lateral+home)<3.6 else 0))
+        self.offsets=offsets
         self.cars=active
         self.visible=sorted(visible)
         return self.visible

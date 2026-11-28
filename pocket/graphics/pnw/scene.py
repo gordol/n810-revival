@@ -2025,10 +2025,12 @@ class RainierView:
             if altitude<4000.:
                 driver=self.road if self.road and self.road.bridge_roads and self.road.bridge_roads.deck is None else None
                 cars=self.traffic.update(x,z,self.age,radius,driver)
-                for distance,px,pz,angle,index,braking in cars[:max(0,30-len(poses))]:
+                for distance,px,pz,angle,index,braking,turn in cars[:max(0,30-len(poses))]:
                     self.traffic_gain=max(self.traffic_gain,1./(1.+distance/12.)**2)
+                    lamps=int(braking)+2*int(daylight<.65 or bool(self.weather))
+                    if (self.age+index*.17)% .78<.39:lamps+=4 if turn<0 else 8 if turn>0 else 0
                     poses.append((5 if index%4==0 else 10,px,ground(px,pz)+.06,pz,
-                                  math.degrees(angle),float(braking),1+index%4))
+                                  math.degrees(angle),float(lamps),1+index%4))
         if self.road and self.road.patrol and math.dist((x,z),self.road.patrol)<240 and len(poses)<32:
             px,pz=self.road.patrol
             flash=self.age%1 if self.road.pursuit=='following' else -1.
@@ -2042,7 +2044,7 @@ class RainierView:
         camera_x,camera_z=x,z
         if self.road and self.road.overhead:
             equipment=None
-            player=(5 if self.road.kind=='car' else 10,x,ground(x,z)+.05,z,math.degrees(yaw),0.,0.)
+            player=(5 if self.road.kind=='car' else 10,x,ground(x,z)+.05,z,math.degrees(yaw),2.*int(daylight<.65 or bool(self.weather)),0.)
             poses=poses[:31]+[player]
             yaw=self.road.chase_heading
             pullback=7.4+min(abs(self.road.speed)*.065,3.6)

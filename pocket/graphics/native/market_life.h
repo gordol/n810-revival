@@ -23,7 +23,7 @@ static void market_panel(float x,float y,float z,float w,float h,float d,float r
 
 /* Cross sections run from tail to nose. Each has a sill, a shoulder and
  * an inset roof or hood, so the glazing follows the rake of the pillars. */
-static void street_vehicle(int van,unsigned paint){
+static void street_vehicle(int van,unsigned paint,int lamps){
  static const float coupe[][5]={
   {-2.18f,.78f,.76f,.82f,.70f},{-1.74f,.94f,.85f,.92f,.78f},
   {-1.26f,.98f,.87f,.97f,.78f},{-.70f,.96f,.89f,1.33f,.62f},
@@ -68,7 +68,9 @@ static void street_vehicle(int van,unsigned paint){
    if(!van)market_panel(0,.805f,end[0]+.05f,.76f,.035f,.075f,.14f,.14f,.15f);
   }
   for(int k=-1;k<=1;k+=2){
-   market_panel(k*end[1]*.72f,end[2]-.14f,end[0]+side*.04f,.17f,.085f,.02f,1.f,side<0?.055f:.91f,side<0?.025f:.76f);
+   float strength=side<0?(lamps&1?1.f:.52f):(lamps&2?1.f:.62f);
+   int signal=lamps&(k<0?4:8);
+   market_panel(k*end[1]*.72f,end[2]-.14f,end[0]+side*.04f,.17f,.085f,.02f,signal?1.f:strength,signal?.58f:strength*(side<0?.055f:.96f),signal?.01f:strength*(side<0?.025f:.85f));
    float z=k*1.37f;
    glBegin(GL_QUAD_STRIP);
    for(int j=0;j<=24;j++){
@@ -350,7 +352,7 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
     glPopMatrix();
    }
   }else if(kind==10 || kind==5){
-   street_vehicle(kind==5,(unsigned)p[6]);
+   street_vehicle(kind==5,(unsigned)p[6],(int)pose);
   }else if(kind==9){
    market_panel(0,.33f,0,.92f,.49f,2.26f,.10f,.13f,.16f);
    market_body(0,.91f,-.10f,.87f,.55f,1.42f,.32f,.39f,.43f);

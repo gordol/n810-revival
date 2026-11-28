@@ -630,7 +630,7 @@ class PauseMenu:
         if self.page=='Driving controls':return ('Resume','Back')
         if self.page=='Flight guide':
             return ('Next page','Back')
-        if getattr(self.view,'road',None):return ('Resume','Driving controls','Controller')
+        if getattr(self.view,'road',None):return ('Resume','Driving controls','Weather: '+('Clear','Mist','Showers')[self.view.weather],'Controller')
         flight=self.view.outing in AIRCRAFT and self.view.glider
         rows=('Resume','Controller','Flight controls','Flight guide')
         return rows+('Leave aircraft',) if flight else rows
@@ -689,6 +689,8 @@ class PauseMenu:
             context=self.view.app_context
             value=choices[(choices.index(context.preferences[key])+direction)%len(choices)]
             context.registry.set_setting(context.identifier,key,value)
+        elif label.startswith('Weather:'):
+            self.view.weather=(self.view.weather+direction)%3
         elif label=='Next page':self.guide_page=(self.guide_page+1)%3
         elif label=='Resume':self.view.resume_game()
         elif label=='Leave aircraft':
