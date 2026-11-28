@@ -198,6 +198,26 @@ def corridor_sample(distance,lane):
     along=distance-start
     return x+dx*along+dz*lane,z+dz*along-dx*lane,math.atan2(dx,dz)
 
+def ground_ramp_cells(lines,elevated):
+    cells={}
+    for _,kind,points,width,_ in lines:
+        if kind not in ('motorway_link','connector'):continue
+        for a,b in zip(points,points[1:]):
+            if a==b or frozenset((a,b)) in elevated:continue
+            x,z=a
+            dx,dz=b[0]-x,b[1]-z
+            segment=(x,z,dx,dz,dx*dx+dz*dz,width)
+            for i in range(math.floor((min(x,b[0])-width)/32),math.floor((max(x,b[0])+width)/32)+1):
+                for j in range(math.floor((min(z,b[1])-width)/32),math.floor((max(z,b[1])+width)/32)+1):
+                    cells.setdefault((i,j),[]).append(segment)
+    return cells
+
+def inside_ground_ramp(x,z,cells):
+    for ax,az,dx,dz,length2,width in cells.get((math.floor(x/32),math.floor(z/32)),()):
+        t=((x-ax)*dx+(z-az)*dz)/length2
+        if 0<=t<=1 and math.hypot(x-ax-t*dx,z-az-t*dz)<width-.2:return True
+    return False
+
 def streets(height,quad,field=None):
     def pavement(points,color,material,lift):
         # Split where the DEM changes slope, including the diagonal inside each cell.
@@ -228,8 +248,10 @@ def streets(height,quad,field=None):
     elevated={frozenset((a,b)) for _,_,_,points,before,after in overpasses()
               for path in (tuple(reversed(before))+tuple(points)+tuple(after),)
               for a,b in zip(path,path[1:])}
+    lines=road_lines()
+    ramps=ground_ramp_cells(lines,elevated)
     junctions={}
-    for name,kind,points,half,crossings in road_lines():
+    for name,kind,points,half,crossings in lines:
         for pt in (points[0],points[-1]):junctions.setdefault(pt,set()).add(name)
         # Adjacent road strips share a cross-section, through each bend.
         def normal(a,b):
@@ -263,7 +285,7 @@ def streets(height,quad,field=None):
                     band(-half,half,t,end,.032,(.25,.26,.265))
                     band(-half,-half+.13,t,end,.039,(.86,.76,.45))
                     band(half-.14,half,t,end,.039,(.85,.85,.80))
-                    if kind=='motorway':
+                    if kind=='motorway' and not inside_ground_ramp(*offset_point((t+end)*.5,-half-.45),ramps):
                         # A profiled concrete median follows the grade at each end.
                         profile=((-half-.75,0.),(-half-.57,.84),(-half-.36,.84),(-half-.12,0.))
                         for (u,h),(v,k),shade in zip(profile,profile[1:],(.51,.67,.46)):

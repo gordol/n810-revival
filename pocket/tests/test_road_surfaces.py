@@ -25,6 +25,14 @@ class RoadSurfaceTests(unittest.TestCase):
         for z in range(21):y=roads.sample(0,z,0.,True)
         self.assertAlmostEqual(y,.7)
 
+    def test_ground_median_opens_only_on_ground_ramp(self):
+        from pnw.seattle_places import ground_ramp_cells,inside_ground_ramp
+        points=[(0,0),(16,0),(32,0)]
+        index=ground_ramp_cells([('Ramp','motorway_link',points,3.,())],{frozenset(points[1:])})
+        self.assertTrue(inside_ground_ramp(8,2,index))
+        self.assertFalse(inside_ground_ramp(8,4,index))
+        self.assertFalse(inside_ground_ramp(24,0,index))
+
     def test_wall_blocks_inward_motion_and_allows_sliding_parallel(self):
         walls=StreetObstacles([],0)
         walls.cells[(0,0)]={(10.,0.,0.,20.,0.,1.)}
