@@ -465,11 +465,18 @@ class BridgeRoads:
 
 def bridge_mesh(height,quad,box):
     from itertools import groupby
-    for _,spans in groupby(bridge_spans(height),key=lambda row:row[0]):
-        bridge_sections(list(spans),height,quad,box)
+    spans=list(bridge_spans(height))
+    neighboring={}
+    for span in spans:
+        bridge,_,w,a,b,_,_,_=span
+        for i in range(math.floor((min(a[0],b[0])-w)/32),math.floor((max(a[0],b[0])+w)/32)+1):
+            for j in range(math.floor((min(a[1],b[1])-w)/32),math.floor((max(a[1],b[1])+w)/32)+1):
+                neighboring.setdefault((i,j),[]).append(span)
+    for _,parts in groupby(spans,key=lambda row:row[0]):
+        bridge_sections(list(parts),height,quad,box,neighboring)
 
 
-def bridge_sections(spans,height,quad,box):
+def bridge_sections(spans,height,quad,box,neighboring):
     normals=[((b[1]-a[1])/length,(a[0]-b[0])/length) for _,_,_,a,b,length,_,_ in spans]
     edges=[normals[0]]
     for a,b in zip(normals,normals[1:]):
@@ -478,7 +485,7 @@ def bridge_sections(spans,height,quad,box):
     edges.append(normals[-1])
     chain=0.
     next_pier=16.
-    for i,(_,kind,half,(x,z),(ex,ez),length,base,grade) in enumerate(spans):
+    for i,(bridge,kind,half,(x,z),(ex,ez),length,base,grade) in enumerate(spans):
         dx,dz=(ex-x)/length,(ez-z)/length
         def strip(left,h1,right,h2,color,material=0.):
             quad([(px+n[0]*u,py+h,pz+n[1]*u) for px,py,pz,n,u,h in (
@@ -488,6 +495,16 @@ def bridge_sections(spans,height,quad,box):
         strip(-half,-.8,half,-.8,(.27,.28,.27))
         for side in (-1,1):
             edge=side*half
+            # A parapet inside an adjoining deck blocks the merge itself.
+            mx=(x+ex)/2+dz*edge
+            mz=(z+ez)/2-dx*edge
+            def overlaps(other):
+                owner,_,w,(u,v),(bu,bv),dist,bottom,slope=other
+                if owner==bridge:return False
+                t=((mx-u)*(bu-u)+(mz-v)*(bv-v))/dist
+                if not 0<=t<=dist or abs(bottom+t*slope-base-grade*length*.5)>1.2:return False
+                return math.hypot(mx-u-t*(bu-u)/dist,mz-v-t*(bv-v)/dist)<w-.15
+            if any(overlaps(other) for other in neighboring.get((math.floor(mx/32),math.floor(mz/32)),())):continue
             strip(edge,-.8,edge,.75,(.48,.48,.45))
             strip(edge,.75,edge-side*.24,.75,(.63,.63,.59))
             strip(edge-side*.24,.75,edge-side*.24,0,(.54,.54,.51))
