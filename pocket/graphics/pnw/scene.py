@@ -2060,6 +2060,10 @@ class RainierView:
                   (4 if self.road.actor_kind==18 else int(self.road.kind in ('sports-car','car','motorcycle')))+2*int(self.road.siren),getattr(self,'traffic_gain',0.),(-round(100*self.traffic.impact) if self.traffic.impact else self.traffic.horn))
             self.traffic.impact=0.
             self.traffic.horn=False
+        elif self.glider and self.outing=='helicopter':
+            sound=ctx.lib.pocket_scene_rotor_sound
+            sound.argtypes=[C.c_void_p,C.c_int,C.c_float,C.c_int]
+            sound(ctx.handle,self.sound and not paused,self.glider.speed,self.glider.motor and not self.glider.descending)
         elif self.regional:
             speed=self.ski.speed/28. if self.ski else 0.
             wind=.46+.15*self.weather+.30*speed

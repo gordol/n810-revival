@@ -30,7 +30,7 @@ struct gpu_scene {
  SDL_AudioDeviceID river_audio;int river_audio_failed,river_cue,river_note,animal_voice,animal_sample;unsigned river_seed;float river_low;
  float wind_low,wind_gust,snow_gain,landing_env;
  int siren;
- int electric_drive;
+ int electric_drive,rotor;
  float engine_hz,engine_phase,engine_pitch,passing_gain,passing_phase,horn_phase,siren_phase,siren_cycle,horn_env,crash_env;
  float river_level,animal_gain,wind_level,ski_level;
  struct river_bounds {float x,y,z,r;} *river_blocks;
