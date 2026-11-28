@@ -46,6 +46,9 @@ def floor_height(center,height,x,z):
 def arrival(center):
     return *offset(center,0,-38),HEADING,-.16
 
+def rental_site(center):
+    return offset(center,4,-36)
+
 def build(center,height,quad):
     level=height(*center)
     def point(u,y,v):
@@ -70,6 +73,31 @@ def build(center,height,quad):
     def lettering(words,x,y,depth,size,color):
         from pnw.market_visit import lettering as typeset
         typeset(words,x,y,depth,size,lambda points,tone:panel(points,tone,.247),color)
+
+    # A fictional curbside rental stand beside the market entrance.
+    pad=floor_height(center,height,*rental_site(center))-level
+    wall(3.3,4.8,pad+1.12,pad+1.55,-35.8,(.08,.24,.22))
+    lettering('CYCLE HIRE',3.38,pad+1.23,-35.82,.18,(.93,.89,.69))
+    block(3.96,4.03,pad,pad+1.12,-35.82,-35.75,(.26,.28,.27))
+    for i in range(4):
+        u,v=3.15+i*.57,-36.9+i*.16
+        bike=i<2
+        radius=.32 if bike else .11
+        frame=(.18,.47,.34) if bike else (.83,.43,.13)
+        for axle in (u-.54,u+.54):
+            for k in range(20):
+                a,b=k*math.tau/20,(k+1)*math.tau/20
+                stroke(axle+radius*math.cos(a),pad+radius*(1+math.sin(a)),
+                       axle+radius*math.cos(b),pad+radius*(1+math.sin(b)),v,.026,(.11,.13,.14))
+        stroke(u-.54,pad+radius,u,pad+radius,v,.042,frame)
+        stroke(u,pad+radius,u+.48,pad+.81,v,.027,frame)
+        stroke(u+.54,pad+radius,u+.47,pad+1.04,v,.021,frame)
+        block(u+.44,u+.5,pad+1.02,pad+1.06,v-.21,v+.21,(.12,.14,.14))
+        if bike:
+            stroke(u-.54,pad+radius,u-.16,pad+.84,v,.025,frame)
+            stroke(u,pad+radius,u-.16,pad+.84,v,.025,frame)
+            stroke(u-.16,pad+.80,u+.48,pad+.81,v,.025,frame)
+            block(u-.28,u-.10,pad+.84,pad+.89,v-.075,v+.075,(.15,.13,.11))
 
     iron=(.16,.19,.18)
     trim=(.28,.34,.31)

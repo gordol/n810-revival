@@ -220,6 +220,16 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
     market_body(0,.002f,.115f,.095f,.010f,.080f,.19f,.22f,.24f);}
     glPopMatrix();
    }
+  }else if(kind==9){
+   market_panel(0,.33f,0,.92f,.49f,2.26f,.10f,.13f,.16f);
+   market_body(0,.91f,-.10f,.87f,.55f,1.42f,.32f,.39f,.43f);
+   for(int side=-1;side<=1;side+=2){
+    market_panel(side*.92f,.51f,0,.02f,.25f,.93f,.84f,.85f,.81f);
+    for(int axle=-1;axle<=1;axle+=2)
+     market_body(side*.87f,.35f,axle*1.42f,.14f,.35f,.35f,.11f,.12f,.13f);
+   }
+   market_panel(-.25f,1.46f,0,.23f,.07f,.11f,pose>=0 && pose<.5f?1.f:.30f,.08f,.09f);
+   market_panel(.25f,1.46f,0,.23f,.07f,.11f,.09f,.16f,pose>=.5f?1.f:.32f);
   }else if(kind==8){
    docked_ferry();
   }else if(kind==7){

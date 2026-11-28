@@ -411,8 +411,8 @@ class OutingTests(unittest.TestCase):
                 ride=pnw.StreetRide(kind)
             self.assertTrue(on_road(ride.x,ride.z))
             ride.cruise=True
-            for _ in range(10000):
-                ride.advance(.1,(0,0))
+            for _ in range(12000):
+                ride.advance(1 if kind=='sports-car' else .1,(0,0))
                 if ride.delivered:break
             self.assertTrue(ride.delivered,kind)
             self.assertFalse(ride.cruise)
@@ -424,6 +424,26 @@ class OutingTests(unittest.TestCase):
             self.assertNotEqual(manual.heading,pose[2])
             self.assertTrue(on_road(manual.x,manual.z))
         self.assertFalse(on_road(0,0))
+
+    def test_tacoma_corridor_and_fictional_patrol(self):
+        from pnw.seattle_places import on_road,tacoma_corridor
+        from unittest.mock import patch
+        with patch.dict('os.environ',POCKET_KID_MODE='0'):
+            car=pnw.StreetRide('sports-car')
+        length=sum(math.dist(a,b) for a,b in zip(car.route,car.route[1:]))
+        self.assertTrue(50000<length<56000)
+        for _,_,points,_,_ in tacoma_corridor():
+            for a,b in zip(points,points[1:]):
+                self.assertTrue(on_road((a[0]+b[0])/2,(a[1]+b[1])/2))
+        x,z=car.patrol
+        car.x,car.z=x+10,z
+        car.speed=25
+        car.advance_patrol(.1)
+        self.assertEqual(car.pursuit,'following')
+        self.assertLess(math.dist(car.patrol,(car.x,car.z)),10)
+        car.speed=0
+        for _ in range(10):car.advance_patrol(.1)
+        self.assertEqual(car.pursuit,'Traffic stop')
 
     def test_boarding_taxi_and_runway_departure(self):
         ground=lambda x,z:0.

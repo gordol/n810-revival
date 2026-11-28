@@ -3,6 +3,7 @@ from array import array
 from dataclasses import dataclass
 from functools import lru_cache
 import math
+from collections import deque
 import random
 from struct import Struct
 
@@ -42,6 +43,7 @@ OUTINGS={'Thun Field hangar':'hangar','Skydive over Rainier':'skydive','Balloon 
 
 ROAD_RIDES={'Market delivery car':'car','Market motorcycle':'motorcycle','Market bicycle':'bicycle'}
 ROAD_RIDES.update({f'Tacoma {kind}':f'tacoma-{kind}' for kind in ('car','motorcycle','bicycle')})
+ROAD_RIDES.update({'Market rental scooter':'scooter','Sports car to Tacoma':'sports-car'})
 OUTINGS.update(ROAD_RIDES)
 OUTINGS.update(market_visit.DESTINATIONS)
 
@@ -365,11 +367,17 @@ class StreetRide:
     """First-person street ride with an optional flower delivery at the market."""
     def __init__(self,kind):
         import os
-        from pnw.seattle_places import delivery_route,street_lines
+        from pnw.seattle_places import delivery_route,street_lines,tacoma_corridor
         self.kind=kind.removeprefix('tacoma-')
         self.assist=os.environ.get('POCKET_KID_MODE')=='1'
         self.route=(next(points for name,_,points,_,_ in street_lines('tacoma') if name=='Dock Street' and len(points)>=30)
                     if kind.startswith('tacoma-') else delivery_route())
+        if self.kind=='sports-car':
+            lines=tacoma_corridor()
+            self.route=lines[0][2]+tuple(p for line in lines[1:] for p in line[2][1:])
+            self.road_names=tuple(name for name,_,points,_,_ in lines for _point in points[1:])
+        elif self.kind in ('bicycle','scooter') and not kind.startswith('tacoma-'):
+            self.route=self.route[2:]
         self.x,self.z=self.route[0]
         self.leg=1
         self.heading=self.bearing(self.route[1])
@@ -379,6 +387,41 @@ class StreetRide:
         self.contact=None
         self.drag=(0.,0.)
         self.menu=False
+        self.patrol=None
+        if self.kind=='sports-car' and not self.assist:
+            # A fictional encounter at the start of the southbound freeway.
+            freeway=next(points for _,kind,points,_,_ in tacoma_corridor() if kind=='freeway')
+            x,z=freeway[0]
+            self.patrol_heading=math.atan2(freeway[1][0]-x,freeway[1][1]-z)
+            self.patrol=(x+5*math.cos(self.patrol_heading),z-5*math.sin(self.patrol_heading))
+            self.pursuit='parked'
+            self.tracks=deque()
+
+    def advance_patrol(self,dt):
+        x,z=self.patrol
+        gap=math.hypot(self.x-x,self.z-z)
+        if self.pursuit=='parked':
+            if gap>24 or self.speed<24:return
+            self.pursuit='following'
+        if self.pursuit!='following':return
+        if gap>160 or (gap<6 and abs(self.speed)<1):
+            self.pursuit='Clear' if gap>160 else 'Traffic stop'
+            self.tracks.clear()
+            return
+        here=(self.x,self.z)
+        if not self.tracks or math.dist(self.tracks[-1],here)>3:self.tracks.append(here)
+        travel=dt*33
+        while self.tracks and travel>0:
+            px,pz=self.tracks[0]
+            distance=math.hypot(px-x,pz-z)
+            if distance>.01:self.patrol_heading=math.atan2(px-x,pz-z)
+            if travel<distance:
+                x+=(px-x)*travel/distance
+                z+=(pz-z)*travel/distance
+                break
+            travel-=distance
+            x,z=self.tracks.popleft()
+        self.patrol=(x,z)
 
     def bearing(self,point):
         return math.atan2(point[0]-self.x,point[1]-self.z)
@@ -392,11 +435,13 @@ class StreetRide:
         from pnw.seattle_places import on_road
         steer=max(-1.,min(1.,sticks[0]+self.drag[0]+('right' in self.keys)-('left' in self.keys)))
         pedal=max(-1.,min(1.,-sticks[1]+self.drag[1]+('up' in self.keys)-('down' in self.keys)))
-        maximum={'car':12.,'motorcycle':16.,'bicycle':6.}[self.kind]
+        maximum={'car':12.,'motorcycle':16.,'bicycle':6.,'scooter':5.5,'sports-car':62.}[self.kind]
         target=(pedal if pedal else float(self.cruise))*maximum
         if self.assist:target=max(0.,min(5.,target))
         else:target=max(-2.5,target)
-        self.speed+=(target-self.speed)*(-math.expm1(-dt*(3 if target==0 else 1.4)))
+        change=(target-self.speed)*(-math.expm1(-dt*(3 if target==0 else 1.4)))
+        if self.kind=='sports-car':change=max(-11*dt,min(7*dt,change))
+        self.speed+=change
         self.steer+=(steer-self.steer)*(-math.expm1(-dt*6))
         distance=self.speed*dt
         if self.assist:
@@ -413,16 +458,30 @@ class StreetRide:
                 self.leg+=1
             if self.leg==len(self.route):self.speed=0.;self.cruise=False
         else:
-            wheelbase={'car':2.6,'motorcycle':1.45,'bicycle':1.1}[self.kind]
-            self.heading+=distance*math.tan(.48*self.steer)/wheelbase
+            wheelbase={'car':2.6,'motorcycle':1.45,'bicycle':1.1,'scooter':1.,'sports-car':2.65}[self.kind]
+            steer_angle=.48/(1.+abs(self.speed)*.075) if self.kind=='sports-car' else .48
+            self.heading+=distance*math.tan(steer_angle*self.steer)/wheelbase
             x=self.x+distance*math.sin(self.heading)
             z=self.z+distance*math.cos(self.heading)
             if on_road(x,z):self.x,self.z=x,z
             else:self.speed=0.;self.cruise=False
+        if self.kind=='sports-car' and not self.assist:
+            while self.leg<len(self.route)-1 and math.dist((self.x,self.z),self.route[self.leg])<30:self.leg+=1
+            self.advance_patrol(dt)
         if abs(self.speed)<.5 and math.dist((self.x,self.z),self.route[-1])<6:self.delivered=True
         return self.x,self.z,self.heading,.045
 
     def hint(self):
+        if self.kind=='sports-car':
+            if self.delivered:return 'Arrived · Dock Street, Tacoma'
+            if self.patrol and self.pursuit=='following':
+                return f'Pursuit · {round(math.dist(self.patrol,(self.x,self.z)))} m · {round(self.speed*3.6)} km/h'
+            next_point=self.route[min(self.leg,len(self.route)-1)]
+            turn=math.remainder(self.bearing(next_point)-self.heading,math.tau)
+            arrow='↑' if abs(turn)<.35 else '↓' if abs(turn)>2.65 else '→' if turn>0 else '←'
+            street=self.road_names[min(self.leg-1,len(self.road_names)-1)]
+            note=self.pursuit if self.patrol and self.pursuit in ('Clear','Traffic stop') else street
+            return f'{arrow} {note} · {round(abs(self.speed)*3.6)} km/h'
         if self.delivered:return 'Flowers delivered'
         end=self.route[-1]
         turn=math.remainder(self.bearing(end)-self.heading,math.tau)

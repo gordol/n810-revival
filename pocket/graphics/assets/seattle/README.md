@@ -31,3 +31,10 @@ The accelerated ferry rides OSM way 332476322 in both directions. Runway
 thresholds and widths come from the [OurAirports public-domain runway dataset](https://ourairports.com/data/).
 
 The same ODbL credit applies to tacoma-streets.json. It contains named drivable ways from the OSM API 0.6 map export for (-122.447,47.249,-122.436,47.257), including the complete returned ways. The same map export supplied 99 height- or floor-tagged Tacoma building footprints in buildings.json using the existing building extractor. Dock Street way 687454686 supplies the illustrated Tacoma delivery route.
+
+The southbound Seattle–Tacoma driving corridor uses OpenStreetMap geometry
+routed by the FOSSGIS OSRM car service on 2026-11-28. The extract keeps the
+street names and full WGS84 centerline from First Avenue to Dock Street via
+I-5. Widths, painted lane lines, rental stand and patrol encounter are game
+reconstructions. Bridge and interchange deck heights are not surveyed.
+[Route source](https://routing.openstreetmap.de/routed-car/route/v1/driving/-122.3400015,47.6088449;-122.4347,47.2459?geometries=geojson&overview=full&steps=true)

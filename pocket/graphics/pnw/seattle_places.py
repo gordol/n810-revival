@@ -77,9 +77,21 @@ def street_lines(city):
                  for name,kind,coords in json.loads(source.read_text()).values())
 
 @lru_cache(maxsize=1)
+def tacoma_corridor():
+    import json
+    from pnw.terrain import location
+    source=Path(__file__).resolve().parents[1]/'assets/seattle/seattle-tacoma.json'
+    lines=[]
+    for name,coords in json.loads(source.read_text()):
+        points=tuple(location('sound',lat,lon) for lon,lat in coords)
+        freeway=name=='I 5'
+        lines.append((name,'freeway' if freeway else 'connector',points,6.2 if freeway else 3.6,(False,)*len(points)))
+    return tuple(lines)
+
+@lru_cache(maxsize=1)
 def driving_lanes():
     cells={}
-    for _,kind,points,width,_ in (*street_lines('seattle'),*street_lines('tacoma'),('Delivery','access',delivery_route(),3.,())):
+    for _,kind,points,width,_ in (*street_lines('seattle'),*street_lines('tacoma'),*tacoma_corridor(),('Delivery','access',delivery_route(),3.,())):
         if kind=='pedestrian':continue
         for (x,z),(ex,ez) in zip(points,points[1:]):
             dx,dz=ex-x,ez-z
@@ -99,7 +111,7 @@ def on_road(x,z):
 
 def streets(height,quad):
     junctions={}
-    for name,kind,points,half,crossings in (*street_lines('seattle'),*street_lines('tacoma')):
+    for name,kind,points,half,crossings in (*tacoma_corridor(),*street_lines('seattle'),*street_lines('tacoma')):
         for pt in (points[0],points[-1]):junctions.setdefault(pt,set()).add(name)
         for i,((x,z),(ex,ez)) in enumerate(zip(points,points[1:])):
             length=math.hypot(ex-x,ez-z)
@@ -110,9 +122,18 @@ def streets(height,quad):
                 for d,w in ((t,left),(end,left),(end,right),(t,right)):
                     px,pz=x+d*dx+w*dz,z+d*dz-w*dx
                     corners.append((px,height(px,pz)+lift,pz))
-                quad(corners,color)
+                if left==-half and right==half:quad(corners,color,.249)
+                else:quad(corners,color)
             for t in range(0,math.ceil(length),16):
                 end=min(length,t+16)
+                if kind in ('freeway','connector'):
+                    band(-half,half,t,end,.032,(.25,.26,.265))
+                    band(-half,-half+.13,t,end,.039,(.86,.76,.45))
+                    band(half-.14,half,t,end,.039,(.85,.85,.80))
+                    if kind=='freeway':
+                        for stripe in (-half/3,half/3):
+                            band(stripe,stripe+.14,t,min(t+4,end),.039,(.84,.84,.8))
+                    continue
                 band(-half,half,t,end,.045,(.25,.26,.255))
                 for side in (-1,1):
                     band(side*half,side*(half+1.8),t,end,.14,(.57,.55,.50))

@@ -663,6 +663,12 @@ Assisted approach lowers it automatically. The trainer has fixed gear.
 automatic opening near the ground. In **Balloon over the Sound**, A / Cross toggles
 the burner. The balloon rises with heat and otherwise descends as the wind carries it.
 
+At the Pike Place street entrance, approach the green cycle hire sign and tap
+**Rent bike** or **Rent scooter**. Drag forward to ride and sideways to steer.
+Use **Exit** to continue on foot. **Explore → City rides → Sports car to Tacoma**
+starts on First Avenue and follows the mapped southbound route to Dock Street.
+The freeway has a fictional patrol encounter in manual mode.
+
 **Explore → City rides** starts a delivery car, motorcycle or bicycle on the mapped
 streets around Pike Place or downtown Tacoma. Arrow keys or WASD drive and steer.
 On touch, drag forward or backward for speed and sideways to steer. On a

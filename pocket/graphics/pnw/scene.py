@@ -960,7 +960,9 @@ class RainierView:
             if self.glider and self.glider.menu:
                 if self.glider.wheel_choice(x,y,width,height)!=action:continue
             elif not hit(box,x,y):continue
-            if action=='needle_lift':
+            if action in ('rent-bike','rent-scooter'):
+                self.start_outing('bicycle' if action=='rent-bike' else 'scooter')
+            elif action=='needle_lift':
                 from pnw.seattle_places import places
                 nx,nz=places()['Space Needle']
                 self.outing='needle'
@@ -1374,6 +1376,12 @@ class RainierView:
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
         if self.outing in market_visit.STREETS and self.camera:
             from pnw.seattle_places import places
+            if not (self.lens or self.binoculars):
+                from pnw.pike_market import rental_site
+                from pnw.seattle_places import arcade_origin
+                if math.dist(self.camera[:2],rental_site(arcade_origin()))<9:
+                    buttons.extend((('rent-bike','Rent bike',(1,height-4,12,3)),
+                                    ('rent-scooter','Rent scooter',(width-16,height-4,15,3))))
             nx,nz=places()['Space Needle']
             near_needle=math.hypot(self.camera[0]-nx,self.camera[1]-nz)<35
         else:near_needle=False
@@ -1907,7 +1915,7 @@ class RainierView:
             look(ctx.handle,self.glider.look_yaw,self.glider.look_pitch)
         if self.outing and getattr(self,'market_snack',None) and not equipment and not (self.lens or self.binoculars):
             equipment=(C.c_float*3)({'coffee':5,'piroshky':6,'flowers':7,'honey':8}[self.market_snack],0.,0.)
-        if self.road:equipment=(C.c_float*3)({'car':12,'motorcycle':13,'bicycle':14}[self.road.kind],self.road.steer,self.road.speed)
+        if self.road:equipment=(C.c_float*3)({'car':12,'motorcycle':13,'bicycle':14,'sports-car':12,'scooter':16}[self.road.kind],self.road.steer,self.road.speed)
         if self.outing=='ferry':equipment=(C.c_float*3)(4,0.,0.)
         market=None
         actor_count=0
@@ -1935,7 +1943,11 @@ class RainierView:
             for i,lane in enumerate((-4.4,-1.55,1.55,4.4)):
                 dx,dz,heading,gait,identity=stroll(self.outing,i,self.age,8.)
                 poses.append((0,lane+dx,0.,dz,math.degrees(heading),gait,identity))
-        if self.road and len(poses)<32:
+        if self.road and self.road.patrol and math.dist((x,z),self.road.patrol)<240 and len(poses)<32:
+            px,pz=self.road.patrol
+            flash=self.age%1 if self.road.pursuit=='following' else -1.
+            poses.append((9,px,ground(px,pz),pz,math.degrees(self.road.patrol_heading),flash,0))
+        if self.road and self.road.kind!='sports-car' and len(poses)<32:
             from pnw.market_life import shopper,BOUQUET
             rx,rz=self.road.route[-1]
             if math.hypot(x-rx,z-rz)<120:
@@ -2024,7 +2036,7 @@ class RainierView:
                 from pnw.outings import ferry_stop
                 dock=ferry_stop(self.ride_time)
                 if dock:ink.label(1,4,'Colman Dock' if dock=='colman' else 'Bainbridge Island',0xFFF6DD)
-            if self.outing in ('ferry','wheel','market','fishshop','needle','hoh'):
+            if not self.road and self.outing in ('ferry','wheel','market','fishshop','needle','hoh'):
                 place={'ferry':'Seattle – Bainbridge ferry','wheel':'Pier 57 · Great Wheel','market':'Pike Place Market','fishshop':'Pike Place Fish Market','needle':'Space Needle','hoh':'Hoh Rain Forest'}
                 label=place[self.outing]
                 if self.outing in ('market','fishshop'):

@@ -121,10 +121,20 @@ static GLuint rainier_program(void){
   "vec2 edge=abs(fract(p)-.5);float mortar=smoothstep(.435,.49,max(edge.x,edge.y));"
   "float joint=mortar*(1.-smoothstep(.12,.65,length(fwidth(pos.xz*4.))));"
   "col*=.85+.23*hash(floor(p))-.35*joint;}"
-  "if(regional==2 && abs(tint.a-.228)<.0001){vec2 uv=vec2((pos.x+pos.z)/3.1,pos.y/3.65);"
-  "vec2 edge=abs(fract(uv)-.5);float glass=(1.-smoothstep(.33,.43,edge.x))*(1.-smoothstep(.30,.40,edge.y));"
-  "float variation=hash(floor(uv));vec3 pane=mix(vec3(.17,.27,.32),vec3(.45,.58,.64),variation);"
-  "col=mix(col,mix(pane,col,.48),glass*(1.-smoothstep(.14,.6,length(fwidth(uv)))));}"
+  "if(regional==2 && abs(tint.a-.249)<.0001){vec2 p=pos.xz;"
+  "float grit=(noise(p*15.)-.5)*(1.-smoothstep(.025,.11,length(fwidth(p))));"
+  "col*=.93+.15*noise(p*.24)+.18*grit;}"
+  "if(regional==2 && abs(tint.a-.228)<.0001){vec3 n=normalize(cross(dFdx(pos),dFdy(pos)));"
+  "vec2 uv=vec2(abs(n.x)>abs(n.z)?pos.z:pos.x,pos.y)/vec2(2.8,3.65);"
+  "vec2 f=fract(uv),e=abs(f-.5);float detail=1.-smoothstep(.12,.55,length(fwidth(uv)));"
+  "float glass=(1.-smoothstep(.32,.36,e.x))*(1.-smoothstep(.29,.33,e.y));"
+  "float unit=hash(floor(uv));vec3 mirror=reflect(normalize(pos-waterEye),n);"
+  "vec3 pane=mix(vec3(.13,.19,.22),vec3(.51,.63,.70),smoothstep(-.35,.45,mirror.y));"
+  "pane*=.81+.25*unit;float blind=smoothstep(.60,.64,unit)*step(.61,f.y);"
+  "pane=mix(pane,vec3(.53,.50,.44),.65*blind);"
+  "float frame=smoothstep(.009,.027,e.x)*smoothstep(.009,.020,abs(f.y-.60));"
+  "col*=.90+.12*noise(vec2(uv.x*1.7,uv.y*3.));"
+  "col=mix(col,mix(vec3(.13,.16,.17),pane,frame),glass*detail);}"
   "if(regional==2 && tint.a>.2001 && tint.a<=.2191){vec3 photo=texture2D(forestShade,pos.xz/shadeCenter+.5).rgb;"
   "col=photo*(.93+.28*(tint.g-.30));}"
   "if(regional!=0 && animal==0 && abs(tint.a-.20)<.0001){"
@@ -512,6 +522,10 @@ static void street_cockpit(const float *ride,int w,int h){
    glColor3f(.24f,.25f,.26f);glVertex2f(.31f*x,.31f*y);
   }
   glEnd();glColor3f(.12f,.13f,.14f);glRectf(-.29f,-.018f,.29f,.018f);
+ }else if(ride[0]==16.f){
+  glTranslatef(0,-.82f,0);glRotatef(-8.f*ride[1],0,0,1);
+  glColor3f(.14f,.16f,.16f);glRectf(-.35f,-.025f,.35f,.018f);
+  glColor3f(.28f,.63f,.46f);glRectf(-.018f,-.23f,.018f,0);
  }else{
   glTranslatef(0,-.91f,0);glRotatef(-5.f*ride[1],0,0,1);
   for(int side=-1;side<=1;side+=2){
@@ -531,7 +545,7 @@ static void street_cockpit(const float *ride,int w,int h){
 }
 static void flight_equipment(struct gpu_scene *s,const float *flight,int w,int h){
  if(flight[0]==15.f)return;
- if(flight[0]>=12.f && flight[0]<=14.f){street_cockpit(flight,w,h);return;}
+ if((flight[0]>=12.f && flight[0]<=14.f) || flight[0]==16.f){street_cockpit(flight,w,h);return;}
  if(flight[0]==9.f){research_cockpit(s,flight,w,h);instrument_panel(s,flight,w,h);return;}
  int powered=flight[0]>.5f;
  float aspect=(float)w/h;
