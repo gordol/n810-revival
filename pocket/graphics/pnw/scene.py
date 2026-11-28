@@ -2293,8 +2293,8 @@ class RainierView:
                 from pnw.vehicle_impact import Body
                 terrain=lambda u,v:surface(field,u,v)
                 if self.traffic_bridges is None:self.traffic_bridges=BridgeRoads(terrain)
-                def lane_height(u,v,heading):
-                    return self.traffic_bridges.lane_height(u,v,heading,terrain(u,v))
+                def lane_height(u,v,heading,deck=None):
+                    return self.traffic_bridges.lane_height(u,v,heading,terrain(u,v),deck)
                 stationary=[]
                 for parked in self.parked_cars:
                     if math.hypot(parked.x-x,parked.z-z)>radius:continue
@@ -2313,15 +2313,15 @@ class RainierView:
                         red=(int(self.age+int(lx/90)+int(lz/90))%32)>=16
                         signals.append((lx,lz,bearing,red,terrain(lx,lz)))
                         poses.append((16,u+nx*.7,terrain(u,v),v+nz*.7,math.degrees(bearing),float(red),0))
-                cars=self.traffic.update(x,z,self.age,radius,self.road,lane_height,stationary,pedestrian,signals)
-                for distance,px,pz,angle,index,braking,turn in cars[:max(0,actor_limit-2-len(poses))]:
+                cars=self.traffic.update(x,z,self.age,radius,self.road,lane_height,stationary,pedestrian,signals,ground(x,z) if self.road else None)
+                for distance,px,pz,angle,index,braking,turn,road_y in cars[:max(0,actor_limit-2-len(poses))]:
                     self.traffic_gain=max(self.traffic_gain,1./(1.+distance/12.)**2)
                     lamps=int(braking)+2*int(daylight<.65 or bool(self.weather))
                     if turn==2:lamps+=16
                     if (self.age+index*.17)% .78<.39:lamps+=12 if turn==2 else 4 if turn<0 else 8 if turn>0 else 0
                     from pnw.traffic import vehicle_type
                     kind=vehicle_type(index)
-                    poses.append((kind,px,lane_height(px,pz,angle)+.06,pz,
+                    poses.append((kind,px,road_y+.06,pz,
                                   math.degrees(angle),-1. if kind==9 else float(lamps+32*(kind==19)),1+index%4+32*int(distance>100)))
         if sound_region and self.outing not in market_visit.FLOORS:
             reserved=[]

@@ -475,13 +475,15 @@ class BridgeRoads:
         self.deck=None
         self.last_height=None
 
-    def lane_height(self,x,z,heading,ground):
+    def lane_height(self,x,z,heading,ground,deck=None):
+        if deck==-1:return ground
         # A vehicle on a crossing street stays below the elevated lanes.
         # Resolve by tangent and lateral distance independently of the camera.
         best=None
         sn,cs=math.sin(heading),math.cos(heading)
-        for _,kind,width,(ax,az),(bx,bz),length,y,grade in self.cells.get((math.floor(x/32),math.floor(z/32)),()):
+        for bridge,kind,width,(ax,az),(bx,bz),length,y,grade in self.cells.get((math.floor(x/32),math.floor(z/32)),()):
             dx,dz=(bx-ax)/length,(bz-az)/length
+            if deck is not None and bridge!=deck:continue
             alignment=abs(dx*sn+dz*cs)
             if alignment<.92:continue
             along=max(0.,min(length,(x-ax)*dx+(z-az)*dz))

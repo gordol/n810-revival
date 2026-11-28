@@ -2,7 +2,7 @@
 from bisect import bisect_left
 from functools import lru_cache
 import math
-from pnw.seattle_places import corridor_path, freeway_data, freeway_lines, street_lines
+from pnw.seattle_places import corridor_path, freeway_data, freeway_lines, street_lines, overpasses
 from pnw.terrain import location
 from pnw.vehicle_impact import Body, collide, contact
 
@@ -10,13 +10,18 @@ from pnw.vehicle_impact import Body, collide, contact
 def highway_geometry():
     """Index the directed OSM pavement used to draw the freeway."""
     nodes={}
-    widths={}
+    profiles={}
+    decks={}
+    for bridge,(_,_,_,points,lead,tail) in enumerate(overpasses()):
+        path=[*reversed(lead),*points,*tail]
+        for a,b in zip(path,path[1:]):
+            decks[a,b]=decks[b,a]=bridge
     for _,_,points,half,_ in freeway_lines():
         for index,p in enumerate(points):
             nodes.setdefault((round(p[0]),round(p[1])),[]).append((points,index))
         for a,b in zip(points,points[1:]):
-            widths[a,b]=round((half-.6)/1.8)
-    return nodes,widths
+            profiles[a,b]=round((half-.6)/1.8),decks.get((a,b),-1)
+    return nodes,profiles
 
 
 def pavement_path(points):
@@ -76,12 +81,12 @@ def routes():
 
 
 def make_route(points,highways=False):
-    widths=highway_geometry()[1] if highways else {}
+    profiles=highway_geometry()[1] if highways else {}
     spans=[];ends=[];cells={};start=0.
     for a,b in zip(points,points[1:]):
         length=math.dist(a,b)
         if length<.01:continue
-        spans.append((*a,(b[0]-a[0])/length,(b[1]-a[1])/length,start,widths.get((a,b),0)))
+        spans.append((*a,(b[0]-a[0])/length,(b[1]-a[1])/length,start,*profiles.get((a,b),(0,None))))
         for i in range(math.floor(min(a[0],b[0])/256),math.floor(max(a[0],b[0])/256)+1):
             for j in range(math.floor(min(a[1],b[1])/256),math.floor(max(a[1],b[1])/256)+1):
                 cells.setdefault((i,j),[]).append(len(spans)-1)
@@ -132,7 +137,7 @@ def half_length(identity):
 
 def point(route,at,lane):
     spans,ends,_=route
-    x,z,dx,dz,start,lanes=spans[min(bisect_left(ends,at),len(spans)-1)]
+    x,z,dx,dz,start,lanes,_=spans[min(bisect_left(ends,at),len(spans)-1)]
     if lanes:
         # Route streams use the two rightmost lanes; one-lane links merge
         # both streams onto their centre. Keep a stopped vehicle inside it.
@@ -152,7 +157,7 @@ class Traffic:
         self.taken={}
         self.impact=0.
 
-    def update(self,x,z,age,radius,driver=None,lane_height=None,parked=(),pedestrian=None,signals=()):
+    def update(self,x,z,age,radius,driver=None,lane_height=None,parked=(),pedestrian=None,signals=(),driver_height=None):
         first_frame=self.last is None
         dt=min(.15,max(0.,age-self.last)) if self.last is not None else 0.
         self.last=age
@@ -174,7 +179,7 @@ class Traffic:
             body.coast(dt)
             reserve(key,body)
             identity=key[0]+key[2]
-            visible.append((math.hypot(x-body.x,z-body.z),body.x,body.z,body.heading,identity,True,2))
+            visible.append((math.hypot(x-body.x,z-body.z),body.x,body.z,body.heading,identity,True,2,body.elevation))
         for key,(at,_,_) in self.cars.items():
             offset=self.offsets.get(key,(1.8,-1.8)[key[1]])
             for side,center in enumerate((1.8,-1.8)):
@@ -212,7 +217,7 @@ class Traffic:
                     if not first_frame and key not in previous and distance<42:continue
                     clearance=leader-at-half_length(n+direction)-1.
                     obstacle=driver or pedestrian
-                    py=lane_height(px,pz,angle) if lane_height else 0.
+                    py=lane_height(px,pz,angle,spans[bisect_left(ends,at)][6]) if lane_height else 0.
                     for lx,lz,bearing,red,height in signals:
                         if abs(py-height)>2.5:continue
                         aligned=abs(math.cos(bearing-angle))>.707
@@ -221,7 +226,8 @@ class Traffic:
                         along=dx*math.sin(angle)+dz*math.cos(angle)
                         across=dx*math.cos(angle)-dz*math.sin(angle)
                         if 0<along<85 and abs(across)<6.5:clearance=min(clearance,along-half_length(n+direction)-1.8)
-                    if obstacle and (not pedestrian or abs(py-pedestrian.elevation)<2.7):
+                    obstacle_height=driver_height if driver else pedestrian.elevation if pedestrian else None
+                    if obstacle and (obstacle_height is None or abs(py-obstacle_height)<2.7):
                         dx,dz=obstacle.x-px,obstacle.z-pz
                         along=dx*math.sin(angle)+dz*math.cos(angle)
                         across=dx*math.cos(angle)-dz*math.sin(angle)
@@ -258,7 +264,8 @@ class Traffic:
                     body=Body(px,pz,angle,speed*math.sin(angle),speed*math.cos(angle),0.,
                               {11:10500.,12:18000.,5:2200.,17:2250.,18:1950.,19:260.}.get(kind,1500.),half_length(identity),.36 if kind==19 else 1.2 if kind in (11,12) else .95)
                     cx,cz=cell(body)
-                    body.elevation=lane_height(px,pz,angle) if lane_height else py
+                    deck=spans[min(bisect_left(ends,at),len(ends)-1)][6]
+                    body.elevation=lane_height(px,pz,angle,deck) if lane_height else py
                     blocked_by_traffic=any(abs(body.elevation-other.elevation)<2.7 and contact(body,other) for u in range(cx-1,cx+2)
                         for v in range(cz-1,cz+2) for k,other in space.get((u,v),{}).items() if k!=key)
                     if blocked_by_traffic:
@@ -274,7 +281,7 @@ class Traffic:
                     reserve(key,body)
                     self.bodies[key]=body
                     visible.append((distance,px,pz,angle,n+direction,speed<pace-2,
-                                    (1 if home<0 else -1) if 0<abs(lateral+home)<3.6 else 0))
+                                    (1 if home<0 else -1) if 0<abs(lateral+home)<3.6 else 0,body.elevation))
         self.offsets=offsets
         self.cars=active
         if driver and getattr(driver,"stop_target",None) not in active:driver.stop_target=None

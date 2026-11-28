@@ -39,13 +39,14 @@ class RoadSurfaceTests(unittest.TestCase):
         x,z=location('sound',47.6058,-122.3292)
         route=routes()[0]
         candidates=[]
-        for (a,b,dx,dz,start,lanes),end in zip(route[0],route[1]):
+        for (a,b,dx,dz,start,lanes,deck),end in zip(route[0],route[1]):
             d=(x-a)*dx+(z-b)*dz
             if not 0<=d<=end-start:continue
             px,pz,_=point(route,start+d,0.)
-            candidates.append((math.hypot(px-x,pz-z),start+d,lanes))
-        gap,at,lanes=min(candidates)
+            candidates.append((math.hypot(px-x,pz-z),start+d,lanes,deck))
+        gap,at,lanes,deck=min(candidates)
         self.assertLess(gap,8)
+        self.assertEqual(deck,-1)  # approach below the elevated lanes
         self.assertEqual(lanes,1)
         self.assertEqual(point(route,at,-1.8),point(route,at,1.8))
 
