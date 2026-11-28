@@ -343,29 +343,51 @@ def overpasses():
 
 
 def bridge_spans(height):
+    # OSM divides one physical deck into ways. Shared endpoints must meet at
+    # exactly one height even when their sampled terrain and grades differ.
+    endpoints={}
+    records=[]
     for bridge,(_,kind,half,points,before,after) in enumerate(overpasses()):
-        lengths=[math.dist(a,b) for a,b in zip(points,points[1:])]
-        total=sum(lengths)
+        distances=[0.]
+        for a,b in zip(points,points[1:]):
+            distances.append(distances[-1]+math.dist(a,b))
+        total=distances[-1]
+        if not total:continue
         grade=max(-.045,min(.045,(height(*points[-1])-height(*points[0]))/total))
-        along=0.;base=height(*points[0])
-        for point,length in zip(points,lengths+[0.]):
-            base=max(base,height(*point)-grade*along)
-            along+=length
-        lead,road,tail=before,points,after
-        path=list(reversed(lead))+road+tail
-        chain=-sum(math.dist(a,b) for a,b in zip([road[0]]+lead,lead))
-        start=chain
-        end=total+sum(math.dist(a,b) for a,b in zip([road[-1]]+tail,tail))
+        base=max(height(*point)-grade*d for point,d in zip(points,distances))+5.8
+        for point,y in ((points[0],base),(points[-1],base+grade*total)):
+            endpoints.setdefault((point,kind=='footway'),[]).append(y)
+        records.append((bridge,kind,half,points,before,after,base,grade,total))
+    for bridge,kind,half,points,before,after,base,grade,total in records:
+        start,end=points[0],points[-1]
+        joins=[endpoints[p,kind=='footway'] for p in (start,end)]
+        lead=[] if len(joins[0])>1 else before
+        tail=[] if len(joins[1])>1 else after
+        path=list(reversed(lead))+points+tail
+        lead_len=sum(math.dist(a,b) for a,b in zip([start]+lead,lead))
+        tail_len=sum(math.dist(a,b) for a,b in zip([end]+tail,tail))
         def elevation(point,d):
-            deck=base+5.8+grade*min(total,max(0.,d))
-            weight=(d-start)/(-start) if d<0 and start<0 else (end-d)/(end-total) if d>total and end>total else 1.
             bed=height(*point)+.055
+            fraction=max(0.,min(1.,d/total))
+            deck=max(joins[0])*(1-fraction)+max(joins[1])*fraction
+            weight=1.
+            if len(joins[0])==1:
+                weight=min(weight,(d+lead_len)/lead_len if lead_len else d/min(75.,total*.5))
+            if len(joins[1])==1:
+                weight=min(weight,(total+tail_len-d)/tail_len if tail_len else (total-d)/min(75.,total*.5))
             return bed+(deck-bed)*max(0.,min(1.,weight))
+        chain=-lead_len
         for a,b in zip(path,path[1:]):
             length=math.dist(a,b)
             if length<.01:continue
-            y=elevation(a,chain);top=elevation(b,chain+length)
-            yield bridge,kind,half,a,b,length,y,(top-y)/length
+            steps=math.ceil(length/12.)
+            prev=a;y=elevation(a,chain)
+            for i in range(1,steps+1):
+                f=i/steps
+                point=b if i==steps else (a[0]+f*(b[0]-a[0]),a[1]+f*(b[1]-a[1]))
+                top=elevation(point,chain+length*f)
+                yield bridge,kind,half,prev,point,length/steps,y,(top-y)/(length/steps)
+                prev,y=point,top
             chain+=length
 
 
@@ -380,6 +402,7 @@ class BridgeRoads:
                 for j in range(math.floor((min(z,v)-w)/32),math.floor((max(z,v)+w)/32)+1):
                     self.cells.setdefault((i,j),[]).append(span)
         self.deck=None
+        self.last_height=None
 
     def sample(self,x,z,ground,update=False):
         best=None
@@ -388,10 +411,13 @@ class BridgeRoads:
             along=max(0.,min(length,(x-ax)*dx+(z-az)*dz))
             gap=math.hypot(x-ax-dx*along,z-az-dz*along)
             top=y+grade*along
-            if gap<=width and (bridge==self.deck or update and abs(top-ground)<.85):
+            connected=update and self.last_height is not None and abs(top-self.last_height)<.85
+            if gap<=width and (bridge==self.deck or update and abs(top-ground)<1.25 or connected):
                 candidate=(bridge!=self.deck,gap,bridge,top)
                 if best is None or candidate<best:best=candidate
-        if update:self.deck=best[2] if best else None
+        if update:
+            self.deck=best[2] if best else None
+            self.last_height=best[3] if best else None
         return best[3] if best else ground
 
 
