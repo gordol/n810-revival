@@ -28,6 +28,12 @@ static GLuint rainier_program(void){
   "float n=.57*noise(p)+.30*noise(2.1*p)+.13*noise(4.4*p);"
   "float cloud=smoothstep(.52-.15*overcast,.78-.12*overcast,n)*smoothstep(.015,.14,alt);"
   "return mix(col,mix(vec3(.13,.16,.22),vec3(.87,.88,.86),daylight),cloud);}"
+  "uniform vec3 marketLamps[4];uniform int marketNear;"
+  "vec3 lampGlow(vec3 ray,float depth){vec3 glow=vec3(0.);"
+  "for(int i=0;i<4;i++){vec3 d=marketLamps[i]-waterEye;float t=dot(d,ray);"
+  "if(t>.2 && t<min(depth+.32,45.)){vec3 miss=d-ray*t;float r=length(miss);"
+  "float halo=exp(-r*6.)*.33+exp(-abs(miss.y)*65.-r*3.)*.16;"
+  "glow+=halo*(1.-smoothstep(18.,45.,t))*(i==0?vec3(1.,.12,.04):vec3(1.,.70,.33));}}return glow;}"
   "vec3 reflectedBank(vec3 ray){vec3 sky=skyColor(ray);"
   // The valley canopy texture stores crown heights at the actual tree sites.
   // Trace a short ray above the water plane; the far field uses the sky.
@@ -41,7 +47,7 @@ static GLuint rainier_program(void){
   "gl_FragColor=vec4(mix(fog,vec3(.23,.56,.49),glow),1.);return;}"
   "float beam=smoothstep(.68,.82,noise(pos.xz*.55+waterTime*.17));"
   "gl_FragColor=vec4(mix(tint.rgb*(.85+.28*beam),fog,1.-exp(-.068*distanceToEye)),1.);return;}"
-  "if(skyPass!=0){gl_FragColor=vec4(skyColor(skyDirection()),1.);return;}if(hiddenPlane>0. && abs(tint.a-hiddenPlane)<.0002)discard;if(tint.a>.85 && tint.a<.89 && (season==1 || season==2 || (season==3 && tint.a<.87)))discard;if((abs(tint.a-.60)<.004 && supplies.x>.5)||(abs(tint.a-.61)<.004 && supplies.y>.5)||(abs(tint.a-.62)<.004 && supplies.z>.5)||(abs(tint.a-.63)<.004 && supplies.w<.5))discard;if((abs(tint.a-.57)<.005 && camp<1)||(abs(tint.a-.59)<.005 && camp<2))discard;if((abs(tint.a-.08)<.01 && picked.x>.5)||(abs(tint.a-.13)<.01 && picked.y>.5)||(abs(tint.a-.18)<.01 && picked.z>.5))discard;float alpha=1.;float reflection=0.;vec3 reflected=vec3(0.);float castShade=0.;vec3 col=tint.rgb;if(tint.a>.9){vec2 p=pos.xz;"
+  "if(skyPass!=0){gl_FragColor=vec4(skyColor(skyDirection())+(marketNear!=0?lampGlow(skyDirection(),1000.):vec3(0.)),1.);return;}if(hiddenPlane>0. && abs(tint.a-hiddenPlane)<.0002)discard;if(tint.a>.85 && tint.a<.89 && (season==1 || season==2 || (season==3 && tint.a<.87)))discard;if((abs(tint.a-.60)<.004 && supplies.x>.5)||(abs(tint.a-.61)<.004 && supplies.y>.5)||(abs(tint.a-.62)<.004 && supplies.z>.5)||(abs(tint.a-.63)<.004 && supplies.w<.5))discard;if((abs(tint.a-.57)<.005 && camp<1)||(abs(tint.a-.59)<.005 && camp<2))discard;if((abs(tint.a-.08)<.01 && picked.x>.5)||(abs(tint.a-.13)<.01 && picked.y>.5)||(abs(tint.a-.18)<.01 && picked.z>.5))discard;float alpha=1.;float reflection=0.;vec3 reflected=vec3(0.);float castShade=0.;vec3 marketSpec=vec3(0.);vec3 col=tint.rgb;if(tint.a>.9){vec2 p=pos.xz;"
   "float broad=noise(p*.015);float detail=(noise(p*.64)-.5)*(1.-smoothstep(80.,600.,distanceToEye));"
   "col*=.80+.40*broad+.30*detail;col+=vec3(.032,.024,-.013)*broad;"
   "if(highDetail!=0){float grit=noise(p*11.)-.5;float moss=noise(p*.18);"
@@ -121,6 +127,29 @@ static GLuint rainier_program(void){
   "vec2 edge=abs(fract(p)-.5);float mortar=smoothstep(.435,.49,max(edge.x,edge.y));"
   "float joint=mortar*(1.-smoothstep(.12,.65,length(fwidth(pos.xz*4.))));"
   "col*=.85+.23*hash(floor(p))-.35*joint;}"
+  "if(regional==2 && abs(tint.a-.251)<.0001){vec3 n=normalize(cross(dFdx(pos),dFdy(pos)));vec2 uv=vec2((abs(n.x)>abs(n.z)?pos.z:pos.x)*3.2,pos.y*8.);uv.x+=.5*mod(floor(uv.y),2.);"
+  "vec2 edge=abs(fract(uv)-.5);float joint=smoothstep(.43,.49,max(edge.x,edge.y));"
+  "col=mix(col*(.80+.32*hash(floor(uv))),vec3(.32,.29,.26),joint*.65);}"
+  // Dense layers on the lower Post Alley bricks. Filter sub-pixel pieces at distance.
+  "if(regional==2 && abs(tint.a-.255)<.0001){vec2 uv=pos.zy*vec2(32.,38.);"
+  "vec2 cell=floor(uv);float seed=hash(cell);vec2 q=fract(uv)-.5+.24*(vec2(seed,hash(cell+7.))-.5);"
+  "float r=length(q*vec2(.84+.45*seed,.95));float aa=max(.035,min(.34,length(fwidth(uv))));"
+  "vec3 gum=.49+.33*cos(6.283*(seed+vec3(.06,.39,.72)));"
+  "col=mix(col,gum*(.82-.32*q.y)+.16*exp(-32.*dot(q+.17,q+.17)),1.-smoothstep(.35-aa,.50+aa,r));}"
+  "if(regional==2 && (abs(tint.a-.237)<.0001||abs(tint.a-.254)<.0001)){"
+  "vec2 brick=pos.xz*vec2(2.,4.);brick.x+=.5*mod(floor(brick.y),2.);"
+  "float joint=smoothstep(.41,.49,max(abs(fract(brick.x)-.5),abs(fract(brick.y)-.5)));"
+  "float pool=(.22+.78*smoothstep(.21,.78,noise(pos.xz*.71)+.19*overcast))*(1.-.80*joint);vec3 incident=normalize(pos-waterEye);"
+  "vec3 n=normalize(vec3(.024*(noise(pos.xz*7.)-.5),1.,.024*(noise(pos.zx*7.)-.5)));"
+  "vec3 ray=reflect(incident,n);float fresnel=.10+.74*pow(1.-abs(dot(incident,n)),3.);"
+  "vec3 sheen=skyColor(vec3(ray.x,max(.01,ray.y),ray.z));"
+  "if(abs(tint.a-.254)<.0001){float opening=clamp(ray.y*1.4-abs(ray.x),0.,1.);sheen=mix(vec3(.20,.13,.11),sheen,opening);}"
+  "col=mix(col*(1.-.24*pool),sheen,pool*fresnel);"
+  "if(marketNear!=0){for(int i=0;i<4;i++){vec3 d=marketLamps[i]-pos;float t=dot(d,ray);if(t>0.){"
+  "vec3 missVec=d-ray*t;if(i==0){vec3 axis=vec3(-.5299,0.,.8480);"
+  "vec3 lateral=axis-ray*dot(axis,ray);missVec-=lateral*clamp(dot(lateral,missVec)/max(.001,dot(lateral,lateral)),-6.6,6.6);}"
+  "float miss=length(missVec);float streak=exp(-miss/(.21+.055*t))/(1.+.0018*t*t);"
+  "marketSpec+=pool*streak*(i==0?vec3(.99,.13,.06):vec3(.98,.66,.30));}}}}"
   "if(regional==2 && abs(tint.a-.249)<.0001){vec2 p=pos.xz;"
   "float grit=(noise(p*15.)-.5)*(1.-smoothstep(.025,.11,length(fwidth(p))));"
   "col*=.93+.15*noise(p*.24)+.18*grit;}"
@@ -211,7 +240,7 @@ static GLuint rainier_program(void){
   "snow+=vec3(.021*ripple+.033*grain+.045*(seams-.5)+.040*flecks);"
   "col=mix(col,mix(rock,snow,smoothstep(.78,.94,retention)),smoothstep(2350.,2750.,elev));}"
   "col*=mix(vec3(1.),vec3(.52,.63,.72),castShade);"
-  "float haze=1.-exp(-distanceToEye*hazeDensity);vec3 lit=col*mix(vec3(.24,.32,.47),vec3(1.),daylight);if(regional==2 && abs(tint.a-.247)<.0001)lit=tint.rgb;gl_FragColor=vec4(mix(mix(lit,reflected,reflection),horizon(),haze),alpha);}";
+  "float haze=1.-exp(-distanceToEye*hazeDensity);vec3 lit=col*mix(vec3(.24,.32,.47),vec3(1.),daylight);if(regional==2 && abs(tint.a-.247)<.0001)lit=tint.rgb;lit+=marketSpec;if(marketNear!=0)lit+=lampGlow(normalize(pos-waterEye),distanceToEye);gl_FragColor=vec4(mix(mix(lit,reflected,reflection),horizon(),haze),alpha);}";
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return 0;
  GLuint frag=wildlife_shader(GL_FRAGMENT_SHADER,fs);if(!frag){glDeleteShader(vert);return 0;}
  GLuint program=glCreateProgram();glAttachShader(program,vert);glAttachShader(program,frag);
@@ -375,6 +404,31 @@ int pocket_scene_flight_photo(void *ptr,unsigned slot,unsigned pixels,const unsi
  s->flight_areas[slot][0]=x;s->flight_areas[slot][1]=z;s->flight_areas[slot][2]=slot<28?4096.f:16384.f;
  return 0;
 }
+void pocket_scene_market_lights(void *ptr,const float *lamps,int glow){
+ struct gpu_scene *s=ptr;
+ if(lamps)memcpy(s->market_lamps,lamps,sizeof(s->market_lamps));
+ s->market_glow=glow;
+}
+
+int pocket_scene_snack(void *ptr,unsigned slot,const float *mesh,unsigned count){
+ struct gpu_scene *s=ptr;
+ if(!s||slot>1||!mesh||!count||count>100000)return -1;
+ if(s->snack_mesh[slot])return 0;
+ if(scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
+ GLint previous,size;
+ glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&previous);
+ glGenBuffers(1,&s->snack_mesh[slot]);glBindBuffer(GL_ARRAY_BUFFER,s->snack_mesh[slot]);
+ glBufferData(GL_ARRAY_BUFFER,count*6*sizeof(float),mesh,GL_STATIC_DRAW);
+ glGetBufferParameteriv(GL_ARRAY_BUFFER,GL_BUFFER_SIZE,&size);
+ glBindBuffer(GL_ARRAY_BUFFER,(GLuint)previous);
+ if(size!=(GLint)(count*6*sizeof(float))){
+  glDeleteBuffers(1,&s->snack_mesh[slot]);s->snack_mesh[slot]=0;
+  return SDL_SetError("Could not upload market item");
+ }
+ s->snack_count[slot]=(GLsizei)count;
+ return 0;
+}
+
 int pocket_scene_cockpit(void *ptr,const unsigned char *pixels,float speed,float altitude){
  struct gpu_scene *s=ptr;
  if(!s)return -1;
@@ -582,17 +636,19 @@ static void flight_equipment(struct gpu_scene *s,const float *flight,int w,int h
  }
  if(flight[0]>=5.f){
   glTranslatef(.87f,-1.05f,-1.88f);glScalef(1,-1,1);
-  if(flight[0]==5.f){
-   glRotatef(-18.f,1,0,0);
-   glBegin(GL_QUAD_STRIP);
-   for(int i=0;i<=40;i++){
-    float a=i*.15707963f,l=.85f+.12f*cosf(a);
-    glColor3f(.92f*l,.87f*l,.74f*l);
-    glVertex3f(.195f*sinf(a),-.36f,.195f*cosf(a));
-    glVertex3f(.14f*sinf(a),.25f,.14f*cosf(a));
-   }glEnd();glBegin(GL_TRIANGLE_FAN);glColor3f(.21f,.13f,.08f);glVertex3f(0,-.36f,0);
-   for(int i=0;i<=40;i++)glVertex3f(.19f*sinf(i*.15707963f),-.36f,.19f*cosf(i*.15707963f));
-   glEnd();
+  if(flight[0]==5.f||flight[0]==6.f){
+   unsigned slot=flight[0]==6.f;
+   glScalef(3.8f,-3.8f,3.8f);glRotatef(162,0,1,0);
+   glRotatef(slot?-22.f:-8.f,1,0,0);
+   glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_VIEWPORT_BIT|GL_TEXTURE_BIT);
+   glEnable(GL_DEPTH_TEST);glDepthMask(GL_TRUE);glDepthFunc(GL_LEQUAL);glDepthRange(0.,.001);
+   glActiveTexture(GL_TEXTURE0);glDisable(GL_TEXTURE_2D);
+   glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
+   glBindBuffer(GL_ARRAY_BUFFER,s->snack_mesh[slot]);
+   glEnableClientState(GL_VERTEX_ARRAY);glEnableClientState(GL_COLOR_ARRAY);
+   glVertexPointer(3,GL_FLOAT,6*sizeof(float),0);glColorPointer(3,GL_FLOAT,6*sizeof(float),(const void *)(3*sizeof(float)));
+   glDrawArrays(GL_TRIANGLES,0,s->snack_count[slot]);
+   glPopClientAttrib();glPopAttrib();
   }else if(flight[0]==7.f){
    glScalef(2.f,-2.f,2.f);glTranslatef(.19f,-.91f,-.14f);
    market_flowers();
@@ -610,9 +666,7 @@ static void flight_equipment(struct gpu_scene *s,const float *flight,int w,int h
     glEnd();
    }
    market_body(0,-.22f,0,.157f,.022f,.157f,.72f,.62f,.38f);
-  }else{
-   glRotatef(-24.f,0,0,1);market_body(0,0,0,.30f,.18f,.15f,.85f,.51f,.20f);
-   for(int j=-2;j<=2;j++)market_body(j*.08f,-.09f,.10f,.028f,.044f,.031f,.97f,.71f,.36f);
+
   }
   return;
  }
@@ -757,6 +811,10 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  float cb=cosf(roll*.017453293f),sb=sinf(roll*.017453293f);
  glUniform2f(glGetUniformLocation(s->rainier_program,"bankCS"),cb,sb);
  glUniform1i(glGetUniformLocation(s->rainier_program,"underwater"),aircraft && aircraft[0]==15.f);
+ int near_market=lens==-2 && s->market_glow && hypotf(east-s->market_lamps[0],north-s->market_lamps[2])<150.f;
+ glUniform1i(glGetUniformLocation(s->rainier_program,"marketNear"),near_market);
+ if(near_market)glUniform3fv(glGetUniformLocation(s->rainier_program,"marketLamps"),4,s->market_lamps);
+ glUniform3f(glGetUniformLocation(s->rainier_program,"waterEye"),east,eye,north);
  glUniform1i(sky_pass,1);
  glUniform4f(glGetUniformLocation(s->rainier_program,"skyCamera"),yaw,pitch,(float)w/h,.5543f/fmaxf(1.f,focal));
  glUniform1f(glGetUniformLocation(s->rainier_program,"daylight"),daylight);
@@ -947,7 +1005,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   for(int j=0;j<32;j++){float a=j*.19634954f;glVertex3f(marker[0]+.25f*cosf(a),marker[1],marker[2]+.25f*sinf(a));}
   glEnd();
  }
- if(high)river_bloom(s,x,y,w,h);
+ if(high||near_market)river_bloom(s,x,y,w,h);
  if(photo){
   GLuint samples=0;
   if(photo_query){glGetQueryObjectuiv(photo_query,GL_QUERY_RESULT,&samples);glDeleteQueries(1,&photo_query);}

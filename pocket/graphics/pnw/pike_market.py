@@ -143,6 +143,13 @@ def build(center,height,quad):
                     panel(((ax,1.02,az),(bx,1.02,bz),(bx,top,bz),(ax,top,az)),tuple(c*shade for c in tone))
                     panel(((ax,top,az),(bx,top,bz),(x,top,z),(x,top,z)),(.32,.39,.34) if flowers else (.83,.71,.39))
                 if flowers:
+                    # Folded florist paper flares out above the lip of each bucket.
+                    for fold in range(8):
+                        a,b=fold*math.tau/8,(fold+1)*math.tau/8
+                        def wrap(t,r,h):return x+r*math.cos(t),h,z+r*math.sin(t)
+                        panel((wrap(a,.08,1.23),wrap(b,.08,1.23),
+                               wrap(b,.177,1.44+.07*((fold+1)%2)),wrap(a,.177,1.44+.07*(fold%2))),
+                              (.94,.91,.82) if fold%2 else (.84,.83,.78))
                     for k in range(9):
                         theta=k*2.40+j
                         ex=x+.16*math.cos(theta)
@@ -183,6 +190,11 @@ def build(center,height,quad):
     from pnw.market_visit import lettering as sign_text
     def sign_panel(points,color):
         panel(tuple((-11.86-z,y,.48+x) for x,y,z in points),color,.247)
+    def viewpoint_panel(points,color):
+        panel(tuple((6.03-z,y,1.2+x) for x,y,z in points),color,.247)
+    block(5.91,6.00,2.61,3.42,1.02,4.25,(.16,.20,.24))
+    sign_text('WATERFRONT',0,3.04,0,.27,viewpoint_panel,(.55,.69,1.))
+    sign_text('VIEWPOINT',.17,2.78,0,.22,viewpoint_panel,(.58,.72,1.))
     sign_text('LOBACK MEAT CO',0,2.86,0,.31,sign_panel,(.95,.35,.18))
     # The OSM shop point registers this bay. A front ice bed faces the
     # customers, with a separate wrapping counter behind the fishmongers.
@@ -213,7 +225,12 @@ def build(center,height,quad):
         wall(x+.025,x+.20,1.12,1.15,4.72,(.29,.24,.20))
     block(1.4,5.6,-1,1.,6.9,7.8,(.48,.40,.32))
     wall(.4,6.,2.37,2.96,6.85,(.24,.22,.18))
-    lettering('PIKE PLACE FISH',.64,2.46,6.81,.40,(.93,.85,.68))
+    wall(.43,5.98,2.53,2.93,6.84,(.82,.79,.63))
+    lettering('PIKE PLACE FISH CO.',.57,2.56,6.81,.32,(.18,.24,.21))
+    lettering('We pack fish to keep fresh',.84,2.39,6.81,.12,(.89,.85,.67))
+    for i,label in enumerate(('Oysters','Salmon','Crab','Halibut','Prawns')):
+        x=1.23+i*.72
+        lettering(label,x+.01,1.048,4.709,.043,(.24,.18,.14))
     # Cream masonry walls, bay windows, lintels and projecting cornices.
     for left,right,front,floors,color in ((-29,-7,5.,4,(.69,.67,.57)),
                                          (6.6,32,3.2,3,(.68,.62,.50))):
@@ -263,7 +280,7 @@ def build(center,height,quad):
             shopfront(.12,2.8,v,v+2.73,.055,(.20,.27,.27))
             shopfront(.86,2.65,v+.16,v+2.54,.085,(.33,.42,.42),.244)
             shopfront(.91,2.68,v+1.27,v+1.34,.11,trim)
-            for y in (4.4,7.5):
+            for y in ((4.4,) if side>0 else (4.4,7.5)):
                 shopfront(y,y+1.66,v+.38,v+2.41,.065,(.27,.30,.28))
                 shopfront(y+.13,y+1.18,v+.49,v+2.29,.085,(.37,.42,.40),.244)
             if side>0 or v<-10:
@@ -272,6 +289,41 @@ def build(center,height,quad):
                 panel(((edge,3.67,v),(u,3.15,v),(u,3.15,v+3),(edge,3.67,v+3)),cloth)
                 shopfront(2.95,3.15,v,v+3,1.4,cloth)
         block(min(edge,outer)-.2,max(edge,outer)+.2,top,top+.22,-27.23,1.23,trim)
+    # Corner Market has a five-bay gable on Pike Street. The arched
+    # sash and brick spandrels repeat around the corner facing Pike Place.
+    stone=(.76,.72,.62)
+    sash=(.45,.25,.18)
+    for front,bays,width in ((True,5,3.7),(False,9,3.1)):
+        def facade(u,y,offset):
+            return (8.5+u,y,-27.-offset) if front else (8.5-offset,y,-27.+u)
+        def span(a,b,y,h,offset,tone,material=0.):
+            panel((facade(a,y,offset),facade(b,y,offset),facade(b,h,offset),facade(a,h,offset)),tone,material)
+        for j in range(bays):
+            u=(j+.5)*width
+            r=width*.38
+            crest=11.98+(1.25*max(0.,1.-abs(j-2)*.5) if front else 0.)
+            span(u-width*.5,u+width*.5,6.35,crest,.12,(.54,.29,.20),.251)
+            span(u-width*.5,u-width*.5+.18,3.5,crest,.14,stone)
+            span(u-width*.5,u+width*.5,6.47,7.03,.16,stone)
+            span(u-r,u+r,7.34,8.30,.17,(.28,.39,.44),.244)
+            for k in range(16):
+                a,b=k*math.pi/16,(k+1)*math.pi/16
+                def arch(t,rad,d):return facade(u+rad*math.cos(t),8.30+rad*math.sin(t),d)
+                panel((facade(u,8.30,.17),arch(a,r,.17),arch(b,r,.17),facade(u,8.30,.17)),(.28,.39,.44),.244)
+                panel((arch(a,r,.18),arch(a,r+.17,.18),arch(b,r+.17,.18),arch(b,r,.18)),stone)
+            for frac in (-.53,0,.53):
+                span(u+r*frac-.028,u+r*frac+.028,7.34,8.3+r*math.sqrt(1-frac*frac),.19,sash)
+            span(u-r,u+r,8.24,8.30,.19,sash)
+            if front:
+                span(u-r,u+r,4.15,6.03,.16,(.28,.36,.38),.244)
+                span(u-.04,u+.04,4.15,6.03,.18,sash)
+            for stripe in range(8):
+                a=(j+stripe/8)*width;b=a+width/8
+                cloth=(.89,.88,.75) if stripe%2 else (.10,.38,.32)
+                panel((facade(a,3.68,.13),facade(b,3.68,.13),facade(b,3.16,1.43),facade(a,3.16,1.43)),cloth)
+                span(a,b,2.94,3.16,1.43,cloth)
+    wall(8.5,27.,6.32,7.05,-27.22,stone)
+    lettering('CORNER MARKET',12.25,6.40,-27.24,.52,sash)
     # The clock and lettering rise from the roof behind the entrance fascia.
     for x in (-6.,-2.,2.,6.):
         stroke(x,4.05,x,13.9,2.5,.058,iron)
@@ -281,9 +333,24 @@ def build(center,height,quad):
     for x in (-6,-2,2):
         stroke(x,4.3,x+4,10.4,2.5,.046,iron)
         stroke(x+4,10.4,x,13.6,2.5,.046,iron)
-    lettering('PUBLIC',-4.95,11.05,2.32,2.22,red)
-    lettering('MARKET',-6.15,8.05,2.32,2.08,red)
-    lettering('CENTER',-4.98,5.03,2.32,2.22,red)
+    def neon(words,x,y,z,size):
+        from pnw.market_visit import sign_art
+        glyphs=sign_art()['glyphs']
+        width=sum(glyphs[c][0] for c in words)
+        sx=min(size/200,len(words)*size*.8/width)
+        for c in words:
+            advance,paths=glyphs[c]
+            for path in paths:
+                pts=[(x+u*sx,y+v*size/200) for u,v in zip(path[::2],path[1::2])]
+                for a,b in zip(pts,pts[1:]+pts[:1]):
+                    if a!=b:stroke(*a,*b,z,.020*size,(1.,.38,.17),.247)
+            x+=advance*sx
+    lettering('PUBLIC',-4.95,11.05,2.32,2.22,(.49,.055,.055))
+    neon('PUBLIC',-4.95,11.05,2.28,2.22)
+    lettering('MARKET',-6.15,8.05,2.32,2.08,(.49,.055,.055))
+    neon('MARKET',-6.15,8.05,2.28,2.08)
+    lettering('CENTER',-4.98,5.03,2.32,2.22,(.49,.055,.055))
+    neon('CENTER',-4.98,5.03,2.28,2.22)
     cx,cy=4.45,9.27
     for j in range(60):
         a,b=j*math.tau/60,(j+1)*math.tau/60
@@ -299,7 +366,9 @@ def build(center,height,quad):
     for dx,dy in ((-.50,.66),(.83,.39)):stroke(cx,cy,cx+dx,cy+dy,2.08,.085,red)
     block(-6.8,7.3,3.50,4.98,-1.35,-.71,(.21,.33,.29))
     wall(-6.61,7.11,3.62,4.87,-1.39,(.94,.89,.71))
-    lettering('FARMERS MARKET',-5.26,3.73,-1.45,1.,red)
+    lettering('FARMERS MARKET',-5.26,3.73,-1.45,1.,(.49,.055,.055))
+    neon('FARMERS MARKET',-5.26,3.73,-1.48,1.)
+    for y in (3.67,4.82):stroke(-6.55,y,7.05,y,-1.46,.021,(1.,.27,.12),.247)
     # The cross street stays open along the arcade, including its north end.
     for left,right,front,back in FLOORS:
         for v in range(front,back,2):

@@ -55,11 +55,15 @@ def arrival(key):
     return x-234,z+225,2.32,-.09
 
 @lru_cache(maxsize=1)
-def sign_font():
-    """Tessellate the shared outlines once. Even-odd spans preserve counters."""
+def sign_art():
     import json
     from pathlib import Path
-    data=json.loads((Path(__file__).resolve().parents[1]/'assets/seattle/signs.json').read_text())
+    return json.loads((Path(__file__).resolve().parents[1]/'assets/seattle/signs.json').read_text())
+
+@lru_cache(maxsize=1)
+def sign_font():
+    """Tessellate the shared outlines once. Even-odd spans preserve counters."""
+    data=sign_art()
     result={}
     for char,(advance,paths) in data['glyphs'].items():
         edges=[];heights=set()
@@ -311,6 +315,67 @@ def indoor_mesh(key):
     box(0,0,8.5,.20,3.35,9.,wood)
     return mesh
 
+@lru_cache(maxsize=4)
+def counter_item(kind):
+    """Local, metre-scale faces shared by the shop display and held purchase."""
+    faces=[]
+    def face(points,color):
+        faces.append((tuple(points),tuple(color)))
+    def ring_surface(profile):
+        for (h,r,color),(hh,rr,_) in zip(profile,profile[1:]):
+            for i in range(32):
+                a,b=i*math.tau/32,(i+1)*math.tau/32
+                def point(t,y,r):return r*math.sin(t),y,-r*math.cos(t)
+                light=.87+.13*math.cos(a+.65)
+                face((point(a,h,r),point(b,h,r),point(b,hh,rr),point(a,hh,rr)),[v*light for v in color])
+    if kind=='coffee':
+        paper=(.98,.97,.92);lid=(.92,.90,.84)
+        ring_surface(((0,.032,paper),(.005,.034,paper),(.119,.045,paper),(.121,.0475,lid),
+                      (.126,.0475,lid),(.128,.044,lid),(.136,.042,lid),(.139,.041,lid),
+                      (.139,.032,lid),(.135,.030,lid),(.135,0,lid)))
+        face(((-.008,.1395,-.038),(.008,.1395,-.038),(.007,.1395,-.035),(-.007,.1395,-.035)),(.14,.12,.10))
+        rows=sign_art()['siren']
+        def logo(u,v):
+            y=.088-.048*v
+            a=(u-.5)*1.22
+            r=.034+(y-.005)*(.011/.114)+.00035
+            return r*math.sin(a),y,-r*math.cos(a)
+        for i,row in enumerate(rows):
+            for left,right in zip(row[::2],row[1::2]):
+                for start in range(left,right,4):
+                    end=min(start+4,right)
+                    face(tuple(logo(u/64,v/64) for u,v in ((start,i),(end,i),(end,i+1),(start,i+1))),(.00,.39,.25))
+        return faces
+    # A pinched oval, a fish-shaped salmon pie and a coiled apple bun.
+    fish=kind=='salmon';roll=kind=='apple'
+    def crust(t,p):
+        radius=math.cos(p)
+        x=math.cos(t)*radius;z=math.sin(t)*radius
+        h=math.sin(p)
+        crimp=math.exp(-18*z*z)*(.5+.5*math.cos(31*x+5*z)) if not roll else .5+.5*math.cos(17*radius-2*t)
+        return (.102*x,.016+.042*h+.006*crimp*h,.067*z*(1-.32*x*x) if not roll else .078*z),crimp
+    for i in range(32):
+        for j in range(7):
+            pts=[];score=0
+            for u,v in ((i,j),(i+1,j),(i+1,j+1),(i,j+1)):
+                pt,score=crust(u*math.tau/32,-.38+v*(math.pi/2+.38)/7)
+                pts.append(pt)
+            glaze=.68+.27*math.sin((j+1)*math.pi/10)+.06*math.cos(i*.59)+.07*score
+            face(pts,(.92*glaze,(.49+.13*score)*glaze,(.17+.07*score)*glaze))
+    if fish:
+        face(((.068,.021,0),(.137,.017,-.047),(.128,.031,0),(.137,.017,.047)),(.78,.42,.13))
+        for j in range(3):
+            x=-.030+.034*j
+            face(((x-.014,.052,-.016),(x,.059,0),(x-.014,.052,.016),(x+.006,.057,0)),(.61,.33,.14))
+    return faces
+
+@lru_cache(maxsize=2)
+def held_item(kind):
+    packed=array('f')
+    for points,color in counter_item(kind):
+        for i in (0,1,2,0,2,3):packed.extend((*points[i],*color))
+    return packed
+
 def storefronts(ground,world_quad,world_box):
     _,_,c,s=storefront_frame()
     def quad(points,color):
@@ -333,19 +398,62 @@ def storefronts(ground,world_quad,world_box):
             box(wx,z-.33,y+2.28,1.88,.09,.045,(.98,.83,.53),.247)
         box(x,z-.18,y+2.36,7.15,.15,.75,color)
         lettering(name,x-3.27,y+2.52,z-.27,.44,quad,(.98,.90,.70))
-        box(x,z-.43,y+.96,6.8,.12,1.32,(.28,.36,.37),.244)
-        box(x,z-.98,y+.80,5.4,1.06,.13,(.57,.42,.28))
-        for j in range(10):
-            xx=x-2.25+j*.49
-            for k in range(12):
-                a,b=k*math.tau/12,(k+1)*math.tau/12
-                def edge(t,r,h):return xx+r*math.cos(t),y+h,z-1.08+r*math.sin(t)
-                if i:
-                    quad((edge(a,.065,.94),edge(b,.065,.94),edge(b,.10,1.18),edge(a,.10,1.18)),(.93,.89,.77))
-                    quad((edge(a,.10,1.18),edge(b,.10,1.18),(xx,y+1.18,z-1.08),(xx,y+1.18,z-1.08)),(.22,.13,.09))
-                else:
-                    quad((edge(a,.16,.94),edge(b,.16,.94),edge(b,.095,1.04),edge(a,.095,1.04)),(.79,.46,.19))
-                    quad((edge(a,.095,1.04),edge(b,.095,1.04),(xx,y+1.06,z-1.08),(xx,y+1.06,z-1.08)),(.88,.58,.29))
+        # Front counter sits clear of the mapped building shell.
+        box(x,z-.98,y,5.4,1.06,.84,(.34,.23,.15))
+        box(x,z-.98,y+.84,5.48,1.12,.065,(.66,.54,.40))
+        def display(kind,across,depth,base,angle=0.):
+            ca,sa=math.cos(angle),math.sin(angle)
+            for points,tone in counter_item(kind):
+                quad([(across+ca*u+sa*v,base+h,depth-sa*u+ca*v) for u,h,v in points],tone)
+        if i==0:
+            # Three sheet pans under a brass-framed sloped sneeze guard.
+            for k,(product,title) in enumerate((('salmon','Smoked salmon'),('piroshky','Beef & onion'),('apple','Apple cinnamon'))):
+                tx=x-1.65+1.65*k
+                box(tx,z-1.02,y+.905,1.54,.82,.030,(.54,.54,.50))
+                box(tx,z-1.02,y+.936,1.48,.76,.004,(.91,.84,.69))
+                for row in range(2):
+                    for n in range(5-(row==1 and k==2)):
+                        display(product,tx-.56+n*.28,z-1.19+row*.34,y+.94,.09*math.sin(n*7+k))
+                box(tx,z-1.48,y+.91,.8,.035,.18,(.96,.91,.76))
+                lettering(title,tx-.37,y+.967,z-1.502,.071,quad,(.19,.12,.07))
+            for dx in (-2.59,-.83,.83,2.59):
+                box(x+dx,z-1.49,y+.905,.032,.035,.42,(.64,.53,.32))
+            for depth in (-1.49,-.64):
+                box(x,z+depth,y+1.32,5.24,.024,.023,(.72,.64,.47))
+            box(x,z-.65,y+1.30,5.14,.034,.018,(1.,.86,.63),.247)
+        else:
+            steel=(.65,.68,.66);rubber=(.12,.13,.12)
+            mx=x-.55
+            box(mx,z-.98,y+.905,1.12,.54,.075,steel)
+            box(mx,z-.79,y+.98,1.08,.20,.37,(.13,.29,.23))
+            box(mx,z-.96,y+1.32,1.15,.48,.17,steel)
+            for k in range(3):
+                xx=mx-.37+k*.37
+                box(xx,z-1.14,y+1.22,.13,.11,.11,steel)
+                box(xx+.086,z-1.23,y+1.256,.18,.048,.04,rubber)
+                for n in range(3):
+                    box(xx-.07+n*.068,z-1.209,y+1.39,.041,.015,.036,(.12,.15,.14))
+            for n in range(18):box(mx-.49+n*.056,z-1.10,y+.983,.013,.26,.006,rubber)
+            box(mx+.54,z-1.14,y+1.07,.019,.02,.26,steel)
+            # Burr grinder with a tapered bean hopper and dosing chute.
+            gx=mx-1.
+            box(gx,z-.94,y+.905,.26,.29,.36,rubber)
+            for k in range(20):
+                a,b=k*math.tau/20,(k+1)*math.tau/20
+                def hopper(t,r,h):return gx+r*math.cos(t),y+h,z-.94+r*math.sin(t)
+                for lo,hi,r,rr,tone in ((1.26,1.33,.066,.13,(.51,.47,.39)),(1.33,1.51,.13,.14,(.32,.22,.16)),(1.51,1.54,.145,.145,rubber),(1.54,1.54,.145,0,rubber)):
+                    quad((hopper(a,r,lo),hopper(b,r,lo),hopper(b,rr,hi),hopper(a,rr,hi)),tone)
+            for n in range(4):display('coffee',mx+.67+.16*n,z-1.20,y+.905)
+            box(x+1.65,z-.93,y+.905,.25,.22,.055,rubber)
+            box(x+1.65,z-.93,y+.96,.055,.060,.15,steel)
+            box(x+1.65,z-.94,y+1.1,.34,.045,.22,rubber)
+            box(x+1.65,z-.97,y+1.13,.30,.008,.16,(.34,.50,.46))
+
+ALLEY_LAMPS=(-10.,0.,10.)
+
+def alley_lamps(ground):
+    x,z=site('gum')
+    return [(x-1.97,ground(x,z+dz)+3.09,z+dz) for dz in ALLEY_LAMPS]
 
 def outdoor(ground,quad,box):
     storefronts(ground,quad,box)
@@ -372,13 +480,48 @@ def outdoor(ground,quad,box):
             for k in range(10):
                 x=cx+side*2.55
                 zz=z+(.30 if k%2 else 0)
-                box(x,zz,y+k*.24,.36,.63,.225,(rng.uniform(.38,.50),.22,.17))
+                dense=side<0 and 7<=j<=39 and 1<=k<=8
+                box(x,zz,y+k*.24,.36,.63,.225,(rng.uniform(.38,.50),.22,.17),.255 if dense else 0.)
             x=cx+side*2.35
             for _ in range(42):
                 zz=z+rng.random()*.63;yy=y+.25+rng.random()*1.88
                 r=rng.uniform(.018,.061)
                 quad(((x,yy+r,zz),(x,yy,zz+r),(x,yy-r*.74,zz),(x,yy,zz-r)),rng.choice(
                      ((.85,.28,.43),(.31,.66,.70),(.78,.68,.37),(.68,.42,.65),(.80,.75,.66))))
+            if side<0 and 9<=j<=38:
+                # Gum folds over the projecting sill and stretches into tapered strands.
+                box(x+.025,z+.31,y+1.82,.18,.66,.08,(.45,.28,.24),.255)
+                for strand in range(6):
+                    zz=z+strand*.105+rng.uniform(0,.045)
+                    drop=rng.uniform(.035,.25)
+                    tone=rng.choice(((.85,.30,.36),(.89,.69,.11),(.21,.65,.50),(.82,.47,.65)))
+                    quad(((x+.12,y+1.90,zz-.024),(x+.12,y+1.90,zz+.023),
+                          (x+.10,y+1.87-drop,zz+.009),(x+.095,y+1.86-drop,zz)),tone)
+    # Upper brickwork, conduit and a canopy of bridges enclose Post Alley.
+    for side in (-1,1):
+        for j in range(6):
+            zz=cz-13.5+j*5
+            y=ground(cx,zz)
+            box(cx+side*2.60,zz,y+2.37,.38,5.02,4.45,(.39,.26,.22),.251)
+            box(cx+side*2.37,zz,y+4.15,.13,5.,.10,(.24,.20,.18))
+            box(cx+side*2.35,zz,y+4.42,.11,1.36,1.48,(.21,.28,.29),.244)
+            box(cx+side*2.27,zz,y+4.38,.20,1.57,.09,(.55,.48,.42))
+            box(cx+side*2.25,zz,y+4.45,.06,.045,1.46,(.24,.22,.19))
+            if j%2==0:box(cx+side*2.29,zz+1.93,y,.092,.092,5.9,(.31,.32,.29))
+    for x,y,z in alley_lamps(ground):
+        box(x-.22,z,y+.24,.48,.055,.06,(.19,.18,.16))
+        box(x,z,y+.10,.08,.08,.19,(.24,.23,.19))
+        box(x,z,y,.25,.25,.12,(1.,.80,.46),.247)
+        box(x,z,y+.12,.33,.33,.055,(.24,.21,.18))
+    for dz in (-6.,8.):
+        z=cz+dz;y=ground(cx,z)
+        box(cx,z,y+4.32,5.22,1.82,.20,(.23,.23,.21))
+        for edge in (-.84,.84):
+            box(cx,z+edge,y+4.52,5.2,.07,.87,(.26,.25,.23))
+    for dz in (-8.,4.):
+        z=cz+dz;y=ground(cx,z)
+        box(cx+1.74,z,y+.051,.44,1.12,.026,(.12,.14,.14))
+        for n in range(10):box(cx+1.74,z-.49+.108*n,y+.077,.40,.028,.011,(.38,.39,.36))
     for row in range(94):
         z=cz-16+row*.33
         for col in range(8):
@@ -386,7 +529,7 @@ def outdoor(ground,quad,box):
             tone=rng.uniform(.34,.46)
             quad(tuple((px,ground(px,pz)+.033,pz) for px,pz in
                        ((x-.307,z),(x+.307,z),(x+.307,z+.322),(x-.307,z+.322))),
-                 (tone,tone*.87,tone*.76))
+                 (tone,tone*.87,tone*.76),.254)
     cx,cz=site('overlook')
     for i in range(64):
         z=cz+19.6-.90*i

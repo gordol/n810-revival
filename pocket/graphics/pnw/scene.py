@@ -1881,6 +1881,18 @@ class RainierView:
         stand_ptr=None
         upload_shade=self.upload
         sound_region=self.outing is not None and self.outing!='hoh'
+        if self.upload:
+            lamps=None
+            if sound_region and self.outing not in (*market_visit.FLOORS,'scuba'):
+                from pnw.seattle_places import arcade_origin
+                from pnw.pike_market import offset
+                sx,sz=offset(arcade_origin(),0,-1.45)
+                spots=[(sx,surface(field,*arcade_origin())+4.25,sz),*market_visit.alley_lamps(lambda x,z:surface(field,x,z))]
+                lamps=(C.c_float*12)(*(v for px,py,pz in spots for v in (px-origin.x,py-origin.y,pz-origin.z)))
+            lights=ctx.lib.pocket_scene_market_lights
+            lights.argtypes=[C.c_void_p,C.POINTER(C.c_float),C.c_int]
+            lights.restype=None
+            lights(ctx.handle,lamps,int(bool(lamps) and self.quality.high))
         if sound_region and self.outing!='scuba' and self.outing not in market_visit.FLOORS:
             from pnw.terrain import FlightHorizon,FlightImagery,PATCH_STEP
             if self.flight_imagery is None:self.flight_imagery=FlightImagery()
@@ -1939,6 +1951,11 @@ class RainierView:
             look.restype=None
             look(ctx.handle,self.glider.look_yaw,self.glider.look_pitch)
         if self.outing and getattr(self,'market_snack',None) and not equipment and not (self.lens or self.binoculars):
+            if self.market_snack in ('coffee','piroshky'):
+                mesh=market_visit.held_item(self.market_snack)
+                setup=ctx.lib.pocket_scene_snack
+                setup.argtypes=[C.c_void_p,C.c_uint,C.c_void_p,C.c_uint]
+                ctx.check(setup(ctx.handle,int(self.market_snack=='piroshky'),mesh.buffer_info()[0],len(mesh)//6))
             equipment=(C.c_float*3)({'coffee':5,'piroshky':6,'flowers':7,'honey':8}[self.market_snack],0.,0.)
         if self.road:equipment=(C.c_float*3)({'car':12,'motorcycle':13,'bicycle':14,'sports-car':12,'scooter':16}[self.road.kind],self.road.steer,self.road.speed)
         if self.outing=='ferry':equipment=(C.c_float*3)(4,0.,0.)

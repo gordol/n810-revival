@@ -38,3 +38,8 @@ street names and full WGS84 centerline from First Avenue to Dock Street via
 I-5. Widths, painted lane lines, rental stand and patrol encounter are game
 reconstructions. Bridge and interchange deck heights are not surveyed.
 [Route source](https://routing.openstreetmap.de/routed-car/route/v1/driving/-122.3400015,47.6088449;-122.4347,47.2459?geometries=geojson&overview=full&steps=true)
+
+The green siren on the modeled takeaway cups uses the Starbucks mark from
+[Simple Icons 13.0.0](https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/starbucks.svg).
+Starbucks owns the mark. Counter layouts and baked goods are visual reconstructions.
+[Piroshky Piroshky at Pike Place Market](https://www.pikeplacemarket.org/vendor/piroshky-piroshky/)

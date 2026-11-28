@@ -270,6 +270,18 @@ class OutingTests(unittest.TestCase):
         self.assertAlmostEqual(poses(10,.8)[0],15.)
         self.assertAlmostEqual(poses(11,1.75)[1],17.)
 
+    def test_market_purchases_use_the_display_geometry_in_hand(self):
+        from pnw.market_visit import counter_item,held_item
+        for kind in ('coffee','piroshky'):
+            faces=counter_item(kind)
+            mesh=held_item(kind)
+            self.assertEqual(len(mesh),len(faces)*6*6)
+            self.assertTrue(all(math.isfinite(v) for v in mesh))
+            self.assertAlmostEqual(max(mesh[1::6]),max(y for points,_ in faces for _,y,_ in points))
+        cup=held_item('coffee')
+        self.assertTrue(.13<max(cup[1::6])<.15)
+        self.assertGreater(max(held_item('piroshky')[0::6]),max(cup[0::6]))
+
     def test_staff_stand_on_the_rendered_slab_and_street_matches_mesh(self):
         from pnw.market_life import actors
         from pnw.pike_market import build,floor_height,offset
