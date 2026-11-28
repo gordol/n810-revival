@@ -2329,11 +2329,20 @@ class RainierView:
             packed=[]
             for pose in poses:
                 slopes=(0.,0.)
-                if pose[0] in (0,1,5,10,11,12,13):
+                if pose[0] in (5,9,10,11,12,14,15):
                     px,py,pz=pose[1:4]
-                    slopes=(ground(px+.25,pz)-ground(px-.25,pz),
-                            ground(px,pz+.25)-ground(px,pz-.25))
-                    slopes=tuple(2*slope for slope in slopes)
+                    angle=math.radians(pose[4])
+                    sn,cs=math.sin(angle),math.cos(angle)
+                    heights=[]
+                    for d in (-1.,1.):
+                        u,v=px+d*sn,pz+d*cs
+                        bed=surface(field,u,v)
+                        # Continue the surface under this axle only when it is
+                        # close to the vehicle's actual elevation.
+                        deck=self.traffic_bridges.lane_height(u,v,angle,bed) if self.traffic_bridges else bed
+                        heights.append(min((bed,deck),key=lambda h:abs(h-py)))
+                    grade=(heights[1]-heights[0])*.5
+                    slopes=(grade*sn,grade*cs)
                 packed.extend((*pose,*slopes))
             market=(C.c_float*len(packed))(*packed)
         needed=set(range(min(2,len(hikers)//3)))

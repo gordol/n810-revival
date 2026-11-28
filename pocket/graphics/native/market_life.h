@@ -382,10 +382,6 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
   int kind=(int)p[0];
   float pose=p[5];
   glPushMatrix();glTranslatef(p[1],p[2],p[3]);
-  if(kind<=1 || kind==5 || (kind>=10 && kind<=12)){
-   GLfloat plane[16]={1,p[7],0,0, 0,1,0,0, 0,p[8],1,0, 0,0,0,1};
-   glMultMatrixf(plane);
-  }
   if(kind<=1){
    glPushAttrib(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT);
    glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
@@ -395,7 +391,11 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
    glEnd();glPopAttrib();
   }
   glRotatef(p[4],0,1,0);
-  if(kind==5 || (kind>=10 && kind<=12)){
+  if(kind==5 || kind==9 || (kind>=10 && kind<=12) || kind==14 || kind==15){
+   /* Rotate a rigid chassis on its longitudinal grade. */
+   float yaw=p[4]*.017453293f;
+   float grade=fminf(.28f,fmaxf(-.28f,p[7]*sinf(yaw)+p[8]*cosf(yaw)));
+   glRotatef(-atanf(grade)*57.29578f,1,0,0);
    glPushAttrib(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT);
    glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
    glBegin(GL_TRIANGLE_FAN);glColor4f(.025f,.026f,.032f,.65f);glVertex3f(0,.025f,0);
