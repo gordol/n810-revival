@@ -4,6 +4,7 @@ from functools import lru_cache
 import math
 from pnw.seattle_places import corridor_path, freeway_data, freeway_lines, street_lines
 from pnw.terrain import location
+from pnw.vehicle_impact import Body, collide
 
 @lru_cache(maxsize=1)
 def routes():
@@ -79,12 +80,23 @@ class Traffic:
         self.last=None
         self.horn=False
         self.visible=[]
+        self.bodies={}
+        self.wrecks={}
+        self.impact=0.
 
     def update(self,x,z,age,radius,driver=None):
         dt=min(.15,max(0.,age-self.last)) if self.last is not None else 0.
         self.last=age
         visible=[];active={};offsets={}
         occupied={}
+        self.bodies={}
+        for key,body in list(self.wrecks.items()):
+            if math.hypot(x-body.x,z-body.z)>radius+100:
+                del self.wrecks[key]
+                continue
+            body.coast(dt)
+            identity=key[0]+key[2]
+            visible.append((math.hypot(x-body.x,z-body.z),body.x,body.z,body.heading,identity,True,2))
         for key,(at,_,_) in self.cars.items():
             offset=self.offsets.get(key,(1.8,-1.8)[key[1]])
             for side,center in enumerate((1.8,-1.8)):
@@ -107,6 +119,7 @@ class Traffic:
                 leader=math.inf
                 for n in sorted(ids,reverse=True):
                     key=(direction,lane,n)
+                    if key in self.wrecks:continue
                     at,speed,blocked=self.cars.get(key,(n*gap+shift,pace,False))
                     if not 0<=at<=ends[-1]:continue
                     lateral=self.offsets.get(key,home)
@@ -143,6 +156,11 @@ class Traffic:
                     leader=at-half_length(n+direction)
                     active[key]=(at,speed,stopped)
                     px,pz,angle=point(route,at,lateral)
+                    identity=n+direction
+                    kind=vehicle_type(identity)
+                    body=Body(px,pz,angle,speed*math.sin(angle),speed*math.cos(angle),0.,
+                              {11:10500.,12:18000.,5:2200.}.get(kind,1500.),half_length(identity),1.2 if kind in (11,12) else .95)
+                    self.bodies[key]=body
                     visible.append((distance,px,pz,angle,n+direction,speed<pace-2,
                                     (1 if home<0 else -1) if 0<abs(lateral+home)<3.6 else 0))
         self.offsets=offsets
@@ -150,9 +168,25 @@ class Traffic:
         self.visible=sorted(visible)
         return self.visible
 
-    def contact(self,x,z):
-        for _,px,pz,angle,identity,*_ in self.visible:
-            dx,dz=x-px,z-pz
-            if (abs(dx*math.sin(angle)+dz*math.cos(angle))<half_length(identity)+2.1 and
-                abs(dx*math.cos(angle)-dz*math.sin(angle))<1.85):return True
-        return False
+    def strike(self,road,previous):
+        sn,cs=math.sin(road.heading),math.cos(road.heading)
+        player=Body(*previous,road.heading,road.speed*sn+road.slip*cs,road.speed*cs-road.slip*sn,
+                    road.spin,{11:10500.,12:18000.,5:2200.}.get(road.actor_kind,1500.),
+                    {11:5.8,12:7.8}.get(road.actor_kind,2.2),.95,road.damage)
+        dx,dz=road.x-player.x,road.z-player.z
+        steps=max(1,math.ceil(math.hypot(dx,dz)/.7))
+        for _ in range(steps):
+            player.x+=dx/steps
+            player.z+=dz/steps
+            for key,body in (*self.bodies.items(),*self.wrecks.items()):
+                impact=collide(player,body)
+                if not impact:continue
+                self.wrecks[key]=body
+                self.bodies.pop(key,None)
+                road.x,road.z=player.x,player.z
+                road.speed=player.vx*sn+player.vz*cs
+                road.slip=player.vx*cs-player.vz*sn
+                road.spin=player.spin
+                road.damage=player.damage
+                self.impact=max(self.impact,min(1.,impact/18.))
+                return

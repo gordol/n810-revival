@@ -409,11 +409,20 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
      market_tied_hair(hair,locks,pose<12.f?sinf(pose*.5235988f):0.f);
     glPopMatrix();
    }
-  }else if(kind==11 || kind==12){
-   heavy_vehicle(kind,(int)pose);
-  }else if(kind==10 || kind==5){
-   if(kind==10 && s->coupe_mesh && p[6]==0)detailed_coupe(s,0,(int)pose);
+  }else if(kind==5 || kind==10 || kind==11 || kind==12){
+   glPushMatrix();
+   if((int)pose&16){
+    glRotatef(4.f,0,0,1);
+    glScalef(1.02f,.94f,.91f);
+   }
+   if(kind>=11)heavy_vehicle(kind,(int)pose);
+   else if(kind==10 && s->coupe_mesh && p[6]==0)detailed_coupe(s,0,(int)pose);
    else street_vehicle(kind==5,(unsigned)p[6],(int)pose);
+   if((int)pose&16 && kind<11){
+    glTranslatef(.07f,.70f,1.6f);glRotatef(-17.f,1,0,0);
+    market_panel(0,0,0,.80f,.06f,.48f,.25f,.23f,.22f);
+   }
+   glPopMatrix();
   }else if(kind==9){
    market_panel(0,.33f,0,.92f,.49f,2.26f,.10f,.13f,.16f);
    market_body(0,.91f,-.10f,.87f,.55f,1.42f,.32f,.39f,.43f);

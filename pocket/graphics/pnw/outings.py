@@ -381,6 +381,9 @@ class StreetRide:
         self.chase_heading=self.heading
         self.bridge_roads=None
         self.speed=self.steer=0.
+        self.slip=self.spin=self.damage=0.
+        self.actor_kind=10 if self.kind=="sports-car" else 5
+        self.paint=0
         self.cruise=self.delivered=False
         self.keys=set()
         self.contact=None
@@ -434,7 +437,7 @@ class StreetRide:
         steer=max(-1.,min(1.,sticks[0]+self.drag[0]+('right' in self.keys)-('left' in self.keys)))
         pedal=max(-1.,min(1.,-sticks[1]+self.drag[1]+('up' in self.keys)-('down' in self.keys)))
         maximum={'car':12.,'motorcycle':16.,'bicycle':6.,'scooter':5.5,'sports-car':62.}[self.kind]
-        target=(pedal if pedal else float(self.cruise))*maximum
+        target=(pedal if pedal else float(self.cruise))*maximum*(1.-.60*self.damage)
         if self.assist:target=max(0.,min(5.,target))
         else:target=max(-2.5,target)
         change=(target-self.speed)*(-math.expm1(-dt*(3 if target==0 else 1.4)))
@@ -458,10 +461,13 @@ class StreetRide:
         else:
             wheelbase={'car':2.6,'motorcycle':1.45,'bicycle':1.1,'scooter':1.,'sports-car':2.65}[self.kind]
             steer_angle=.48/(1.+abs(self.speed)*.075) if self.kind=='sports-car' else .48
-            self.heading+=distance*math.tan(steer_angle*self.steer)/wheelbase
+            self.heading+=distance*math.tan(steer_angle*self.steer)/wheelbase+self.spin*dt
+            self.spin*=math.exp(-1.8*dt)
             x=self.x+distance*math.sin(self.heading)
             z=self.z+distance*math.cos(self.heading)
-            self.x,self.z=x,z
+            self.x=x+self.slip*dt*math.cos(self.heading)
+            self.z=z-self.slip*dt*math.sin(self.heading)
+            self.slip*=math.exp(-2.4*dt)
         if self.kind=='sports-car' and not self.assist:
             from bisect import bisect_right
             from pnw.seattle_places import corridor_position,corridor_path

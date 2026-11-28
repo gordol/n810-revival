@@ -1642,10 +1642,9 @@ class RainierView:
             road=self.road
             old=(road.x,road.z)
             owner.x,owner.z,owner.yaw,owner.pitch=road.advance(dt,self.pad_sticks)
-            if not road.assist and self.traffic.contact(road.x,road.z) and not self.traffic.contact(*old):
-                owner.x,owner.z=road.x,road.z=old
-                road.speed=0.
-                self.traffic.horn=True
+            if not road.assist and (not road.bridge_roads or road.bridge_roads.deck is None):
+                self.traffic.strike(road,old)
+                owner.x,owner.z=road.x,road.z
             field=self.world[0]
             if self.road.bridge_roads is None:
                 from pnw.seattle_places import BridgeRoads
@@ -1752,6 +1751,10 @@ class RainierView:
         if self.outing=='needle' and self.needle_deck:
             from pnw.seattle_places import DECK_HEIGHT,places
             return surface(self.world[0],*places()['Space Needle'])+DECK_HEIGHT
+        if self.road:
+            ground=surface(self.world[0],x,z)
+            if self.road.bridge_roads and self.road.bridge_roads.deck is not None:
+                return self.road.bridge_roads.sample(x,z,ground)
         if self.outing in market_visit.STREETS:
             from pnw.pike_market import floor_height
             from pnw.seattle_places import arcade_origin
@@ -1759,9 +1762,6 @@ class RainierView:
             cx,cz=market_visit.site('overlook')
             if abs(x-cx)<=6 and -38<=z-cz<=20:return market_visit.deck_height(terrain,x,z)
             return floor_height(arcade_origin(),terrain,x,z)
-        if self.road:
-            ground=surface(self.world[0],x,z)
-            return self.road.bridge_roads.sample(x,z,ground) if self.road.bridge_roads else ground
         for slot in sorted(self.flight_surfaces):
             patch=self.flight_surfaces[slot]
             west,east,south,north=bounds(patch)
@@ -1839,7 +1839,8 @@ class RainierView:
             sound=ctx.lib.pocket_scene_road_sound
             sound.argtypes=[C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_float,C.c_int]
             sound(ctx.handle,self.sound and not paused,self.road.speed,
-                  self.road.kind in ('sports-car','car','motorcycle'),getattr(self,'traffic_gain',0.),self.traffic.horn)
+                  self.road.kind in ('sports-car','car','motorcycle'),getattr(self,'traffic_gain',0.),(-round(100*self.traffic.impact) if self.traffic.impact else self.traffic.horn))
+            self.traffic.impact=0.
             self.traffic.horn=False
         elif self.regional:
             speed=self.ski.speed/28. if self.ski else 0.
@@ -2052,7 +2053,8 @@ class RainierView:
                 for distance,px,pz,angle,index,braking,turn in cars[:max(0,30-len(poses))]:
                     self.traffic_gain=max(self.traffic_gain,1./(1.+distance/12.)**2)
                     lamps=int(braking)+2*int(daylight<.65 or bool(self.weather))
-                    if (self.age+index*.17)% .78<.39:lamps+=4 if turn<0 else 8 if turn>0 else 0
+                    if turn==2:lamps+=16
+                    if (self.age+index*.17)% .78<.39:lamps+=12 if turn==2 else 4 if turn<0 else 8 if turn>0 else 0
                     from pnw.traffic import vehicle_type
                     poses.append((vehicle_type(index),px,ground(px,pz)+.06,pz,
                                   math.degrees(angle),float(lamps),1+index%4))
@@ -2069,7 +2071,7 @@ class RainierView:
         camera_x,camera_z=x,z
         if self.road and self.road.overhead:
             equipment=None
-            player=(5 if self.road.kind=='car' else 10,x,ground(x,z)+.05,z,math.degrees(yaw),2.*int(daylight<.65 or bool(self.weather)),0.)
+            player=(self.road.actor_kind,x,ground(x,z)+.05,z,math.degrees(yaw),2.*int(daylight<.65 or bool(self.weather))+16*int(self.road.damage>.35),self.road.paint)
             poses=poses[:31]+[player]
             yaw=self.road.chase_heading
             pullback=7.4+min(abs(self.road.speed)*.065,3.6)
