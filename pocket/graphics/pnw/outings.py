@@ -8,7 +8,7 @@ from collections import deque
 import random
 from struct import Struct
 
-from pnw import market_visit
+from pnw import market_visit, rail
 from pnw.terrain import GRIDS,elevations,layout,location,sound_aerial
 from pnw.hiking import HangGlider,HikeMenu
 
@@ -47,6 +47,7 @@ ROAD_RIDES={'Market delivery car':'car','Market motorcycle':'motorcycle','Market
 ROAD_RIDES.update({f'Tacoma {kind}':f'tacoma-{kind}' for kind in ('car','motorcycle','bicycle')})
 ROAD_RIDES.update({'Market rental scooter':'scooter','Sports car to Tacoma':'sports-car'})
 OUTINGS.update(ROAD_RIDES)
+OUTINGS.update(rail.RIDES)
 OUTINGS.update(market_visit.DESTINATIONS)
 
 WHEEL=(47.6062,-122.3425)
@@ -91,6 +92,7 @@ def taxi_path():
             (hx+13,tz),(tx+width,tz),(tx,tz))
 
 def ride_pose(outing,elapsed):
+    if outing in rail.RIDES.values():return rail.sample(outing,elapsed)[0]
     if outing=='wheel':
         x,z=location('sound',*WHEEL)
         phase=elapsed*math.tau/100.
@@ -252,6 +254,7 @@ def build_mesh(region,field,raw,aerial):
                 if t%50==0:strip(.65,t,min(length,t+15),(.94,.93,.80),.18)
         from pnw.seattle_places import sound_landmarks
         sound_landmarks(lambda x,z:surface(field,x,z),quad,box)
+        rail.mesh(lambda x,z:surface(field,x,z),quad,box)
         # Long timber piers and gabled sheds step out into Elliott Bay.
         for lat,lon,length in ((47.6056,-122.3412,108),(47.6065,-122.3418,122),
                                (47.6075,-122.3423,112),(47.6093,-122.3441,94)):
@@ -556,6 +559,7 @@ class StreetRide:
 class ExploreMenu(HikeMenu):
     groups={'Fly':('Thun Field hangar','Skydive over Rainier','Balloon over the Sound','Plane from Rainier','Plane from Thun Field','Research jet from Rainier','Hang glide','Paramotor'),
             'Mountain sports':('Put on skis','Climb summit ice','Mountain bike loop'),
+            'Passenger rail':tuple(rail.RIDES),
             'City rides':tuple(ROAD_RIDES),
             'On the water':('Boat on Commencement Bay','Bainbridge ferry','Puget Sound kelp dive'),
             'Market and waterfront':('Pike Place Market',*market_visit.DESTINATIONS),

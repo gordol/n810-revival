@@ -158,7 +158,7 @@ def regional_mesh(region,elevation,textured,build,*,require_cache=False,prepare=
     """Keep one validated, atomically replaceable vertex buffer per region."""
     here=Path(__file__).resolve().parent
     graphics=here.parent
-    sources=('outings','terrain','scene','pike_market','market_visit','seattle_places','forest_floor')
+    sources=('outings','terrain','scene','pike_market','market_visit','seattle_places','rail','forest_floor')
     digest=hashlib.sha256(f'{sys.byteorder}/{region}/{textured}'.encode())
     digest.update(elevation)
     inputs=[here/(name+'.py') for name in sources]
@@ -174,10 +174,10 @@ def regional_mesh(region,elevation,textured,build,*,require_cache=False,prepare=
         with zipfile.ZipFile(target) as archive:
             if archive.comment==key:
                 size=archive.getinfo('vertices').file_size
-                if prepare and 0<size<=3_000_000*28 and size%84==0:
+                if prepare and 0<size<=4_000_000*28 and size%84==0:
                     print(f'{target.name} already prepared',flush=True)
                     return None
-                mesh=read_array(archive,'vertices','f',3_000_000*28)
+                mesh=read_array(archive,'vertices','f',4_000_000*28)
                 if len(mesh)%21==0:return mesh
     except (OSError,ValueError,KeyError,EOFError,zipfile.BadZipFile,zlib.error):pass
     mesh=build()

@@ -80,3 +80,10 @@ created by Unity Fan. The adaptation omits the original logo textures, clusters
 vertices, and replaces glTF materials with runtime paint, glass and lamp colors.
 Run pocket/tools/bake_coupe.py with the upstream CarConcept.glb and an output
 path. Source SHA-256 is c272098089d78c5cd9fd9f24ff50ee8acf8d932c55f2d55fc10adb6c8998966b.
+
+Passenger railway alignments and stop sequences in rail.json are extracts from
+the [Sound Transit GTFS feed](https://www.soundtransit.org/GTFS-rail/40_gtfs.zip)
+and the [Amtrak GTFS feed](https://content.amtrak.com/content/gtfs/GTFS.zip).
+Rides use simulated running and dwell times. Platform designs, terminal cranes,
+ships and landmark architecture are reconstructions. Sea-Tac runway thresholds
+and widths come from the public-domain [OurAirports runway data](https://ourairports.com/data/).

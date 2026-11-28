@@ -17,6 +17,7 @@ from pnw.river_detail import RiverQuality, shade_tree
 from pnw.forest_floor import blade, broadleaf_clump, fern, nurse_log, snag, spruce_sprays, trail_cover
 from pnw.rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from pnw import market_visit
+from pnw import rail
 from pnw.outings import AIRCRAFT,AIR_SPORTS,start_sport,HANGAR,BAYS,ExploreMenu,PauseMenu,SoundVehicle
 from pnw.hiking import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from pnw.valley_map import ValleyMap
@@ -809,13 +810,14 @@ class RainierView:
             field=self.world[0]
             elevation=round(self.walk_height(*self.camera[:2])) if self.camera else 0
             labels=(labels[0],f'{elevation} m','Explore','Mute' if self.sound else 'Sound','Map')
-            if self.outing in ('ferry','wheel'):
+            if self.outing in ('ferry','wheel',*rail.RIDES.values()):
                 from pnw.outings import ferry_stop
                 exit_label='Ashore' if self.outing=='ferry' and ferry_stop(self.ride_time) else 'Exit'
                 labels=(exit_label,'Restart','Explore',labels[3],'Map')
             if self.glider:labels=('Stop' if self.outing else 'Land','Restart','Explore',labels[3],'Map')
         if self.glider and self.outing in ('jet','hangar-jet'):labels=('Stop','Flight','Explore','Pause','Map')
         if self.outing=='scuba':labels=('Surface','Restart','Explore','Mute' if self.sound else 'Sound','Pause')
+        if self.outing in rail.RIDES.values():labels=('Exit','Next stop','Explore','Mute' if self.sound else 'Sound','Pause')
         if self.road:labels=('Exit','Stop' if self.road.cruise else 'Go','Explore','Pause','View (0)' if self.road.has_car_camera else 'Restart')
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
@@ -823,6 +825,14 @@ class RainierView:
         return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
 
     def footer(self,x,width):
+        if self.outing in rail.RIDES.values():
+            if x<width//6:self.outing='station'
+            elif x<width*3//7:self.ride_time=rail.sample(self.outing,self.ride_time)[2]
+            elif x<width*4//7:self.notebook=ExploreMenu(self)
+            elif x<width*3//4:self.sound=not self.sound
+            else:self.pause_game()
+            self.pixel_dirty=True
+            return True
         if self.outing=='scuba':
             if x<width//6:self.start_outing('boat')
             elif x<width*3//7:self.start_outing('scuba')
@@ -859,7 +869,7 @@ class RainierView:
             self.landing_sound=False
             self.pixel_dirty=True
             return True
-        if self.outing in ('ferry','wheel'):
+        if self.outing in ('ferry','wheel',*rail.RIDES.values()):
             from pnw.outings import CROSSING,DOCK_TIME,ferry_stop
             stop=ferry_stop(self.ride_time) if self.outing=='ferry' else None
             if self.outing=='ferry' and x<width//6:
@@ -1382,7 +1392,7 @@ class RainierView:
         if self.outing=='hangar':
             kind=self.hangar_bay()
             return [(kind,'Board '+BAYS[kind][1],(1,height-4,19,3))] if kind else []
-        if self.outing in ('ferry','wheel'):return []
+        if self.outing in ('ferry','wheel',*rail.RIDES.values()):return []
         if self.glider:return self.glider.controls(width,height)
         if self.bike:return [('dismount','Dismount',(0,0,11,3)),
                             ('pedal','Brake' if self.bike.pedaling else 'Pedal',(width//2-6,height-4,12,4))]
@@ -1564,7 +1574,7 @@ class RainierView:
                         nx,nz=places()['Space Needle']
                         owner.x,owner.z=nx,nz-215.
                         owner.yaw,owner.pitch=0.,-.38
-                    elif self.outing in ('ferry','wheel'):
+                    elif self.outing in ('ferry','wheel',*rail.RIDES.values()):
                         owner.x,owner.z,owner.yaw,owner.pitch,_=ride_pose(self.outing,self.ride_time)
                     if self.outing in BAYS and self.stair_landing:
                         self.glider.board(self.stair_landing)
@@ -1620,7 +1630,7 @@ class RainierView:
             self.valley_pose=None
         now=owner.clock()
         dt=min(.1,max(0.,now-(self.last_tick or now)))
-        if self.outing in ('ferry','wheel') and not self.notebook:
+        if self.outing in ('ferry','wheel',*rail.RIDES.values()) and not self.notebook:
             from pnw.outings import ride_pose
             old_yaw=ride_pose(self.outing,self.ride_time)[2]
             self.ride_time+=dt
@@ -1770,7 +1780,7 @@ class RainierView:
                 bottom=surface(field,cx,cz-7.4)
                 step=min(14,int((z-cz+7.4)/.3)+1)
                 ground=bottom+(base+lookout.DECK-bottom)*step/14
-        if self.outing in ('ferry','wheel'):
+        if self.outing in ('ferry','wheel',*rail.RIDES.values()):
             from pnw.outings import ride_pose
             ground+=ride_pose(self.outing,self.ride_time)[4]
         if self.glider:ground=self.glider.altitude
@@ -2138,6 +2148,8 @@ class RainierView:
                     from pnw.seattle_places import bearing_label
                     label=bearing_label(self.shop_target,x,z)
                 ink.label(1,h-5,label,0xFFF6DD)
+            if self.outing in rail.RIDES.values():
+                ink.label(1,1,rail.sample(self.outing,self.ride_time)[1],0xFFEDBF)
             if self.outing=='ferry':
                 from pnw.outings import ferry_stop
                 dock=ferry_stop(self.ride_time)
