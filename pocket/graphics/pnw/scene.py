@@ -747,6 +747,8 @@ class RainierView:
         from pnw.traffic import Traffic
         self.traffic=Traffic()
         self.parked_cars=[]
+        self.parked_bike=None
+        self.third_person=False
         self.neighborhood=None
         self.notebook=None
         self.lens=self.binoculars=False
@@ -827,6 +829,37 @@ class RainierView:
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
         return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
+
+    def toggle_ground_view(self):
+        if self.glider or self.outing in ('ferry','wheel',*rail.RIDES.values()):return False
+        if self.road:self.road.overhead=not self.road.overhead
+        else:self.third_person=not self.third_person
+        self.pixel_dirty=True
+        return True
+
+    def dismount_bike(self):
+        if not self.bike:return
+        bike=self.bike
+        bike.pedaling=False
+        bike.speed=0.
+        self.parked_bike=bike
+        x,z,heading,_=bike.advance(0.,self.walk_height)
+        self.trip_pose=(x+1.1*math.cos(heading),z-1.1*math.sin(heading),heading,.08)
+        self.bike=None
+        self.cruise=False
+
+    def near_bike(self):
+        return (self.parked_bike is not None and self.regional and self.outing is None and self.camera
+                and math.dist(self.camera[:2],self.parked_bike.position(self.parked_bike.angle))<3.)
+
+    def remount_bike(self):
+        if not self.near_bike():return False
+        self.bike=self.parked_bike
+        self.parked_bike=None
+        self.bike.pedaling=True
+        self.destination=None
+        self.cruise=False
+        return True
 
     def change_car(self):
         if self.road:
@@ -944,8 +977,9 @@ class RainierView:
                     self.album_loaded=None
                 else:self.notebook=ExploreMenu(self)
             return True
-        self.bike=None
-        self.climb=None
+        if self.bike and width*3//7<=x<width*4//7:
+            self.notebook=ExploreMenu(self)
+            return True
         if self.ski:self.stop_ski()
         if self.album:
             if x<width*.22:self.album_index=(self.album_index-1)%len(self.album)
@@ -1041,7 +1075,9 @@ class RainierView:
                 self.cruise=False
                 self.trip_pose=(nx+12,nz-16,2.50,.13) if self.needle_deck else (nx,nz-215,0.,-.38)
             elif action=='pedal':self.bike.pedaling=not self.bike.pedaling
-            elif action=='dismount':self.bike=None
+            elif action=='dismount':self.dismount_bike()
+            elif action=='remount':self.remount_bike()
+            elif action=='ground-view':self.toggle_ground_view()
             elif self.ski:
                 if action=='leave':self.stop_ski()
                 elif action=='family':self.notebook=PartyMenu(self,ski=True)
@@ -1230,12 +1266,13 @@ class RainierView:
         if self.road:
             if button==0:self.road.cruise=not self.road.cruise
             if button==8 and self.road.has_car_camera:self.road.overhead=not self.road.overhead
-            if button==1:self.road=None
+            if button==1:self.change_car()
             self.pixel_dirty=True
             return
         if self.bike:
             if button==0:self.bike.pedaling=not self.bike.pedaling
-            if button==1:self.bike=None
+            if button==1:self.dismount_bike()
+            if button==8:self.toggle_ground_view()
             return
         if self.glider:
             if self.outing in AIR_SPORTS:
@@ -1309,6 +1346,7 @@ class RainierView:
 
     def start_bike(self):
         from pnw.hiking import BikeLoop
+        self.parked_bike=None
         self.bike=BikeLoop(self.meadow_site)
         self.destination=self.trip_pose=self.map_position=None
         self.lens=self.binoculars=self.cruise=self.trail.guiding=False
@@ -1443,10 +1481,13 @@ class RainierView:
         if self.outing in ('ferry','wheel',*rail.RIDES.values()):return []
         if self.glider:return self.glider.controls(width,height)
         if self.bike:return [('dismount','Dismount',(0,0,11,3)),
+                            ('ground-view','View (0)',(width-12,height-4,12,3)),
                             ('pedal','Brake' if self.bike.pedaling else 'Pedal',(width//2-6,height-4,12,4))]
         if self.ski:return self.ski.controls(width,height)
         if self.climb:return self.climb.controls(width,height)
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
+        buttons.append(('ground-view','View (0)',(width-12,height-7,12,3)))
+        if self.near_bike():buttons.append(('remount','Mount bike',(1,height-4,14,3)))
         if self.outing in market_visit.FLOORS:
             level=int(self.outing[-1])
             if self.camera and self.camera[1]<2:
@@ -2136,6 +2177,21 @@ class RainierView:
             target=ground(x,z)-origin.y
             eye=max(ground(camera_x,camera_z)-origin.y+1.2,target+3.1+pullback*.10)
             pitch=math.atan2(eye-target-.85,pullback+4.)
+        if self.regional and self.outing is None and self.parked_bike:
+            bx,bz,bh,_=self.parked_bike.advance(0.,ground)
+            if math.hypot(x-bx,z-bz)<140:
+                poses=poses[:31]+[(13,bx,ground(bx,bz)-origin.y,bz,math.degrees(bh),0.,0.)]
+        if self.third_person and not (self.road or self.glider or self.lens or self.binoculars or self.shutter
+                                      or self.outing in ('ferry','wheel',*rail.RIDES.values())):
+            foot=ground(x,z)-origin.y
+            if self.bike:poses=poses[:30]+[(13,x,foot,z,math.degrees(yaw),0.,0.)]
+            poses=poses[:31]+[(0,x,foot+(.25 if self.bike else 0),z,math.degrees(yaw),
+                               12.5 if self.camera==getattr(self,'last_avatar_pose',None) else self.age*6%12,2)]
+            self.last_avatar_pose=self.camera
+            camera_x=x-4.2*math.sin(yaw)
+            camera_z=z-4.2*math.cos(yaw)
+            eye=max(foot+2.35,ground(camera_x,camera_z)-origin.y+1.1)
+            pitch=math.atan2(eye-foot-1.,5.2)
         if poses:
             actor_count=len(poses)
             packed=[]

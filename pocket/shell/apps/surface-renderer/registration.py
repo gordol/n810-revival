@@ -361,6 +361,8 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                 scene.pause_game()
                 scene.notebook.page='Driving controls'
                 return True
+            if key=='0' and hasattr(scene,'toggle_ground_view'):
+                return scene.toggle_ground_view()
             if key=='0' and getattr(scene,'road',None) and scene.road.has_car_camera:
                 scene.road.overhead=not scene.road.overhead
                 scene.pixel_dirty=True
@@ -401,6 +403,9 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
         def key_event(self,key,kind,now):
             if self.pause_key(key,kind=='press'):return True
             scene=self.pixel_scene
+            if key=='0' and scene and not getattr(scene,'glider',None):
+                if kind=='press':return self.ground_key(key)
+                return True
             if key=='e' and (getattr(scene,'road',None) or getattr(scene,'outing',None) in ('market','tacoma')):
                 if kind=='press':self.ground_key(key)
                 return True

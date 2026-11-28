@@ -91,6 +91,31 @@ static void street_vehicle(int van,unsigned paint,int lamps){
   }
  }
 }
+static void trail_bike(void){
+ for(int wheel=-1;wheel<=1;wheel+=2){
+  glColor3f(.085f,.09f,.10f);glBegin(GL_QUAD_STRIP);
+  for(int j=0;j<=32;j++){
+   float a=j*.19635f;
+   glVertex3f(0,.36f+.35f*cosf(a),wheel*.57f+.35f*sinf(a));
+   glVertex3f(0,.36f+.30f*cosf(a),wheel*.57f+.30f*sinf(a));
+  }
+  glEnd();
+  glColor3f(.53f,.56f,.57f);glBegin(GL_LINES);
+  for(int j=0;j<12;j++){
+   float a=j*.523599f;glVertex3f(0,.36f,wheel*.57f);
+   glVertex3f(0,.36f+.31f*cosf(a),wheel*.57f+.31f*sinf(a));
+  }
+  glEnd();
+ }
+ glColor3f(.14f,.43f,.58f);glLineWidth(3);glBegin(GL_LINE_STRIP);
+ glVertex3f(0,.36f,-.57f);glVertex3f(0,.84f,-.19f);glVertex3f(0,.8f,.38f);
+ glVertex3f(0,.38f,0);glVertex3f(0,.36f,-.57f);glEnd();
+ glBegin(GL_LINES);glVertex3f(0,.38f,0);glVertex3f(0,.9f,-.22f);
+ glVertex3f(0,.36f,.57f);glVertex3f(0,1.01f,.33f);
+ glVertex3f(-.32f,1.01f,.33f);glVertex3f(.32f,1.01f,.33f);glEnd();glLineWidth(1);
+ market_body(0,.91f,-.23f,.085f,.035f,.13f,.09f,.09f,.10f);
+}
+
 static void heavy_vehicle(int kind,int lamps){
  int bus=kind==11;
  if(bus){
@@ -423,6 +448,8 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
     market_panel(0,0,0,.80f,.06f,.48f,.25f,.23f,.22f);
    }
    glPopMatrix();
+  }else if(kind==13){
+   trail_bike();
   }else if(kind==9){
    market_panel(0,.33f,0,.92f,.49f,2.26f,.10f,.13f,.16f);
    market_body(0,.91f,-.10f,.87f,.55f,1.42f,.32f,.39f,.43f);
