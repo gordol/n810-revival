@@ -104,6 +104,7 @@ def freeway_data():
     source=Path(__file__).resolve().parents[1]/'assets/seattle/freeway.json'
     data=json.loads(source.read_text())
     data['roads']=[road for road in data['roads'] if int(road[2].get('layer',0))>=0]
+    data['roads'].extend(json.loads(source.with_name("eastside-highways.json").read_text()))
     return data
 
 @lru_cache(maxsize=1)
