@@ -46,8 +46,68 @@ def wheels(axles,halfwidth,radius,duals):
                 cylinder((x+side*.17,radius+radius*.43*math.sin(angle),z+radius*.43*math.cos(angle)),.033,.025,CHROME)
 
 
+def shell(sections, material):
+    """Loft chamfered transverse sections in game coordinates."""
+    verts=[]
+    for z,w,b,t in sections:
+        for x,y in ((-.94*w,b),(-w,b+.08),(-w,t-.10),(-.87*w,t),
+                    (.87*w,t),(w,t-.10),(w,b+.08),(.94*w,b)):
+            verts.append((x,y,z))
+    faces=[tuple(reversed(range(8)))]
+    for i in range(len(sections)-1):
+        for j in range(8):
+            a=8*i+j
+            b=8*i+(j+1)%8
+            faces.append((a,b,b+8,a+8))
+    faces.append(tuple(range(len(verts)-8,len(verts))))
+    mesh=bpy.data.meshes.new('Bodywork')
+    mesh.from_pydata(verts,[],faces)
+    mesh.update()
+    obj=bpy.data.objects.new('Bodywork',mesh)
+    bpy.context.collection.objects.link(obj)
+    obj['group']=material
+    mod=obj.modifiers.new('Pressed edges','BEVEL')
+    mod.width=.034
+    mod.segments=3
+    obj.modifiers.new('Panel normals','WEIGHTED_NORMAL')
+
+
+def passenger(name):
+    utility=name=='crossover'
+    roof=1.71 if utility else 1.46
+    rear=-1.82 if utility else -1.56
+    shell([(-2.18,.79,.42,.89),(-1.85,.91,.38,1.01),
+           (1.18,.92,.36,.98),(1.95,.86,.42,.88),(2.19,.78,.45,.79)],PAINT)
+    shell([(rear,.85,.91,1.07),(rear+.46,.76,.93,roof),
+           (.40,.74,.93,roof),(1.20,.84,.92,1.04)],GLASS)
+    box((0,roof,.5*(rear+.86)),(1.33,.08,.40-rear-.46),PAINT,.07)
+    wheels([-1.37,1.35],.94,.33,set())
+    for side in (-1,1):
+        box((side*.81,(roof+.97)/2,-.34),(.09,roof-.96,.10),RUBBER)
+        for z in (-.85,.34):
+            box((side*.92,.86,z),(.035,.046,.16),CHROME)
+        box((side*.94,1.07,.75),(.21,.115,.23),PAINT)
+        box((side*.64,.76,2.13),(.34,.12,.13),HEAD,.04)
+        box((side*.64,.83,-2.15),(.36,.14,.10),TAIL,.04)
+    box((0,.61,2.18),(.83,.18,.06),RUBBER)
+    box((0,.57,-2.19),(.38,.13,.04),WHITE)
+    if name=='patrol':
+        for side in (-1,1):
+            box((side*.922,.69,-.10),(.036,.36,1.48),WHITE)
+            box((side*.34,.65,2.23),(.06,.54,.09),RUBBER)
+        box((0,.72,2.28),(.78,.065,.08),RUBBER)
+        box((0,roof+.085,-.12),(1.14,.12,.25),RUBBER)
+    if utility:
+        for side in (-1,1):
+            box((side*.61,roof+.07,-.47),(.06,.07,1.56),CHROME)
+
+
 def bake(name):
     bpy.ops.wm.read_factory_settings(use_empty=True)
+    if name in ('sedan','crossover','patrol'):
+        passenger(name)
+        export(name)
+        return
     bus=name=='transit-bus'
     truck=name=='tractor-trailer'
     w=1.21 if bus or truck else .93
@@ -88,6 +148,10 @@ def bake(name):
         box((side*w*.8,.89,-end-.045),(.26,.17,.08),TAIL)
         box((side*(w+.13),height-.92,cab_front-.28),(.20,.34,.12),RUBBER)
         for j in range(3):box((side*(w+.02),.87,-end+.48+end*.76*j),(.04,.065,.105),AMBER)
+
+
+def export(name):
+    bpy.context.view_layer.update()
     graph=bpy.context.evaluated_depsgraph_get()
     groups=[array('f') for _ in range(29)]
     for obj in bpy.context.scene.objects:
@@ -104,4 +168,4 @@ def bake(name):
     (OUTPUT/(name+'.zlib')).write_bytes(zlib.compress(blob,9))
 
 
-for vehicle in ('tractor-trailer','transit-bus','delivery-van'):bake(vehicle)
+for vehicle in ('tractor-trailer','transit-bus','delivery-van','sedan','crossover','patrol'):bake(vehicle)

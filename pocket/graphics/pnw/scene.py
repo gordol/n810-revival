@@ -2094,7 +2094,7 @@ class RainierView:
                 from pathlib import Path
                 upload=ctx.lib.pocket_scene_vehicle_mesh
                 upload.argtypes=[C.c_void_p,C.c_uint,C.POINTER(C.c_uint),C.c_char_p,C.c_uint]
-                for slot,model in enumerate(('coupe','delivery-van','transit-bus','tractor-trailer')):
+                for slot,model in enumerate(('coupe','delivery-van','transit-bus','tractor-trailer','sedan','crossover','patrol')):
                     mesh=zlib.decompress((Path(__file__).resolve().parents[1]/'assets/seattle'/(model+'.zlib')).read_bytes())
                     groups=(C.c_uint*29).from_buffer_copy(mesh)
                     ctx.check(upload(ctx.handle,slot,groups,mesh[116:],(len(mesh)-116)//24))

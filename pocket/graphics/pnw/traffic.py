@@ -63,7 +63,11 @@ def road_cells():
 
 def vehicle_type(identity):
     value=identity%23
-    return 11 if value==3 else 12 if value==7 else 5 if value%4==0 else 10
+    if value==3:return 11  # bus
+    if value==7:return 12  # tractor-trailer
+    if value==18:return 10  # sports coupe
+    if value in (0,9,15):return 5  # delivery van
+    return 14 if value%2 else 15  # sedan or crossover
 
 def half_length(identity):
     return {11:5.8,12:7.8}.get(vehicle_type(identity),2.2)

@@ -439,16 +439,16 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
      market_tied_hair(hair,locks,pose<12.f?sinf(pose*.5235988f):0.f);
     glPopMatrix();
    }
-  }else if(kind==5 || kind==10 || kind==11 || kind==12){
+  }else if(kind==5 || kind==10 || kind==11 || kind==12 || kind==14 || kind==15){
    glPushMatrix();
    if((int)pose&16){
     glRotatef(4.f,0,0,1);
     glScalef(1.02f,.94f,.91f);
    }
-   unsigned slot=kind==5?1:kind==11?2:kind==12?3:0;
+   unsigned slot=kind==5?1:kind==11?2:kind==12?3:kind==14?4:kind==15?5:0;
    unsigned paint=(unsigned)p[6];
    if(paint<32 && s->vehicle_mesh[slot])detailed_vehicle(s,slot,paint,(int)pose);
-   else if(kind>=11)heavy_vehicle(kind,(int)pose);
+   else if(kind==11 || kind==12)heavy_vehicle(kind,(int)pose);
    else street_vehicle(kind==5,paint%32,(int)pose);
    if((int)pose&16 && kind<11){
     glTranslatef(.07f,.70f,1.6f);glRotatef(-17.f,1,0,0);
@@ -457,6 +457,10 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
    glPopMatrix();
   }else if(kind==13){
    trail_bike();
+  }else if(kind==9 && s->vehicle_mesh[6]){
+   detailed_vehicle(s,6,3,2);
+   market_panel(-.29f,1.60f,-.12f,.26f,.055f,.11f,pose>=0 && pose<.5f?1.f:.30f,.04f,.04f);
+   market_panel(.29f,1.60f,-.12f,.26f,.055f,.11f,.04f,.10f,pose>=.5f?1.f:.30f);
   }else if(kind==9){
    static const float liveries[][3]={{.10f,.13f,.16f},{.21f,.38f,.50f},{.68f,.63f,.52f},{.30f,.30f,.31f},{.47f,.12f,.17f}};
    const float *paint=liveries[(unsigned)p[6]%5];
