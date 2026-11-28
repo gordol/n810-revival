@@ -1,6 +1,7 @@
 """Regional travel, aircraft, and scenes for Pacific Northwest outings."""
 from array import array
 from dataclasses import dataclass
+from functools import lru_cache
 import math
 import random
 from struct import Struct
@@ -34,11 +35,14 @@ AIRCRAFT={'plane':TRAINER,'thun':TRAINER,'jet':RESEARCH_JET,'hangar-jet':RESEARC
 HANGAR=location('sound',PLACES[0][1],PLACES[0][2])
 HANGAR=(HANGAR[0]+70.,HANGAR[1])
 BAYS={'thun':(-8.,'Trainer'),'hangar-jet':(8.,'Research jet')}
-AIR_SPORTS=('skydive','balloon')
+AIR_SPORTS=('skydive','balloon','scuba')
 OUTINGS={'Thun Field hangar':'hangar','Skydive over Rainier':'skydive','Balloon over the Sound':'balloon','Plane from Rainier':'plane','Plane from Thun Field':'thun','Research jet from Rainier':'jet',
-         'Boat on Commencement Bay':'boat','Hoh Rain Forest walk':'hoh','Bainbridge ferry':'ferry','Seattle Great Wheel':'wheel',
+         'Boat on Commencement Bay':'boat','Puget Sound kelp dive':'scuba','Hoh Rain Forest walk':'hoh','Bainbridge ferry':'ferry','Seattle Great Wheel':'wheel',
          'Pike Place Market':'market','Fish counter':'fishshop','Space Needle':'needle'}
 
+ROAD_RIDES={'Market delivery car':'car','Market motorcycle':'motorcycle','Market bicycle':'bicycle'}
+ROAD_RIDES.update({f'Tacoma {kind}':f'tacoma-{kind}' for kind in ('car','motorcycle','bicycle')})
+OUTINGS.update(ROAD_RIDES)
 OUTINGS.update(market_visit.DESTINATIONS)
 
 WHEEL=(47.6062,-122.3425)
@@ -71,6 +75,14 @@ def runway_geometry():
         ex,ez=location('sound',*b)
         yield x,z,math.atan2(ex-x,ez-z),math.hypot(ex-x,ez-z),width
 
+@lru_cache(maxsize=1)
+def taxi_path():
+    hx,hz=HANGAR
+    rx,rz,yaw,_,width=next(runway_geometry())
+    tx,tz=rx+45*math.sin(yaw),rz+45*math.cos(yaw)
+    return ((hx,hz-12),(hx,hz-34),(hx+25,hz-55),(hx+25,tz-28),
+            (hx+13,tz),(tx+width,tz),(tx,tz))
+
 def ride_pose(outing,elapsed):
     if outing=='wheel':
         x,z=location('sound',*WHEEL)
@@ -88,9 +100,41 @@ def ride_pose(outing,elapsed):
         along-=d
     return *FERRY[-1],0.,0.,5.
 
+def dive_world():
+    """A small illustrative kelp bed, in local metres below the waterline."""
+    from geometry import Vec,HeightField
+    origin=Vec(-48,0,-48)
+    heights=tuple(-11+1.4*math.sin(i*.42)+2*math.cos(j*.24+i*.13)
+                  for j in range(33) for i in range(33))
+    field=HeightField(33,33,origin,3.,3.,heights,'meters')
+    mesh=array('f')
+    def quad(a,b,c,d,color):
+        for p in (a,b,c,a,c,d):mesh.extend((*p,*color,0.))
+    def ground(i,j):return (-48+3*i,heights[j*33+i],-48+3*j)
+    rng=random.Random(403)
+    for j in range(32):
+        for i in range(32):
+            shade=rng.uniform(.85,1.)
+            quad(ground(i,j),ground(i,j+1),ground(i+1,j+1),ground(i+1,j),
+                 (.31*shade,.33*shade,.25*shade))
+    for _ in range(220):
+        x,z=rng.uniform(-46,46),rng.uniform(-46,46)
+        y=field.height(x,z)
+        length=rng.uniform(2,min(8,-y-.5));phase=rng.uniform(0,math.tau)
+        for k in range(8):
+            bottom=y+length*k/8;top=bottom+length/8
+            a=x+.23*math.sin(phase+k*.5);b=x+.23*math.sin(phase+(k+1)*.5)
+            quad((a-.035,bottom,z),(a+.035,bottom,z),(b+.035,top,z),(b-.035,top,z),(.29,.33,.12))
+            dx=math.cos(phase+k)*.95;dz=math.sin(phase+k)*.95
+            quad((b,top,z),(b+dx*.5,top+.23,z+dz*.5),(b+dx,top+.36,z+dz),
+                 (b+dx*.5,top-.03,z+dz*.5),(.20,.32+.012*k,.10))
+    count=len(mesh)//7
+    return field,Vec(0,0,0),mesh,count,array('I',[0]),(),count,None
+
 def build_world(outing,*,require_cache=False,prepare=False):
     from geometry import Vec
     from pnw.summit_detail import RegionalTerrain
+    if outing=='scuba':return dive_world()
     region='hoh' if outing=='hoh' else 'sound'
     if outing in market_visit.FLOORS:return market_visit.indoor(outing,prepare=prepare)
     raw=elevations(region)
@@ -143,6 +187,7 @@ def build_mesh(region,field,raw,aerial):
         quad(tuple((hx+dx,surface(field,hx+dx,hz+dz)+.05,hz+dz)
                    for dx,dz in ((-17,-16),(17,-16),(17,11),(-17,11))),(.43,.44,.43))
         for kind,(dx,_) in BAYS.items():
+            parked_start=len(mesh)
             # Parked silhouettes: a swept jet and a straight high-wing trainer.
             x=hx+dx
             y=surface(field,x,hz)+1.3
@@ -167,6 +212,27 @@ def build_mesh(region,field,raw,aerial):
             if not jet:
                 box(x,hz-5.4,y-.95,.13,.12,1.9,(.16,.18,.19))
                 box(x,hz-5.42,y-.11,.14,.14,.22,(.91,.59,.21))
+            # Tag the parked airframe so the cockpit camera can occupy its bay.
+            for vertex in range(parked_start+6,len(mesh),7):mesh[vertex]=.311 if jet else .310
+        # Vertical metal siding, sliding door tracks and maintenance benches.
+        for side in (-1,1):
+            for dz in range(-11,12):
+                box(hx+side*16.76,hz+dz,floor,.12,.10,7.7,(.42,.47,.48))
+            box(hx+side*13,hz-11.8,floor+7.75,8,.25,.28,(.21,.23,.23))
+            box(hx+side*13,hz+8.4,floor,4.,1.1,.93,(.20,.28,.29))
+            box(hx+side*13,hz+8.4,floor+.93,4.2,1.25,.09,(.50,.48,.42))
+        # Reconstructed apron and taxiway; the runway threshold is georeferenced.
+        for (x,z),(ex,ez) in zip(taxi_path(),taxi_path()[1:]):
+            length=math.hypot(ex-x,ez-z)
+            dx,dz=(ex-x)/length,(ez-z)/length
+            for begin in range(0,math.ceil(length),6):
+                end=min(begin+6,length)
+                for width,offset,color in ((6.,.075,(.32,.33,.32)),(.095,.10,(.91,.73,.18))):
+                    corners=[]
+                    for t,side in ((begin,-1),(begin,1),(end,1),(end,-1)):
+                        px,pz=x+t*dx+side*width*dz,z+t*dz-side*width*dx
+                        corners.append((px,surface(field,px,pz)+offset,pz))
+                    quad(corners,color)
         # Game scenery at named locations. Runway paint follows the sampled terrain.
         for x,z,a,length,width in runway_geometry():
             def strip(width,start,end,color,lift):
@@ -295,10 +361,81 @@ def terrain_grid_mesh(field, raw, aerial, region):
     return mesh
 
 
+class StreetRide:
+    """First-person street ride with an optional flower delivery at the market."""
+    def __init__(self,kind):
+        import os
+        from pnw.seattle_places import delivery_route,street_lines
+        self.kind=kind.removeprefix('tacoma-')
+        self.assist=os.environ.get('POCKET_KID_MODE')=='1'
+        self.route=(next(points for name,_,points,_,_ in street_lines('tacoma') if name=='Dock Street' and len(points)>=30)
+                    if kind.startswith('tacoma-') else delivery_route())
+        self.x,self.z=self.route[0]
+        self.leg=1
+        self.heading=self.bearing(self.route[1])
+        self.speed=self.steer=0.
+        self.cruise=self.delivered=False
+        self.keys=set()
+        self.contact=None
+        self.drag=(0.,0.)
+        self.menu=False
+
+    def bearing(self,point):
+        return math.atan2(point[0]-self.x,point[1]-self.z)
+
+    def cancel_input(self):
+        self.keys.clear()
+        self.contact=None
+        self.drag=(0.,0.)
+
+    def advance(self,dt,sticks):
+        from pnw.seattle_places import on_road
+        steer=max(-1.,min(1.,sticks[0]+self.drag[0]+('right' in self.keys)-('left' in self.keys)))
+        pedal=max(-1.,min(1.,-sticks[1]+self.drag[1]+('up' in self.keys)-('down' in self.keys)))
+        maximum={'car':12.,'motorcycle':16.,'bicycle':6.}[self.kind]
+        target=(pedal if pedal else float(self.cruise))*maximum
+        if self.assist:target=max(0.,min(5.,target))
+        else:target=max(-2.5,target)
+        self.speed+=(target-self.speed)*(-math.expm1(-dt*(3 if target==0 else 1.4)))
+        self.steer+=(steer-self.steer)*(-math.expm1(-dt*6))
+        distance=self.speed*dt
+        if self.assist:
+            while distance>0 and self.leg<len(self.route):
+                end=self.route[self.leg]
+                left=math.dist((self.x,self.z),end)
+                self.heading=self.bearing(end)
+                if distance<left:
+                    self.x+=distance*math.sin(self.heading)
+                    self.z+=distance*math.cos(self.heading)
+                    break
+                self.x,self.z=end
+                distance-=left
+                self.leg+=1
+            if self.leg==len(self.route):self.speed=0.;self.cruise=False
+        else:
+            wheelbase={'car':2.6,'motorcycle':1.45,'bicycle':1.1}[self.kind]
+            self.heading+=distance*math.tan(.48*self.steer)/wheelbase
+            x=self.x+distance*math.sin(self.heading)
+            z=self.z+distance*math.cos(self.heading)
+            if on_road(x,z):self.x,self.z=x,z
+            else:self.speed=0.;self.cruise=False
+        if abs(self.speed)<.5 and math.dist((self.x,self.z),self.route[-1])<6:self.delivered=True
+        return self.x,self.z,self.heading,.045
+
+    def hint(self):
+        if self.delivered:return 'Flowers delivered'
+        end=self.route[-1]
+        turn=math.remainder(self.bearing(end)-self.heading,math.tau)
+        arrow='↑' if abs(turn)<.48 else '↓' if abs(turn)>2.65 else '→' if turn>0 else '←'
+        metres=round(math.dist((self.x,self.z),end))
+        return f'Flowers {arrow} {metres} m' if metres>6 else 'Stop to deliver flowers'
+
+
 class ExploreMenu(HikeMenu):
     groups={'Fly':('Thun Field hangar','Skydive over Rainier','Balloon over the Sound','Plane from Rainier','Plane from Thun Field','Research jet from Rainier','Hang glide','Paramotor'),
             'Mountain sports':('Put on skis','Climb summit ice','Mountain bike loop'),
-            'On the water':('Boat on Commencement Bay','Bainbridge ferry'),
+            'City rides':tuple(ROAD_RIDES),
+            'On the water':('Boat on Commencement Bay','Bainbridge ferry','Puget Sound kelp dive'),
             'Market and waterfront':('Pike Place Market',*market_visit.DESTINATIONS),
             'Seattle':('Pike Place Market','Fish counter','Seattle Great Wheel','Space Needle'),
             'On foot':('Hoh Rain Forest walk','Local trails and activities')}
@@ -437,6 +574,36 @@ class PauseMenu:
         elif button==1:self.page='Paused';self.selected=0
 
 
+class Scuba(HangGlider):
+    def __init__(self,field):
+        from types import SimpleNamespace
+        super().__init__(SimpleNamespace(x=0.,z=0.,heading=0.),field.height)
+        self.altitude=-6.
+        self.swimming=False
+
+    def action(self):self.swimming=not self.swimming
+
+    def advance(self,dt,height,limits):
+        steer=max(-1.,min(1.,self.stick+self.drag[0]+('right' in self.keys)-('left' in self.keys)))
+        vertical=max(-1.,min(1.,self.pitch_stick+self.drag[1]+('up' in self.keys)-('down' in self.keys)))
+        self.heading+=steer*dt
+        self.speed=1.8 if self.swimming else 0.
+        west,east,south,north=limits
+        self.x=max(west+1,min(east-1,self.x+self.speed*dt*math.sin(self.heading)))
+        self.z=max(south+1,min(north-1,self.z+self.speed*dt*math.cos(self.heading)))
+        self.altitude=max(height(self.x,self.z)+.25,min(-1.8,self.altitude+vertical*1.2*dt))
+        return self.x,self.z,self.heading,.08-.35*vertical
+
+    def controls(self,w,h):
+        return [('air-action','Float' if self.swimming else 'Swim',(0,0,9,2)),
+                ('surface','Surface',(w-10,0,10,2))]
+
+    def draw(self,ink,w,h):
+        ink.label(1,h-2,f'{-self.altitude-1.25:.1f} m deep',0xE5F7F2)
+
+def start_sport(kind,field):
+    return Scuba(field) if kind=='scuba' else AirSport(kind,field)
+
 class AirSport(HangGlider):
     def __init__(self,kind,field):
         from types import SimpleNamespace
@@ -516,6 +683,16 @@ class SoundVehicle(HangGlider):
             self.roll_state='parked'
             self.target_index=2
 
+    def board(self,pose):
+        dx,_=BAYS[self.kind]
+        self.x,self.z=HANGAR[0]+dx,HANGAR[1]
+        self.heading=math.pi
+        self.entry=pose
+        self.board_time=0.
+        self.taxi_waypoint=1
+        self.speed=self.throttle=0.
+        self.roll_state='boarding'
+
     def cancel_input(self):
         super().cancel_input()
         self.rudder=self.throttle_rate=0.
@@ -526,7 +703,7 @@ class SoundVehicle(HangGlider):
         self.throttle=1. if self.fast else self.aircraft.cruise_power if self.aircraft else 0.
 
     def toggle_gear(self):
-        if self.aircraft is RESEARCH_JET and self.roll_state not in ('parked','takeoff','rollout'):
+        if self.aircraft is RESEARCH_JET and self.roll_state not in ('boarding','taxi','parked','takeoff','rollout'):
             self.gear_down=not self.gear_down
 
     def runway_at(self,x,z):
@@ -575,6 +752,34 @@ class SoundVehicle(HangGlider):
         if self.throttle_rate:
             self.throttle=max(0.,min(1.,self.throttle+self.throttle_rate*dt*.35))
             self.fast=self.throttle>=.99
+        if self.roll_state=='boarding':
+            self.board_time+=dt
+            t=min(1.,self.board_time/1.4)
+            u=t*t*(3-2*t)
+            ox,oz,yaw,pitch=self.entry
+            x,z=ox+(self.x-ox)*u,oz+(self.z-oz)*u
+            self.altitude=height(x,z)+.15+u*.58+.32*math.sin(t*math.pi)
+            if t==1:self.roll_state='taxi'
+            return x,z,yaw+math.remainder(self.heading-yaw,math.tau)*u,pitch*(1-u)+.03*u
+        if self.roll_state=='taxi':
+            strip=self.runway_at(self.x,self.z)
+            if self.descending and strip:
+                self.throttle=max(.85,self.throttle)
+                self.roll_state='parked'
+            else:
+                self.descending=False
+                drive=self.throttle+self.drag[1]+('up' in self.keys)-('down' in self.keys)
+                target=8*max(0.,min(1.,drive))
+                self.speed+=(target-self.speed)*(-math.expm1(-dt*(2 if not target else .9)))
+                steer=self.stick+self.rudder+self.drag[0]+('right' in self.keys)-('left' in self.keys)
+                self.heading+=max(-1.,min(1.,steer))*dt*min(1.,self.speed*.26)
+                self.x+=self.speed*dt*math.sin(self.heading)
+                self.z+=self.speed*dt*math.cos(self.heading)
+                self.altitude=height(self.x,self.z)+.73
+                way=taxi_path()
+                if math.dist((self.x,self.z),way[self.taxi_waypoint])<10:
+                    self.taxi_waypoint=min(len(way)-1,self.taxi_waypoint+1)
+                return self.x,self.z,self.heading+self.look_yaw,.03+self.look_pitch
         if self.roll_state in ('parked','takeoff','rollout'):
             if self.roll_state=='parked' and self.descending:
                 self.descending=False
@@ -652,11 +857,13 @@ class SoundVehicle(HangGlider):
         items=super().wheel_items()
         descent='Go' if self.descending else 'Stop'
         if not self.boat:
-            descent='Take off' if self.roll_state=='parked' else 'Go around' if self.descending else 'Approach'
+            descent='Take off' if self.roll_state in ('taxi','parked') else 'Go around' if self.descending else 'Approach'
         return [(action,'Waypoint' if action=='motor' else descent if action=='descend' else label,angle)
                 for action,label,angle in items]
 
     def controls(self,w,h):
+        if not self.menu and self.roll_state=='taxi' and self.runway_at(self.x,self.z):
+            return [('descend','Take off',(w-12,0,12,2))]
         if not self.menu and self.boat:return [('wheel','Helm',(w-11,0,11,3))]
         if not self.menu and self.aircraft is RESEARCH_JET:
             return []
@@ -675,6 +882,15 @@ class SoundVehicle(HangGlider):
         if self.menu:
             for _,_,angle in self.wheel_items():
                 ink.sector(w/2,h/2,self.radius(w,h),angle)
+        if self.roll_state in ('boarding','taxi'):
+            if self.roll_state=='boarding':label='Boarding'
+            elif self.runway_at(self.x,self.z):label='Runway · A to take off'
+            else:
+                px,pz=taxi_path()[self.taxi_waypoint]
+                bearing=round(math.degrees(math.atan2(px-self.x,pz-self.z)))%360
+                label=f'Taxi {bearing:03d}° · {round(math.hypot(px-self.x,pz-self.z))} m'
+            ink.label(1,1,label,0xFFEDBF)
+            return
         power='APPR' if self.descending else f'THR {round(100*self.throttle)}%'
         if self.aircraft is RESEARCH_JET:
             if self.stalled:ink.label(w/2-2,h*.58,'STALL',0xFFCD79)

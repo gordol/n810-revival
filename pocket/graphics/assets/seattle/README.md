@@ -29,3 +29,5 @@ surface streets in the walking district and flags mapped crossing nodes.
 Widths, paint, terminal approaches and sign placement are game scenery.
 The accelerated ferry rides OSM way 332476322 in both directions. Runway
 thresholds and widths come from the [OurAirports public-domain runway dataset](https://ourairports.com/data/).
+
+The same ODbL credit applies to tacoma-streets.json. It contains named drivable ways from the OSM API 0.6 map export for (-122.447,47.249,-122.436,47.257), including the complete returned ways. The same map export supplied 99 height- or floor-tagged Tacoma building footprints in buildings.json using the existing building extractor. Dock Street way 687454686 supplies the illustrated Tacoma delivery route.

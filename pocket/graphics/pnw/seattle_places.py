@@ -67,14 +67,39 @@ def delivery_route():
     return tuple(points)
 
 
-def streets(height,quad):
+@lru_cache(maxsize=2)
+def street_lines(city):
     from pnw.terrain import location
     import json
-    source=Path(__file__).resolve().parents[1]/'assets/seattle/streets.json'
+    source=Path(__file__).resolve().parents[1]/'assets/seattle'/('tacoma-streets.json' if city=='tacoma' else 'streets.json')
+    return tuple((name,kind,tuple(location('sound',lat/1e7,lon/1e7) for lon,lat,*_ in coords),
+                  {'primary':8.,'secondary':7.,'tertiary':5.5,'pedestrian':3.}.get(kind,4.4),tuple(len(c)==3 for c in coords))
+                 for name,kind,coords in json.loads(source.read_text()).values())
+
+@lru_cache(maxsize=1)
+def driving_lanes():
+    cells={}
+    for _,kind,points,width,_ in (*street_lines('seattle'),*street_lines('tacoma'),('Delivery','access',delivery_route(),3.,())):
+        if kind=='pedestrian':continue
+        for (x,z),(ex,ez) in zip(points,points[1:]):
+            dx,dz=ex-x,ez-z
+            length2=dx*dx+dz*dz
+            if not length2:continue
+            segment=(x,z,dx,dz,length2,width)
+            for i in range(math.floor((min(x,ex)-width)/32),math.floor((max(x,ex)+width)/32)+1):
+                for j in range(math.floor((min(z,ez)-width)/32),math.floor((max(z,ez)+width)/32)+1):
+                    cells.setdefault((i,j),[]).append(segment)
+    return cells
+
+def on_road(x,z):
+    for ox,oz,dx,dz,length2,width in driving_lanes().get((math.floor(x/32),math.floor(z/32)),()):
+        t=max(0.,min(1.,((x-ox)*dx+(z-oz)*dz)/length2))
+        if math.hypot(x-ox-t*dx,z-oz-t*dz)<=width:return True
+    return False
+
+def streets(height,quad):
     junctions={}
-    for name,kind,coords in json.loads(source.read_text()).values():
-        points=[location('sound',lat/1e7,lon/1e7) for lon,lat,*_ in coords]
-        half={'primary':8.,'secondary':7.,'tertiary':5.5,'pedestrian':3.}.get(kind,4.4)
+    for name,kind,points,half,crossings in (*street_lines('seattle'),*street_lines('tacoma')):
         for pt in (points[0],points[-1]):junctions.setdefault(pt,set()).add(name)
         for i,((x,z),(ex,ez)) in enumerate(zip(points,points[1:])):
             length=math.hypot(ex-x,ez-z)
@@ -93,7 +118,7 @@ def streets(height,quad):
                     band(side*half,side*(half+1.8),t,end,.14,(.57,.55,.50))
                 if kind in ('primary','secondary'):
                     band(-.07,.07,t,min(end,t+5),.068,(.83,.68,.35))
-            if len(coords[i])==3:
+            if crossings[i]:
                 for n in range(-int(half),int(half)):
                     band(n+.12,n+.54,0.,min(2.8,length),.092,(.79,.78,.71))
     from pnw.market_visit import lettering

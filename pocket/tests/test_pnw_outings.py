@@ -409,6 +409,68 @@ class OutingTests(unittest.TestCase):
         self.assertLess(math.dist(pnw.ride_pose('ferry',2*duration)[:2],pnw.FERRY[0]),.001)
         self.assertAlmostEqual(pnw.ride_pose('wheel',50)[4]-pnw.ride_pose('wheel',0)[4],46)
 
+    def test_city_rides_and_assisted_deliveries(self):
+        from unittest.mock import patch
+        from pnw.seattle_places import on_road
+        for kind in pnw.ROAD_RIDES.values():
+            with patch.dict('os.environ',POCKET_KID_MODE='1'):
+                ride=pnw.StreetRide(kind)
+            self.assertTrue(on_road(ride.x,ride.z))
+            ride.cruise=True
+            for _ in range(10000):
+                ride.advance(.1,(0,0))
+                if ride.delivered:break
+            self.assertTrue(ride.delivered,kind)
+            self.assertFalse(ride.cruise)
+            with patch.dict('os.environ',POCKET_KID_MODE='0'):
+                manual=pnw.StreetRide(kind)
+            pose=(manual.x,manual.z,manual.heading)
+            for _ in range(12):manual.advance(.1,(.15,-1))
+            self.assertGreater(math.dist(pose[:2],(manual.x,manual.z)),1.)
+            self.assertNotEqual(manual.heading,pose[2])
+            self.assertTrue(on_road(manual.x,manual.z))
+        self.assertFalse(on_road(0,0))
+
+    def test_boarding_taxi_and_runway_departure(self):
+        ground=lambda x,z:0.
+        limits=(-1e6,1e6,-1e6,1e6)
+        for kind,(dx,_) in pnw.BAYS.items():
+            plane=SoundVehicle(kind,SimpleNamespace(height=ground))
+            start=(pnw.HANGAR[0]+dx,pnw.HANGAR[1]-5.,0.,0.)
+            plane.board(start)
+            first=plane.advance(.1,ground,limits)
+            self.assertLess(math.dist(start[:2],first[:2]),1.)
+            for _ in range(15):plane.advance(.1,ground,limits)
+            self.assertEqual(plane.roll_state,'taxi')
+            plane.descending=True
+            plane.advance(.1,ground,limits)
+            self.assertEqual(plane.roll_state,'taxi')
+            plane.throttle=.55
+            for _ in range(5000):
+                px,pz=pnw.taxi_path()[plane.taxi_waypoint]
+                error=math.remainder(math.atan2(px-plane.x,pz-plane.z)-plane.heading,math.tau)
+                plane.stick=max(-1.,min(1.,3*error))
+                plane.advance(.1,ground,limits)
+                if plane.runway_at(plane.x,plane.z):break
+            self.assertIsNotNone(plane.runway_at(plane.x,plane.z))
+            plane.descending=True
+            for _ in range(245):plane.advance(.1,ground,limits)
+            self.assertGreater(plane.clearance,25.)
+            self.assertIsNone(plane.roll_state)
+
+    def test_scuba_swim_stays_between_surface_and_seabed(self):
+        from pnw.hiking import bounds
+        field=pnw.dive_world()[0]
+        dive=pnw.start_sport('scuba',field)
+        dive.action()
+        for direction in (1,-1):
+            dive.pitch_stick=direction
+            for _ in range(150):
+                x,z,_,_=dive.advance(.1,field.height,bounds(field))
+                self.assertGreaterEqual(dive.altitude,field.height(x,z)+.24)
+                self.assertLessEqual(dive.altitude,-1.8)
+        self.assertGreater(abs(z),25.)
+
     def test_runway_departure_and_tacoma_touchdown(self):
         ground=lambda x,z:0.
         limits=(-1e6,1e6,-1e6,1e6)

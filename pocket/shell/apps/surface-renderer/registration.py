@@ -84,7 +84,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         @property
         def pointer_captured(self):
-            flight=getattr(self.pixel_scene,'glider',None)
+            flight=getattr(self.pixel_scene,'glider',None) or getattr(self.pixel_scene,'road',None)
             return self.drag_start is not None or bool(flight and flight.contact)
 
         def movement_bounds(self):
@@ -153,7 +153,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def flight_touch(self,slot,x,y,width,height,button,released):
             scene=self.pixel_scene
-            flight=scene.glider
+            flight=scene.glider or scene.road
             if flight.contact is None:
                 if button or released or not (0<=x<width and 0<=y<height+1):return False
                 flight.contact=(slot,x,y,False)
@@ -176,7 +176,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def world_touch(self,slot,x,y,width,height,button,released):
             scene=self.pixel_scene
-            if getattr(scene,'glider',None) and not scene.notebook:
+            if (getattr(scene,'glider',None) or getattr(scene,'road',None)) and not scene.notebook:
                 return self.flight_touch(slot,x,y,width,height,button,released)
             if getattr(scene,'ski',None) and not scene.notebook:
                 if slot not in self.ski_contacts and (button or released or not (0<=x<width and 0<=y<height)):
@@ -238,6 +238,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
         def cancel_pointer(self):
             flight=getattr(self.pixel_scene,'glider',None)
             if flight:flight.cancel_input()
+            if getattr(self.pixel_scene,'road',None):self.pixel_scene.road.cancel_input()
             self.grab=None
             self.contacts.clear()
             self.ski_contacts.clear()
@@ -269,7 +270,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             if self.needs_grid:
                 return self.key('d') if not released and button==0 and y==2 else False
             if not self._sync():return False
-            if getattr(self.pixel_scene,'glider',None) and not self.pixel_scene.notebook:
+            if (getattr(self.pixel_scene,'glider',None) or getattr(self.pixel_scene,'road',None)) and not self.pixel_scene.notebook:
                 return self.flight_touch(-1,x,y,width,self.host.window(self.name).h-3,button,released)
             if getattr(self.pixel_scene,'ski',None) and not self.pixel_scene.notebook:
                 self.drag_start=None if released else (x,y)
@@ -353,15 +354,18 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def ground_key(self,key):
             scene=self.pixel_scene
-            if not getattr(scene,'bike',None) or scene.notebook or scene.album:return False
-            if scene.bike and key in ('space',' ','enter','\r'):
+            if not scene or getattr(scene,'notebook',None) or getattr(scene,'album',None):return False
+            if getattr(scene,'outing',None)=='hangar' and key in ('e','enter','\r'):
+                scene.controller_button(0)
+                return True
+            if getattr(scene,'bike',None) and key in ('space',' ','enter','\r'):
                 scene.bike.pedaling=not scene.bike.pedaling
                 return True
             return False
 
         def flight_key(self,key):
             flight=getattr(self.pixel_scene,'glider',None)
-            if getattr(self.pixel_scene,'outing',None) in ('skydive','balloon') and key in ('space',' ','enter','\r') and flight:
+            if getattr(self.pixel_scene,'outing',None) in ('skydive','balloon','scuba') and key in ('space',' ','enter','\r') and flight:
                 flight.action();return True
             if flight and key.lower()=='f':flight.toggle_speed();return True
             if flight and flight.powered and key.lower()=='p':
@@ -387,6 +391,18 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
         def key_event(self,key,kind,now):
             if self.pause_key(key,kind=='press'):return True
             scene=self.pixel_scene
+            if getattr(scene,'road',None):
+                road_key={'w':'up','s':'down','a':'left','d':'right'}.get(key,key)
+                if road_key in ('left','right','up','down'):
+                    if kind=='release':scene.road.keys.discard(road_key)
+                    else:scene.road.keys.add(road_key)
+                    return True
+                if key in (' ','space'):
+                    if kind=='press':scene.road.cruise=not scene.road.cruise
+                    return True
+            if getattr(scene,'outing',None)=='hangar' and key in ('e','enter','\r'):
+                if kind=='press':self.ground_key(key)
+                return True
             if getattr(scene,'bike',None) and key in ('space',' ','enter'):
                 if kind=='press' and self.ground_key(key):return True
             flight=getattr(self.pixel_scene,'glider',None)

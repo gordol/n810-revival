@@ -654,12 +654,27 @@ Use Y / Triangle for full power, or hold RT / R2 to increase throttle gradually.
 Level full power is about 1,510 km/h. The trainer reaches 540 km/h.
 
 **Thun Field hangar** opens on foot at a fictional open-front hangar beside the runway.
-Walk up to either parked plane and tap Board or press A / Cross. Both start on the
-runway. The jet has retractable gear. Click the right stick (R3) or use **Pause → Flight controls → Gear** to cycle it.
+Walk up to either parked plane and tap Board, press E on a keyboard, or press A / Cross. The camera moves up into the selected cockpit in its bay. Taxi through the open
+front and follow the yellow line to runway 17. Hold Up to move and Left/Right to
+steer, drag forward and sideways on touch, or use RT/R2 and the steering stick
+on a controller. Press Space or A/Cross, or tap Take off once on the runway. The jet has retractable gear. Click the right stick (R3) or use **Pause → Flight controls → Gear** to cycle it.
 Assisted approach lowers it automatically. The trainer has fixed gear.
 **Skydive over Rainier** starts in free fall. A / Cross opens the parachute, with
 automatic opening near the ground. In **Balloon over the Sound**, A / Cross toggles
 the burner. The balloon rises with heat and otherwise descends as the wind carries it.
+
+**Explore → City rides** starts a delivery car, motorcycle or bicycle on the mapped
+streets around Pike Place or downtown Tacoma. Arrow keys or WASD drive and steer.
+On touch, drag forward or backward for speed and sideways to steer. On a
+controller use the left stick. Go or A/Cross toggles cruise, and Exit or B/Circle
+continues on foot. The optional flower run ends when you stop at the destination.
+Set `POCKET_KID_MODE=1` before launching to follow the delivery route at up to
+5 m/s with automatic steering and a stop at the handoff. This switch currently
+affects city rides.
+
+**Explore → On the water → Puget Sound kelp dive** opens an illustrative
+underwater site. Toggle Swim, steer left/right, and use up/down to change
+depth. Surface returns to the boat. The kelp bed is authored game terrain.
 
 **Start → Controller** saves Standard or Southpaw sticks and look sensitivity for the
 regional simulator. Southpaw swaps the two sticks before activity-specific controls.

@@ -17,7 +17,7 @@ from pnw.river_detail import RiverQuality, shade_tree
 from pnw.forest_floor import blade, broadleaf_clump, fern, nurse_log, snag, spruce_sprays, trail_cover
 from pnw.rainier_habitat import forest_sites,regional_stand,ridge_grass,understory
 from pnw import market_visit
-from pnw.outings import AIRCRAFT,AIR_SPORTS,AirSport,HANGAR,BAYS,ExploreMenu,PauseMenu,SoundVehicle
+from pnw.outings import AIRCRAFT,AIR_SPORTS,start_sport,HANGAR,BAYS,ExploreMenu,PauseMenu,SoundVehicle
 from pnw.hiking import HikeMenu, ReliefMap, bounds, region_field, summit_start
 from pnw.valley_map import ValleyMap
 from pnw.river_fishing import Fishing,vibration,watch_rod
@@ -701,7 +701,7 @@ class RainierView:
     outing=pending_outing=None
     ride_time=0.
     needle_deck=False
-    bike=glider=climb=None
+    road=bike=glider=climb=None
     pad_sticks=(0.,0.,0.,0.)
     ground_source='Aerial'
     horizon_range='Auto'
@@ -787,7 +787,7 @@ class RainierView:
 
     def lines(self):
         if self.error:return ('Rainier terrain could not open.',self.error)
-        if self.world is None and self.pending_outing=='jet':return ('Preparing research jet over Rainier…',)
+        if self.world is None and self.pending_outing:return ('Preparing '+self.pending_outing.replace('-',' ')+'…',)
         if self.world is None:return ('Opening Ohanapecosh River…',)
         if isinstance(self.notebook,HikeMenu):return self.notebook.menu_lines(self.host.window(self.name).w-2)
         if self.notebook:return self.notebook.lines(self.host.window(self.name).w-2)
@@ -813,12 +813,30 @@ class RainierView:
                 labels=(exit_label,'Restart','Explore',labels[3],'Map')
             if self.glider:labels=('Stop' if self.outing else 'Land','Restart','Explore',labels[3],'Map')
         if self.glider and self.outing in ('jet','hangar-jet'):labels=('Stop','Flight','Explore','Pause','Map')
+        if self.outing=='scuba':labels=('Surface','Restart','Explore','Mute' if self.sound else 'Sound','Pause')
+        if self.road:labels=('Exit','Stop' if self.road.cruise else 'Go','Explore','Pause','Restart')
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
         return ('',)*max(0,self.host.window(self.name).h-3)+(footer,)
 
     def footer(self,x,width):
+        if self.outing=='scuba':
+            if x<width//6:self.start_outing('boat')
+            elif x<width*3//7:self.start_outing('scuba')
+            elif x<width*4//7:self.notebook=ExploreMenu(self)
+            elif x<width*3//4:self.sound=not self.sound
+            else:self.pause_game()
+            self.pixel_dirty=True
+            return True
+        if self.road:
+            if x<width//6:self.road=None
+            elif x<width*3//7:self.road.cruise=not self.road.cruise
+            elif x<width*4//7:self.notebook=ExploreMenu(self)
+            elif x<width*3//4:self.pause_game()
+            else:self.start_outing(self.pending_outing)
+            self.pixel_dirty=True
+            return True
         if self.glider and self.outing in ('jet','hangar-jet'):
             if width//6<=x<width*3//7:
                 self.glider.menu=not self.glider.menu
@@ -856,7 +874,7 @@ class RainierView:
             elif x<width*3//7:
                 powered=self.glider.powered
                 self.end_flight()
-                if self.outing in AIR_SPORTS:self.glider=AirSport(self.outing,self.world[0])
+                if self.outing in AIR_SPORTS:self.glider=start_sport(self.outing,self.world[0])
                 elif self.outing:self.glider=SoundVehicle(self.outing,self.world[0])
                 else:self.start_glide(powered)
             else:
@@ -957,7 +975,8 @@ class RainierView:
                 elif action=='family':self.notebook=PartyMenu(self,ski=True)
                 else:self.ski.action(action)
             elif action=='launch':self.start_glide()
-            elif action in BAYS:self.start_outing(action)
+            elif action in BAYS:self.start_outing(action,self.camera)
+            elif action=='surface':self.start_outing('boat')
             elif action=='air-action':self.glider.action()
             elif action=='pause':self.pause_game()
             elif self.glider:
@@ -1009,7 +1028,7 @@ class RainierView:
         if self.glider:
             self.glider.menu=False
             return True
-        if self.climb or self.bike:return True
+        if self.climb or self.bike or self.road:return True
         if self.frame_camera is None:return False
         u,v=(x+.5)/width,(y+.5)/height
         camera,aspect=self.frame_camera
@@ -1135,6 +1154,11 @@ class RainierView:
                 elif button in (13,14):self.notebook.turn_page(-1 if button==13 else 1)
                 self.pixel_dirty=True
             return
+        if self.road:
+            if button==0:self.road.cruise=not self.road.cruise
+            if button==1:self.road=None
+            self.pixel_dirty=True
+            return
         if self.bike:
             if button==0:self.bike.pedaling=not self.bike.pedaling
             if button==1:self.bike=None
@@ -1142,7 +1166,9 @@ class RainierView:
         if self.glider:
             if self.outing in AIR_SPORTS:
                 if button==0:self.glider.action()
-                elif button==1:self.end_flight()
+                elif button==1:
+                    if self.outing=='scuba':self.start_outing('boat')
+                    else:self.end_flight()
                 return
             if self.outing in AIRCRAFT and button==8:self.glider.toggle_gear()
             elif self.outing in AIRCRAFT and button==4:
@@ -1169,7 +1195,7 @@ class RainierView:
         elif self.world and not self.ski and not self.album and not self.notebook:
             if self.outing=='hangar' and button==0:
                 bay=self.hangar_bay()
-                if bay:self.start_outing(bay)
+                if bay:self.start_outing(bay,self.camera)
                 return
             if button==0:action='shutter' if self.lens else 'fish'
             elif button==1:action='book'
@@ -1259,7 +1285,7 @@ class RainierView:
         self.flight_surfaces={}
         if self.flight_imagery:self.flight_imagery.close();self.flight_imagery=None
         if self.flight_horizon:self.flight_horizon.close();self.flight_horizon=None
-        self.bike=self.glider=self.climb=None
+        self.road=self.bike=self.glider=self.climb=None
         self.stop_ski()
         if self.context and self.context.handle:
             release=self.context.lib.pocket_scene_rainier_release
@@ -1335,6 +1361,7 @@ class RainierView:
         return None
 
     def walk_tools(self,width,height):
+        if self.road:return []
         if self.outing=='hangar':
             kind=self.hangar_bay()
             return [(kind,'Board '+BAYS[kind][1],(1,height-4,19,3))] if kind else []
@@ -1406,7 +1433,7 @@ class RainierView:
         from pnw.outings import build_world as build_outing
         self.pending_outing=outing
         self.travel_error=''
-        if self.outing and self.outing!='hoh' and outing!='hoh' and self.world and not (
+        if self.outing and self.outing not in ('hoh','scuba') and outing not in ('hoh','scuba') and self.world and not (
                 self.outing in market_visit.FLOORS or outing in market_visit.FLOORS):
             self.travel_job=Future()
             self.travel_job.set_result(self.world)
@@ -1464,7 +1491,9 @@ class RainierView:
                 self.review_key=self.notebook=None
                 owner.cancel_keys()
                 self.needle_deck=False
-                self.outing=self.pending_outing
+                from pnw.outings import ROAD_RIDES,StreetRide
+                self.road=StreetRide(self.pending_outing) if self.pending_outing in ROAD_RIDES.values() else None
+                self.outing=('tacoma' if self.pending_outing.startswith('tacoma-') else 'market') if self.road else self.pending_outing
                 self.lookout_site=self.meadow_site=None
                 self.flower_sites=[]
                 self.trip_pose=self.map_position=None
@@ -1487,7 +1516,7 @@ class RainierView:
                         owner.pitch=-.055
                         self.photo_hint="Walk up to a plane to board"
                         self.hint_until=self.age+6.
-                    elif self.outing in AIR_SPORTS:self.glider=AirSport(self.outing,world[0])
+                    elif self.outing in AIR_SPORTS:self.glider=start_sport(self.outing,world[0])
                     elif self.outing in ('market','fishshop'):
                         from pnw.seattle_places import arcade_origin
                         from pnw.pike_market import arrival,offset,HEADING
@@ -1504,6 +1533,9 @@ class RainierView:
                         owner.yaw,owner.pitch=0.,-.38
                     elif self.outing in ('ferry','wheel'):
                         owner.x,owner.z,owner.yaw,owner.pitch,_=ride_pose(self.outing,self.ride_time)
+                    if self.outing in BAYS and self.stair_landing:
+                        self.glider.board(self.stair_landing)
+                        self.stair_landing=None
                     if getattr(self,'stair_landing',None):
                         owner.x,owner.z,owner.yaw,owner.pitch=self.stair_landing
                         self.stair_landing=None
@@ -1561,8 +1593,10 @@ class RainierView:
             self.ride_time+=dt
             owner.x,owner.z,heading,_,_=ride_pose(self.outing,self.ride_time)
             owner.yaw+=heading-old_yaw
+        if self.road and not self.notebook:
+            owner.x,owner.z,owner.yaw,owner.pitch=self.road.advance(dt,self.pad_sticks)
         if self.bike:owner.x,owner.z,owner.yaw,owner.pitch=self.bike.advance(dt,self.walk_height)
-        if any(self.pad_sticks) and not (self.bike or self.ski or self.climb or self.glider or self.notebook or self.album):
+        if any(self.pad_sticks) and not (self.road or self.bike or self.ski or self.climb or self.glider or self.notebook or self.album):
             self.walk_with_controller(owner,dt)
         if self.glider:
             owner.x,owner.z,owner.yaw,owner.pitch=self.glider.advance(dt,self.walk_height,bounds(self.world[0]))
@@ -1626,7 +1660,7 @@ class RainierView:
                     landing=(*offset(arcade_origin(),-8,1.8),HEADING+math.pi,0.)
                 self.cruise=False;self.destination=None
                 self.start_outing(target,landing)
-        elif self.outing in market_visit.STREETS and not self.travel_job:
+        elif self.outing in market_visit.STREETS and not self.travel_job and not self.road:
             from pnw.pike_market import offset
             from pnw.seattle_places import arcade_origin
             from pnw.outings import CROSSING,DOCK_TIME
@@ -1814,7 +1848,7 @@ class RainierView:
         stand_ptr=None
         upload_shade=self.upload
         sound_region=self.outing is not None and self.outing!='hoh'
-        if sound_region and self.outing not in market_visit.FLOORS:
+        if sound_region and self.outing!='scuba' and self.outing not in market_visit.FLOORS:
             from pnw.terrain import FlightHorizon,FlightImagery,PATCH_STEP
             if self.flight_imagery is None:self.flight_imagery=FlightImagery()
             patch=self.flight_imagery.update(x,z,field,self.ground_source)
@@ -1855,7 +1889,7 @@ class RainierView:
             else:omit_first,omit_end=base_count,terrain_count
         equipment=None
         if self.glider:
-            mode={'boat':3,'jet':9,'hangar-jet':9,'skydive':int(getattr(self.glider,'open',False))*10,'balloon':11}.get(self.outing,2 if self.outing in AIRCRAFT else self.glider.powered)
+            mode={'scuba':15,'boat':3,'jet':9,'hangar-jet':9,'skydive':int(getattr(self.glider,'open',False))*10,'balloon':11}.get(self.outing,2 if self.outing in AIRCRAFT else self.glider.powered)
             equipment_pitch=-self.glider.elevation/.40 if self.outing in AIRCRAFT else self.glider.pitch
             if self.outing!='skydive' or mode:equipment=(C.c_float*3)(mode,self.glider.bank,equipment_pitch)
         if self.glider and self.outing in AIRCRAFT:
@@ -1873,6 +1907,7 @@ class RainierView:
             look(ctx.handle,self.glider.look_yaw,self.glider.look_pitch)
         if self.outing and getattr(self,'market_snack',None) and not equipment and not (self.lens or self.binoculars):
             equipment=(C.c_float*3)({'coffee':5,'piroshky':6,'flowers':7,'honey':8}[self.market_snack],0.,0.)
+        if self.road:equipment=(C.c_float*3)({'car':12,'motorcycle':13,'bicycle':14}[self.road.kind],self.road.steer,self.road.speed)
         if self.outing=='ferry':equipment=(C.c_float*3)(4,0.,0.)
         market=None
         actor_count=0
@@ -1885,7 +1920,7 @@ class RainierView:
                 from pnw.market_life import actors
                 poses=actors(self.age,self.walk_height,self.fish_counter.advance(self.age))
                 van=self.delivery.advance(self.age,(x,z),poses,self.walk_height)
-                if van:poses.append(van)
+                if van and not self.road:poses.append(van)
             for terminal,side in (('colman',1),('bainbridge',-1)):
                 cx,cz=market_visit.site(terminal)
                 if math.hypot(x-cx,z-cz)<520:
@@ -1900,6 +1935,12 @@ class RainierView:
             for i,lane in enumerate((-4.4,-1.55,1.55,4.4)):
                 dx,dz,heading,gait,identity=stroll(self.outing,i,self.age,8.)
                 poses.append((0,lane+dx,0.,dz,math.degrees(heading),gait,identity))
+        if self.road and len(poses)<32:
+            from pnw.market_life import shopper,BOUQUET
+            rx,rz=self.road.route[-1]
+            if math.hypot(x-rx,z-rz)<120:
+                identity=shopper('flower delivery',0)|(BOUQUET if self.road.delivered else 0)
+                poses.append((0,rx+1.8,ground(rx+1.8,rz),rz,225.,12.5,identity))
         if poses:
             actor_count=len(poses)
             packed=[]
@@ -1994,6 +2035,7 @@ class RainierView:
                         from pnw.seattle_places import bearing_label
                         label=bearing_label(self.shop_target,x,z)
                 ink.label(1,h-7 if self.outing in ('market','fishshop') else h-5,label,0xFFF6DD)
+            if self.road:ink.label(1,1,self.road.hint(),0xFFEDBF)
             if self.glider:self.glider.draw(ink,w-2,h-3)
             if self.climb:self.climb.draw(ink,w-2,h-3)
             if self.ski:self.ski.draw(ink,w-2,h-3,*self.frame_camera,lambda px,pz:self.walk_height(px,pz)-origin.y)
