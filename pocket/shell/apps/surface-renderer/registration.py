@@ -355,6 +355,10 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
         def ground_key(self,key):
             scene=self.pixel_scene
             if not scene or getattr(scene,'notebook',None) or getattr(scene,'album',None):return False
+            if key=='?' and getattr(scene,'road',None):
+                scene.pause_game()
+                scene.notebook.page='Driving controls'
+                return True
             if key=='0' and getattr(scene,'road',None) and scene.road.has_car_camera:
                 scene.road.overhead=not scene.road.overhead
                 scene.pixel_dirty=True
@@ -396,7 +400,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             if self.pause_key(key,kind=='press'):return True
             scene=self.pixel_scene
             if getattr(scene,'road',None):
-                if key=='0' and scene.road.has_car_camera:
+                if key=='?' or (key=='0' and scene.road.has_car_camera):
                     if kind=='press':self.ground_key(key)
                     return True
                 road_key={'w':'up','s':'down','a':'left','d':'right'}.get(key,key)

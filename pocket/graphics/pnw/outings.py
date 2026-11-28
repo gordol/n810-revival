@@ -626,8 +626,10 @@ class PauseMenu:
                 rows+=('Reduce throttle','Increase throttle',f'Flaps: {flight.flaps*10} deg',
                        'Gear: '+('down' if flight.gear_down else 'up'))
             return (*rows,'Back')
+        if self.page=='Driving controls':return ('Resume','Back')
         if self.page=='Flight guide':
             return ('Next page','Back')
+        if getattr(self.view,'road',None):return ('Resume','Driving controls','Controller')
         flight=self.view.outing in AIRCRAFT and self.view.glider
         rows=('Resume','Controller','Flight controls','Flight guide')
         return rows+('Leave aircraft',) if flight else rows
@@ -651,6 +653,9 @@ class PauseMenu:
                ('LT / RT: throttle','D-pad down/up: flaps out/in','D-pad left/right: glance'),
                ('A: takeoff / approach','X: waypoint   Y: cruise','Stall: nose down, add power'))
         footer=hints[self.guide_page] if self.page=='Flight guide' else ('A: select   B: back',)
+        if self.page=='Driving controls':
+            footer=('W/S or up/down: gas / brake','A/D or left/right: steer','Space or Go: hold accelerator')
+            if self.view.road.has_car_camera:footer+=('0 or View: switch camera',)
         y=2+2*len(self.rows())
         for i,line in enumerate(footer):
             if y+i<height:ink.label(1,y+i,line[:panel-1],0xC3D2CA)
