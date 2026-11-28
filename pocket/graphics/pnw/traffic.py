@@ -62,6 +62,7 @@ def road_cells():
     return cells
 
 def vehicle_type(identity):
+    if identity%67==39:return 9  # occasional marked cruiser on ordinary routes
     value=identity%23
     if value==3:return 11  # bus
     if value==7:return 12  # tractor-trailer

@@ -2279,8 +2279,9 @@ class RainierView:
                     if turn==2:lamps+=16
                     if (self.age+index*.17)% .78<.39:lamps+=12 if turn==2 else 4 if turn<0 else 8 if turn>0 else 0
                     from pnw.traffic import vehicle_type
-                    poses.append((vehicle_type(index),px,lane_height(px,pz,angle)+.06,pz,
-                                  math.degrees(angle),float(lamps),1+index%4+32*int(distance>100)))
+                    kind=vehicle_type(index)
+                    poses.append((kind,px,lane_height(px,pz,angle)+.06,pz,
+                                  math.degrees(angle),-1. if kind==9 else float(lamps),1+index%4+32*int(distance>100)))
         if sound_region and self.outing not in market_visit.FLOORS:
             reserved=[]
             for car in sorted(self.parked_cars,key=lambda car:math.hypot(car.x-x,car.z-z))[:8]:
@@ -2288,7 +2289,7 @@ class RainierView:
                     y=ground(car.x,car.z)
                     if car.bridge_roads:y=car.bridge_roads.sample(car.x,car.z,y)
                     reserved.append((car.actor_kind,car.x,y+.05,car.z,math.degrees(car.heading),
-                                  16*int(car.damage>.35),car.paint))
+                                  -1. if car.actor_kind==9 else 16*int(car.damage>.35),car.paint))
             poses=poses[:actor_limit-2-len(reserved)]+reserved
         patrol=self.road or self.patrol_owner
         if sound_region and patrol and patrol.patrol and math.dist((x,z),patrol.patrol)<240:
