@@ -414,7 +414,16 @@ def bridge_spans(height):
         path=list(reversed(lead))+points+tail
         lead_len=sum(math.dist(a,b) for a,b in zip([start]+lead,lead))
         tail_len=sum(math.dist(a,b) for a,b in zip([end]+tail,tail))
+        joins_ground=[len(j)==1 or node in ground_joins for j,node in zip(joins,(start,end))]
+        # Short ramp ways often connect pavement directly to a shared deck.
+        # Both end heights are known; lifting the middle toward an invented
+        # clearance first creates a crest just before the elevated junction.
+        ramp_profile=kind=='motorway_link' and not (lead or tail)
+        y0=height(*start)+.055 if joins_ground[0] else max(joins[0])
+        y1=height(*end)+.055 if joins_ground[1] else max(joins[1])
         def elevation(point,d):
+            if ramp_profile and not all(joins_ground):
+                return y0+(y1-y0)*max(0.,min(1.,d/total))
             bed=height(*point)+.055
             fraction=max(0.,min(1.,d/total))
             deck=max(joins[0])*(1-fraction)+max(joins[1])*fraction
@@ -423,7 +432,11 @@ def bridge_spans(height):
                 weight=min(weight,(d+lead_len)/lead_len if lead_len else d/min(75.,total*.5))
             if len(joins[1])==1 or end in ground_joins:
                 weight=min(weight,(total+tail_len-d)/tail_len if tail_len else (total-d)/min(75.,total*.5))
-            return bed+(deck-bed)*max(0.,min(1.,weight))
+            result=bed+(deck-bed)*max(0.,min(1.,weight))
+            if ramp_profile:
+                grade_limit=max(.08,abs(y1-y0)/total)
+                result=min(result,y0+grade_limit*d,y1+grade_limit*(total-d))
+            return result
         chain=-lead_len
         for a,b in zip(path,path[1:]):
             length=math.dist(a,b)
