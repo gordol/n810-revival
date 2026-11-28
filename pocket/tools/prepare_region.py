@@ -11,6 +11,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import zlib
 
 from bake_region import build
 
@@ -47,7 +48,51 @@ def add_airport_roads(state, folder, database):
                     db.execute('INSERT OR IGNORE INTO airport_roads VALUES (?,?,?,?)',
                                (int(row['id'][1:]),tags.get('name',''),tags['highway'],json.dumps(coords)))
                 if export.wait():raise SystemExit('Airport road export failed.')
-        db.execute('PRAGMA user_version=2')
+        db.execute('PRAGMA user_version=3')
+
+
+def add_regional_roads(region,folder,database):
+    from pnw.regional_roads import SEGMENT,WIDTHS
+    from pnw.terrain import location
+    from collections import defaultdict
+    assets=Path(__file__).resolve().parents[1]/'graphics/assets/seattle'
+    known=set()
+    for name in ('streets','tacoma-streets','overpasses'):
+        known.update(map(int,json.loads((assets/(name+'.json')).read_text())))
+    freeway=json.loads((assets/'freeway.json').read_text())['roads']
+    known.update(row[0] for row in freeway if int(row[2].get('layer',0))>=0)
+    known.update(row[0] for row in json.loads((assets/'eastside-highways.json').read_text()))
+    kinds=list(WIDTHS)+[k+'_link' for k in ('motorway','trunk','primary','secondary','tertiary')]
+    streets=folder/'regional-roads.pbf'
+    subprocess.run(['osmium','tags-filter',region,'w/highway='+','.join(kinds),'-o',streets],check=True)
+    with sqlite3.connect(database) as db:
+        known.update(r[0] for r in db.execute('SELECT way FROM airport_roads'))
+        tiles=defaultdict(bytearray)
+        ways=0
+        with subprocess.Popen(['osmium','export',streets,'-f','geojsonseq','--add-unique-id=type_id'],stdout=subprocess.PIPE) as export:
+            for line in export.stdout:
+                row=json.loads(line.lstrip(b'\x1e'));props=row['properties']
+                if row['geometry']['type']!='LineString' or not row['id'].startswith('w'):continue
+                if int(row['id'][1:]) in known or props.get('area')=='yes':continue
+                kind=props.get('highway')
+                if kind not in kinds:continue
+                width=2.9 if kind.endswith('_link') else WIDTHS[kind]
+                points=[location('sound',lat,lon) for lon,lat in row['geometry']['coordinates']]
+                ways+=1
+                for (x,z),(u,v) in zip(points,points[1:]):
+                    steps=max(1,math.ceil(math.hypot(u-x,v-z)/48))
+                    ax,az=round(10*x),round(10*z)
+                    for i in range(1,steps+1):
+                        bx,bz=round(10*(x+(u-x)*i/steps)),round(10*(z+(v-z)*i/steps))
+                        if (ax,az)!=(bx,bz):
+                            tiles[(ax+bx)//10240,(az+bz)//10240].extend(SEGMENT.pack(ax,az,bx,bz,round(width*10)))
+                        ax,az=bx,bz
+            if export.wait():raise SystemExit('Regional road export failed.')
+        if not ways:raise SystemExit('No regional roads exported.')
+        db.execute('CREATE TABLE road_tiles(tx INTEGER,tz INTEGER,data BLOB,PRIMARY KEY(tx,tz)) WITHOUT ROWID')
+        db.executemany('INSERT INTO road_tiles VALUES (?,?,?)',((x,z,zlib.compress(data,3)) for (x,z),data in tiles.items()))
+        db.execute('PRAGMA user_version=4')
+        print(f'Indexed {ways:,} additional mapped road ways in {len(tiles):,} tiles',flush=True)
 
 
 def cached_region():
@@ -84,7 +129,7 @@ def prepare(launch=False):
         with sqlite3.connect(f'{target.resolve().as_uri()}?mode=ro', uri=True) as db:
             db.execute('SELECT tx,tz,model,data FROM features LIMIT 1').fetchone()
             version = db.execute('PRAGMA user_version').fetchone()[0]
-        if launch or version >= 2 or os.environ.get('POCKET_REGION_SCENERY'):
+        if launch or version >= 4 or os.environ.get('POCKET_REGION_SCENERY'):
             print(f'Using installed regional scenery from {target}')
             return True
         return False
@@ -112,7 +157,7 @@ def install(target):
         region = cached_region()
         features = folder / 'features.osm.pbf'
         subprocess.run(['osmium', 'tags-filter', region, 'w/building', 'n/shop', 'n/amenity',
-                        'n/tourism', 'n/natural=tree', '-o', features], check=True)
+                        'n/tourism', 'n/natural=tree', 'n/highway=traffic_signals', 'w/parking=multi-storey', '-o', features], check=True)
         with subprocess.Popen(['osmium', 'export', features, '-f', 'geojsonseq'],
                               stdout=subprocess.PIPE) as export:
             try:
@@ -124,6 +169,7 @@ def install(target):
         if not all(counts[k] for k in ('building', 'place', 'tree')):
             raise SystemExit(f'Incomplete regional extract: {counts}')
         add_airport_roads(region, folder, database)
+        add_regional_roads(region,folder,database)
         os.replace(database, target)
         print(f'Installed {target} ({dict(counts)})')
 

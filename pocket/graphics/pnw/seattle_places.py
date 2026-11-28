@@ -144,7 +144,9 @@ def driving_lanes(corridor_only=False):
 @lru_cache(maxsize=8)
 def nearby_driving_segments(cx,cz,reach,corridor_only):
     cells=driving_lanes(corridor_only)
-    return tuple({segment for i in range(cx-reach,cx+reach+1) for j in range(cz-reach,cz+reach+1)
+    from pnw.regional_roads import nearby
+    region=() if corridor_only else nearby((cx+.5)*32,(cz+.5)*32,reach*32+32)
+    return tuple(set(region)|{segment for i in range(cx-reach,cx+reach+1) for j in range(cz-reach,cz+reach+1)
                   for segment in cells.get((i,j),())})
 
 def on_road(x,z):

@@ -67,6 +67,8 @@ class Neighborhood:
         self.db=sqlite3.connect(f'{database_path().resolve().as_uri()}?mode=ro',uri=True)
         self.cell=None
         self.places=[]
+        self.signals=[]
+        self.parking={}
 
     def close(self):self.db.close()
 
@@ -74,17 +76,26 @@ class Neighborhood:
         cell=(math.floor(x/512),math.floor(z/512))
         if self.cell==cell:return None
         self.cell=cell
-        mesh=array('f');self.places=[]
+        mesh=array('f');self.places=[];self.signals=[];self.parking={}
         def face(vertices,color,material):
             for px,py,pz in vertices:mesh.extend((px,py,pz,*color,material))
         for tx,tz in sorted(((cell[0]+dx,cell[1]+dz) for dx in (-1,0,1) for dz in (-1,0,1)),
                             key=lambda ij:math.hypot(x-(ij[0]+.5)*512,z-(ij[1]+.5)*512)):
-            for corners in airport_road_cells().get((tx,tz),()):
+            from pnw.regional_roads import tile
+            road_quads=list(airport_road_cells().get((tx,tz),()))
+            for ax,az,dx,dz,l2,w in tile(database_path().resolve(),tx,tz):
+                length=math.sqrt(l2)
+                nx,nz=dz*w/length,-dx*w/length
+                bx,bz=ax+dx,az+dz
+                road_quads.append(((ax-nx,az-nz),(bx-nx,bz-nz),(bx+nx,bz+nz),(ax+nx,az+nz)))
+            for corners in road_quads:
                 if len(mesh)//7>=246000:break
                 a,b,c,d=((u,ground(u,v)+.095,v) for u,v in corners)
                 face((a,b,c,a,c,d),(.27,.28,.28),.249)
             for kind,blob in self.db.execute('SELECT model,data FROM features WHERE tx=? AND tz=?',(tx,tz)):
                 row=json.loads(zlib.decompress(blob))
+                if kind=='signal':
+                    self.signals.append((row[0]/10,row[1]/10));continue
                 if kind=='place':
                     px,pz,name=row;self.places.append((px/10,pz/10,name));continue
                 if len(mesh)//7>247000:continue
@@ -99,9 +110,34 @@ class Neighborhood:
                     continue
                 height,ring,cx,cz,roof=row
                 px,pz=cx/10,cz/10
-                if (round(px/4),round(pz/4)) in authored_sites() or len(ring)>250:continue
+                if (kind!='garage' and (round(px/4),round(pz/4)) in authored_sites()) or len(ring)>250:continue
                 points=[(px+a/10,pz+b/10) for a,b in ring]
                 top=ground(px,pz)+height
+                if kind=='garage':
+                    # Open ground floor with support columns around the perimeter.
+                    floor=ground(px,pz)
+                    top=floor+max(4.,height)
+                    for a,b in zip(points,points[1:]+points[:1]):
+                        length=math.dist(a,b)
+                        for j in range(max(1,math.ceil(length/9))):
+                            f=j/max(1,math.ceil(length/9))
+                            u,v=a[0]+f*(b[0]-a[0]),a[1]+f*(b[1]-a[1])
+                            corners=[(u+i,v+k) for i,k in ((0,0),(.5,0),(.5,.5),(0,.5))]
+                            for l,r in zip(corners,corners[1:]+corners[:1]):
+                                lo=(l[0],ground(*l)-.25,l[1]);ro=(r[0],ground(*r)-.25,r[1])
+                                lt=(l[0],top,l[1]);rt=(r[0],top,r[1])
+                                face((lo,ro,rt,lo,rt,lt),(.48,.49,.47),0.)
+                    for tri in roof_faces(points):
+                        face([(u,top,v) for u,v in tri],(.49,.49,.48),0.)
+                    # Require all four corners of a stall to lie inside the outline.
+                    def inside(u,v):
+                        return sum((a[1]>v)!=(b[1]>v) and u<a[0]+(b[0]-a[0])*(v-a[1])/(b[1]-a[1])
+                                   for a,b in zip(points,points[1:]+points[:1]))%2
+                    for j,(du,dv) in enumerate(((-4,0),(0,0),(4,0),(0,7))):
+                        u,v=px+du,pz+dv
+                        if all(inside(u+i,v+k) for i in (-1.3,1.3) for k in (-2.8,2.8)):
+                            self.parking[cx,cz,j]=(u,v)
+                    continue
                 palette=((.63,.59,.53),(.49,.51,.53),(.51,.41,.34),(.60,.62,.60))
                 tone=palette[(cx+cz)%4]
                 for a,b in zip(points,points[1:]+points[:1]):
