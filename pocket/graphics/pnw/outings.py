@@ -384,6 +384,8 @@ class StreetRide:
         self.slip=self.spin=self.damage=0.
         self.actor_kind=10 if self.kind=="sports-car" else 5
         self.paint=0
+        self.tuned=False
+        self.shop_target=None
         self.cruise=self.delivered=False
         self.keys=set()
         self.contact=None
@@ -449,11 +451,13 @@ class StreetRide:
         steer=max(-1.,min(1.,sticks[0]+self.drag[0]+('right' in self.keys)-('left' in self.keys)))
         pedal=max(-1.,min(1.,-sticks[1]+self.drag[1]+('up' in self.keys)-('down' in self.keys)))
         maximum={'car':12.,'motorcycle':16.,'bicycle':6.,'scooter':5.5,'sports-car':62.}[self.kind]
+        maximum={11:25.,12:29.,9:58.}.get(self.actor_kind,maximum)
+        if self.tuned:maximum*=1.12
         target=(pedal if pedal else float(self.cruise))*maximum*(1.-.60*self.damage)
         if self.assist:target=max(0.,min(5.,target))
         else:target=max(-2.5,target)
         change=(target-self.speed)*(-math.expm1(-dt*(3 if target==0 else 1.4)))
-        if self.kind=='sports-car':change=max(-11*dt,min(7*dt,change))
+        if self.kind=='sports-car':change=max(-11*dt,min(({11:2.,12:1.5}.get(self.actor_kind,7.))*(1.3 if self.tuned else 1.)*dt,change))
         self.speed+=change
         self.steer+=(steer-self.steer)*(-math.expm1(-dt*6))
         distance=self.speed*dt
@@ -496,9 +500,34 @@ class StreetRide:
     def has_car_camera(self):
         return self.kind in ('car','sports-car')
 
+    def shop_action(self,action):
+        from pnw.seattle_places import repair_shops
+        here=self.x,self.z
+        if action=='shop':
+            self.shop_target=min(repair_shops(),key=lambda shop:math.dist(here,shop[1]))
+            return self.shop_target[0]
+        if not self.at_shop():return 'Park near the shop to service this vehicle'
+        if action=='repair':
+            self.spin=self.slip=self.damage=0.
+            return 'Repaired'
+        if action=='paint':
+            self.paint=(self.paint+1)%5
+            return 'Paint changed'
+        if action=='tune':
+            self.tuned=not self.tuned
+            return 'Street tune installed' if self.tuned else 'Factory tune restored'
+        if action=='leave-shop':self.shop_target=None
+        return ''
+
+    def at_shop(self):
+        return self.shop_target and abs(self.speed)<.8 and math.dist((self.x,self.z),self.shop_target[1])<=35.
+
     def drive_guidance(self):
         from pnw.seattle_places import corridor_milestones,corridor_position
         here=(self.x,self.z)
+        if self.shop_target:
+            name,point=self.shop_target
+            return point,name,math.dist(here,point)
         position=corridor_position(*here)
         marks=corridor_milestones()
         if position:

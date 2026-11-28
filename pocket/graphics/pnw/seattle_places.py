@@ -635,3 +635,11 @@ def bearing_label(name,x,z):
     degrees=math.degrees(math.atan2(tx-x,tz-z))%360.
     compass=('N','NE','E','SE','S','SW','W','NW')[int((degrees+22.5)//45)%8]
     return f'{name}  {round(math.hypot(tx-x,tz-z))} m {compass}'
+
+
+@lru_cache(maxsize=1)
+def repair_shops():
+    import json
+    from pnw.terrain import location
+    rows=json.loads((Path(__file__).resolve().parents[1]/'assets/seattle/repair-shops.json').read_text())
+    return [(name,location('sound',lat/1e7,lon/1e7)) for name,lon,lat in rows]
