@@ -1730,7 +1730,7 @@ class RainierView:
                         self.shop_target=None
                         self.delivery=Delivery()
                         self.fish_counter=FishCounter()
-                    if self.outing in AIRCRAFT or self.outing in ('canoe','boat','helicopter'):
+                    if self.outing in AIRCRAFT or self.outing in ('canoe','kayak','boat','helicopter'):
                         self.glider=regional_vehicle(self.outing,world[0])
                     elif self.outing=='hangar':
                         owner.x,owner.z=HANGAR[0],HANGAR[1]-45
@@ -2227,7 +2227,7 @@ class RainierView:
             else:omit_first,omit_end=base_count,terrain_count
         equipment=None
         if self.glider:
-            mode={'canoe':18,'helicopter':17,'scuba':15,'boat':3,'jet':9,'hangar-jet':9,'skydive':int(getattr(self.glider,'open',False))*10,'balloon':11}.get(self.outing,2 if self.outing in AIRCRAFT else self.glider.powered)
+            mode={'kayak':19,'canoe':18,'helicopter':17,'scuba':15,'boat':3,'jet':9,'hangar-jet':9,'skydive':int(getattr(self.glider,'open',False))*10,'balloon':11}.get(self.outing,2 if self.outing in AIRCRAFT else self.glider.powered)
             equipment_pitch=-self.glider.elevation/.40 if self.outing in AIRCRAFT else self.glider.pitch
             if mode in (18,19):equipment_pitch=self.glider.stroke
             if self.outing!='skydive' or mode:equipment=(C.c_float*3)(mode,self.glider.bank,equipment_pitch)
