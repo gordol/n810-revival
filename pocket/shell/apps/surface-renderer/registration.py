@@ -355,6 +355,10 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
         def ground_key(self,key):
             scene=self.pixel_scene
             if not scene or getattr(scene,'notebook',None) or getattr(scene,'album',None):return False
+            if key=='0' and getattr(scene,'road',None) and scene.road.has_car_camera:
+                scene.road.overhead=not scene.road.overhead
+                scene.pixel_dirty=True
+                return True
             if getattr(scene,'outing',None)=='hangar' and key in ('e','enter','\r'):
                 scene.controller_button(0)
                 return True
@@ -393,8 +397,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             scene=self.pixel_scene
             if getattr(scene,'road',None):
                 if key=='0' and scene.road.has_car_camera:
-                    if kind=='press':scene.road.overhead=not scene.road.overhead
-                    scene.pixel_dirty=True
+                    if kind=='press':self.ground_key(key)
                     return True
                 road_key={'w':'up','s':'down','a':'left','d':'right'}.get(key,key)
                 if road_key in ('left','right','up','down'):
