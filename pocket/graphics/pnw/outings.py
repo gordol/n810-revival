@@ -40,7 +40,7 @@ HANGAR=(HANGAR[0]+70.,HANGAR[1])
 BAYS={'thun':(-8.,'Trainer'),'hangar-jet':(8.,'Research jet')}
 AIR_SPORTS=('skydive','balloon','scuba')
 OUTINGS={'Helicopter at Thun Field':'helicopter','Thun Field hangar':'hangar','Skydive over Rainier':'skydive','Balloon over the Sound':'balloon','Plane from Rainier':'plane','Plane from Thun Field':'thun','Research jet from Rainier':'jet',
-         'Boat on Commencement Bay':'boat','Puget Sound kelp dive':'scuba','Hoh Rain Forest walk':'hoh','Bainbridge ferry':'ferry','Seattle Great Wheel':'wheel',
+         'Canoe on Commencement Bay':'canoe','Boat on Commencement Bay':'boat','Puget Sound kelp dive':'scuba','Hoh Rain Forest walk':'hoh','Bainbridge ferry':'ferry','Seattle Great Wheel':'wheel',
          'Pike Place Market':'market','Fish counter':'fishshop','Space Needle':'needle'}
 
 ROAD_RIDES={'Market delivery car':'car','Market motorcycle':'motorcycle','Market bicycle':'bicycle'}
@@ -610,7 +610,7 @@ class ExploreMenu(HikeMenu):
             'Mountain sports':('Put on skis','Climb summit ice','Mountain bike loop'),
             'Passenger rail':tuple(rail.RIDES),
             'City rides':tuple(ROAD_RIDES),
-            'On the water':('Boat on Commencement Bay','Bainbridge ferry','Puget Sound kelp dive'),
+            'On the water':('Canoe on Commencement Bay','Boat on Commencement Bay','Bainbridge ferry','Puget Sound kelp dive'),
             'Market and waterfront':('Pike Place Market',*market_visit.DESTINATIONS),
             'Seattle':('Pike Place Market','Fish counter','Seattle Great Wheel','Space Needle'),
             'On foot':('Hoh Rain Forest walk','Local trails and activities')}
@@ -1116,6 +1116,9 @@ class SoundVehicle(HangGlider):
 
 
 def regional_vehicle(kind,field):
+    if kind=='canoe':
+        from pnw.light_craft import PaddleCraft
+        return PaddleCraft(kind,field)
     if kind=='helicopter':
         from pnw.light_craft import Helicopter
         return Helicopter(field)

@@ -41,3 +41,41 @@ class Helicopter(HangGlider):
     def draw(self,ink,w,h):
         super().draw(ink,w,h)
         ink.label(1,4,f'Helicopter · {feet(self.clearance)} · P climb/hold · Space lower',0xFFF4DC)
+
+
+class PaddleCraft(HangGlider):
+    def __init__(self,kind,field):
+        from pnw.outings import BAY
+        x,z=location('sound',*BAY)
+        super().__init__(SimpleNamespace(x=x,z=z,heading=0.),field.height)
+        self.kind=kind
+        self.altitude=-.52
+        self.speed=self.clearance=self.stroke=0.
+
+    def advance(self,dt,height,limits):
+        steer=self.stick+self.drag[0]+('right' in self.keys)-('left' in self.keys)
+        effort=self.pitch_stick+self.drag[1]+('up' in self.keys)-('down' in self.keys)
+        effort=max(-1.,min(1.,effort))
+        self.stroke=(self.stroke+dt*abs(effort)*(6. if self.fast else 4.))%math.tau
+        target=effort*(2.7 if self.kind=='canoe' else 3.4)*(1.3 if self.fast else 1.)
+        self.speed+=((0 if self.descending else target)-self.speed)*(-math.expm1(-dt*(3 if self.descending else .85)))
+        self.heading+=dt*max(-1.,min(1.,steer))*(.65 if self.kind=='canoe' else 1.05)
+        west,east,south,north=limits
+        x=max(west,min(east,self.x+dt*self.speed*math.sin(self.heading)))
+        z=max(south,min(north,self.z+dt*self.speed*math.cos(self.heading)))
+        if height(x,z)<=.01:self.x,self.z=x,z
+        else:self.speed=0.
+        return self.x,self.z,self.heading,.055
+
+    def wheel_items(self):
+        return [('descend','Release' if self.descending else 'Brake',0.),
+                ('wheel','Close',math.pi/2),('fast','Easy' if self.fast else 'Sprint',-math.pi/2)]
+
+    def controls(self,w,h):
+        if not self.menu:return [('wheel','Paddle',(w-11,0,11,3))]
+        return super().controls(w,h)
+
+    def draw(self,ink,w,h):
+        ink.label(1,1,f'{self.kind.title()} · {mph(abs(self.speed))}',0xFFF4DC)
+        if self.menu:
+            for _,_,angle in self.wheel_items():ink.sector(w/2,h/2,self.radius(w,h),angle)

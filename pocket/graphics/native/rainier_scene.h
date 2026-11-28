@@ -706,8 +706,29 @@ static void flight_equipment(struct gpu_scene *s,const float *flight,int w,int h
  /* Keep the overhead equipment in view with a tall phone viewport. */
  glScalef(1,1/aspect,1);
  if(flight[0]!=2.f)glRotatef(-7.f*flight[1],0,0,1);
- glTranslatef(0,.17f*flight[2],0);
+ if(flight[0]!=18.f && flight[0]!=19.f)glTranslatef(0,.17f*flight[2],0);
  glDisable(GL_DEPTH_TEST);glUseProgram(0);
+ if(flight[0]==18.f || flight[0]==19.f){
+  int kayak=flight[0]==19.f;
+  glDisable(GL_TEXTURE_2D);
+  for(int side=-1;side<=1;side+=2){
+   glColor3f(kayak?.83f:.49f,kayak?.27f:.31f,.12f);
+   glBegin(GL_QUAD_STRIP);
+   for(int i=0;i<=12;i++){
+    float t=i/12.f,width=(kayak?.42f:.57f)*(1.f-t*t);
+    float z=-1.05f-2.f*t,y=-.73f+.24f*t*t;
+    glVertex3f(side*width,y,z);
+    glVertex3f(side*width*(kayak?.25f:.92f),y+(kayak?.05f:-.09f),z);
+   }
+   glEnd();
+  }
+  glPushMatrix();glTranslatef(.33f,-.64f,-1.35f);
+  glRotatef((kayak?52.f:20.f)*sinf(flight[2]),0,0,1);
+  glColor3f(.55f,.39f,.21f);glRectf(-.54f,-.014f,.58f,.014f);
+  glColor3f(.84f,.62f,.26f);glRectf(.50f,-.065f,.80f,.065f);
+  if(kayak)glRectf(-.81f,-.065f,-.50f,.065f);
+  glPopMatrix();return;
+ }
  if(flight[0]==17.f){
   /* Two curved windshield posts leave the pilot a view down to the skids. */
   glDisable(GL_TEXTURE_2D);glColor3f(.14f,.17f,.18f);
