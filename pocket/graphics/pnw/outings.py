@@ -18,7 +18,7 @@ PLACES=(('Thun Field',47.104,-122.287),('Tacoma waterfront',47.266,-122.449),
         ('Tacoma Narrows Airport',47.268,-122.578),('Seattle waterfront',47.604,-122.339),
         ('Rainier',46.852,-121.760),('Sea-Tac Airport',47.4502,-122.3093),
         ('Tacoma Dome',47.2367,-122.4267))
-BAY=(47.295,-122.435)
+BAY=(47.290,-122.450)
 @dataclass(frozen=True)
 class Aircraft:
     approach: float  # m/s
