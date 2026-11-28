@@ -2219,6 +2219,7 @@ class RainierView:
             for i,lane in enumerate((-4.4,-1.55,1.55,4.4)):
                 dx,dz,heading,gait,identity=stroll(self.outing,i,self.age,8.)
                 poses.append((0,lane+dx,0.,dz,math.degrees(heading),gait,identity))
+        actor_limit=96
         self.traffic_gain=0.
         if sound_region and self.outing not in (*market_visit.FLOORS,'scuba'):
             altitude=max(0.,eye+origin.y-ground(x,z))
@@ -2239,7 +2240,7 @@ class RainierView:
                                            {11:5.8,12:7.8}.get(parked.actor_kind,2.2),1.,elevation=py))
                 pedestrian=Body(x,z,yaw,0,0,0,75,.32,.32,elevation=ground(x,z)) if self.on_city_foot() else None
                 cars=self.traffic.update(x,z,self.age,radius,self.road,lane_height,stationary,pedestrian)
-                for distance,px,pz,angle,index,braking,turn in cars[:max(0,30-len(poses))]:
+                for distance,px,pz,angle,index,braking,turn in cars[:max(0,actor_limit-2-len(poses))]:
                     self.traffic_gain=max(self.traffic_gain,1./(1.+distance/12.)**2)
                     lamps=int(braking)+2*int(daylight<.65 or bool(self.weather))
                     if turn==2:lamps+=16
@@ -2255,13 +2256,13 @@ class RainierView:
                     if car.bridge_roads:y=car.bridge_roads.sample(car.x,car.z,y)
                     reserved.append((car.actor_kind,car.x,y+.05,car.z,math.degrees(car.heading),
                                   16*int(car.damage>.35),car.paint))
-            poses=poses[:30-len(reserved)]+reserved
+            poses=poses[:actor_limit-2-len(reserved)]+reserved
         patrol=self.road or self.patrol_owner
         if sound_region and patrol and patrol.patrol and math.dist((x,z),patrol.patrol)<240:
             px,pz=patrol.patrol
             flash=self.age%1 if patrol.pursuit=='following' else -1.
             poses.append((9,px,ground(px,pz),pz,math.degrees(patrol.patrol_heading),flash,0))
-        if self.road and self.road.kind!='sports-car' and len(poses)<32:
+        if self.road and self.road.kind!='sports-car' and len(poses)<actor_limit:
             from pnw.market_life import shopper,BOUQUET
             rx,rz=self.road.route[-1]
             if math.hypot(x-rx,z-rz)<120:
@@ -2271,7 +2272,7 @@ class RainierView:
         if self.road and self.road.overhead:
             equipment=None
             player=(self.road.actor_kind,x,ground(x,z)+.05,z,math.degrees(yaw),2.*int(daylight<.65 or bool(self.weather))+16*int(self.road.damage>.35),self.road.paint)
-            poses=poses[:31]+[player]
+            poses=poses[:actor_limit-1]+[player]
             yaw=self.road.chase_heading
             length,height={12:(15.6,4.1),11:(11.6,3.4),5:(4.5,2.35)}.get(self.road.actor_kind,(4.4,1.45))
             pullback=length*.85+3.7+min(abs(self.road.speed)*.065,3.6)
@@ -2283,12 +2284,12 @@ class RainierView:
         if self.regional and self.outing is None and self.parked_bike:
             bx,bz,bh,_=self.parked_bike.advance(0.,ground)
             if math.hypot(x-bx,z-bz)<140:
-                poses=poses[:31]+[(13,bx,ground(bx,bz)-origin.y,bz,math.degrees(bh),0.,0.)]
+                poses=poses[:actor_limit-1]+[(13,bx,ground(bx,bz)-origin.y,bz,math.degrees(bh),0.,0.)]
         if self.third_person and not (self.road or self.glider or self.lens or self.binoculars or self.shutter
                                       or self.outing in ('ferry','wheel',*rail.RIDES.values())):
             foot=ground(x,z)-origin.y
-            if self.bike:poses=poses[:30]+[(13,x,foot,z,math.degrees(yaw),0.,0.)]
-            poses=poses[:31]+[(0,x,foot+(.25 if self.bike else 0),z,math.degrees(yaw),
+            if self.bike:poses=poses[:actor_limit-2]+[(13,x,foot,z,math.degrees(yaw),0.,0.)]
+            poses=poses[:actor_limit-1]+[(0,x,foot+(.25 if self.bike else 0),z,math.degrees(yaw),
                                self.avatar_pose,2)]
             camera_x=x-4.2*math.sin(yaw)
             camera_z=z-4.2*math.cos(yaw)

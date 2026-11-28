@@ -90,6 +90,7 @@ class Traffic:
         self.impact=0.
 
     def update(self,x,z,age,radius,driver=None,lane_height=None,parked=(),pedestrian=None):
+        first_frame=self.last is None
         dt=min(.15,max(0.,age-self.last)) if self.last is not None else 0.
         self.last=age
         visible=[];active={};offsets={}
@@ -125,7 +126,7 @@ class Traffic:
             if not indices:continue
             for lane,pace in enumerate((24.,29.) if direction<2 else (12.,)):
                 home=(1.8,-1.8)[lane]
-                gap=103.+lane*12 if direction<2 else 245.
+                gap=69.+lane*11 if direction<2 else 156.
                 shift=age*pace+direction*32+lane*48
                 ids={n for i in indices for n in range(math.ceil((spans[i][4]-shift)/gap),
                                                          math.floor((ends[i]-shift)/gap)+1)}
@@ -140,6 +141,7 @@ class Traffic:
                     px,pz,angle=point(route,at,lateral)
                     distance=math.hypot(x-px,z-pz)
                     if distance>radius+30:continue
+                    if not first_frame and key not in previous and distance<42:continue
                     clearance=leader-at-half_length(n+direction)-1.
                     obstacle=driver or pedestrian
                     py=lane_height(px,pz,angle) if lane_height else 0.

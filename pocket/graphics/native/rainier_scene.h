@@ -843,7 +843,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  struct gpu_scene *s=ptr;
  if(!s||w<1||h<1||count<3||count>4000000||(!vertices&&!s->rainier_buffer))
   return SDL_SetError("Invalid Rainier scene");
- if(market_count>32||(market_count&&!market)||omit_first>omit_end||omit_end>terrain_count||(omit_end&&water_count)||water_count>terrain_count||grove_count>250000||nh>7||(nh&&!hikers)||terrain_count>count||ni>2000000||na>64||(!animals&&na)||
+ if(market_count>96||(market_count&&!market)||omit_first>omit_end||omit_end>terrain_count||(omit_end&&water_count)||water_count>terrain_count||grove_count>250000||nh>7||(nh&&!hikers)||terrain_count>count||ni>2000000||na>64||(!animals&&na)||
     (!!vertices!=!!indices)||(!indices&&!s->rainier_indices))return SDL_SetError("Invalid Rainier wildlife buffers");
  for(unsigned i=0;i<na;i++){
   const struct rainier_animal *a=animals+i;
