@@ -88,10 +88,31 @@ def tacoma_corridor():
         lines.append((name,'freeway' if freeway else 'connector',points,6.2 if freeway else 3.6,(False,)*len(points)))
     return tuple(lines)
 
+@lru_cache(maxsize=1)
+def freeway_data():
+    import json
+    source=Path(__file__).resolve().parents[1]/'assets/seattle/freeway.json'
+    return json.loads(source.read_text())
+
+@lru_cache(maxsize=1)
+def freeway_lines():
+    from pnw.terrain import location
+    result=[]
+    for _,kind,tags,coords in freeway_data()['roads']:
+        points=tuple(location('sound',lat/1e7,lon/1e7) for lon,lat in coords)
+        lanes=int(tags.get('lanes',3 if kind=='motorway' else 1))
+        result.append((tags.get('name') or tags.get('ref') or 'Ramp',kind,points,
+                       lanes*1.8+.6,(False,)*len(points)))
+    return tuple(result)
+
+def road_lines():
+    return (*freeway_lines(),*(row for row in tacoma_corridor() if row[1]!='freeway' and row[0]!='Ramp'),
+            *street_lines('seattle'),*street_lines('tacoma'))
+
 @lru_cache(maxsize=2)
 def driving_lanes(corridor_only=False):
     cells={}
-    lines=tacoma_corridor() if corridor_only else (*street_lines('seattle'),*street_lines('tacoma'),*tacoma_corridor(),('Delivery','access',delivery_route(),3.,()))
+    lines=tacoma_corridor() if corridor_only else (*road_lines(),('Delivery','access',delivery_route(),3.,()))
     if not corridor_only:
         lines=(*lines,*((name,kind,list(reversed(before))+points+after,width,())
                         for name,kind,width,points,before,after in overpasses() if kind!='footway'))
@@ -190,7 +211,7 @@ def streets(height,quad,field=None):
                 for i in range(1,len(vertices)-1):
                     quad((vertices[0],vertices[i],vertices[i+1],vertices[i+1]),color,material)
     junctions={}
-    for name,kind,points,half,crossings in (*tacoma_corridor(),*street_lines('seattle'),*street_lines('tacoma')):
+    for name,kind,points,half,crossings in road_lines():
         for pt in (points[0],points[-1]):junctions.setdefault(pt,set()).add(name)
         # Adjacent road strips share a cross-section, through each bend.
         def normal(a,b):
@@ -220,21 +241,22 @@ def streets(height,quad,field=None):
                 pavement(corners,color,.249 if left==-half and right==half else material,lift)
             for t in range(0,math.ceil(length),16):
                 end=min(length,t+16)
-                if kind in ('freeway','connector'):
+                if kind in ('motorway','motorway_link','connector'):
                     band(-half,half,t,end,.032,(.25,.26,.265))
                     band(-half,-half+.13,t,end,.039,(.86,.76,.45))
                     band(half-.14,half,t,end,.039,(.85,.85,.80))
-                    if kind=='freeway':
+                    if kind=='motorway':
                         # A profiled concrete median follows the grade at each end.
-                        profile=((-half-.75,0.),(-half-.63,.40),(-half-.57,.84),
-                                 (-half-.36,.84),(-half-.31,.40),(-half-.12,0.))
-                        for (u,h),(v,k),shade in zip(profile,profile[1:],(.43,.54,.67,.58,.49)):
+                        profile=((-half-.75,0.),(-half-.57,.84),(-half-.36,.84),(-half-.12,0.))
+                        for (u,h),(v,k),shade in zip(profile,profile[1:],(.51,.67,.46)):
                             wall=[]
                             for along,lateral,rise in ((t,u,h),(end,u,h),(end,v,k),(t,v,k)):
                                 px,pz=offset_point(along,lateral)
                                 wall.append((px,height(px,pz)+rise,pz))
                             quad(wall,(shade,shade*.99,shade*.95),0.)
-                        for stripe in (-half/3,half/3):
+                    if kind.startswith('motorway'):
+                        for lane in range(1,round((half-.6)/1.8)):
+                            stripe=-half+.6+lane*3.6
                             band(stripe,stripe+.14,t,min(t+4,end),.039,(.84,.84,.8))
                     continue
                 band(-half,half,t,end,.045,(.25,.26,.255))

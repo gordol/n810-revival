@@ -157,7 +157,7 @@ def build_mesh(region,field,raw,aerial):
         from pnw.scene import surface
         def quad(points,color,material=0.):
             a,b,c,d = (_VERTEX.pack(*point,*color,material) for point in points)
-            mesh.frombytes(b''.join((a,b,c,a,c,d)))
+            mesh.frombytes(a+b+c if c==d else a+b+c+a+c+d)
         def box(x,z,y,width,depth,height,color,material=0.,rotation=None):
             base=[(x+sx*width/2,y,z+sz*depth/2) for sx,sz in ((-1,-1),(1,-1),(1,1),(-1,1))]
             if rotation:

@@ -66,3 +66,8 @@ In RGBA order the sources are [Oak Wood Planks](https://polyhaven.com/a/oak_wood
 [Red Brick Pavers](https://polyhaven.com/a/red_brick_pavers) and
 [Plastered Wall](https://polyhaven.com/a/plastered_wall). The GPU repeats
 each channel independently and tints it with the scene material color.
+
+The freeway.json extract contains OpenStreetMap motorway and ramp geometry,
+lane counts, posted speed limits and numbered junctions along the Seattle–Tacoma
+drive. The northbound route follows OSRM routing over OpenStreetMap. Road data
+© OpenStreetMap contributors, distributed under the Open Database License 1.0.
