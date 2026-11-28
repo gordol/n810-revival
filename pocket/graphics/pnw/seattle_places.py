@@ -251,7 +251,7 @@ def streets(height,quad,field=None):
            (exit_mark[0]-300,'TACOMA  EXIT')]
     signs.extend((along,'I-5  TACOMA') for along in range(5500,int(exit_mark[0])-500,12000))
     for along,label in signs:
-        x,z,angle=corridor_sample(along,7.7)
+        x,z,angle=corridor_sample(along,9.4)
         py=height(x,z)
         dx,dz=math.sin(angle),math.cos(angle)
         def sign_face(points,color):
@@ -263,14 +263,14 @@ def streets(height,quad,field=None):
                 (1.94,2.46,3.94,-.01,(.035,.25,.15))):
             sign_face([(-width,bottom,offset),(width,bottom,offset),(width,top,offset),
                        (-width,top,offset)],color)
-        lettering(label,-1.62,2.94,-.025,.48,sign_face,(.96,.97,.88))
+        lettering(label,-1.76,2.94,-.025,.48,sign_face,(.96,.97,.88),board_width=3.52)
     for (x,z),names in junctions.items():
         if '2nd Avenue' not in names or len(names)<2:continue
         name=next(iter(sorted(names-{'2nd Avenue'})))
         x+=6.6;y=height(x,z)
         quad(((x-.05,y,z),(x+.05,y,z),(x+.05,y+2.9,z),(x-.05,y+2.9,z)),(.39,.43,.40))
         quad(((x-1.1,y+2.50,z),(x+1.1,y+2.50,z),(x+1.1,y+2.89,z),(x-1.1,y+2.89,z)),(.11,.29,.22))
-        lettering(name,x-.97,y+2.60,z-.012,min(.23,2.2/len(name)),quad,(.92,.92,.84))
+        lettering(name,x-.97,y+2.60,z-.012,.23,quad,(.92,.92,.84),board_width=1.94)
 
 
 @lru_cache(maxsize=1)

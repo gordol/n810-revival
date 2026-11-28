@@ -86,12 +86,16 @@ def sign_font():
         result[char]=advance,spans
     return result
 
-def lettering(text,x,y,z,size,quad,color):
+def lettering(text,x,y,z,size,quad,color,board_width=None):
     font=sign_font()
     # Vertical size is cap height. Preserve proportional advances inside
     # the signboard width originally allocated by the scene.
     width=sum(font.get(c,font[' '])[0] for c in text)
     sx=min(size/200,len(text)*size*.80/max(1,width))
+    if board_width is not None and width:
+        size=min(size,200*board_width/width)
+        sx=min(sx,size/200)
+        x+=(board_width-width*sx)/2
     for char in text:
         advance,spans=font.get(char,font[' '])
         for span in spans:quad([(x+px*sx,y+py*size/200,z) for px,py in span],color)
