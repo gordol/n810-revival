@@ -9,11 +9,16 @@ Sam source GLB SHA-256: fbf6558ff408b6c5d12c82a5aaa506e07ec796f963a9ac1d4b9c88a3
 
 Maya source GLB SHA-256: 3c22e60a599526d264f7cbb744e5bc1f6b1e93a79daade322942c49e7aac6ab3.
 
+The eyewear comes from spamrakuen's CC0 Sagerfrog's Glasses 01 and TBM
+Glasses Frames 01. The bake fits the two frames to the animated eyes and stores
+them inside the character files. Download the CC0 archive as
+`glasses01_cc0.zip` for the packaged build. [MakeHuman Glasses 01 pack](https://static.makehumancommunity.org/assets/assetpacks/glasses01.html)
+
 Rebuild from the repository root with Blender 4.3, NumPy and Pillow:
 
 ```sh
-blender -b --python-exit-code 1 -P pocket/tools/bake_market_person.py -- sam.glb pocket/graphics/assets/people/sam.zlib
-blender -b --python-exit-code 1 -P pocket/tools/bake_market_person.py -- maya.glb pocket/graphics/assets/people/maya.zlib
+blender -b --python-exit-code 1 -P pocket/tools/bake_market_person.py -- sam.glb pocket/graphics/assets/people/sam.zlib glasses01_cc0.zip
+blender -b --python-exit-code 1 -P pocket/tools/bake_market_person.py -- maya.glb pocket/graphics/assets/people/maya.zlib glasses01_cc0.zip
 ```
 
 The bake removes the handheld accessory, simplifies the mesh, atlases the
@@ -33,7 +38,8 @@ of trousers and 120 pairs of shoes. These variations reuse the baked meshes
 and material atlas. Head looks include the original cut, a fitted cap, curls,
 a bun, loose long hair, a close crop, a single braid, pigtails and twin braids.
 The seed also selects hair color, complexion, height, frame width and waist
-shape. Set `POCKET_CITY_SEED` before launch to vary the crowd.
+shape. Skin and clothing share the same mass, abdomen, bust and hip adjustments.
+Shoppers can also wear glasses, a chain, a pendant or a watch. Set `POCKET_CITY_SEED` before launch to vary the crowd.
 
 The renderer reads the hand grip and crown from mesh vertices in each pose
 to position carried bags, bouquets, caps and hair. Accessories interpolate

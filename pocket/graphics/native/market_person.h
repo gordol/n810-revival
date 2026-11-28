@@ -61,13 +61,31 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
  if(scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
  if(model->program)return 0;
  const char *vs="#version 120\n"
-  "uniform float blend,face,skinTile;uniform int outfit,pantCut;uniform float buildShape;varying vec3 body,uv;varying float light;"
+  "uniform float blend,face,skinTile;uniform int outfit,pantCut;uniform vec4 shape;varying vec3 body,uv;varying float light;"
   "void main(){vec3 pos=mix(gl_Vertex.xyz,gl_MultiTexCoord1.xyz,blend)*.0001;"
   "pos.x*=1.+face*smoothstep(1.37,1.54,pos.y);"
   "vec3 n=normalize(mix(gl_Normal,gl_MultiTexCoord2.xyz/32767.,blend));"
   "body=gl_MultiTexCoord3.xyz*.0001;"
-  "float waist=(1.-smoothstep(.12,.21,abs(body.x)))*exp(-20.*(body.y-1.08)*(body.y-1.08));"
-  "pos.xz*=1.+buildShape*waist;"
+  // Measure on the same standing key for every pose, then apply the offset
+  // to both skin and clothes. Keep shoes planted and the face undistorted.
+  "float y=body.y*(skinTile==5.?1.06:1.),x=body.x+.018;"
+  "float core=1.-smoothstep(.16,.235,abs(x));"
+  "float belly=exp(-38.*(y-1.05)*(y-1.05)),hips=exp(-35.*(y-.89)*(y-.89));"
+  "float bust=exp(-76.*(y-1.32)*(y-1.32));"
+  "float trunk=smoothstep(.22,.77,y)*(1.-smoothstep(1.39,1.53,y));"
+  "float thigh=exp(-24.*(y-.62)*(y-.62));"
+  "float reach=clamp(x/.15,-1.,1.);"
+  "float arm=smoothstep(.16,.235,abs(x))*smoothstep(.62,.76,y)*(1.-smoothstep(1.38,1.55,y));"
+  "vec3 unshaped=pos;"
+  "pos.x+=reach*(.080*shape.x*trunk+.045*shape.y*hips+.034*shape.w*belly);"
+  "pos.x+=(x-sign(x)*.100)*.53*shape.x*thigh;"
+  "pos.x+=sign(x)*arm*.045*max(0.,shape.x);"
+  "float front=smoothstep(-.025,.075,body.z);"
+  "pos.z+=core*(front*(.13*shape.x*belly+.063*shape.w*belly+.065*shape.z*bust)"
+  "-(1.-front)*hips*(.055*shape.y+.051*shape.x));"
+  "pos.z+=(body.z-.02)*.30*shape.x*thigh;"
+  "float hand=smoothstep(.145,.18,abs(x))*(1.-smoothstep(.84,.99,y))*smoothstep(.60,.70,y);"
+  "pos=mix(pos,unshaped+vec3(sign(x)*.10*shape.x,0.,0.),hand);"
   "if(gl_MultiTexCoord0.z>1.5&&gl_MultiTexCoord0.z<2.5){float leg=1.-smoothstep(.49,.78,body.y);"
   "if(pantCut==2||pantCut==4)pos+=n*(.010*leg*smoothstep(.10,.19,body.y));}"
   "if(gl_MultiTexCoord0.z>.5&&gl_MultiTexCoord0.z<1.5){"
@@ -80,8 +98,10 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
   "light=.68+.33*max(0.,dot(n,normalize(vec3(-.47,.79,.38))))+.09*n.y;"
   "uv=gl_MultiTexCoord0.xyz;gl_Position=gl_ModelViewProjectionMatrix*vec4(pos,1.);}";
  const char *fs="#version 120\n"
-  "uniform vec3 coat,trousers,footwear,hairColor;uniform float complexion,skinTile;uniform int worker,outfit,hair,pantCut,shoeCut;uniform sampler2D atlas;varying vec3 body,uv;varying float light;"
-  "void main(){vec4 c=texture2D(atlas,uv.xy);if(c.a<.46)discard;"
+  "uniform vec3 coat,trousers,footwear,hairColor;uniform float complexion,skinTile;uniform int worker,outfit,hair,pantCut,shoeCut,glasses,necklace,wristwatch;uniform sampler2D atlas;varying vec3 body,uv;varying float light;"
+  "void main(){if(uv.z>3.5){if(abs(uv.z-float(glasses))>.25)discard;"
+  "gl_FragColor=vec4((glasses==4?vec3(.14,.08,.05):vec3(.16,.18,.20))*(light*light)+.065*light,1.);return;}"
+  "vec4 c=texture2D(atlas,uv.xy);if(c.a<.46)discard;"
   "vec3 paint=c.rgb;if(uv.z>.5 && uv.z<2.5)paint*=uv.z<1.5?coat:trousers;"
   "if(uv.z>.5 && uv.z<1.5 && (outfit==1||outfit==2)){vec2 p=fract(uv.xy*4.);float line=smoothstep(.76,.95,cos(96.*p.y));"
   "if(outfit==2)line=max(line,smoothstep(.79,.95,cos(80.*p.x)));paint=mix(paint,vec3(.78,.74,.60)*c.r,.40*line);}"
@@ -130,8 +150,17 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
   "float cuff=smoothstep(.82,.835,body.y);vec3 sleeve=coat*(.78+.15*smoothstep(.855,.871,body.y));"
   "if(outfit==10)sleeve*=.82+.18*cos(78.*body.y);if(outfit==9)sleeve=mix(sleeve,vec3(.78,.72,.60),.78*smoothstep(1.26,1.28,body.y));"
   "paint=mix(paint,sleeve,cuff);}"
+  "if(wristwatch!=0 && (tile==skinTile||uv.z==1.) && body.x<-.16){"
+  "float y=body.y*(skinTile==5.?1.06:1.);float band=1.-smoothstep(.010,.015,abs(y-.855));"
+  "vec3 watch=mix(vec3(.18,.12,.08),vec3(.68,.70,.68),smoothstep(.16,.18,body.z));paint=mix(paint,watch,band);}"
   "if(tile==skinTile+2. && hair>=1)discard;if(tile==skinTile+2.)paint=hairColor*(.64+1.5*dot(c.rgb,vec3(.30,.59,.11)));"
   "if(worker!=0 && uv.z>2.5 && uv.z<3.5)paint=mix(vec3(.075,.08,.07),vec3(.25,.25,.22),c.g);"
+  "if(necklace>0 && (tile==skinTile || (uv.z>.5 && uv.z<1.5)) && body.z>.052){"
+  "float x=body.x+.028,y=body.y*(skinTile==5.?1.06:1.);"
+  "float chain=abs(y-(1.385+5.2*x*x));float aa=max(.0007,fwidth(chain));"
+  "float metal=(1.-smoothstep(.0015,.0015+aa,chain))*(1.-smoothstep(.071,.076,abs(x)));"
+  "if(necklace==2)metal=max(metal,1.-smoothstep(.009,.012,length(vec2(x,(y-1.376)*.74))));"
+  "paint=mix(paint,necklace==2?vec3(.87,.66,.28):vec3(.78,.80,.82),metal);}"
   "gl_FragColor=vec4(paint*light,1.);}";
 
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return -1;
@@ -216,7 +245,16 @@ static void market_person_draw(struct posed_person *model,int kind,float pose,co
  glUniform1i(glGetUniformLocation(model->program,"hair"),kind==0 && anchors?market_choice(identity,8,MARKET_HEAD_LOOKS):0);
  glUniform1f(glGetUniformLocation(model->program,"skinTile"),(float)model->skin_tile);
  glUniform3fv(glGetUniformLocation(model->program,"hairColor"),1,market_hair_swatch(identity));
- glUniform1f(glGetUniformLocation(model->program,"buildShape"),((int)market_choice(identity,10,9)-4)*.05f);
+ int shopper=kind==0 && anchors;
+ float mass=((int)market_choice(identity,10,101)-34)/54.f;
+ if(shopper)anchors[0][0]-=.10f*mass; /* Both baked grips are the left hand. */
+ glUniform4f(glGetUniformLocation(model->program,"shape"),shopper?mass:0.f,
+             shopper?((int)market_choice(identity,14,101)-38)/63.f:0.f,
+             shopper?((int)market_choice(identity,15,101)-31)/62.f:0.f,
+             shopper?((int)market_choice(identity,16,101)-46)/67.f:0.f);
+ glUniform1i(glGetUniformLocation(model->program,"glasses"),shopper?market_choice(identity,17,6):0);
+ glUniform1i(glGetUniformLocation(model->program,"wristwatch"),shopper && market_choice(identity,19,4)==0);
+ glUniform1i(glGetUniformLocation(model->program,"necklace"),shopper?market_choice(identity,18,5)%3:0);
  glUniform1f(glGetUniformLocation(model->program,"face"),face);
  glUniform1i(glGetUniformLocation(model->program,"pantCut"),market_choice(identity,3,6));
  glUniform1i(glGetUniformLocation(model->program,"shoeCut"),market_choice(identity,5,6));

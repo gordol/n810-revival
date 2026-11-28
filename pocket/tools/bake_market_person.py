@@ -5,6 +5,7 @@ import math
 import struct
 import sys
 import zlib
+import zipfile
 from pathlib import Path
 
 import bpy
@@ -12,7 +13,8 @@ import numpy as np
 from mathutils import Matrix,Quaternion,Vector
 from PIL import Image
 
-source,destination=map(Path,sys.argv[sys.argv.index('--')+1:])
+args=list(map(Path,sys.argv[sys.argv.index('--')+1:]))
+source,destination=args[:2]
 if hashlib.sha256(source.read_bytes()).hexdigest() not in (
     'fbf6558ff408b6c5d12c82a5aaa506e07ec796f963a9ac1d4b9c88a39b0fd429',
     '3c22e60a599526d264f7cbb744e5bc1f6b1e93a79daade322942c49e7aac6ab3'):
@@ -337,6 +339,46 @@ for frame,start in enumerate(walk_surfaces):
     end=walk_surfaces[(frame+1)%12]
     for fraction in (.25,.5,.75):
         check_clearance(start+(end-start)*fraction,arm_faces,cloth_faces,frame+fraction)
+# Fit the selected CC0 optical frames to each pose using the two eyeballs.
+if len(args)>2:
+    pack=args[2].read_bytes()
+    if hashlib.sha256(pack).hexdigest()!='f215c58e09e31b7ee568c814067cb47704cee6da1f6fc01cffb8e9fca37bafdd':
+        raise ValueError('Expected the documented Glasses 01 CC0 pack')
+    uv=np.array(uvs)
+    eye_slot=2 if jacket else 4
+    eyes=np.flatnonzero((uv[:,0]*4).astype(int)+4*(uv[:,1]*4).astype(int)==eye_slot)
+    base=np.frombuffer(poses[0],'<i2').reshape(-1,6)[eyes,:3]
+    right_eye=base[:,0]>base[:,0].mean()
+    with zipfile.ZipFile(io.BytesIO(pack)) as archive:
+        for style,filename in enumerate(("Sagerfrog's_Glasses_01.obj","TBM_Glasses_Frames_01.obj"),4):
+            path=next(n for n in archive.namelist() if n.endswith('/'+filename))
+            points=[];faces=[]
+            for line in archive.read(path).decode().splitlines():
+                parts=line.split()
+                if parts[:1]==['v']:points.append(list(map(float,parts[1:4])))
+                if parts[:1]==['f']:
+                    corners=[int(term.split('/')[0])-1 for term in parts[1:]]
+                    faces.extend((corners[0],a,b) for a,b in zip(corners[1:],corners[2:]))
+            points=np.array(points)
+            points-=np.array([points[:,0].mean(),(points[:,1].max()+points[:,1].min())/2,points[:,2].max()])
+            points*=.157/np.ptp(points[:,0])
+            points[:,2]+=.024
+            faces=np.array(faces)
+            normals=np.zeros_like(points)
+            tri=points[faces]
+            for corner in faces.T:np.add.at(normals,corner,np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0]))
+            normals/=np.maximum(1e-9,np.linalg.norm(normals,axis=1)[:,None])
+            for frame,pose in enumerate(poses):
+                eye=np.frombuffer(pose,'<i2').reshape(-1,6)[eyes,:3]/10000.
+                across=eye[right_eye].mean(0)-eye[~right_eye].mean(0)
+                across/=np.linalg.norm(across)
+                forward=np.cross(across,[0,1,0]);forward/=np.linalg.norm(forward)
+                basis=np.array([across,np.cross(forward,across),forward])
+                coords=points@basis+eye.mean(0)
+                poses[frame]+=np.column_stack((coords*10000,normals@basis*32767)).round().astype('<i2').tobytes()
+            indices.extend((faces+vertex_count).ravel())
+            uvs.extend([(.875,.875,float(style))]*len(points))
+            vertex_count+=len(points)
 blob=struct.pack('<4s5I',b'NPC3',vertex_count,len(indices),len(poses),atlas.width,atlas.height)
 blob+=np.asarray(contacts,dtype='<f4').tobytes()
 blob+=np.asarray(indices,dtype='<u4').tobytes()+np.asarray(uvs,dtype='<f4').tobytes()
