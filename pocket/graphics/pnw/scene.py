@@ -874,12 +874,31 @@ class RainierView:
         return (getattr(self,"regional",False) and self.outing and not (self.road or self.glider or self.ski or self.bike or self.climb)
                 and self.outing not in ('hoh','wheel','ferry','scuba',*rail.RIDES.values(),*market_visit.FLOORS))
 
+    def vehicle_signal(self,key):
+        road=self.road
+        if not road or not road.has_car_camera:return False
+        if key=='h':
+            self.traffic.horn=True
+        elif road.actor_kind!=9:return False
+        elif key=='j':
+            road.siren=not road.siren
+            if not road.siren:road.stop_target=None
+        elif key=='k':
+            if road.stop_target is not None:road.stop_target=None
+            else:
+                road.stop_target=self.traffic.car_ahead(road,self.walk_height(road.x,road.z))
+                if road.stop_target is not None:road.siren=True
+        else:return False
+        self.pixel_dirty=True
+        return True
+
     def change_car(self):
         if self.road:
             road=self.road
             if road.has_car_camera:
                 road.cancel_input()
-                road.cruise=False
+                road.cruise=road.siren=False
+                road.stop_target=None
                 road.speed=road.spin=road.slip=0.
                 from copy import copy
                 self.walk_bridges=copy(road.bridge_roads)
@@ -1301,6 +1320,7 @@ class RainierView:
                 self.pixel_dirty=True
             return
         if self.road:
+            if button in (7,2,3):self.vehicle_signal({7:'h',2:'j',3:'k'}[button])
             if button==0:self.road.cruise=not self.road.cruise
             if button==8 and self.road.has_car_camera:self.road.overhead=not self.road.overhead
             if button==1:self.change_car()
@@ -2011,7 +2031,7 @@ class RainierView:
             sound=ctx.lib.pocket_scene_road_sound
             sound.argtypes=[C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_float,C.c_int]
             sound(ctx.handle,self.sound and not paused,self.road.speed,
-                  self.road.kind in ('sports-car','car','motorcycle'),getattr(self,'traffic_gain',0.),(-round(100*self.traffic.impact) if self.traffic.impact else self.traffic.horn))
+                  int(self.road.kind in ('sports-car','car','motorcycle'))+2*int(self.road.siren),getattr(self,'traffic_gain',0.),(-round(100*self.traffic.impact) if self.traffic.impact else self.traffic.horn))
             self.traffic.impact=0.
             self.traffic.horn=False
         elif self.regional:
@@ -2272,6 +2292,7 @@ class RainierView:
         if self.road and self.road.overhead:
             equipment=None
             player=(self.road.actor_kind,x,ground(x,z)+.05,z,math.degrees(yaw),2.*int(daylight<.65 or bool(self.weather))+16*int(self.road.damage>.35),self.road.paint)
+            if self.road.actor_kind==9:player=(*player[:5],self.age%1 if self.road.siren else -1.,player[6])
             poses=poses[:actor_limit-1]+[player]
             yaw=self.road.chase_heading
             length,height={12:(15.6,4.1),11:(11.6,3.4),5:(4.5,2.35)}.get(self.road.actor_kind,(4.4,1.45))
@@ -2404,6 +2425,9 @@ class RainierView:
                 ink.label(1,3,label[:w-4],0xFFD15A)
             if self.road:
                 ink.label(1,1,self.road.hint(),0xFFEDBF)
+                if self.road.actor_kind==9:
+                    label='Traffic stop active' if self.road.stop_target is not None else 'Siren on' if self.road.siren else 'J: siren   K: stop car ahead'
+                    ink.label(1,4,label,0xFFEDBF)
                 self.road.draw_minimap(ink,w-2,h-3)
                 if self.neighborhood and abs(self.road.speed)<12:
                     place=self.neighborhood.nearby(x,z)

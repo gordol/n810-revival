@@ -358,6 +358,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             if not scene or getattr(scene,'notebook',None) or getattr(scene,'album',None):return False
             if key=='e' and (getattr(scene,'road',None) or getattr(scene,'outing',None) in ('market','tacoma')):
                 return scene.change_car()
+            if key in ('h','j','k') and getattr(scene,'road',None):return scene.vehicle_signal(key)
             if key=='?' and getattr(scene,'road',None):
                 scene.pause_game()
                 scene.notebook.page='Driving controls'
@@ -411,6 +412,9 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
                 if kind=='press':self.ground_key(key)
                 return True
             if getattr(scene,'road',None):
+                if key in ('h','j','k'):
+                    if kind=='press':return self.ground_key(key)
+                    return True
                 if key=='?' or (key=='0' and scene.road.has_car_camera):
                     if kind=='press':self.ground_key(key)
                     return True

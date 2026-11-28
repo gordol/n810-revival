@@ -157,7 +157,10 @@ class Traffic:
                             if all(abs(other-at)>32 for _,other in adjacent):
                                 self.offsets[key]=lateral-home*.001
                     changing=lateral!=home or self.offsets.get(key,home)!=home
-                    if changing:
+                    pulling_over=driver is not None and getattr(driver,'stop_target',None)==key
+                    if pulling_over:
+                        lateral+=max(0.,min(2.8-lateral,dt*.9))
+                    elif changing:
                         target_lane=1-lane
                         neighbors=occupied.setdefault((direction,target_lane),[])
                         if all(k==key or abs(other-at)>8 for k,other in neighbors):
@@ -167,6 +170,7 @@ class Traffic:
                             if k!=key and other>at:clearance=min(clearance,other-at-5.)
                     offsets[key]=lateral
                     target=min(pace,math.sqrt(2*6.*max(0.,clearance-2)))
+                    if pulling_over:target=0.
                     speed+=max(-8.*dt,min(3.*dt,target-speed))
                     at+=max(0.,min(clearance,dt*speed))
                     stopped=clearance<5
@@ -198,8 +202,20 @@ class Traffic:
                                     (1 if home<0 else -1) if 0<abs(lateral+home)<3.6 else 0))
         self.offsets=offsets
         self.cars=active
+        if driver and getattr(driver,"stop_target",None) not in active:driver.stop_target=None
         self.visible=sorted(visible)
         return self.visible
+
+    def car_ahead(self,road,elevation):
+        sn,cs=math.sin(road.heading),math.cos(road.heading)
+        choices=[]
+        for key,body in self.bodies.items():
+            dx,dz=body.x-road.x,body.z-road.z
+            along=dx*sn+dz*cs
+            if (0<along<65 and abs(dx*cs-dz*sn)<3.5 and abs(elevation-body.elevation)<2.7
+                    and math.cos(road.heading-body.heading)>.75):
+                choices.append((along,key))
+        return min(choices)[1] if choices else None
 
     def nearest_car(self,x,z):
         return min(((min(math.hypot(u-x,v-z) for u,v in body.discs())-body.radius,key,body)

@@ -39,8 +39,14 @@ static void SDLCALL mix_walk_sound(void *ptr,Uint8 *stream,int bytes){
    signal+=s->crash_env*(1.8f*s->river_low+.32f*noise);
    s->crash_env*=.99952f;
   }
+  if(s->siren){
+   s->siren_cycle=fmodf(s->siren_cycle+.00012f,6.2831853f);
+   s->siren_phase=fmodf(s->siren_phase+(800.f-260.f*cosf(s->siren_cycle))*6.2831853f/22050.f,6.2831853f);
+   signal+=.14f*sinf(s->siren_phase)+.036f*sinf(3*s->siren_phase);
+  }
   if(s->horn_env>.001f){
-   signal+=s->horn_env*(.13f*sinf(s->passing_phase*4)+.11f*sinf(s->passing_phase*5));
+   s->horn_phase=fmodf(s->horn_phase+.03135f,6.2831853f);
+   signal+=s->horn_env*(.13f*sinf(s->horn_phase*4)+.11f*sinf(s->horn_phase*5));
    s->horn_env*=.9997f;
   }
   if(wind>0.f){
@@ -70,7 +76,7 @@ static void SDLCALL mix_walk_sound(void *ptr,Uint8 *stream,int bytes){
 }
 
 static int walk_sound(void *ptr,int enabled,int cue,float river,int voice,float gain,
-                      float wind,float skis,int landed,float engine,float passing,int honk){
+                      float wind,float skis,int landed,float engine,float passing,int honk,int siren){
  struct gpu_scene *s=ptr;
  if(!s)return -1;
  if(!enabled){
@@ -87,6 +93,7 @@ static int walk_sound(void *ptr,int enabled,int cue,float river,int voice,float 
   if(!s->river_audio){s->river_audio_failed=1;return -1;}
  }
  SDL_LockAudioDevice(s->river_audio);
+ s->siren=siren;
  s->engine_hz=engine;s->passing_gain=passing;
  if(honk>0)s->horn_env=1.f;
  if(honk<0)s->crash_env=fminf(1.f,-honk*.01f);
@@ -100,11 +107,11 @@ static int walk_sound(void *ptr,int enabled,int cue,float river,int voice,float 
 }
 
 int pocket_scene_river_sound(void *ptr,int enabled,int cue,float river,int voice,float gain){
- return walk_sound(ptr,enabled,cue,river,voice,gain,0.f,0.f,0,0.f,0.f,0);
+ return walk_sound(ptr,enabled,cue,river,voice,gain,0.f,0.f,0,0.f,0.f,0,0);
 }
 
 int pocket_scene_summit_sound(void *ptr,int enabled,float wind,float skis,int landed){
- return walk_sound(ptr,enabled,0,0.f,0,0.f,wind,skis,landed,0.f,0.f,0);
+ return walk_sound(ptr,enabled,0,0.f,0,0.f,wind,skis,landed,0.f,0.f,0,0);
 }
 
 int pocket_scene_road_sound(void *ptr,int enabled,float speed,int motor,float passing,int honk){
@@ -112,5 +119,5 @@ int pocket_scene_road_sound(void *ptr,int enabled,float speed,int motor,float pa
  const float ratios[]={3.4f,2.25f,1.6f,1.22f,.97f,.78f};
  int gear=velocity<8?0:velocity<14?1:velocity<21?2:velocity<30?3:velocity<40?4:5;
  float firing=motor?fminf(110.f,31.f+velocity*ratios[gear]*1.6f):0.f;
- return walk_sound(ptr,enabled,0,0.f,0,0.f,fminf(.6f,velocity*.013f),0.f,0,firing,passing,honk);
+ return walk_sound(ptr,enabled,0,0.f,0,0.f,fminf(.6f,velocity*.013f),0.f,0,firing,passing,honk,motor&2);
 }

@@ -384,6 +384,8 @@ class StreetRide:
         self.slip=self.spin=self.damage=0.
         self.actor_kind=10 if self.kind=="sports-car" else 5
         self.paint=0
+        self.siren=False
+        self.stop_target=None
         self.tuned=False
         self.shop_target=None
         self.cruise=self.delivered=False
@@ -684,6 +686,8 @@ class PauseMenu:
         footer=hints[self.guide_page] if self.page=='Flight guide' else ('A: select   B: back',)
         if self.page=='Driving controls':
             footer=('W/S or up/down: gas / brake','A/D or left/right: steer','Space or Go: hold accelerator')
+            if self.view.road.has_car_camera:footer+=('H / L3: horn',)
+            if self.view.road.actor_kind==9:footer+=('J / X: lights and siren','K / Y: stop or release car ahead')
             if self.view.road.has_car_camera:footer+=('0 or View: switch camera','E or Exit: leave vehicle',)
         y=2+2*len(self.rows())
         for i,line in enumerate(footer):
