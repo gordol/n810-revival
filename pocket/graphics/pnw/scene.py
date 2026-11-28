@@ -905,8 +905,16 @@ class RainierView:
                 self.parked_cars.append(road)
                 self.patrol_owner=road if road.patrol else None
                 self.third_person=True
-                self.trip_pose=(road.x+3.*math.cos(road.heading),road.z-3.*math.sin(road.heading),
-                                road.heading-math.pi/2,.08)
+                sn,cs=math.sin(road.heading),math.cos(road.heading)
+                length={11:5.8,12:7.8}.get(road.actor_kind,2.2)
+                for side,along in ((1.7,0),(-1.7,0),(0,-length-.8),(0,length+.8),(0,0)):
+                    u,v=road.x+cs*side+sn*along,road.z-sn*side+cs*along
+                    if self.walk_bridges and self.walk_bridges.deck is not None:
+                        probe=copy(self.walk_bridges)
+                        probe.sample(u,v,surface(self.world[0],u,v),True)
+                        if probe.deck is None:continue
+                    self.trip_pose=(u,v,math.atan2(road.x-u,road.z-v),.08)
+                    break
             self.road=None
         elif self.camera and self.on_city_foot():
             from pnw.outings import StreetRide

@@ -421,12 +421,22 @@ class BridgeRoads:
     """Track which road surface a car entered at a stacked crossing."""
     def __init__(self,height):
         self.cells={}
+        terminals={}
         for span in bridge_spans(height):
-            _,kind,w,(x,z),(u,v),_,_,_=span
+            bridge,kind,w,(x,z),(u,v),length,y,grade=span
             if kind=='footway':continue
+            ends=terminals.setdefault(bridge,[(x,z,y),None])
+            ends[1]=(u,v,y+length*grade)
             for i in range(math.floor((min(x,u)-w)/32),math.floor((max(x,u)+w)/32)+1):
                 for j in range(math.floor((min(z,v)-w)/32),math.floor((max(z,v)+w)/32)+1):
                     self.cells.setdefault((i,j),[]).append(span)
+        self.joins={}
+        self.entries={}
+        for bridge,ends in terminals.items():
+            self.entries[bridge]=[]
+            for x,z,y in ends:
+                self.joins.setdefault((x,z),set()).add(bridge)
+                if abs(y-height(x,z))<.25:self.entries[bridge].append((x,z))
         self.deck=None
         self.last_height=None
 
@@ -453,8 +463,15 @@ class BridgeRoads:
             along=max(0.,min(length,(x-ax)*dx+(z-az)*dz))
             gap=math.hypot(x-ax-dx*along,z-az-dz*along)
             top=y+grade*along
-            connected=update and self.last_height is not None and abs(top-self.last_height)<.85
-            if gap<=width and (bridge==self.deck or update and abs(top-ground)<1.25 or connected):
+            if gap>width:continue
+            connected=bridge==self.deck
+            if update and not connected:
+                if self.deck is None:
+                    connected=abs(top-ground)<.8 and any(math.hypot(x-u,z-v)<width+4 for u,v in self.entries[bridge])
+                elif abs(top-self.last_height)<.85:
+                    connected=any(self.deck in self.joins.get(pt,()) and math.dist((x,z),pt)<width+4
+                                  for pt in ((ax,az),(bx,bz)))
+            if connected:
                 candidate=(bridge!=self.deck,gap,bridge,top)
                 if best is None or candidate<best:best=candidate
         if update:
