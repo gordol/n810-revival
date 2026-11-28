@@ -23,7 +23,7 @@ def floor_vertex(center,height,u,v):
     # brick street over the final metres; the unmodified DEM stays underneath.
     across=max(0.,min(1.,(u+28.)/4.,(57.-u)/4.))
     entry=min(1.,max(0.,(v+3.)/4.))
-    return raw+.065+across*entry*max(0.,height(*center)-raw)
+    return raw+.065+.14*(1.-entry)+across*entry*max(0.,height(*center)-raw)
 
 def floor_height(center,height,x,z):
     dx,dz=x-center[0],z-center[1]
@@ -406,14 +406,33 @@ def build(center,height,quad):
     for edge,outer,color,top in ((-15.,-28.,(.57,.38,.28),9.6),
                                  (8.5,27.,(.72,.63,.50),11.8)):
         side=1 if edge>0 else -1
-        block(min(edge,outer),max(edge,outer),-3,top,-27,1.,color,.241)
+        block(min(edge,outer),max(edge,outer),3.47,top,-27,1.,color,.241)
+        # A shallow, open shop bay lets the stock move against the back wall
+        # as the viewer walks past. Sample the sloping street at each bay.
+        for v in range(-27,1,3):
+            end=min(1,v+3)
+            sill=floor_height(center,height,*offset(center,edge,(v+end)*.5))-level
+            def fixture(a,b,low,high,near,far,tone,material=0.):
+                x1,x2=edge+side*a,edge+side*b
+                block(min(x1,x2),max(x1,x2),sill+low,sill+high,near,far,tone,material)
+            bay_height=3.5-sill
+            fixture(.98,1.08,-.30,bay_height,v,end,(.30,.235,.18),.257)
+            fixture(0,1.0,-.28,.23,v,end,trim)
+            fixture(0,1.0,bay_height-.11,bay_height,v,end,(.29,.26,.22))
+            fixture(0,.98,.20,bay_height,v,v+.14,trim)
+            for shelf in (.55,1.18):
+                fixture(.22,.95,shelf-.055,shelf,v+.18,end-.05,(.37,.25,.16),.257)
+                for k in range(int((end-v-.30)/.24)):
+                    z=v+.21+k*.24
+                    h=.15+.16*rng.random()
+                    tone=rng.choice(((.54,.24,.13),(.76,.66,.48),(.41,.48,.37),(.57,.42,.23)))
+                    fixture(.36,.61,shelf,shelf+h,z,z+.15,tone)
+                    fixture(.35,.36,shelf+h*.22,shelf+h*.60,z+.015,z+.14,(.81,.73,.55))
+            fixture(.33,.40,bay_height-.17,bay_height-.14,v+.21,end-.10,(.99,.82,.57),.247)
         for v in range(-25,1,3):
             def shopfront(y0,y1,near,far,inset,tone,material=0.):
                 u=edge-side*inset
                 panel(((u,y0,near),(u,y0,far),(u,y1,far),(u,y1,near)),tone,material)
-            shopfront(.12,2.8,v,v+2.73,.055,(.20,.27,.27))
-            shopfront(.86,2.65,v+.16,v+2.54,.085,(.33,.42,.42),.244)
-            shopfront(.91,2.68,v+1.27,v+1.34,.11,trim)
             for y in ((4.4,) if side>0 else (4.4,7.5)):
                 shopfront(y,y+1.66,v+.38,v+2.41,.065,(.27,.30,.28))
                 shopfront(y+.13,y+1.18,v+.49,v+2.29,.085,(.37,.42,.40),.244)

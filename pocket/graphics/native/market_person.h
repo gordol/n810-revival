@@ -77,7 +77,7 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
   "float reach=clamp(x/.15,-1.,1.);"
   "vec3 unshaped=pos;"
   "pos.x+=reach*(.080*shape.x*trunk+.045*shape.y*hips+.034*shape.w*belly);"
-  "pos.x+=(x-sign(x)*.100)*.53*shape.x*thigh;"
+  "pos.x+=clamp(x-sign(x)*.100,-.075,.075)*.38*shape.x*thigh;"
   "float front=smoothstep(-.025,.075,body.z);"
   "pos.z+=core*(front*(.13*shape.x*belly+.063*shape.w*belly+.065*shape.z*bust)"
   "-(1.-front)*hips*(.055*shape.y+.051*shape.x));"
@@ -93,7 +93,7 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
   "if(outfit==4)pos+=n*.024*(1.-smoothstep(.15,.22,abs(body.x)));}"
   "float tile=floor(gl_MultiTexCoord0.x*4.)+4.*floor(gl_MultiTexCoord0.y*4.);"
   "if(outfit>=8 && outfit<=10 && tile==skinTile && body.y>.82 && body.y<1.40 && abs(body.x)>.105)pos+=n*.009;"
-  "light=.68+.33*max(0.,dot(n,normalize(vec3(-.47,.79,.38))))+.09*n.y;"
+  "light=.89+.62*max(0.,dot(normalize(gl_NormalMatrix*n),normalize(gl_LightSource[0].position.xyz)))+.14*n.y;"
   "uv=gl_MultiTexCoord0.xyz;gl_Position=gl_ModelViewProjectionMatrix*vec4(pos,1.);}";
  const char *fs="#version 120\n"
   "uniform vec3 coat,trousers,footwear,hairColor;uniform float complexion,skinTile;uniform int worker,outfit,hair,pantCut,shoeCut,glasses,necklace,wristwatch;uniform sampler2D atlas;varying vec3 body,uv;varying float light;"
@@ -159,7 +159,10 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
   "float metal=(1.-smoothstep(.0015,.0015+aa,chain))*(1.-smoothstep(.071,.076,abs(x)));"
   "if(necklace==2)metal=max(metal,1.-smoothstep(.009,.012,length(vec2(x,(y-1.376)*.74))));"
   "paint=mix(paint,necklace==2?vec3(.87,.66,.28):vec3(.78,.80,.82),metal);}"
-  "gl_FragColor=vec4(paint*light,1.);}";
+  "if(uv.z>.5 && uv.z<2.5){vec2 weave=fract(uv.xy*4.)*vec2(230.,360.);"
+  "vec2 fade=1.-smoothstep(vec2(.12),vec2(.50),fwidth(uv.xy)*4.*vec2(230.,360.));"
+  "paint*=1.+.040*fade.x*cos(6.283*weave.x)+.035*fade.y*cos(6.283*weave.y);}"
+  "gl_FragColor=vec4(paint*light*gl_LightSource[0].ambient.rgb,1.);}";
 
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return -1;
  GLuint frag=wildlife_shader(GL_FRAGMENT_SHADER,fs);if(!frag){glDeleteShader(vert);return -1;}

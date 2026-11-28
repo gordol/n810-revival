@@ -117,12 +117,13 @@ def streets(height,quad):
             length=math.hypot(ex-x,ez-z)
             if length<.2:continue
             dx,dz=(ex-x)/length,(ez-z)/length
-            def band(left,right,t,end,lift,color):
+            def band(left,right,t,end,lift,color,material=0.):
                 corners=[]
                 for d,w in ((t,left),(end,left),(end,right),(t,right)):
                     px,pz=x+d*dx+w*dz,z+d*dz-w*dx
                     corners.append((px,height(px,pz)+lift,pz))
                 if left==-half and right==half:quad(corners,color,.249)
+                elif material:quad(corners,color,material)
                 else:quad(corners,color)
             for t in range(0,math.ceil(length),16):
                 end=min(length,t+16)
@@ -136,7 +137,7 @@ def streets(height,quad):
                     continue
                 band(-half,half,t,end,.045,(.25,.26,.255))
                 for side in (-1,1):
-                    band(side*half,side*(half+1.8),t,end,.14,(.57,.55,.50))
+                    band(side*half,side*(half+1.8),t,end,.14,(.57,.55,.50),.260)
                 if kind in ('primary','secondary'):
                     band(-.07,.07,t,min(end,t+5),.068,(.83,.68,.35))
             if crossings[i]:

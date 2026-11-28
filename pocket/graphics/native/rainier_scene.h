@@ -143,22 +143,33 @@ static GLuint rainier_program(void){
   "vec3 gum=.49+.33*cos(6.283*(seed+vec3(.06,.39,.72)));"
   "col=mix(col,gum*(.82-.32*q.y)+.16*exp(-32.*dot(q+.17,q+.17)),1.-smoothstep(.35-aa,.50+aa,r));}"
   "if(regional==2 && (abs(tint.a-.237)<.0001||abs(tint.a-.254)<.0001)){"
-  "vec2 brick=pos.xz*vec2(2.,4.);brick.x+=.5*mod(floor(brick.y),2.);"
+  "vec2 paving=vec2(dot(pos.xz,vec2(-.5299,.8480)),dot(pos.xz,vec2(-.8480,-.5299)));"
+  "vec2 brick=paving*(tint.a<.25?vec2(4.6,9.2):vec2(4.));brick.x+=.5*mod(floor(brick.y),2.);"
   "float joint=smoothstep(.41,.49,max(abs(fract(brick.x)-.5),abs(fract(brick.y)-.5)));"
+  "float filtered=1.-smoothstep(.08,.45,length(fwidth(brick)));joint*=filtered;"
+  "if(tint.a<.25){float kiln=hash(floor(brick));col*=mix(vec3(.97,.80,.72),vec3(.68,.63,.59),kiln*filtered);"
+  "col=mix(col,vec3(.19,.17,.15),joint*.55);}"
   "float pool=(.22+.78*smoothstep(.21,.78,noise(pos.xz*.71)+.19*overcast))*(1.-.80*joint);vec3 incident=normalize(pos-waterEye);"
   "vec3 n=normalize(vec3(.024*(noise(pos.xz*7.)-.5),1.,.024*(noise(pos.zx*7.)-.5)));"
   "vec3 ray=reflect(incident,n);float fresnel=.10+.74*pow(1.-abs(dot(incident,n)),3.);"
   "vec3 sheen=skyColor(vec3(ray.x,max(.01,ray.y),ray.z));"
   "if(abs(tint.a-.254)<.0001){float opening=clamp(ray.y*1.4-abs(ray.x),0.,1.);sheen=mix(vec3(.20,.13,.11),sheen,opening);}"
-  "col=mix(col*(1.-.24*pool),sheen,pool*fresnel);"
+  "col=mix(col*(1.-.24*pool),sheen,pool*fresnel*(.32+.64*overcast));"
   "if(marketNear!=0){for(int i=0;i<4;i++){vec3 d=marketLamps[i]-pos;float t=dot(d,ray);if(t>0.){"
   "vec3 missVec=d-ray*t;if(i==0){vec3 axis=vec3(-.5299,0.,.8480);"
   "vec3 lateral=axis-ray*dot(axis,ray);missVec-=lateral*clamp(dot(lateral,missVec)/max(.001,dot(lateral,lateral)),-6.6,6.6);}"
   "float miss=length(missVec);float streak=exp(-miss/(.21+.055*t))/(1.+.0018*t*t);"
-  "marketSpec+=pool*streak*(i==0?vec3(.99,.13,.06):vec3(.98,.66,.30));}}}}"
+  "marketSpec+=pool*streak*(.35+.65*overcast)*(i==0?vec3(.99,.13,.06):vec3(.98,.66,.30));}}}}"
+  // Worn concrete slabs: joints disappear smoothly below a pixel.
+  "if(regional==2 && abs(tint.a-.260)<.0001){vec2 uv=pos.xz*.65;"
+  "vec2 edge=.5-abs(fract(uv)-.5);float seam=min(edge.x,edge.y);float aa=max(.001,length(fwidth(uv)));"
+  "float joint=(1.-smoothstep(.002,.006+aa,seam))*(1.-smoothstep(.01,.1,aa));"
+  "float grit=texture2D(marketMaterials,pos.xz*.75).a;"
+  "col*=.76+.29*grit+.10*hash(floor(uv))-.30*joint;}"
   "if(regional==2 && abs(tint.a-.249)<.0001){vec2 p=pos.xz;"
   "float grit=(noise(p*15.)-.5)*(1.-smoothstep(.025,.11,length(fwidth(p))));"
-  "col*=.93+.15*noise(p*.24)+.18*grit;}"
+  "float aggregate=texture2D(marketMaterials,p*.8).a;"
+  "col*=.64+.34*aggregate+.20*noise(p*.24)+.18*grit;}"
   "if(regional==2 && abs(tint.a-.228)<.0001){vec3 n=normalize(cross(dFdx(relativePos),dFdy(relativePos)));"
   "vec2 uv=vec2(abs(n.x)>abs(n.z)?pos.z:pos.x,pos.y)/vec2(2.8,3.65);"
   "vec2 f=fract(uv),e=abs(f-.5);float detail=1.-smoothstep(.12,.55,length(fwidth(uv)));"
@@ -260,6 +271,10 @@ static GLuint rainier_program(void){
   "diffuse+=max(0.,dot(normal,lightDir))*(2.1/(1.+dist2));"
   "spec+=pow(max(0.,dot(normal,normalize(lightDir+viewDir))),24.)/(1.+dist2);}"
   "lit=col*(vec3(.45,.39,.34)+daylight*vec3(.15,.22,.30)+vec3(1.,.79,.55)*diffuse);"
+  "if(abs(tint.a-.256)<.0001){float bay=abs(mod(local.x+2.,4.)-2.);"
+  "float post=length(vec2(bay,local.z+.825));float base=exp(-3.*post);"
+  "float stall=exp(-2.*length(max(vec2(bay-1.65,abs(local.z-5.25)-.75),0.)));"
+  "if(local.x> -2. && local.x<6.)stall=0.;lit*=1.-.38*stall-.24*base;}"
   "if(abs(tint.a-.256)<.0001||abs(tint.a-.244)<.0001||abs(tint.a-.259)<.0001)lit+=vec3(.67,.49,.30)*spec;}}"
   "if(regional==2 && abs(tint.a-.247)<.0001)lit=tint.rgb;lit+=marketSpec;if(marketNear!=0)lit+=lampGlow(normalize(pos-waterEye),distanceToEye);gl_FragColor=vec4(mix(mix(lit,reflected,reflection),horizon(),haze),alpha);}";
  GLuint vert=wildlife_shader(GL_VERTEX_SHADER,vs);if(!vert)return 0;
@@ -984,6 +999,10 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
  glUseProgram(0);
  static const float coats[][3]={{.93f,.47f,.12f},{.12f,.66f,.67f},{.75f,.28f,.40f},
   {.42f,.48f,.81f},{.85f,.67f,.18f},{.50f,.63f,.27f},{.68f,.38f,.65f}};
+ glPushAttrib(GL_LIGHTING_BIT);
+ const GLfloat sun[]={-cosf(sun_angle),.55f+daylight,-sinf(sun_angle),0.f};
+ const GLfloat ambient[]={.19f+.43f*daylight,.22f+.41f*daylight,.31f+.34f*daylight,1.f};
+ glLightfv(GL_LIGHT0,GL_POSITION,sun);glLightfv(GL_LIGHT0,GL_AMBIENT,ambient);
  for(unsigned i=0;i<nh;i++){
   const float *p=hikers+i*3,*coat=coats[i];
   glPushMatrix();glTranslatef(p[0],p[1],p[2]);
@@ -991,6 +1010,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   glPopMatrix();
  }
  if(market_count)market_people(s,market,market_count);
+ glPopAttrib();
  /* Blend the river over opaque bed, fish and banks. Depth testing leaves
     a breaching fish above the surface and hides water behind shore rocks. */
  if(water_count){
