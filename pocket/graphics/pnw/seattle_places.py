@@ -424,6 +424,12 @@ def roadside_trees(height,quad):
     trees,woods=json.loads(source.read_text())
     project=lambda point:location('sound',point[1]/1e7,point[0]/1e7)
     positions=[project(point) for point in trees]
+    # City and OSM inventories can describe the same tree.
+    existing={(round(x/3),round(z/3)) for x,z in positions}
+    for point in json.loads(source.with_name('park-trees.json').read_text()):
+        x,z=project(point);cell=(round(x/3),round(z/3))
+        if cell not in existing:
+            positions.append((x,z));existing.add(cell)
     rng=random.Random(3205)
     for ring in woods:
         points=[project(point) for point in ring]

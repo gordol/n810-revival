@@ -87,3 +87,9 @@ and the [Amtrak GTFS feed](https://content.amtrak.com/content/gtfs/GTFS.zip).
 Rides use simulated running and dwell times. Platform designs, terminal cranes,
 ships and landmark architecture are reconstructions. Sea-Tac runway thresholds
 and widths come from the public-domain [OurAirports runway data](https://ourairports.com/data/).
+
+park-trees.json contains 469 Seattle Parks and Recreation inventory positions
+in the downtown/Seattle Center area. Source is the City of Seattle's
+[SPR Tree View](https://data.seattle.gov/dataset/SPR-Tree-View/c7dn-wzzd),
+queried in WGS84 within (-122.36, 47.59, -122.326, 47.625).
+Tree crowns and ground cover are procedurally reconstructed.
