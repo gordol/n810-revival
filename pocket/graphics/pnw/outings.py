@@ -366,9 +366,8 @@ class StreetRide:
         from pnw.seattle_places import delivery_route,street_lines,tacoma_corridor
         self.overhead=False
         self.kind=kind.removeprefix('tacoma-')
-        if kind=='pickup':self.kind='sports-car'
-        if kind=='electric':self.kind='sports-car'
-        if kind=='motorbike':self.kind='sports-car'
+        fleet={'pickup':17,'electric':18,'motorbike':19}
+        if kind in fleet:self.kind='sports-car'
         self.assist=os.environ.get('POCKET_KID_MODE')=='1'
         self.route=(next(points for name,_,points,_,_ in street_lines('tacoma') if name=='Dock Street' and len(points)>=30)
                     if kind.startswith('tacoma-') else delivery_route())
@@ -385,10 +384,7 @@ class StreetRide:
         self.bridge_roads=None
         self.speed=self.steer=0.
         self.slip=self.spin=self.damage=0.
-        self.actor_kind=10 if self.kind=="sports-car" else 5
-        if kind=='pickup':self.actor_kind=17
-        if kind=='electric':self.actor_kind=18
-        if kind=='motorbike':self.actor_kind=19
+        self.actor_kind=fleet.get(kind,10) if self.kind=="sports-car" else 5
         self.paint=0
         self.siren=False
         self.stop_target=None
@@ -613,7 +609,7 @@ class StreetRide:
 
 
 class ExploreMenu(HikeMenu):
-    groups={'Fly':('Helicopter at Thun Field','Thun Field hangar','Skydive over Rainier','Balloon over the Sound','Plane from Rainier','Plane from Thun Field','Research jet from Rainier','Hang glide','Paramotor'),
+    groups={'Fly':('Thun Field hangar','Helicopter at Thun Field','Skydive over Rainier','Balloon over the Sound','Plane from Rainier','Plane from Thun Field','Research jet from Rainier','Hang glide','Paramotor'),
             'Mountain sports':('Put on skis','Climb summit ice','Mountain bike loop'),
             'Passenger rail':tuple(rail.RIDES),
             'City rides':tuple(ROAD_RIDES),

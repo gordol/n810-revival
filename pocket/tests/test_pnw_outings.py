@@ -450,7 +450,7 @@ class OutingTests(unittest.TestCase):
             self.assertTrue(on_road(ride.x,ride.z))
             ride.cruise=True
             for _ in range(12000):
-                ride.advance(1 if kind=='sports-car' else .1,(0,0))
+                ride.advance(1 if ride.kind=='sports-car' else .1,(0,0))
                 if ride.delivered:break
             self.assertTrue(ride.delivered,kind)
             self.assertFalse(ride.cruise)
