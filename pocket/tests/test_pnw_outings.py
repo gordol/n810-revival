@@ -14,10 +14,9 @@ from pnw.outings import ExploreMenu,SoundVehicle
 
 
 class OutingTests(unittest.TestCase):
-    def test_termux_workers_run_with_only_their_staged_script(self):
+    def test_termux_decodes_images_and_caches_real_cockpits_natively(self):
         from io import BytesIO
         import os
-        import subprocess
         import tempfile
         from unittest.mock import patch
         from PIL import Image
@@ -28,18 +27,9 @@ class OutingTests(unittest.TestCase):
             return buf.getvalue()
         tile=encoded((256,256),'PNG')
         aerial=encoded(pnw_terrain.IMAGE_SIZE,'JPEG')
-        real_run=subprocess.run
-        def isolated(args,**opts):
-            self.assertEqual(args[:3],['proot-distro','login','pocket-maps'])
-            host,guest=args[args.index('--bind')+1].rsplit(':',1)
-            self.assertEqual(guest,'/mnt')
-            script,mode,folder=args[args.index('/usr/bin/python3')+1:]
-            self.assertEqual(Path(script).parent,Path(guest))
-            self.assertEqual(folder,guest)
-            return real_run([sys.executable,'-I',str(Path(host)/Path(script).name),mode,host],**opts)
         with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,POCKET_TERMUX='1',XDG_DATA_HOME=tmp),patch(
                 'pnw.terrain.urlopen',side_effect=lambda url,timeout:BytesIO(tile if 'terrarium' in url else aerial)),patch(
-                'pnw.terrain.subprocess.run',side_effect=isolated) as runner,patch.dict(sys.modules,PIL=None):
+                'pnw.terrain.subprocess.run',side_effect=AssertionError('unexpected worker process')):
             for region in ('sound','hoh'):
                 self.assertEqual(set(pnw_terrain.elevations(region)),{12})
             self.assertEqual(len(pnw_terrain.sound_aerial()),1280*1536*3)
@@ -50,32 +40,6 @@ class OutingTests(unittest.TestCase):
                 self.assertEqual(len(panel()),1000*244*4)
                 self.assertNotEqual(panel(True),panel())
             finally:panel.cache_clear()
-            self.assertEqual(runner.call_count,5)
-
-    def test_termux_uses_native_pillow_for_flight_images_when_available(self):
-        import os
-        import tempfile
-        from unittest.mock import patch
-        from PIL import Image
-        from pnw.cockpit import panel
-        with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,POCKET_TERMUX='1',XDG_DATA_HOME=tmp),patch(
-                'pnw.terrain.subprocess.run',side_effect=AssertionError('unexpected Debian image worker')):
-            folder=Path(tmp)
-            Image.new('RGB',(512,512)).save(folder/'image.jpg')
-            pnw_terrain.convert_local(folder,'patch-512',lambda:pnw_terrain.decode_aerial(folder,(512,512)))
-            self.assertEqual((folder/'rgb').stat().st_size,512*512*3)
-            panel.cache_clear()
-            try:self.assertEqual(len(panel(True)),1000*244*4)
-            finally:panel.cache_clear()
-
-    def test_failed_cockpit_worker_supplies_a_renderable_panel(self):
-        from subprocess import CalledProcessError
-        from unittest.mock import patch
-        from pnw.cockpit import flight_panel
-        with patch('pnw.cockpit.panel',side_effect=CalledProcessError(2,'proot-distro')):
-            pixels=flight_panel(True)
-        self.assertEqual(len(pixels),1000*244*4)
-        self.assertEqual((pixels[3],pixels[-1]),(0,255))
 
     def test_streamed_imagery_and_relief_restore_offline(self):
         from io import BytesIO

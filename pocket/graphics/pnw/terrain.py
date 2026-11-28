@@ -78,7 +78,7 @@ def elevations(region):
         cols=range((cx-nx//2*step)//256,(cx+nx//2*step)//256+1)
         rows=range((cy-nz//2*step)//256,(cy+nz//2*step)//256+1)
         with ThreadPoolExecutor(max_workers=4) as pool:list(pool.map(fetch,((x,y) for x in cols for y in rows)))
-        convert_local(folder,region,lambda:convert(region,folder))
+        convert(region,folder)
         result=read(folder/'grid')
         (folder/'grid').replace(dest)
         return result
@@ -119,14 +119,6 @@ def decode_aerial(folder,size=IMAGE_SIZE):
         rgb=im.convert('RGB').transpose(Image.Transpose.FLIP_TOP_BOTTOM)
         (folder/'rgb').write_bytes(rgb.tobytes())
 
-def convert_local(folder,mode,convert_image):
-    if os.environ.get('POCKET_TERMUX')=='1':
-        try:from PIL import Image
-        except ImportError:
-            run_image_worker(Path(__file__),folder,mode)
-            return
-    convert_image()
-
 def sound_aerial():
     from data_paths import rainier_cache
     dest=rainier_cache()/'sound-usgs-1280x1536-v1.rgb'
@@ -143,7 +135,7 @@ def sound_aerial():
             with urlopen(aerial_url(),timeout=12) as stream:data=stream.read(expected+1)
             if len(data)>expected:return None
             (folder/'image.jpg').write_bytes(data)
-            convert_local(folder,'aerial',lambda:decode_aerial(folder))
+            decode_aerial(folder)
             rgb=read(folder/'rgb')
             (folder/'rgb').replace(dest)
             return rgb
@@ -187,7 +179,7 @@ def flight_relief(key,field,*,local_only=False,width=PATCH_WIDTH):
             with urlopen(relief_url(key,width),timeout=8) as stream:raw=stream.read(1024**2+1)
             if len(raw)>1024**2:raise ValueError('Oversized elevation patch')
             (folder/'height.tif').write_bytes(raw)
-            convert_local(folder,'relief',lambda:decode_relief(folder))
+            decode_relief(folder)
             data=(folder/'height').read_bytes()
             (folder/'height').replace(dest)
             trim_patch_cache(cache)
@@ -250,7 +242,7 @@ def flight_patch(key,field=None,pixels=1024,width=PATCH_WIDTH):
             with urlopen(aerial_url(key,pixels,width),timeout=8) as stream:data=stream.read(4*1024**2+1)
             if len(data)>4*1024**2:raise ValueError('Oversized aerial patch')
             image.write_bytes(data)
-        try:convert_local(folder,f'patch-{pixels}',lambda:decode_aerial(folder,(pixels,pixels)))
+        try:decode_aerial(folder,(pixels,pixels))
         except (OSError,ValueError,ImportError,subprocess.SubprocessError):
             target.unlink(missing_ok=True)
             raise
@@ -290,7 +282,7 @@ def patch_corner(x,z):
     return px/size*360-180,math.degrees(math.atan(math.sinh(math.pi*(1-2*py/size))))
 
 def draw_map_patch(folder):
-    """Pillow-only stage shared with the isolated Android map worker."""
+    """Paint water and street features over the relief image."""
     from PIL import Image,ImageDraw
     image=Image.frombytes('RGB',(129,129),(folder/'base').read_bytes())
     image=image.resize((1024,1024),Image.Resampling.BILINEAR,box=(.5,.5,128.5,128.5))
@@ -351,7 +343,7 @@ def map_patch(key,field,*,fetch_missing=False):
         folder=Path(tmp)
         (folder/'base').write_bytes(base)
         (folder/'features').write_text(json.dumps(features,separators=(',',':')))
-        convert_local(folder,'map',lambda:draw_map_patch(folder))
+        draw_map_patch(folder)
         return (folder/'rgb').read_bytes(),relief
 
 def load_surface(key,field,source,pixels=1024):
@@ -502,20 +494,3 @@ class FlightImagery:
 
     def close(self):
         self.pool.shutdown(wait=False,cancel_futures=True)
-
-
-def run_image_worker(source,folder,*args):
-    """Run only the standalone image worker in the Android map interpreter."""
-    script=folder/source.name
-    script.write_bytes(source.read_bytes())
-    subprocess.run(['proot-distro','login','pocket-maps','--bind',f'{folder.resolve()}:/mnt','--',
-                    '/usr/bin/python3',f'/mnt/{script.name}',*args,'/mnt'],check=True,timeout=45)
-
-if __name__=='__main__':
-    folder=Path(sys.argv[2])
-    if sys.argv[1]=='map':draw_map_patch(folder)
-    elif sys.argv[1]=='relief':decode_relief(folder)
-    elif sys.argv[1] in ('patch-512','patch-1024','patch-2048'):
-        size=int(sys.argv[1].split('-')[1]);decode_aerial(folder,(size,size))
-    elif sys.argv[1]=='aerial':decode_aerial(folder)
-    else:convert(sys.argv[1],folder)

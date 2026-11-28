@@ -11,7 +11,6 @@ def panel(jet=False):
         import tempfile
         from pathlib import Path
         from data_paths import rainier_cache
-        from pnw.terrain import run_image_worker
         import hashlib
         cache=rainier_cache()
         cache.mkdir(parents=True,exist_ok=True)
@@ -25,26 +24,12 @@ def panel(jet=False):
         except FileNotFoundError:pass
         with tempfile.TemporaryDirectory(dir=cache) as tmp:
             folder=Path(tmp)
-            try:from PIL import Image
-            except ImportError:
-                run_image_worker(Path(__file__),folder,'jet' if jet else 'trainer')
-                data=(folder/'panel').read_bytes()
-            else:data=paint_panel(jet)
-            if len(data)!=1000*244*4:raise ValueError('Incomplete cockpit panel')
+            data=paint_panel(jet)
             output=folder/'cached'
             output.write_bytes(key+data)
             output.replace(target)
             return data
     return paint_panel(jet)
-
-def flight_panel(jet):
-    """Keep the flight controls and GL instrument needles usable on an image failure."""
-    import subprocess
-    import sys
-    try:return panel(jet)
-    except (ImportError,OSError,ValueError,subprocess.SubprocessError) as exc:
-        print(f'Cockpit artwork unavailable, using plain instrument panel ({exc})',file=sys.stderr)
-        return bytes(1000*34*4)+bytes((42,46,49,255))*(1000*210)
 
 def paint_panel(jet=False):
     from PIL import Image, ImageDraw, ImageFont
@@ -124,9 +109,3 @@ def paint_panel(jet=False):
             span=math.sqrt(20**2-(j*7)**2)
             d.line((cx-span,144+j*7,cx+span,146+j*7),fill=(74,77,73),width=3)
     return art.tobytes()
-
-
-if __name__=='__main__':
-    import sys
-    from pathlib import Path
-    (Path(sys.argv[-1])/'panel').write_bytes(paint_panel(sys.argv[1]=='jet'))
