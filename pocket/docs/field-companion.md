@@ -678,7 +678,10 @@ The freeway has a fictional patrol encounter in manual mode.
 streets around Pike Place or downtown Tacoma. Arrow keys or WASD drive and steer.
 On touch, drag forward or backward for speed and sideways to steer. On a
 controller use the left stick. Go or A/Cross toggles cruise, and Exit or B/Circle
-continues on foot. The optional flower run ends when you stop at the destination.
+continues on foot. In either car, press **0**, tap **View**, or click the right stick
+to switch between the driver’s seat and the overhead camera. Follow the amber
+line on the driving minimap from First Avenue to the I-5 ramp.
+The optional flower run ends when you stop at the destination.
 Set `POCKET_KID_MODE=1` before launching to follow the delivery route at up to
 5 m/s with automatic steering and a stop at the handoff. This switch currently
 affects city rides.

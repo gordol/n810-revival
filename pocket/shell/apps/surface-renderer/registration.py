@@ -392,7 +392,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             if self.pause_key(key,kind=='press'):return True
             scene=self.pixel_scene
             if getattr(scene,'road',None):
-                if key=='v' and scene.road.has_car_camera:
+                if key=='0' and scene.road.has_car_camera:
                     if kind=='press':scene.road.overhead=not scene.road.overhead
                     scene.pixel_dirty=True
                     return True

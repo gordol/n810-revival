@@ -814,7 +814,7 @@ class RainierView:
             if self.glider:labels=('Stop' if self.outing else 'Land','Restart','Explore',labels[3],'Map')
         if self.glider and self.outing in ('jet','hangar-jet'):labels=('Stop','Flight','Explore','Pause','Map')
         if self.outing=='scuba':labels=('Surface','Restart','Explore','Mute' if self.sound else 'Sound','Pause')
-        if self.road:labels=('Exit','Stop' if self.road.cruise else 'Go','Explore','Pause','View' if self.road.has_car_camera else 'Restart')
+        if self.road:labels=('Exit','Stop' if self.road.cruise else 'Go','Explore','Pause','View (0)' if self.road.has_car_camera else 'Restart')
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
         footer=''.join(label.center(b-a)[:b-a] for label,a,b in zip(labels,bounds,bounds[1:]))
