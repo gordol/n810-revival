@@ -222,6 +222,9 @@ def streets(height,quad,field=None):
             else:
                 for i in range(1,len(vertices)-1):
                     quad((vertices[0],vertices[i],vertices[i+1],vertices[i+1]),color,material)
+    elevated={frozenset((a,b)) for _,_,_,points,before,after in overpasses()
+              for path in (tuple(reversed(before))+tuple(points)+tuple(after),)
+              for a,b in zip(path,path[1:])}
     junctions={}
     for name,kind,points,half,crossings in road_lines():
         for pt in (points[0],points[-1]):junctions.setdefault(pt,set()).add(name)
@@ -238,7 +241,7 @@ def streets(height,quad,field=None):
         edges=[normals[0],*(join(a,b) for a,b in zip(normals,normals[1:])),normals[-1]]
         for i,((x,z),(ex,ez)) in enumerate(zip(points,points[1:])):
             length=math.hypot(ex-x,ez-z)
-            if length<.2:continue
+            if length<.2 or frozenset(((x,z),(ex,ez))) in elevated:continue
             dx,dz=(ex-x)/length,(ez-z)/length
             def offset_point(d,w):
                 f=d/length
@@ -361,6 +364,8 @@ def overpasses():
 def bridge_spans(height):
     # OSM divides one physical deck into ways. Shared endpoints must meet at
     # exactly one height even when their sampled terrain and grades differ.
+    ground_joins={point for road,line in zip(freeway_data()['roads'],freeway_lines())
+                  if road[2].get('bridge')!='yes' for point in line[2]}
     endpoints={}
     records=[]
     for bridge,(_,kind,half,points,before,after) in enumerate(overpasses()):
@@ -379,6 +384,8 @@ def bridge_spans(height):
         joins=[endpoints[p,kind=='footway'] for p in (start,end)]
         lead=[] if len(joins[0])>1 else before
         tail=[] if len(joins[1])>1 else after
+        if start in ground_joins:lead=[]
+        if end in ground_joins:tail=[]
         path=list(reversed(lead))+points+tail
         lead_len=sum(math.dist(a,b) for a,b in zip([start]+lead,lead))
         tail_len=sum(math.dist(a,b) for a,b in zip([end]+tail,tail))
@@ -387,9 +394,9 @@ def bridge_spans(height):
             fraction=max(0.,min(1.,d/total))
             deck=max(joins[0])*(1-fraction)+max(joins[1])*fraction
             weight=1.
-            if len(joins[0])==1:
+            if len(joins[0])==1 or start in ground_joins:
                 weight=min(weight,(d+lead_len)/lead_len if lead_len else d/min(75.,total*.5))
-            if len(joins[1])==1:
+            if len(joins[1])==1 or end in ground_joins:
                 weight=min(weight,(total+tail_len-d)/tail_len if tail_len else (total-d)/min(75.,total*.5))
             return bed+(deck-bed)*max(0.,min(1.,weight))
         chain=-lead_len
@@ -454,11 +461,26 @@ class BridgeRoads:
 
 
 def bridge_mesh(height,quad,box):
-    for _,kind,half,(x,z),(ex,ez),length,base,grade in bridge_spans(height):
+    from itertools import groupby
+    for _,spans in groupby(bridge_spans(height),key=lambda row:row[0]):
+        bridge_sections(list(spans),height,quad,box)
+
+
+def bridge_sections(spans,height,quad,box):
+    normals=[((b[1]-a[1])/length,(a[0]-b[0])/length) for _,_,_,a,b,length,_,_ in spans]
+    edges=[normals[0]]
+    for a,b in zip(normals,normals[1:]):
+        divisor=1+a[0]*b[0]+a[1]*b[1]
+        edges.append(((a[0]+b[0])/divisor,(a[1]+b[1])/divisor) if divisor>.25 else b)
+    edges.append(normals[-1])
+    chain=0.
+    next_pier=16.
+    for i,(_,kind,half,(x,z),(ex,ez),length,base,grade) in enumerate(spans):
         dx,dz=(ex-x)/length,(ez-z)/length
         def strip(left,h1,right,h2,color,material=0.):
-            quad([(x+dx*t+dz*u,base+t*grade+h,z+dz*t-dx*u)
-                  for t,u,h in ((0,left,h1),(length,left,h1),(length,right,h2),(0,right,h2))],color,material)
+            quad([(px+n[0]*u,py+h,pz+n[1]*u) for px,py,pz,n,u,h in (
+                (x,base,z,edges[i],left,h1),(ex,base+length*grade,ez,edges[i+1],left,h1),
+                (ex,base+length*grade,ez,edges[i+1],right,h2),(x,base,z,edges[i],right,h2))],color,material)
         strip(-half,0,half,0,(.30,.31,.31),.249)
         strip(-half,-.8,half,-.8,(.27,.28,.27))
         for side in (-1,1):
@@ -472,11 +494,26 @@ def bridge_mesh(height,quad,box):
             for lane in range(1,round((half-.6)/1.8)):
                 stripe=-half+.6+lane*3.6
                 if int((x+z)/9)%2:strip(stripe,.02,stripe+.12,.02,(.84,.84,.8))
-        for offset in range(16,math.ceil(length),32):
-            px,pz=x+dx*offset,z+dz*offset
-            if not on_road(px,pz):
+        if chain<=next_pier<chain+length:
+            offset=next_pier-chain
+            next_pier+=32.
+            for side in (-1,1):
+                lateral=side*(half-.85)
+                px=x+dx*offset+dz*lateral
+                pz=z+dz*offset-dx*lateral
                 y=height(px,pz)-.2
-                box(px,pz,y,1.3,half,max(.1,base-.8+grade*offset-y),(.49,.48,.45),rotation=(dx,dz))
+                clearance=base+grade*offset-.8-y
+                if clearance<1.6:continue
+                # Skip piers in a crossing street below this deck.
+                crossing=False
+                for ax,az,u,v,l2,w in driving_lanes().get((math.floor(px/32),math.floor(pz/32)),()):
+                    if abs(u*dx+v*dz)>.91*math.sqrt(l2):continue
+                    t=max(0.,min(1.,((px-ax)*u+(pz-az)*v)/l2))
+                    if math.hypot(px-ax-u*t,pz-az-v*t)<w+.6:
+                        crossing=True
+                        break
+                if not crossing:box(px,pz,y,1.15,1.45,clearance,(.49,.48,.45),rotation=(dz,-dx))
+        chain+=length
 
 
 def roadside_trees(height,quad):
