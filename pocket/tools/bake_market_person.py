@@ -27,6 +27,15 @@ for o in objects:
     ratio={'Sam | anatomical body':.18,'Maya | anatomical body':.18,'ponytail01':.60,'short01':.48,'shoes01':.55}.get(o.name)
     if ratio:
         bpy.context.view_layer.objects.active=o
+        if o.name.endswith('anatomical body'):
+            # GLB splits the skin at shading and UV seams. Simplifying each
+            # island separately leaves pinholes through the animated face.
+            import bmesh
+            skin=bmesh.new()
+            skin.from_mesh(o.data)
+            bmesh.ops.remove_doubles(skin,verts=list(skin.verts),dist=1e-6)
+            skin.to_mesh(o.data)
+            skin.free()
         mod=o.modifiers.new('Static topology for posing','DECIMATE')
         mod.ratio=ratio
         bpy.ops.object.modifier_move_to_index(modifier=mod.name,index=0)

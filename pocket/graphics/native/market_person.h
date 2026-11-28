@@ -47,7 +47,7 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
  memcpy(model->sole,(const unsigned char *)data+sizeof(header),sizeof(model->sole));
  const unsigned char *mesh=(const unsigned char *)data+sizeof(header)+sizeof(model->sole);
  /* Stable grip and crown vertices in the two packaged NPC3 topologies. */
- static const unsigned anchor_vertex[2][2]={{5593,10534},{5226,10445}};
+ static const unsigned anchor_vertex[2][2]={{4673,3934},{4257,3160}};
  const int16_t *posed=(const int16_t *)(mesh+4u*ni+12u*nv);
  for(unsigned j=0;j<2;j++){
   unsigned v=anchor_vertex[slot][j];
