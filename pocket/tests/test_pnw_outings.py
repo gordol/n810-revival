@@ -326,7 +326,7 @@ class OutingTests(unittest.TestCase):
             path=pocket/'graphics'/'assets'/'people'/f'{name}.zlib'
             data=zlib.decompress(path.read_bytes())
             magic,nv,ni,frames,w,h=struct.unpack_from('<4s5I',data)
-            self.assertEqual((magic,frames),(b'NPC3',16))
+            self.assertEqual((magic,frames),(b'NPC3',28))
             offset=24
             for frame in range(frames):
                 lx,left,_,rx,right,_=struct.unpack_from('<6f',data,offset+frame*24)

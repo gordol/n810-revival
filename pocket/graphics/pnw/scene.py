@@ -709,18 +709,20 @@ class RainierView:
     flight_surfaces={}
     look_gain=1.
     name='Rainier walk'
-    paces=(('Walk',1.),('Brisk',2.),('Explore',8.))
+    paces=(('Walk',.52),('Brisk',.75),('Explore',8.))
 
     @property
     def pace_name(self):return self.paces[self.pace_index][0]
 
     @property
-    def pace(self):return self.paces[self.pace_index][1]
+    def pace(self):return max(self.paces[self.pace_index][1],1.45 if self.run_toggle or self.shift_keys else 0.)
 
     def __init__(self,host):
         self.host=host
         self.ski=self.climb=None
         self.quality=RiverQuality()
+        self.run_toggle=False
+        self.shift_keys=set()
         self.pace_index=0
         self.regional=False
         self.valley_pose=self.map_position=None
@@ -746,9 +748,11 @@ class RainierView:
         self.landing_sound=False
         from pnw.traffic import Traffic
         self.traffic=Traffic()
-        self.street_walls=self.nearby_walls=None
         self.parked_cars=[]
+        self.street_walls=self.nearby_walls=None
         self.patrol_owner=None
+        self.gait_phase=0.
+        self.avatar_pose=12.5
         self.parked_bike=None
         self.third_person=False
         self.neighborhood=None
@@ -1097,6 +1101,7 @@ class RainierView:
             elif action=='pedal':self.bike.pedaling=not self.bike.pedaling
             elif action=='dismount':self.dismount_bike()
             elif action=='remount':self.remount_bike()
+            elif action=='run':self.run_toggle=not self.run_toggle
             elif action=='ground-view':self.toggle_ground_view()
             elif self.ski:
                 if action=='leave':self.stop_ski()
@@ -1324,6 +1329,13 @@ class RainierView:
             elif button==1 and self.climb.raised:self.climb.wave=0.
 
         elif self.world and not self.ski and not self.album and not self.notebook:
+            if button==7:
+                self.run_toggle=not self.run_toggle
+                self.pixel_dirty=True
+                return
+            if button==8:
+                self.toggle_ground_view()
+                return
             if self.outing=='hangar' and button==0:
                 bay=self.hangar_bay()
                 if bay:self.start_outing(bay,self.camera)
@@ -1506,6 +1518,7 @@ class RainierView:
         if self.ski:return self.ski.controls(width,height)
         if self.climb:return self.climb.controls(width,height)
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
+        buttons.append(('run','Walk' if self.run_toggle else 'Run',(width-12,height-10,12,3)))
         buttons.append(('ground-view','View (0)',(width-12,height-7,12,3)))
         if self.near_bike():buttons.append(('remount','Mount bike',(1,height-4,14,3)))
         if self.outing in market_visit.FLOORS:
@@ -1870,6 +1883,13 @@ class RainierView:
             else:
                 self.update_fishing(age)
         if self.camera!=camera or age-self.age>=1/20:
+            step=math.dist(camera[:2],self.camera[:2]) if self.camera else 0.
+            elapsed=age-self.age
+            self.avatar_pose=12.5
+            if not self.road and 0.<step<4. and elapsed>0.:
+                running=step/elapsed>2.5
+                self.gait_phase=(self.gait_phase+12*step/(2.3 if running else 1.10))%12
+                self.avatar_pose=self.gait_phase+(20 if running else 0)
             self.camera=camera;self.age=age;self.pixel_dirty=True
 
     def walk_height(self,x,z):
@@ -2235,8 +2255,7 @@ class RainierView:
             foot=ground(x,z)-origin.y
             if self.bike:poses=poses[:30]+[(13,x,foot,z,math.degrees(yaw),0.,0.)]
             poses=poses[:31]+[(0,x,foot+(.25 if self.bike else 0),z,math.degrees(yaw),
-                               12.5 if self.camera==getattr(self,'last_avatar_pose',None) else self.age*6%12,2)]
-            self.last_avatar_pose=self.camera
+                               self.avatar_pose,2)]
             camera_x=x-4.2*math.sin(yaw)
             camera_z=z-4.2*math.cos(yaw)
             eye=max(foot+2.35,ground(camera_x,camera_z)-origin.y+1.1)

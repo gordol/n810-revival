@@ -22,7 +22,7 @@ blender -b --python-exit-code 1 -P pocket/tools/bake_market_person.py -- maya.gl
 ```
 
 The bake removes the handheld accessory, simplifies the mesh, atlases the
-materials, and samples the rig for a looping stride, two asymmetrical standing poses, a
+materials, and samples the rig for separate twelve-key walking and running strides, two asymmetrical standing poses, a
 one-handed toss and a two-handed catch. Pocket solves each leg to a moving shoe contact and shifts the pelvis over
 the supporting leg. The shoe rolls from heel contact to toe-off. Sam walks
 with a slightly shorter swing on the right. The bake checks forearm and hand triangles against the

@@ -251,6 +251,7 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
 
         def cancel_keys(self,now=None):
             self.cancel_pointer()
+            if hasattr(self.pixel_scene,"shift_keys"):self.pixel_scene.shift_keys.clear()
             super().cancel_keys(now)
 
         def advance_drag(self):

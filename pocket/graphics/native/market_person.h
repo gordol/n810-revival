@@ -40,7 +40,7 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
  struct posed_person *model=&s->people[slot];
  memcpy(header,data,sizeof(header));
  unsigned nv=header[1],ni=header[2],frames=header[3],w=header[4],h=header[5];
- if(memcmp(data,"NPC3",4)||!nv||nv>100000||!ni||ni>500000||frames!=16||w!=2048||h!=2048)
+ if(memcmp(data,"NPC3",4)||!nv||nv>100000||!ni||ni>500000||frames!=28||w!=2048||h!=2048)
   return SDL_SetError("Invalid market person");
  size_t geometry=4u*ni+12u*nv*(1u+frames);
  if(sizeof(header)+sizeof(model->sole)+geometry+4u*w*h!=bytes)return SDL_SetError("Invalid market mesh length");
@@ -197,7 +197,9 @@ static void market_person_draw(struct posed_person *model,int kind,float pose,co
     catch starts from its own resting stance; pose 18 settles from a stride. */
  unsigned a,b;
  float weight;
- if(pose<12.f){
+ if(pose>=20.f){
+  float phase=fmodf(pose-20.f,12.f);a=16+(unsigned)phase;b=16+((unsigned)phase+1)%12;weight=phase-floorf(phase);
+ }else if(pose<12.f){
   a=(unsigned)pose;b=(a+1)%12;weight=pose-a;
  }else if(pose<14.f){
   a=12;b=13;weight=pose-12.f;

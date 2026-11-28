@@ -97,6 +97,13 @@ class DesktopWindow(Window):
             elif kind==3:
                 motion={1073742049:'shift-left',1073742053:'shift-right',32:'space',1073741904:'left',1073741903:'right',1073741906:'up',1073741905:'down'}
                 motion_key=motion.get(x,chr(x) if 32<=x<127 else '')
+                walking=self.controller_scene() if motion_key in ('shift-left','shift-right','w','a','s','d') else None
+                if walking and hasattr(walking,'shift_keys') and not (walking.road or walking.glider or walking.bike or walking.notebook):
+                    if motion_key.startswith('shift-'):
+                        if up:walking.shift_keys.discard(motion_key)
+                        else:walking.shift_keys.add(motion_key)
+                        continue
+                    button &= ~3
                 if x==27 and not up and self.captured:
                     self.release_capture()
                     continue

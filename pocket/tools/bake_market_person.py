@@ -143,7 +143,7 @@ def ease(x):
     x=min(1.,max(0.,x))
     return x*x*(3-2*x)
 
-def walking_legs(cycle):
+def walking_legs(cycle, running=False):
     # Solve to the ankle in metres. Each stance travels back at street speed.
     # The swing starts and ends at the same velocity as the planted foot.
     phase=math.tau*cycle
@@ -163,8 +163,8 @@ def walking_legs(cycle):
     bpy.context.view_layer.update()
     for side,sign in (('l',1),('r',-1)):
         t=(cycle+(.5 if sign==1 else 0))%1
-        stance=.57
-        stride=1.10
+        stance=.38 if running else .57
+        stride=2.15 if running else 1.10
         forward=stride*(stance/2-t)
         lift=0.
         # Rock over the heel at contact and the toe at push-off. Smoothstep
@@ -175,12 +175,12 @@ def walking_legs(cycle):
         if t>=stance:
             swing=(t-stance)/(1-stance)
             forward+=stride*swing*swing*(3-2*swing)
-            lift=.065*math.sin(math.pi*swing)**2
+            lift=(.24 if running else .065)*math.sin(math.pi*swing)**2
             roll=toe+(heel-toe)*ease(swing)
         hip=world_head('thigh_'+side)
         knee=world_head('calf_'+side)
         rest=arm.matrix_world@arm.data.bones['foot_'+side].head_local
-        goal=Vector((sign*(.098+.013*lift/.065),rest.y-forward,rest.z+lift))
+        goal=Vector((sign*(.098+.013*lift/(.24 if running else .065)),rest.y-forward,rest.z+lift))
         # Rotate the ankle about the contacting end of the shoe, including
         # its fore/aft displacement, before solving the knee to that ankle.
         contact=Vector((0,.052 if roll<0 else -.155,-rest.z))
@@ -207,15 +207,15 @@ def walking_legs(cycle):
             direction=arm.matrix_world.to_3x3()@(foot.tail-foot.head)
             aim('foot_'+side,Matrix.Rotation(roll,3,'X')@direction)
 
-def walking_arms(phase):
+def walking_arms(phase, running=False):
     for side,sign in (('l',1),('r',-1)):
         # Left foot trails at stride zero as the left arm swings forward.
         # Drive the elbow parent shared by the wrist and forearm twist bone.
         # Sam's jacket needs clearance at the hip. A smaller right-hand
         # swing keeps the arms asymmetric without pinning the elbow in place.
         swing=.83 if jacket and side=='r' else 1.
-        shoulder=sign*.21*swing*math.cos(phase)
-        forearm=.35+sign*.29*swing*math.cos(phase-.18)
+        shoulder=sign*(.56 if running else .21)*swing*math.cos(phase)
+        forearm=(1.10 if running else .35)+sign*(.45 if running else .29)*swing*math.cos(phase-.18)
         upper_out=.22 if jacket else .32
         lower_out=.065 if jacket else .105
         aim('upperarm_'+side,(sign*upper_out,-math.sin(shoulder),-math.cos(shoulder)))
@@ -269,12 +269,13 @@ walk_surfaces=[]
 jacket=any(o.name.startswith('Sam | anatomical body') for o in objects)
 arm.animation_data_clear()
 poses=[];contacts=[]
-for frame in range(16):
+for frame in range(28):
     for bone in arm.pose.bones:bone.matrix_basis=Matrix.Identity(4)
     bpy.context.view_layer.update()
-    if frame<12:
-        walking_legs(frame/12)
-        walking_arms(math.tau*frame/12)
+    if frame<12 or frame>=16:
+        cycle=(frame if frame<12 else frame-16)/12
+        walking_legs(cycle,frame>=16)
+        walking_arms(math.tau*cycle,frame>=16)
     else:
         left=frame in (13,15)
         lean=1 if left else -1

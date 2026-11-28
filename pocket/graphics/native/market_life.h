@@ -409,6 +409,11 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
    float size=kind==1?.96f+.025f*seed:.87f+.016f*((seed>>7)&15u);
    float width=kind==1?1.02f:.89f+.028f*market_choice(seed,11,9);
    glScalef(width,size,size);
+   if(kind==0 && pose>=20.f){
+    float lift=sinf((pose-20.f)*.5235988f);
+    glTranslatef(0,.085f*lift*lift,0);
+    glRotatef(8.f,1,0,0);
+   }
    float anchors[2][3]={{0}};
    market_person_draw(&s->people[kind==0 && (seed&1)],kind,pose,kind==1?coats[3+seed]:coat,
                       kind==1?0.f:((int)((seed>>2)&15u)-7)*.009f,kind==0?seed:0,anchors);

@@ -33,7 +33,7 @@ struct gpu_scene {
  float river_level,animal_gain,wind_level,ski_level;
  struct river_bounds {float x,y,z,r;} *river_blocks;
  SDL_Texture *river_print;int print_w,print_h;
- struct posed_person {GLuint program,mesh,atlas;unsigned nv,ni,skin_tile;float sole[16][2][3],attachments[16][2][3];} people[2];
+ struct posed_person {GLuint program,mesh,atlas;unsigned nv,ni,skin_tile;float sole[28][2][3],attachments[28][2][3];} people[2];
  GLuint flight_photo[111],flight_mesh[111];GLsizei flight_count[111];GLfloat flight_areas[111][3];
  float market_lamps[12];int market_glow;GLuint market_materials;
  GLuint coupe_mesh;unsigned coupe_groups[29];
