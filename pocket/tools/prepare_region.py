@@ -14,6 +14,7 @@ import tempfile
 import zlib
 
 from bake_region import build
+from bake_woodland import add_woodland
 
 SOURCE = 'https://download.geofabrik.de/north-america/us/washington-latest.osm.pbf'
 BOUNDS = '-123.30,46.70,-121.50,48.15'
@@ -129,7 +130,7 @@ def prepare(launch=False):
         with sqlite3.connect(f'{target.resolve().as_uri()}?mode=ro', uri=True) as db:
             db.execute('SELECT tx,tz,model,data FROM features LIMIT 1').fetchone()
             version = db.execute('PRAGMA user_version').fetchone()[0]
-        if launch or version >= 4 or os.environ.get('POCKET_REGION_SCENERY'):
+        if launch or version >= 5 or os.environ.get('POCKET_REGION_SCENERY'):
             print(f'Using installed regional scenery from {target}')
             return True
         return False
@@ -170,6 +171,7 @@ def install(target):
             raise SystemExit(f'Incomplete regional extract: {counts}')
         add_airport_roads(region, folder, database)
         add_regional_roads(region,folder,database)
+        add_woodland(region,folder,database)
         os.replace(database, target)
         print(f'Installed {target} ({dict(counts)})')
 

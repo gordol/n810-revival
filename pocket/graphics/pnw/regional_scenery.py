@@ -89,6 +89,13 @@ class Neighborhood:
                 nx,nz=dz*w/length,-dx*w/length
                 bx,bz=ax+dx,az+dz
                 road_quads.append(((ax-nx,az-nz),(bx-nx,bz-nz),(bx+nx,bz+nz),(ax+nx,az+nz)))
+            road_bounds={}
+            for corners in road_quads:
+                xs,zs=zip(*corners)
+                bounds=min(xs)-2,max(xs)+2,min(zs)-2,max(zs)+2
+                for i in range(math.floor(bounds[0]/32),math.floor(bounds[1]/32)+1):
+                    for j in range(math.floor(bounds[2]/32),math.floor(bounds[3]/32)+1):
+                        road_bounds.setdefault((i,j),[]).append(bounds)
             for corners in road_quads:
                 if len(mesh)//7>=246000:break
                 a,b,c,d=((u,ground(u,v)+.095,v) for u,v in corners)
@@ -100,14 +107,29 @@ class Neighborhood:
                 if kind=='place':
                     px,pz,name=row;self.places.append((px/10,pz/10,name));continue
                 if len(mesh)//7>247000:continue
-                if kind=='tree':
-                    px,pz=row[0]/10,row[1]/10;y=ground(px,pz);r=2.1
-                    foliage=(.17,.32+(row[0]%12)*.006,.17)
-                    for i in range(5):
-                        a=i*math.tau/5;b=(i+1)*math.tau/5
-                        e=(px+r*math.cos(a),y+3.6,pz+r*math.sin(a))
-                        f=(px+r*math.cos(b),y+3.6,pz+r*math.sin(b))
-                        face(((px,y+.35,pz),e,f,e,f,(px,y+7,pz)),foliage,.512)
+                if kind in ('tree','woodland'):
+                    positions=[(row[0]/10,row[1]/10)] if kind=='tree' else row
+                    for px,pz in positions:
+                        if len(mesh)//7>246000:break
+                        if kind=='woodland':
+                            from pnw.seattle_places import on_road
+                            if on_road(px,pz) or any(l<=px<=r and b<=pz<=t for l,r,b,t in
+                                    road_bounds.get((math.floor(px/32),math.floor(pz/32)),())):continue
+                        seed=(int(px*10)*73+int(pz*10)*19)&255
+                        y=ground(px,pz)
+                        r=1.7+seed/110
+                        h=5.8+seed/28
+                        green=(.14,.25+seed/1800,.16)
+                        for i in range(6):
+                            a=i*math.tau/6;b=(i+1)*math.tau/6
+                            e=(px+r*math.cos(a),y+h*.42,pz+r*math.sin(a))
+                            f=(px+r*math.cos(b),y+h*.42,pz+r*math.sin(b))
+                            low=(px,y+h*.18,pz)
+                            face((low,e,f,e,f,(px,y+h,pz)),green,.512)
+                            if i%2==0:
+                                e=(px+.22*math.cos(a),y,pz+.22*math.sin(a))
+                                f=(px+.22*math.cos(b),y,pz+.22*math.sin(b))
+                                face((e,f,(px,y+h*.4,pz)),(.30,.22,.15),0.)
                     continue
                 height,ring,cx,cz,roof=row
                 px,pz=cx/10,cz/10
