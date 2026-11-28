@@ -262,7 +262,7 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
    unsigned hair=market_choice(seed,8,MARKET_HEAD_LOOKS);
    if(kind==0 && hair && s->people[seed&1].program){
     static const unsigned cap_dyes[]={0,1,5,6,8,9,15,16};
-    const float *locks=market_hair_colors[market_choice(seed,9,8)];
+    const float *locks=market_hair_swatch(seed);
     float face=((int)((seed>>2)&15u)-7)*.009f;
     glPushMatrix();glScalef(1.f+face,1,1);
     glTranslatef(anchors[1][0],anchors[1][1],anchors[1][2]);

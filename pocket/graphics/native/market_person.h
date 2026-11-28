@@ -18,6 +18,16 @@ static const float market_hair_colors[][3]={
  {.09,.075,.069},{.19,.12,.08},{.35,.22,.15},{.51,.26,.14},
  {.59,.46,.29},{.78,.67,.48},{.48,.46,.43},{.78,.77,.72}
 };
+/* Art-directed frequencies for the simulated crowd. All eight swatches
+ * remain reachable at every complexion, including silver hair. */
+static const float *market_hair_swatch(unsigned seed){
+ unsigned tone=market_choice(seed,7,16),roll=market_choice(seed,9,100);
+ if(roll<9)return market_hair_colors[6+roll%2];
+ if(roll<9+(16-tone))return market_hair_colors[5];
+ if(roll<32-tone)return market_hair_colors[4];
+ if(roll<39-tone)return market_hair_colors[3];
+ return market_hair_colors[market_choice(seed,13,3)];
+}
 static void market_person_release(struct posed_person *model){
  glDeleteBuffers(1,&model->mesh);glDeleteTextures(1,&model->atlas);glDeleteProgram(model->program);
  model->mesh=model->atlas=model->program=0;
@@ -109,7 +119,11 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
   "if(shoeCut==3)paint=mix(paint,vec3(.74,.70,.61),.76*(1.-smoothstep(.004,.012,abs(z-.074))));"
   "if(shoeCut==4)paint=mix(paint,.5*footwear+.15,.83*smoothstep(.44,.50,h));"
   "if(shoeCut==5)paint=mix(paint,vec3(.75,.72,.66),.62*smoothstep(.48,.60,h)*smoothstep(.4,.9,cos(190.*z)));}"
-  "float tile=floor(uv.x*4.)+4.*floor(uv.y*4.);if(tile==skinTile)paint*=mix(vec3(1.),vec3(.40,.26,.21),complexion);"
+  "float tile=floor(uv.x*4.)+4.*floor(uv.y*4.);if(tile==skinTile){"
+  "vec3 reference=skinTile==5.?vec3(.80,.62,.49):vec3(.85,.69,.57);"
+  "vec3 target=mix(vec3(.98,.81,.71),vec3(.72,.48,.34),min(1.,2.*complexion));"
+  "target=mix(target,vec3(.32,.19,.14),max(0.,2.*complexion-1.));"
+  "paint=c.rgb*(target/reference);}"
   // Maya's base top leaves her arms bare. Extend the outer garment onto the
   // animated arm surface down to the wrist, keeping hands, face and neck free.
   "if(tile==skinTile && outfit>=8 && outfit<=10 && abs(body.x)>.105 && body.y>.82 && body.y<1.40){"
@@ -201,7 +215,7 @@ static void market_person_draw(struct posed_person *model,int kind,float pose,co
  glUniform1f(glGetUniformLocation(model->program,"complexion"),market_choice(identity,7,16)/15.f);
  glUniform1i(glGetUniformLocation(model->program,"hair"),kind==0 && anchors?market_choice(identity,8,MARKET_HEAD_LOOKS):0);
  glUniform1f(glGetUniformLocation(model->program,"skinTile"),(float)model->skin_tile);
- glUniform3fv(glGetUniformLocation(model->program,"hairColor"),1,market_hair_colors[market_choice(identity,9,8)]);
+ glUniform3fv(glGetUniformLocation(model->program,"hairColor"),1,market_hair_swatch(identity));
  glUniform1f(glGetUniformLocation(model->program,"buildShape"),((int)market_choice(identity,10,9)-4)*.05f);
  glUniform1f(glGetUniformLocation(model->program,"face"),face);
  glUniform1i(glGetUniformLocation(model->program,"pantCut"),market_choice(identity,3,6));
