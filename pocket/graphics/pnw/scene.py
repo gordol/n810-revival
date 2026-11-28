@@ -1781,6 +1781,7 @@ class RainierView:
                 return
             except Exception as error:self.error=str(error);return
             finally:self.pool.shutdown(wait=False);self.pool=self.job=None
+        arriving=self.trip_pose is not None
         if self.trip_pose:
             owner.x,owner.z,owner.yaw,owner.pitch=self.trip_pose
             self.trip_pose=None
@@ -1925,6 +1926,10 @@ class RainierView:
             if self.walk_bridges is None:
                 from pnw.seattle_places import BridgeRoads
                 self.walk_bridges=BridgeRoads(lambda u,v:surface(self.world[0],u,v))
+            if self.camera and not arriving and math.dist(self.camera[:2],(owner.x,owner.z))<8:
+                from pnw.vehicle_impact import walk_past_obstacles
+                layers=[w for w in (self.street_walls,self.nearby_walls) if w]
+                owner.x,owner.z=walk_past_obstacles(self.camera[:2],(owner.x,owner.z),self.walk_height,layers)
             self.walk_bridges.sample(owner.x,owner.z,surface(self.world[0],owner.x,owner.z),update=True)
             owner.x,owner.z=self.traffic.separate_walker(owner.x,owner.z,self.walk_height(owner.x,owner.z))
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)

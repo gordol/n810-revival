@@ -124,6 +124,23 @@ class StreetObstacles:
         return None
 
 
+def walk_past_obstacles(previous,goal,height,layers):
+    x,z=previous
+    dx,dz=goal[0]-x,goal[1]-z
+    steps=max(1,math.ceil(math.hypot(dx,dz)/.18))
+    for _ in range(steps):
+        ux,uz=dx/steps,dz/steps
+        for layer in layers:
+            normal=layer.contact(x+ux,z+uz,height(x,z)+.45,.32)
+            if normal:
+                inward=min(0.,ux*normal[0]+uz*normal[1])
+                ux-=inward*normal[0]
+                uz-=inward*normal[1]
+        x+=ux
+        z+=uz
+    return x,z
+
+
 def strike_scenery(ride, previous, height, layers):
     dx,dz=ride.x-previous[0],ride.z-previous[1]
     steps=max(1,math.ceil(math.hypot(dx,dz)/.45))
