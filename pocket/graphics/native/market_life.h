@@ -142,7 +142,7 @@ static void heavy_vehicle(int kind,int lamps){
  }
 }
 
-static void detailed_coupe(struct gpu_scene *s,unsigned paint,int lamps){
+static void detailed_vehicle(struct gpu_scene *s,unsigned slot,unsigned paint,int lamps){
  static const GLfloat colors[][3]={{.68f,.022f,.032f},{.14f,.27f,.41f},{.74f,.69f,.57f},
                                     {.12f,.15f,.18f},{.37f,.035f,.072f}};
  const GLfloat sun[]={-.45f,.85f,.35f,0}, ambient[]={.41f,.44f,.48f,1};
@@ -153,12 +153,12 @@ static void detailed_coupe(struct gpu_scene *s,unsigned paint,int lamps){
  glEnable(GL_COLOR_MATERIAL);glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
  glLightModelfv(GL_LIGHT_MODEL_AMBIENT,ambient);glLightfv(GL_LIGHT0,GL_POSITION,sun);
  glLightfv(GL_LIGHT0,GL_DIFFUSE,sky);glLightfv(GL_LIGHT0,GL_SPECULAR,sky);
- glBindBuffer(GL_ARRAY_BUFFER,s->coupe_mesh);
+ glBindBuffer(GL_ARRAY_BUFFER,s->vehicle_mesh[slot]);
  glEnableClientState(GL_VERTEX_ARRAY);glEnableClientState(GL_NORMAL_ARRAY);glDisableClientState(GL_COLOR_ARRAY);
  glVertexPointer(3,GL_FLOAT,24,0);glNormalPointer(GL_FLOAT,24,(void *)12);
  unsigned first=0;
  for(unsigned m=0;m<29;m++){
-  unsigned n=s->coupe_groups[m];if(!n)continue;
+  unsigned n=s->vehicle_groups[slot][m];if(!n)continue;
   int glossy=m==1||m==10||m==11||m==15||m==21;
   glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,glossy?shine:dull);
   glMaterialf(GL_FRONT_AND_BACK,GL_SHININESS,glossy?46.f:8.f);
@@ -445,9 +445,11 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
     glRotatef(4.f,0,0,1);
     glScalef(1.02f,.94f,.91f);
    }
-   if(kind>=11)heavy_vehicle(kind,(int)pose);
-   else if(kind==10 && s->coupe_mesh && p[6]==0)detailed_coupe(s,0,(int)pose);
-   else street_vehicle(kind==5,(unsigned)p[6],(int)pose);
+   unsigned slot=kind==5?1:kind==11?2:kind==12?3:0;
+   unsigned paint=(unsigned)p[6];
+   if(paint<32 && s->vehicle_mesh[slot])detailed_vehicle(s,slot,paint,(int)pose);
+   else if(kind>=11)heavy_vehicle(kind,(int)pose);
+   else street_vehicle(kind==5,paint%32,(int)pose);
    if((int)pose&16 && kind<11){
     glTranslatef(.07f,.70f,1.6f);glRotatef(-17.f,1,0,0);
     market_panel(0,0,0,.80f,.06f,.48f,.25f,.23f,.22f);
@@ -456,7 +458,9 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
   }else if(kind==13){
    trail_bike();
   }else if(kind==9){
-   market_panel(0,.33f,0,.92f,.49f,2.26f,.10f,.13f,.16f);
+   static const float liveries[][3]={{.10f,.13f,.16f},{.21f,.38f,.50f},{.68f,.63f,.52f},{.30f,.30f,.31f},{.47f,.12f,.17f}};
+   const float *paint=liveries[(unsigned)p[6]%5];
+   market_panel(0,.33f,0,.92f,.49f,2.26f,paint[0],paint[1],paint[2]);
    market_body(0,.91f,-.10f,.87f,.55f,1.42f,.32f,.39f,.43f);
    for(int side=-1;side<=1;side+=2){
     market_panel(side*.92f,.51f,0,.02f,.25f,.93f,.84f,.85f,.81f);

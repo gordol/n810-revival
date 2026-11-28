@@ -2082,12 +2082,12 @@ class RainierView:
                 from pnw.seattle_places import arcade_origin
                 from pnw.pike_market import offset
                 from pathlib import Path
-                if self.road:
-                    mesh=zlib.decompress((Path(__file__).resolve().parents[1]/'assets/seattle/coupe.zlib').read_bytes())
-                    upload=ctx.lib.pocket_scene_coupe
-                    upload.argtypes=[C.c_void_p,C.POINTER(C.c_uint),C.c_char_p,C.c_uint]
+                upload=ctx.lib.pocket_scene_vehicle_mesh
+                upload.argtypes=[C.c_void_p,C.c_uint,C.POINTER(C.c_uint),C.c_char_p,C.c_uint]
+                for slot,model in enumerate(('coupe','delivery-van','transit-bus','tractor-trailer')):
+                    mesh=zlib.decompress((Path(__file__).resolve().parents[1]/'assets/seattle'/(model+'.zlib')).read_bytes())
                     groups=(C.c_uint*29).from_buffer_copy(mesh)
-                    ctx.check(upload(ctx.handle,groups,mesh[116:],(len(mesh)-116)//24))
+                    ctx.check(upload(ctx.handle,slot,groups,mesh[116:],(len(mesh)-116)//24))
                 materials=zlib.decompress((Path(__file__).resolve().parents[1]/'assets/seattle/materials.rgba.zlib').read_bytes())
                 upload=ctx.lib.pocket_scene_market_materials
                 upload.argtypes=[C.c_void_p,C.c_char_p,C.c_uint]
@@ -2219,7 +2219,7 @@ class RainierView:
                     if (self.age+index*.17)% .78<.39:lamps+=12 if turn==2 else 4 if turn<0 else 8 if turn>0 else 0
                     from pnw.traffic import vehicle_type
                     poses.append((vehicle_type(index),px,ground(px,pz)+.06,pz,
-                                  math.degrees(angle),float(lamps),1+index%4))
+                                  math.degrees(angle),float(lamps),1+index%4+32*int(distance>100)))
         if sound_region and self.outing not in market_visit.FLOORS:
             reserved=[]
             for car in sorted(self.parked_cars,key=lambda car:math.hypot(car.x-x,car.z-z))[:8]:

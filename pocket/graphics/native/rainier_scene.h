@@ -483,24 +483,28 @@ void pocket_scene_market_lights(void *ptr,const float *lamps,int glow){
  s->market_glow=glow;
 }
 
-int pocket_scene_coupe(void *ptr,const unsigned *groups,const float *mesh,unsigned count){
+int pocket_scene_vehicle_mesh(void *ptr,unsigned slot,const unsigned *groups,const float *mesh,unsigned count){
  struct gpu_scene *s=ptr;
- if(!s||!mesh||!groups||!count||count>300000)return -1;
- if(s->coupe_mesh)return 0;
+ if(!s||slot>=4||!mesh||!groups||!count||count>300000)return -1;
+ if(s->vehicle_mesh[slot])return 0;
  unsigned total=0;
  for(int i=0;i<29;i++){if(groups[i]>count-total)return -1;total+=groups[i];}
  if(total!=count||scene_target(s,s->canvas)||SDL_RenderFlush(s->device))return -1;
  GLint previous,size;
  glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&previous);
- glGenBuffers(1,&s->coupe_mesh);glBindBuffer(GL_ARRAY_BUFFER,s->coupe_mesh);
+ glGenBuffers(1,&s->vehicle_mesh[slot]);glBindBuffer(GL_ARRAY_BUFFER,s->vehicle_mesh[slot]);
  glBufferData(GL_ARRAY_BUFFER,count*6*sizeof(float),mesh,GL_STATIC_DRAW);
  glGetBufferParameteriv(GL_ARRAY_BUFFER,GL_BUFFER_SIZE,&size);
  glBindBuffer(GL_ARRAY_BUFFER,(GLuint)previous);
  if(size!=(GLint)(count*6*sizeof(float))){
-  glDeleteBuffers(1,&s->coupe_mesh);s->coupe_mesh=0;return -1;
+  glDeleteBuffers(1,&s->vehicle_mesh[slot]);s->vehicle_mesh[slot]=0;return -1;
  }
- memcpy(s->coupe_groups,groups,sizeof(s->coupe_groups));
+ memcpy(s->vehicle_groups[slot],groups,sizeof(s->vehicle_groups[slot]));
  return 0;
+}
+
+int pocket_scene_coupe(void *ptr,const unsigned *groups,const float *mesh,unsigned count){
+ return pocket_scene_vehicle_mesh(ptr,0,groups,mesh,count);
 }
 
 int pocket_scene_snack(void *ptr,unsigned slot,const float *mesh,unsigned count){
