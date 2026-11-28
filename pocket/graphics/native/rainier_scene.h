@@ -304,8 +304,19 @@ static GLuint river_bloom_program(void){
  const char *vs="#version 120\n varying vec2 uv;void main(){uv=gl_Vertex.xy*.5+.5;gl_Position=gl_Vertex;}";
  const char *fs="#version 120\n varying vec2 uv;uniform sampler2D scene;uniform vec2 stepUV;"
   "vec3 bright(vec2 p){vec3 c=texture2D(scene,p,2.).rgb;return c*smoothstep(.59,.92,max(c.r,max(c.g,c.b)));}"
+  "float luma(vec3 c){return dot(c,vec3(.299,.587,.114));}"
+  "vec3 smoothEdge(){vec2 px=stepUV*.25;vec3 center=texture2D(scene,uv).rgb;"
+  "float nw=luma(texture2D(scene,uv+px*vec2(-1,1)).rgb),ne=luma(texture2D(scene,uv+px).rgb);"
+  "float sw=luma(texture2D(scene,uv-px).rgb),se=luma(texture2D(scene,uv+px*vec2(1,-1)).rgb);"
+  "float lo=min(luma(center),min(min(nw,ne),min(sw,se))),hi=max(luma(center),max(max(nw,ne),max(sw,se)));"
+  "if(hi-lo<max(.035,hi*.105))return center;"
+  "vec2 axis=vec2(sw+se-nw-ne,nw+sw-ne-se);float damp=max(.008,(nw+ne+sw+se)*.03125);"
+  "axis=px*clamp(axis/(min(abs(axis.x),abs(axis.y))+damp),vec2(-8.),vec2(8.));"
+  "vec3 inner=.5*(texture2D(scene,uv-axis/6.).rgb+texture2D(scene,uv+axis/6.).rgb);"
+  "vec3 outer=.5*inner+.25*(texture2D(scene,uv-axis*.5).rgb+texture2D(scene,uv+axis*.5).rgb);"
+  "return luma(outer)<lo || luma(outer)>hi?inner:outer;}"
   "void main(){vec3 b=bright(uv)*2.+bright(uv+stepUV)+bright(uv-stepUV)"
-  "+bright(uv+vec2(stepUV.x,-stepUV.y))+bright(uv+vec2(-stepUV.x,stepUV.y));gl_FragColor=vec4(b*.032,0.);}";
+  "+bright(uv+vec2(stepUV.x,-stepUV.y))+bright(uv+vec2(-stepUV.x,stepUV.y));gl_FragColor=vec4(smoothEdge()+b*.032,1.);}";
  GLuint v=wildlife_shader(GL_VERTEX_SHADER,vs);if(!v)return 0;
  GLuint f=wildlife_shader(GL_FRAGMENT_SHADER,fs);if(!f){glDeleteShader(v);return 0;}
  GLuint program=glCreateProgram();glAttachShader(program,v);glAttachShader(program,f);glLinkProgram(program);
@@ -331,7 +342,7 @@ static void river_bloom(struct gpu_scene *s,int x,int y,int w,int h){
  }
  glCopyTexSubImage2D(GL_TEXTURE_2D,0,0,0,x,y,w,h);glGenerateMipmap(GL_TEXTURE_2D);
  glUseProgram(s->rainier_bloom);glUniform2f(glGetUniformLocation(s->rainier_bloom,"stepUV"),4.f/w,4.f/h);
- glDisable(GL_DEPTH_TEST);glEnable(GL_BLEND);glBlendFunc(GL_ONE,GL_ONE);
+ glDisable(GL_DEPTH_TEST);glDisable(GL_BLEND);
  glBegin(GL_TRIANGLE_STRIP);glVertex2f(-1,-1);glVertex2f(1,-1);glVertex2f(-1,1);glVertex2f(1,1);glEnd();
  glDisable(GL_BLEND);
 }
@@ -1077,7 +1088,7 @@ int pocket_scene_rainier(void *ptr,int x,int y,int w,int h,const float *vertices
   for(int j=0;j<32;j++){float a=j*.19634954f;glVertex3f(marker[0]+.25f*cosf(a),marker[1],marker[2]+.25f*sinf(a));}
   glEnd();
  }
- if(high||near_market)river_bloom(s,x,y,w,h);
+ if(high||near_market||lens==-2)river_bloom(s,x,y,w,h);
  if(photo){
   GLuint samples=0;
   if(photo_query){glGetQueryObjectuiv(photo_query,GL_QUERY_RESULT,&samples);glDeleteQueries(1,&photo_query);}
