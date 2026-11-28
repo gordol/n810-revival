@@ -474,6 +474,18 @@ class OutingTests(unittest.TestCase):
         self.assertGreater(car.speed,10.)
         self.assertGreater(car.z,10.)
 
+    def test_car_stays_below_bridge_unless_it_enters_on_approach(self):
+        from pnw.seattle_places import BridgeRoads,overpasses
+        roads=BridgeRoads(lambda x,z:0.)
+        _,_,_,deck,approach,_=next(row for row in overpasses() if row[0]=='South Holgate Street')
+        x,z=deck[len(deck)//2]
+        self.assertEqual(roads.sample(x,z,0.,True),0.)
+        self.assertTrue(approach)
+        for px,pz in list(reversed(approach))+deck[:len(deck)//2+1]:
+            height=roads.sample(px,pz,0.,True)
+        self.assertAlmostEqual(height,5.8)
+        self.assertEqual(roads.sample(0,0,0.,True),0.)
+
     def test_driving_requests_detail_at_two_scales(self):
         from unittest.mock import patch
         horizon=pnw_terrain.FlightHorizon()

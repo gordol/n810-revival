@@ -92,6 +92,9 @@ def tacoma_corridor():
 def driving_lanes(corridor_only=False):
     cells={}
     lines=tacoma_corridor() if corridor_only else (*street_lines('seattle'),*street_lines('tacoma'),*tacoma_corridor(),('Delivery','access',delivery_route(),3.,()))
+    if not corridor_only:
+        lines=(*lines,*((name,kind,list(reversed(before))+points+after,width,())
+                        for name,kind,width,points,before,after in overpasses() if kind!='footway'))
     for _,kind,points,width,_ in lines:
         if kind=='pedestrian':continue
         for (x,z),(ex,ez) in zip(points,points[1:]):
@@ -253,6 +256,94 @@ def streets(height,quad,field=None):
         quad(((x-.05,y,z),(x+.05,y,z),(x+.05,y+2.9,z),(x-.05,y+2.9,z)),(.39,.43,.40))
         quad(((x-1.1,y+2.50,z),(x+1.1,y+2.50,z),(x+1.1,y+2.89,z),(x-1.1,y+2.89,z)),(.11,.29,.22))
         lettering(name,x-.97,y+2.60,z-.012,min(.23,2.2/len(name)),quad,(.92,.92,.84))
+
+
+@lru_cache(maxsize=1)
+def overpasses():
+    import json
+    from pnw.terrain import location
+    source=Path(__file__).resolve().parents[1]/'assets/seattle/overpasses.json'
+    spans=[]
+    project=lambda coords:[location('sound',*p) for p in coords]
+    for name,kind,lanes,coords,before,after in json.loads(source.read_text()).values():
+        points=[location('sound',*p) for p in coords]
+        width=1.5 if kind=='footway' else (int(lanes)*3.45+2.)*.5
+        spans.append((name,kind,width,points,project(before),project(after)))
+    return spans
+
+
+def bridge_spans(height):
+    for bridge,(_,kind,half,points,before,after) in enumerate(overpasses()):
+        lengths=[math.dist(a,b) for a,b in zip(points,points[1:])]
+        total=sum(lengths)
+        grade=max(-.045,min(.045,(height(*points[-1])-height(*points[0]))/total))
+        along=0.;base=height(*points[0])
+        for point,length in zip(points,lengths+[0.]):
+            base=max(base,height(*point)-grade*along)
+            along+=length
+        lead,road,tail=before,points,after
+        path=list(reversed(lead))+road+tail
+        chain=-sum(math.dist(a,b) for a,b in zip([road[0]]+lead,lead))
+        start=chain
+        end=total+sum(math.dist(a,b) for a,b in zip([road[-1]]+tail,tail))
+        def elevation(point,d):
+            deck=base+5.8+grade*min(total,max(0.,d))
+            weight=(d-start)/(-start) if d<0 and start<0 else (end-d)/(end-total) if d>total and end>total else 1.
+            bed=height(*point)+.055
+            return bed+(deck-bed)*max(0.,min(1.,weight))
+        for a,b in zip(path,path[1:]):
+            length=math.dist(a,b)
+            if length<.01:continue
+            y=elevation(a,chain);top=elevation(b,chain+length)
+            yield bridge,kind,half,a,b,length,y,(top-y)/length
+            chain+=length
+
+
+class BridgeRoads:
+    """Track which road surface a car entered at a stacked crossing."""
+    def __init__(self,height):
+        self.cells={}
+        for span in bridge_spans(height):
+            _,kind,w,(x,z),(u,v),_,_,_=span
+            if kind=='footway':continue
+            for i in range(math.floor((min(x,u)-w)/32),math.floor((max(x,u)+w)/32)+1):
+                for j in range(math.floor((min(z,v)-w)/32),math.floor((max(z,v)+w)/32)+1):
+                    self.cells.setdefault((i,j),[]).append(span)
+        self.deck=None
+
+    def sample(self,x,z,ground,update=False):
+        best=None
+        for bridge,_,width,(ax,az),(bx,bz),length,y,grade in self.cells.get((math.floor(x/32),math.floor(z/32)),()):
+            dx,dz=(bx-ax)/length,(bz-az)/length
+            along=max(0.,min(length,(x-ax)*dx+(z-az)*dz))
+            gap=math.hypot(x-ax-dx*along,z-az-dz*along)
+            top=y+grade*along
+            if gap<=width and (bridge==self.deck or update and abs(top-ground)<.85):
+                candidate=(bridge!=self.deck,gap,bridge,top)
+                if best is None or candidate<best:best=candidate
+        if update:self.deck=best[2] if best else None
+        return best[3] if best else ground
+
+
+def bridge_mesh(height,quad,box):
+    for _,kind,half,(x,z),(ex,ez),length,base,grade in bridge_spans(height):
+        dx,dz=(ex-x)/length,(ez-z)/length
+        def strip(left,h1,right,h2,color,material=0.):
+            quad([(x+dx*t+dz*u,base+t*grade+h,z+dz*t-dx*u)
+                  for t,u,h in ((0,left,h1),(length,left,h1),(length,right,h2),(0,right,h2))],color,material)
+        strip(-half,0,half,0,(.30,.31,.31),.249)
+        strip(-half,-.8,half,-.8,(.27,.28,.27))
+        for side in (-1,1):
+            edge=side*half
+            strip(edge,-.8,edge,.75,(.48,.48,.45))
+            strip(edge,.75,edge-side*.24,.75,(.63,.63,.59))
+            strip(edge-side*.24,.75,edge-side*.24,0,(.54,.54,.51))
+        if kind!='footway':strip(half-.55,.012,half-.42,.012,(.89,.87,.77))
+        for offset in range(16,math.ceil(length),32):
+            px,pz=x+dx*offset,z+dz*offset
+            if not on_road(px,pz):
+                y=height(px,pz)-.2
+                box(px,pz,y,1.3,half,max(.1,base-.8+grade*offset-y),(.49,.48,.45),rotation=(dx,dz))
 
 
 def roadside_trees(height,quad):

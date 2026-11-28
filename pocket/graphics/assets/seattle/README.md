@@ -42,7 +42,9 @@ reconstructions. Bridge and interchange deck heights are not surveyed.
 The SoDo and Beacon Hill freeway scenery uses two additional OSM API extracts
 (-122.336,47.584,-122.314,47.604 and -122.327,47.563,-122.312,47.585).
 They add 320 height- or level-tagged buildings, 1,280 mapped trees, and nine
-woodland outlines. Tree heights, crowns and tree positions inside woods are generated.
+woodland outlines. The same extracts supply 19 tagged bridge ways crossing
+the southbound route, including Yesler Way, South Holgate Street and the
+West Seattle Bridge. Deck heights, parapets and supports are reconstructed. Tree heights, crowns and tree positions inside woods are generated.
 
 The green siren on the modeled takeaway cups uses the Starbucks mark from
 [Simple Icons 13.0.0](https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/starbucks.svg).

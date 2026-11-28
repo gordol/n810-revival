@@ -301,7 +301,7 @@ def build_mesh(region,field,raw,aerial):
             box(x,zz,y+1.15,3.5,2.,1.05,(.24,.38,.45))
             box(x,zz,y+2.2,3.8,2.3,.18,(.84,.85,.80))
         from pnw import pike_market
-        from pnw.seattle_places import arcade_origin,buildings,roadside_trees,space_needle,streets
+        from pnw.seattle_places import arcade_origin,bridge_mesh,buildings,roadside_trees,space_needle,streets
         def ground(x,z):return surface(field,x,z)
         pike_market.build(arcade_origin(),ground,quad)
         streets(ground,quad,field)
@@ -318,6 +318,7 @@ def build_mesh(region,field,raw,aerial):
                 box(px-dz*.65,pz+dx*.65,py+7.15,.13,1.55,.13,(.40,.43,.44),rotation=(dx,-dz))
                 box(px-dz*1.35,pz+dx*1.35,py+7.04,.54,.42,.12,(.98,.84,.59),.247)
                 last_lamp=at;at+=spacing
+        bridge_mesh(ground,quad,box)
         roadside_trees(ground,quad)
         buildings(ground,quad)
         space_needle(ground,quad)
@@ -397,6 +398,7 @@ class StreetRide:
         self.leg=1
         self.heading=self.bearing(self.route[1])
         self.chase_heading=self.heading
+        self.bridge_roads=None
         self.speed=self.steer=0.
         self.cruise=self.delivered=False
         self.keys=set()

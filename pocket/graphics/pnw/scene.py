@@ -1626,6 +1626,11 @@ class RainierView:
             owner.yaw+=heading-old_yaw
         if self.road and not self.notebook:
             owner.x,owner.z,owner.yaw,owner.pitch=self.road.advance(dt,self.pad_sticks)
+            field=self.world[0]
+            if self.road.bridge_roads is None:
+                from pnw.seattle_places import BridgeRoads
+                self.road.bridge_roads=BridgeRoads(lambda x,z:surface(field,x,z))
+            self.road.bridge_roads.sample(owner.x,owner.z,surface(field,owner.x,owner.z),update=True)
         if self.bike:owner.x,owner.z,owner.yaw,owner.pitch=self.bike.advance(dt,self.walk_height)
         if any(self.pad_sticks) and not (self.road or self.bike or self.ski or self.climb or self.glider or self.notebook or self.album):
             self.walk_with_controller(owner,dt)
@@ -1734,7 +1739,9 @@ class RainierView:
             cx,cz=market_visit.site('overlook')
             if abs(x-cx)<=6 and -38<=z-cz<=20:return market_visit.deck_height(terrain,x,z)
             return floor_height(arcade_origin(),terrain,x,z)
-        if self.road:return surface(self.world[0],x,z)
+        if self.road:
+            ground=surface(self.world[0],x,z)
+            return self.road.bridge_roads.sample(x,z,ground) if self.road.bridge_roads else ground
         for slot in sorted(self.flight_surfaces):
             patch=self.flight_surfaces[slot]
             west,east,south,north=bounds(patch)
