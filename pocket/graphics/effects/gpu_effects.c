@@ -75,6 +75,9 @@ static void cell_transfer_state(void){
  glPixelStorei(GL_PACK_ALIGNMENT,4);glPixelStorei(GL_UNPACK_ALIGNMENT,4);
  glPixelStorei(GL_PACK_SWAP_BYTES,GL_FALSE);glPixelStorei(GL_UNPACK_SWAP_BYTES,GL_FALSE);
  glClientActiveTexture(GL_TEXTURE0);glBindBuffer(GL_ARRAY_BUFFER,0);
+ glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);
+ glDisable(GL_ALPHA_TEST);glDisable(GL_STENCIL_TEST);glDisable(GL_CULL_FACE);
+ glDisable(GL_COLOR_LOGIC_OP);glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
 }
 static unsigned byte_channel(float value){return (unsigned)fminf(255.f,fmaxf(0.f,value));}
 static unsigned packed(float r,float g,float b){return (byte_channel(r)<<16)|(byte_channel(g)<<8)|byte_channel(b);}
@@ -89,6 +92,14 @@ static int gpu_render(Surface *base,PyObject *base_obj,Splat *splat,unsigned cou
  glMatrixMode(GL_PROJECTION);glPushMatrix();glLoadIdentity();glOrtho(0,base->w,0,base->h,-1,1);glMatrixMode(GL_MODELVIEW);glPushMatrix();glLoadIdentity();
  int error=initialize();if(error)goto gpu_restore;
  glDisable(GL_DEPTH_TEST);glDisable(GL_LIGHTING);glDisable(GL_VERTEX_PROGRAM_ARB);glDisable(GL_TEXTURE_2D);glDisable(GL_SCISSOR_TEST);glDisable(GL_DITHER);glViewport(0,0,base->w,base->h);
+ /* Point colors accumulate directly. Fixed-function texture enables belong
+  * to individual units, including those last used by the world shader. */
+ GLint units=0;glGetIntegerv(GL_MAX_TEXTURE_UNITS,&units);
+ for(GLint unit=0;unit<units;unit++){
+  glActiveTexture(GL_TEXTURE0+unit);
+  glDisable(GL_TEXTURE_2D);glDisable(GL_TEXTURE_RECTANGLE_ARB);glDisable(GL_TEXTURE_CUBE_MAP);
+ }
+ glActiveTexture(GL_TEXTURE0);
  glUseProgram(0);glClampColorARB(GL_CLAMP_VERTEX_COLOR_ARB,GL_FALSE);glClampColorARB(GL_CLAMP_FRAGMENT_COLOR_ARB,GL_FALSE);glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,fbo);glActiveTexture(GL_TEXTURE0);
  if(width!=base->w||height!=base->h||base_ref!=base_obj){
   float *fore=calloc(n*4,sizeof(float)),*back=calloc(n*4,sizeof(float));
