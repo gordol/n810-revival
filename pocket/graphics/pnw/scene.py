@@ -1815,7 +1815,12 @@ class RainierView:
         chasing=(*fly[:2],self.age-self.fishing.bite) if self.fishing.state in ('bite','fight','landed') else None
         if self.regional:commands=summit_dancers(self.climb,field,origin,spans)
         else:commands=encounters(field,origin,spans,self.age,self.trail.fed,(x,z),self.subjects,optics,hatch,chasing,self.fishing.target,self.fishing.kept_brook)
-        if self.regional:
+        if self.road:
+            sound=ctx.lib.pocket_scene_road_sound
+            sound.argtypes=[C.c_void_p,C.c_int,C.c_float,C.c_int,C.c_float,C.c_int]
+            sound(ctx.handle,self.sound and not paused,self.road.speed,
+                  self.road.kind in ('sports-car','car','motorcycle'),getattr(self,'traffic_gain',0.),False)
+        elif self.regional:
             speed=self.ski.speed/28. if self.ski else 0.
             wind=.46+.15*self.weather+.30*speed
             if self.glider:wind+=.21+.06*abs(self.glider.bank)
@@ -2004,6 +2009,7 @@ class RainierView:
             for i,lane in enumerate((-4.4,-1.55,1.55,4.4)):
                 dx,dz,heading,gait,identity=stroll(self.outing,i,self.age,8.)
                 poses.append((0,lane+dx,0.,dz,math.degrees(heading),gait,identity))
+        self.traffic_gain=0.
         if self.road:
             from pnw.seattle_places import corridor_path,corridor_position,corridor_sample
             position=corridor_position(x,z)
@@ -2017,6 +2023,7 @@ class RainierView:
                     at=i*gap+offset
                     if not 0.<at<corridor_path()[1][-1] or len(poses)>=30:continue
                     px,pz,angle=corridor_sample(at,2.8 if kind=='freeway' and i%2 else 1.3)
+                    self.traffic_gain=max(self.traffic_gain,1./(1.+math.hypot(x-px,z-pz)/12.)**2)
                     poses.append((5 if i%4==0 else 10,px,ground(px,pz)+.06,pz,math.degrees(angle),0.,1+i%4))
         if self.road and self.road.patrol and math.dist((x,z),self.road.patrol)<240 and len(poses)<32:
             px,pz=self.road.patrol
