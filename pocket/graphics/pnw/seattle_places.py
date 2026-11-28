@@ -349,6 +349,12 @@ def overpasses():
         points=[location('sound',*p) for p in coords]
         width=1.5 if kind=='footway' else (int(lanes)*3.45+2.)*.5
         spans.append((name,kind,width,points,project(before),project(after)))
+    # Include the divided freeway and its signed on/off ramps. Their shared
+    # OSM endpoints join in bridge_spans just like the city overpasses.
+    existing={frozenset((points[0],points[-1])) for _,_,_,points,_,_ in spans}
+    for road, (name,kind,points,width,_) in zip(freeway_data()['roads'],freeway_lines()):
+        if road[2].get('bridge')=='yes' and frozenset((points[0],points[-1])) not in existing:
+            spans.append((name,kind,width,list(points),[],[]))
     return spans
 
 
@@ -445,6 +451,11 @@ def bridge_mesh(height,quad,box):
             strip(edge,.75,edge-side*.24,.75,(.63,.63,.59))
             strip(edge-side*.24,.75,edge-side*.24,0,(.54,.54,.51))
         if kind!='footway':strip(half-.55,.012,half-.42,.012,(.89,.87,.77))
+        if kind in ('motorway','motorway_link'):
+            strip(-half+.2,.02,-half+.34,.02,(.86,.76,.45))
+            for lane in range(1,round((half-.6)/1.8)):
+                stripe=-half+.6+lane*3.6
+                if int((x+z)/9)%2:strip(stripe,.02,stripe+.12,.02,(.84,.84,.8))
         for offset in range(16,math.ceil(length),32):
             px,pz=x+dx*offset,z+dz*offset
             if not on_road(px,pz):
