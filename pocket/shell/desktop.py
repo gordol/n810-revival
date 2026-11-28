@@ -867,7 +867,7 @@ def main(platform=None,argv=None):
         host.close('Settings')
         focused=host.focus
         app_focused=focused in (set(terminals)|set(host.app_forms)|{'Calendar'}) and host.shown(host.window(focused)) and not host.window(focused).rolled
-        manager_mode=not app_focused if args.navigation_trial else True
+        manager_mode=not app_focused if args.navigation_trial or platform else True
     from scenery import Library as SceneryLibrary,rows as scenery_rows
     scenery_library=SceneryLibrary(args.scenery_library)
     settings=SettingsManager([
@@ -1454,7 +1454,7 @@ def main(platform=None,argv=None):
                     if pressed:
                         sx,sy=x-ox,y-oy
                         target=next((w for w in reversed(host.windows) if host.shown(w) and w.x<=sx<w.x+w.w and w.y<=sy<w.y+w.rect[3]),None)
-                        manager_mode=not (target and target.name in (set(terminals)|set(host.app_forms)|{'Settings','Calendar'}) and not target.rolled and target.x<sx<target.x+target.w-1 and target.y<sy<target.y+target.h-1 and not panel.at(x,y))
+                        manager_mode=not (target and target.name in (set(terminals)|set(host.app_forms)|{'Settings','Calendar'}) and not target.rolled and (target.x<sx<target.x+target.w-1 and target.y<sy<target.y+target.h-1 or platform and target.name in host.app_forms and sy==target.y) and not panel.at(x,y))
                     if button==2 and not released:
                         tray_panel=panel.at(x,y)
                         if tray_panel and open_tray(tray_panel.hit(x,y),(x-ox,y-oy)):continue
