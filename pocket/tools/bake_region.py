@@ -1,6 +1,7 @@
 """Build Pocket's offline scenery database from an OSM or Overture GeoJSON sequence."""
 import argparse
 from collections import Counter
+from contextlib import nullcontext
 import json
 from pathlib import Path
 import sqlite3
@@ -26,7 +27,7 @@ def build(files,target,*,buildings=(),places=()):
     inputs.extend((file, 'building') for file in buildings)
     inputs.extend((file, 'place') for file in places)
     for file, layer in inputs:
-        with file.open('rb') as source:
+        with (nullcontext(file) if hasattr(file, 'read') else file.open('rb')) as source:
             for line in source:
                 feature=json.loads(line.lstrip(b'\x1e'))
                 props=feature['properties'];geometry=feature['geometry']

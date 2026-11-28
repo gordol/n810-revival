@@ -120,3 +120,13 @@ files separately to bake_region.py with --overture-buildings and --overture-plac
 This imports footprints with missing height or subtype and named POIs without
 a category. Choose one footprint source for an area to avoid overlapping meshes.
 Keep the attribution and licenses for the selected Overture release with its pack.
+
+From the checkout, run `make regional-scenery` to prepare the full regional
+pack. Desktop `make gui EXTRA="--outing sports-car"` and Termux
+`make mobile EXTRA="--outing sports-car"` also run this step automatically.
+The first run downloads the Washington Geofabrik extract (about 350 MiB), clips
+it with osmium-tool, and installs the indexed database (about 169 MiB) in
+the Pocket data directory. Allow 1 GiB of temporary free space. Later launches
+reuse the installed pack offline. macOS uses Homebrew for osmium-tool and
+Termux uses pkg. On Linux install osmium-tool with your package manager.
+Use REGIONAL_SCENERY=bundled to skip preparation when traveling offline.

@@ -43,6 +43,14 @@ $(MAC_GUI_BOOTSTRAP): requirements-graphics-macos.txt Makefile
 gui explore jet: export SDL_RENDER_DRIVER ?= opengl
 endif
 
+.PHONY: regional-scenery
+regional-scenery:
+	$(PYTHON) tools/prepare_region.py
+
+ifneq ($(REGIONAL_SCENERY),bundled)
+gui explore jet mobile termux-gui: regional-scenery
+endif
+
 gui: $(MAC_GUI_BOOTSTRAP)
 	$(GUI_PYTHON) graphics/gui.py $(EXTRA)
 
