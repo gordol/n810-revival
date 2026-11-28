@@ -325,6 +325,14 @@ class OutingTests(unittest.TestCase):
             self.assertNotEqual(market_visit.walk_inside(key,0,8),(0,8))
             self.assertEqual(market_visit.walk_inside(key,2,1),(2,1))
 
+    def test_downunder_shoppers_mix_figures_and_outfits_on_each_floor(self):
+        from pnw.market_life import shopper
+        from pnw.market_visit import FLOORS
+        for floor in FLOORS:
+            group=[shopper(floor,i,'Seattle') for i in range(4)]
+            self.assertEqual({identity&1 for identity in group},{0,1})
+            self.assertGreater(len({(identity>>8)&7 for identity in group}),1)
+
     def test_downunder_landings_connect_adjacent_floors(self):
         from pnw.market_visit import stairs, stair_exit
         for floor,upper,lower in [('down5','market','down4'),('down4','down5','down3'),('down3','down4',None)]:

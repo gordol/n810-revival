@@ -2,7 +2,7 @@
 from functools import lru_cache
 import math
 import os
-import zlib
+import hashlib
 from pnw.pike_market import HEADING,offset
 from pnw.seattle_places import arcade_origin
 
@@ -13,7 +13,10 @@ BOUQUET=1<<15
 
 @lru_cache(maxsize=128)
 def shopper(site,number,seed=CITY_SEED):
-    return zlib.crc32(f'{seed}/{site}/{number}'.encode())&0x7fff
+    digest=hashlib.blake2s(f'{seed}/{site}/{number}'.encode(),digest_size=2).digest()
+    # Both base figures appear in each group. Wardrobe bits vary independently.
+    slot=(number+sum(site.encode())+sum(seed.encode()))&1
+    return (int.from_bytes(digest,'little')&0x7ffe)|slot
 
 def leashed_dog(owner,heading,phase,ground):
     x,z=owner[1],owner[3]

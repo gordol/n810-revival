@@ -663,6 +663,11 @@ Assisted approach lowers it automatically. The trainer has fixed gear.
 automatic opening near the ground. In **Balloon over the Sound**, A / Cross toggles
 the burner. The balloon rises with heat and otherwise descends as the wind carries it.
 
+Inside the Main Arcade, the DownUnder sign marks the stairs. Walk under it
+or tap **DownUnder stairs** nearby. On each lower floor, follow **Stairs to
+Market** to the stair hall. Walk along a marked flight or tap its destination
+to walk it automatically. From level 5, **Up to Market** returns to the arcade.
+
 At the Pike Place street entrance, approach the green cycle hire sign and tap
 **Rent bike** or **Rent scooter**. Drag forward to ride and sideways to steer.
 Use **Exit** to continue on foot. **Explore → City rides → Sports car to Tacoma**

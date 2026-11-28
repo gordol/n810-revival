@@ -101,14 +101,16 @@ def stairs(key,x,z):
     return 0.
 
 def stair_exit(key,x,z):
-    if z> -12.1:return None
+    if z> -11.35:return None
     level=int(key[-1])
-    if -2<=x<=-.2:return 'market' if level==5 else f'down{level+1}'
-    if .2<=x<=2 and level>3:return f'down{level-1}'
+    if -2<=x<0:return 'market' if level==5 else f'down{level+1}'
+    if 0<=x<=2 and level>3:return f'down{level-1}'
     return None
 
 def floor_furniture(key):
     yield (0.,8.5,.20,9.)
+    for x in (-4.,4.):
+        if key!='down5' or x>0:yield (x,6.4,2.2,.94)
     if key=='down5':
         for x in (-5.8,-2.2):
             for z in (7.,10.8):yield (x,z,1.3,1.55)
@@ -175,8 +177,15 @@ def indoor_mesh(key):
             top=stairs(key,dx,z)
             box(dx,top-.15,z,2,.15,.40,(.50,.46,.40))
             box(dx,top,z+.18,1.97,.009,.028,(.75,.68,.54))
+        for j in range(18):
+            z=-5.2-j*.4
+            y=stairs(key,dx,z)
+            box(dx+dx*.93,y+.86,z,.055,.06,.42,(.47,.38,.23))
+            if j%4==0:box(dx+dx*.93,y,z,.045,.88,.045,wood)
         box(dx,2.1,-4.9,1.98,.52,.10,(.19,.26,.24))
-        lettering('Up' if dx<0 else 'Down',dx-.55,2.21,-4.82,.26,
+        level=int(key[-1])
+        label=('Market' if level==5 else f'Up to {level+1}') if dx<0 else f'Down to {level-1}'
+        lettering(label,dx-.85,2.21,-4.82,.20,
                   lambda points,c:quad([(2*dx-x,y,z) for x,y,z in points],c),cream)
     quad(((-8,3.6,-13),(-8,3.6,13),(8,3.6,13),(8,3.6,-13)),cream)
     for x in (-8,8):box(x,0,0,.15,3.6,26,cream)
@@ -190,6 +199,41 @@ def indoor_mesh(key):
         box(x,2.32,4,7.4,.65,.16,(.18,.19,.19))
         size=min(.40,6.8/(len(name)*.8))
         lettering(name,x-len(name)*size*.4,2.48,3.9,size,quad,(.99,.72,.43))
+        # A featured display stands just inside each shop entrance.
+        if key!='down5' or side:
+            box(x,0,6.4,1.82,.77,.68,wood)
+            box(x,.77,6.4,2.20,.08,.94,cream)
+            if key=='down4' and side:
+                for k in range(3):
+                    vessel(x-.62+.49*k,.85,6.4,((.13,0),(.066,.20),(.07,.21)),(.70,.51,.28))
+                for k in range(5):box(x+.70,.85+.018*k,6.4,.19,.018,.28,(.62,.15,.15))
+            elif key=='down3' and side:
+                for k in range(3):
+                    xx=x-.70+k*.63
+                    box(xx,.85,6.4,.45,.39+.04*k,.25,wood)
+                    vessel(xx,1.24+.04*k,6.4,((.20,0),(.16,.09),(.06,.14)),(.66,.50,.28))
+                    quad(((xx-.15,.91,6.26),(xx+.15,.91,6.26),(xx+.15,1.19,6.26),(xx-.15,1.19,6.26)),cream)
+                    lettering('XII',xx-.09,1.09,6.25,.055,quad,wood)
+                    box(xx,.98,6.246,.015,.11,.008,wood)
+            elif key=='down5':
+                for k in range(5):
+                    xx=x-.78+k*.38
+                    vessel(xx,.85,6.4,((.08,0),(.12,.15),(.08,.24),(.05,.27)),(.18+.09*k,.45,.56))
+            else:
+                for k in range(4):
+                    xx=x-.79+.52*k
+                    box(xx,.85,6.4,.43,.55,.045,wood)
+                    box(xx,.88,6.365,.39,.49,.012,cream)
+                    tone=(.16+.08*k,.35,.48)
+                    quad(((xx-.16,.95,6.35),(xx+.16,.95,6.35),(xx+.16,1.30,6.35),(xx-.16,1.30,6.35)),tone)
+                    quad(((xx-.16,.98,6.34),(xx+.16,.98,6.34),(xx+.04,1.22,6.34),(xx+.04,1.22,6.34)),(.73,.66,.47))
+                    if key=='down4':lettering('COMICS',xx-.14,1.24,6.33,.06,quad,cream)
+        else:
+            box(-6.8,0,12.25,1.9,.92,.8,wood)
+            box(-6.8,.92,12.24,.85,.46,.54,(.26,.46,.43))
+            box(-6.8,1.29,11.94,.78,.10,.20,(.62,.65,.61))
+            for xx in (-7.02,-6.58):
+                vessel(xx,.92,11.97,((.055,0),(.075,.11),(.076,.12)),cream)
         if key=='down5' and side==0:
             for dx in (-1.8,1.8):
                 for z in (7.,10.8):
@@ -237,7 +281,33 @@ def indoor_mesh(key):
             for zz in range(-9,12,4):
                 box(-7.85,1.14,zz,.17,1.44,3.4,(.40,.57,.63))
                 box(-7.74,1.16,zz,.11,1.40,.06,wood)
+        if side:
+            # Wall displays face into the shop so they read from the aisle.
+            for i in range(4):
+                zz=3.4+2.3*i
+                if key=='down3':
+                    def clock_point(angle,r):
+                        return (7.81,1.81+r*math.cos(angle),zz+r*math.sin(angle))
+                    box(7.89,1.24,zz,.14,1.14,.88,wood)
+                    for tick in range(12):
+                        a=tick*math.tau/12;b=a+math.tau/12
+                        quad(((7.81,1.81,zz),clock_point(a,.37),clock_point(b,.37),(7.81,1.81,zz)),cream)
+                        box(7.798,1.79+.31*math.cos(a),zz+.31*math.sin(a),.01,.035,.035,wood)
+                    box(7.785,1.81,zz,.012,.23,.022,wood)
+                    box(7.785,1.80,zz-.15,.012,.02,.30,wood)
+                else:
+                    box(7.90,.91,zz,.14,1.22,1.02,wood)
+                    box(7.80,1.,zz,.04,1.04,.88,cream)
+                    x=7.77
+                    if key=='down4':
+                        quad(((x,1.14,zz),(x,1.54,zz-.30),(x,1.93,zz),(x,1.54,zz+.30)),(.60,.14,.17))
+                    else:
+                        quad(((x,1.16,zz-.35),(x,1.16,zz+.35),(x,1.80,zz+.1),(x,1.80,zz+.1)),(.22,.43,.44))
         # Doors into the two bays stay open on either side of the centre post.
+    # The return sign faces shoppers as they leave either display bay.
+    box(0,2.53,2.7,3.0,.49,.09,(.16,.24,.22))
+    lettering('Stairs to Market',-1.31,2.66,-2.76,.19,
+              lambda points,c:quad([(-x,y,-z) for x,y,z in points],c),cream)
     box(0,0,8.5,.20,3.35,9.,wood)
     return mesh
 

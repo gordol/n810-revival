@@ -698,7 +698,7 @@ def build_world(high=True,plant_sites=None,regional=False,*,field=None):
 
 
 class RainierView:
-    outing=pending_outing=None
+    outing=pending_outing=stair_goal=None
     ride_time=0.
     needle_deck=False
     road=bike=glider=climb=None
@@ -960,7 +960,17 @@ class RainierView:
             if self.glider and self.glider.menu:
                 if self.glider.wheel_choice(x,y,width,height)!=action:continue
             elif not hit(box,x,y):continue
-            if action in ('rent-bike','rent-scooter'):
+            if action in ('stairs-up','stairs-down','stairs-market'):
+                if action=='stairs-market':
+                    from pnw.seattle_places import arcade_origin
+                    from pnw.pike_market import offset
+                    self.destination=offset(arcade_origin(),-8,5.5)
+                else:
+                    lane=-1. if action=='stairs-up' else 1.
+                    self.destination=(lane,-4.6)
+                    self.stair_goal=(lane,-12.)
+                self.trail.guiding=self.trail.free_look=self.cruise=False
+            elif action in ('rent-bike','rent-scooter'):
                 self.start_outing('bicycle' if action=='rent-bike' else 'scooter')
             elif action=='needle_lift':
                 from pnw.seattle_places import places
@@ -1032,6 +1042,7 @@ class RainierView:
             return True
         if self.climb or self.bike or self.road:return True
         if self.frame_camera is None:return False
+        self.stair_goal=None
         u,v=(x+.5)/width,(y+.5)/height
         camera,aspect=self.frame_camera
         field,origin=self.world[:2]
@@ -1374,11 +1385,20 @@ class RainierView:
         if self.ski:return self.ski.controls(width,height)
         if self.climb:return self.climb.controls(width,height)
         buttons=river_tools(width,height,self.lens,self.binoculars,self.zoom,self.regional)
+        if self.outing in market_visit.FLOORS:
+            level=int(self.outing[-1])
+            if self.camera and self.camera[1]<2:
+                label='Up to Market' if level==5 else f'Up to level {level+1}'
+                buttons.append(('stairs-up',label,(1,height-4,15,3)))
+                if level>3:buttons.append(('stairs-down',f'Down to level {level-1}',(width-18,height-4,17,3)))
+            return buttons
         if self.outing in market_visit.STREETS and self.camera:
             from pnw.seattle_places import places
             if not (self.lens or self.binoculars):
-                from pnw.pike_market import rental_site
+                from pnw.pike_market import rental_site,offset
                 from pnw.seattle_places import arcade_origin
+                if math.dist(self.camera[:2],offset(arcade_origin(),-8,5.5))<7:
+                    buttons.append(('stairs-market','DownUnder stairs',(1,height-4,18,3)))
                 if math.dist(self.camera[:2],rental_site(arcade_origin()))<9:
                     buttons.extend((('rent-bike','Rent bike',(1,height-4,12,3)),
                                     ('rent-scooter','Rent scooter',(width-16,height-4,15,3))))
@@ -1437,6 +1457,7 @@ class RainierView:
             self.zoom=1.
 
     def start_outing(self,outing,landing=None):
+        self.stair_goal=None
         self.stair_landing=landing
         from pnw.outings import build_world as build_outing
         self.pending_outing=outing
@@ -1619,7 +1640,11 @@ class RainierView:
             before_landing=self.ski.landings
             owner.x,owner.z,owner.yaw,owner.pitch=self.ski.advance(dt,self.walk_height)
             if self.sound and self.ski.landings>before_landing:self.landing_sound=True
-        if self.destination is not None:self.destination=walk_to(owner,self.destination,dt,face_path=not self.trail.free_look,speed=3.2*self.pace)
+        if self.destination is not None:
+            self.destination=walk_to(owner,self.destination,dt,face_path=not self.trail.free_look,speed=3.2*self.pace)
+            if self.destination is None and self.stair_goal:
+                self.destination,self.stair_goal=self.stair_goal,None
+        else:self.stair_goal=None
         if self.cruise:owner._translate(1.,0.,dt*2.5,self.cruise_heading)
         for plant,px,pz in (self.flower_sites if self.regional else self.plant_sites):
             if self.regional and not paradise.blooming(plant,self.season):continue
@@ -1661,7 +1686,7 @@ class RainierView:
             owner.x,owner.z=market_visit.walk_inside(self.outing,owner.x,owner.z)
             target=market_visit.stair_exit(self.outing,owner.x,owner.z)
             if target and not self.travel_job:
-                landing=(-owner.x,-11.0,0.,-.03)
+                landing=(1. if owner.x<0 else -1.,-4.6,0.,-.03)
                 if target=='market':
                     from pnw.pike_market import offset,HEADING
                     from pnw.seattle_places import arcade_origin
@@ -1682,7 +1707,7 @@ class RainierView:
             stair=offset(arcade_origin(),-8,5.5)
             if math.hypot(owner.x-stair[0],owner.z-stair[1])<1.05:
                 self.cruise=False;self.destination=None
-                self.start_outing('down5',(-1.,-11.,0.,0.))
+                self.start_outing('down5',(-1.,-4.6,0.,0.))
         if self.outing in market_visit.STREETS:
             cx,cz=market_visit.site('gum')
             if abs(owner.x-cx)<2.55 and cz-16<=owner.z<=cz+15:owner.x=max(cx-2.1,min(cx+2.1,owner.x))

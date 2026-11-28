@@ -36,18 +36,26 @@ int pocket_scene_market_person(void *ptr,unsigned slot,const void *data,unsigned
   "void main(){vec3 pos=mix(gl_Vertex.xyz,gl_MultiTexCoord1.xyz,blend)*.0001;"
   "pos.x*=1.+face*smoothstep(1.37,1.54,pos.y);"
   "vec3 n=normalize(mix(gl_Normal,gl_MultiTexCoord2.xyz/32767.,blend));"
-  "body=pos;if(outfit==3&&gl_MultiTexCoord0.z>.5&&gl_MultiTexCoord0.z<1.5)pos+=n*.013;"
+  "body=pos;if(gl_MultiTexCoord0.z>.5&&gl_MultiTexCoord0.z<1.5){"
+  "if(outfit==3||outfit==6)pos+=n*.013;"
+  "if(outfit==4)pos+=n*.024*(1.-smoothstep(.15,.22,abs(body.x)));}"
   "light=.68+.33*max(0.,dot(n,normalize(vec3(-.47,.79,.38))))+.09*n.y;"
   "uv=gl_MultiTexCoord0.xyz;gl_Position=gl_ModelViewProjectionMatrix*vec4(pos,1.);}";
  const char *fs="#version 120\n"
-  "uniform vec3 coat;uniform float complexion,grey,skinTile;uniform int worker,outfit,hair;uniform sampler2D atlas;varying vec3 body,uv;varying float light;"
+  "uniform vec3 coat,trousers;uniform float complexion,grey,skinTile;uniform int worker,outfit,hair;uniform sampler2D atlas;varying vec3 body,uv;varying float light;"
   "void main(){vec4 c=texture2D(atlas,uv.xy);if(c.a<.46)discard;"
-  "vec3 paint=c.rgb;if(uv.z>.5 && uv.z<2.5)paint*=uv.z<1.5?coat:vec3(.19,.22,.25);"
+  "vec3 paint=c.rgb;if(uv.z>.5 && uv.z<2.5)paint*=uv.z<1.5?coat:trousers;"
   "if(uv.z>.5 && uv.z<1.5 && (outfit==1||outfit==2)){vec2 p=fract(uv.xy*4.);float line=smoothstep(.76,.95,cos(96.*p.y));"
   "if(outfit==2)line=max(line,smoothstep(.79,.95,cos(80.*p.x)));paint=mix(paint,vec3(.78,.74,.60)*c.r,.40*line);}"
   "if(outfit==3 && uv.z>.5 && uv.z<1.5){float yoke=smoothstep(1.26,1.27,body.y);paint*=mix(1.,.56,yoke);"
   "float zip=(1.-smoothstep(.002,.006+fwidth(body.x),abs(body.x)))*smoothstep(.045,.08,body.z);"
   "paint=mix(paint,vec3(.68,.64,.52),zip*.85);}"
+  "if(uv.z>.5 && uv.z<1.5 && outfit>=4){float arm=smoothstep(.14,.21,abs(body.x));"
+  "if(outfit==4){float quilt=.82+.18*smoothstep(.10,.35,abs(fract(body.y*12.)-.5));"
+  "paint=mix(paint*quilt,vec3(.78,.74,.65)*c.r,arm);}"
+  "if(outfit==5)paint=mix(paint,c.r*vec3(.92,.83,.63),smoothstep(1.06,1.08,body.y)*(1.-smoothstep(1.16,1.18,body.y)));"
+  "if(outfit==6){float bib=smoothstep(1.20,1.23,body.y);paint=mix(paint,c.r*vec3(.13,.18,.23),bib*.8);}"
+  "if(outfit==7)paint=mix(paint,c.r*vec3(.19,.27,.31),arm*smoothstep(1.0,1.18,body.y));}"
   "if(outfit==3 && uv.z>1.5 && uv.z<2.5)paint=c.rgb*vec3(.49,.42,.31);"
   "float tile=floor(uv.x*4.)+4.*floor(uv.y*4.);if(tile==skinTile)paint*=mix(vec3(1.),vec3(.60,.43,.36),complexion);"
   "if(tile==skinTile+2. && hair==2)discard;if(tile==skinTile+2.)paint=mix(paint,vec3(.28)+.68*c.rgb,grey);"
@@ -130,12 +138,14 @@ static void market_person_draw(struct posed_person *model,int kind,float pose,co
  glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,model->atlas);
  glUseProgram(model->program);
  glUniform1f(glGetUniformLocation(model->program,"blend"),weight);
- glUniform1i(glGetUniformLocation(model->program,"outfit"),(identity>>8)&3u);
+ glUniform1i(glGetUniformLocation(model->program,"outfit"),(identity>>8)&7u);
  glUniform1f(glGetUniformLocation(model->program,"complexion"),((identity>>1)&7u)/7.f);
  glUniform1i(glGetUniformLocation(model->program,"hair"),(identity>>4)&3u);
  glUniform1f(glGetUniformLocation(model->program,"skinTile"),(float)model->skin_tile);
  glUniform1f(glGetUniformLocation(model->program,"grey"),((identity>>11)&3u)/3.f);
  glUniform1f(glGetUniformLocation(model->program,"face"),face);
+ static const float pants[][3]={{.19f,.25f,.36f},{.64f,.51f,.34f},{.30f,.34f,.23f},{.18f,.16f,.19f}};
+ glUniform3fv(glGetUniformLocation(model->program,"trousers"),1,pants[(identity>>13)&3u]);
  glUniform3fv(glGetUniformLocation(model->program,"coat"),1,coat);
  glUniform1i(glGetUniformLocation(model->program,"worker"),kind==1);
  glDrawElements(GL_TRIANGLES,model->ni,GL_UNSIGNED_INT,0);

@@ -172,7 +172,7 @@ static void cropped_curls(float grey){
 }
 
 static void market_people(struct gpu_scene *s,const float *actors,unsigned count){
- static const float coats[][3]={{.87f,.47f,.12f},{.13f,.44f,.49f},{.49f,.25f,.39f},{.32f,.34f,.49f},{.43f,.42f,.25f}};
+ static const float coats[][3]={{.87f,.47f,.12f},{.13f,.44f,.49f},{.49f,.25f,.39f},{.32f,.34f,.49f},{.43f,.42f,.25f},{.87f,.77f,.57f},{.63f,.16f,.18f},{.26f,.39f,.63f},{.76f,.64f,.71f}};
  float leash_hand[3]={0.f,0.f,0.f};
  for(unsigned i=0;i<count;i++){
   const float *p=actors+9*i;
@@ -192,7 +192,7 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
   glRotatef(p[4],0,1,0);
   if(kind<=1){
    unsigned identity=(unsigned)p[6],seed=identity&32767u;
-   const float *base=coats[(seed>>1)%5];
+   const float *base=coats[(seed>>1)%9];
    float coat[3];
    for(unsigned c=0;c<3;c++)coat[c]=base[c]*(.76f+.031f*((seed>>(4+3*c))&7u));
    float size=kind==1?.96f+.025f*seed:.93f+.020f*((seed>>7)&7u);
