@@ -113,3 +113,10 @@ waterfronts from the same Geofabrik OSM extract. To regenerate it, select ways
 tagged man_made=pier with osmium tags-filter, export as geojsonseq, and pipe
 the sequence through pocket/tools/bake_piers.py. Deck elevations and materials
 are approximations. Open-line docks have no measured outline and are omitted.
+
+For an alternative pack, export Overture's building and place layers for the
+same bounding box using overturemaps-py with GeoJSON sequence output. Pass the
+files separately to bake_region.py with --overture-buildings and --overture-places.
+This imports footprints with missing height or subtype and named POIs without
+a category. Choose one footprint source for an area to avoid overlapping meshes.
+Keep the attribution and licenses for the selected Overture release with its pack.

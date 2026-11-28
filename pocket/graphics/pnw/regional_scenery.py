@@ -38,7 +38,7 @@ class Neighborhood:
     def __init__(self):
         configured=os.environ.get('POCKET_REGION_SCENERY')
         full=Path(configured) if configured else Path(os.environ.get('XDG_DATA_HOME') or Path.home()/'.local/share')/'pocket/rainier-walk/puget-sound-scenery.sqlite'
-        self.db=sqlite3.connect(f'{(full if full.is_file() else ASSETS/"neighborhoods.sqlite").as_uri()}?mode=ro',uri=True)
+        self.db=sqlite3.connect(f'{(full if full.is_file() else ASSETS/"neighborhoods.sqlite").resolve().as_uri()}?mode=ro',uri=True)
         self.cell=None
         self.places=[]
 
