@@ -1139,6 +1139,8 @@ class RainierView:
                 self.destination=None
                 self.cruise=False
                 self.trip_pose=(nx+12,nz-16,2.50,.13) if self.needle_deck else (nx,nz-215,0.,-.38)
+            elif action in ('horn','siren','stop-car'):
+                self.vehicle_signal({'horn':'h','siren':'j','stop-car':'k'}[action])
             elif action in ('shop','repair','paint','tune','leave-shop'):
                 self.photo_hint=self.road.shop_action(action)
                 self.hint_until=self.age+2
@@ -1554,7 +1556,13 @@ class RainierView:
         if self.road:
             options=(('repair','Repair'),('paint','Paint'),('tune','Factory tune' if self.road.tuned else 'Street tune'),
                      ('leave-shop','Done')) if self.road.at_shop() else (('leave-shop','Cancel shop'),) if self.road.shop_target else (('shop','Auto shop'),)
-            return [(action,label,(width-15,3*i,15,3)) for i,(action,label) in enumerate(options)]
+            buttons=[(action,label,(width-15,3*i,15,3)) for i,(action,label) in enumerate(options)]
+            if self.road.has_car_camera:
+                buttons.append(('horn','Horn',(width-15,height-4,15,3)))
+            if self.road.actor_kind==9:
+                buttons.extend((('siren','Siren',(width-15,height-10,15,3)),
+                                ('stop-car','Stop / release',(width-15,height-7,15,3))))
+            return buttons
         if self.outing=='hangar':
             kind=self.hangar_bay()
             return [(kind,'Board '+BAYS[kind][1],(1,height-4,19,3))] if kind else []

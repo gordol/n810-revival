@@ -356,8 +356,13 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
         def ground_key(self,key):
             scene=self.pixel_scene
             if not scene or getattr(scene,'notebook',None) or getattr(scene,'album',None):return False
-            if key=='e' and (getattr(scene,'road',None) or getattr(scene,'outing',None) in ('market','tacoma')):
+            if key in ('e','f') and (getattr(scene,'road',None) or getattr(scene,'outing',None) in ('market','tacoma') or (getattr(scene,'on_city_foot',lambda:False)() and (key=='f' or scene.outing!='hangar'))):
                 return scene.change_car()
+            if key=='m' and getattr(scene,'road',None):
+                scene.pause_game()
+                scene.notebook.selected=scene.notebook.rows().index('Places')
+                scene.notebook.activate()
+                return True
             if key in ('h','j','k') and getattr(scene,'road',None):return scene.vehicle_signal(key)
             if key=='?' and getattr(scene,'road',None):
                 scene.pause_game()
@@ -408,11 +413,11 @@ def create_outdoors(host,*,pixel_scene=None,app_context=None,**options):
             if key=='0' and scene and not getattr(scene,'glider',None):
                 if kind=='press':return self.ground_key(key)
                 return True
-            if key=='e' and (getattr(scene,'road',None) or getattr(scene,'outing',None) in ('market','tacoma')):
+            if key in ('e','f') and (getattr(scene,'road',None) or getattr(scene,'outing',None) in ('market','tacoma') or (getattr(scene,'on_city_foot',lambda:False)() and (key=='f' or scene.outing!='hangar'))):
                 if kind=='press':self.ground_key(key)
                 return True
             if getattr(scene,'road',None):
-                if key in ('h','j','k'):
+                if key in ('h','j','k','m'):
                     if kind=='press':return self.ground_key(key)
                     return True
                 if key=='?' or (key=='0' and scene.road.has_car_camera):

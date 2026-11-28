@@ -389,6 +389,7 @@ class StreetRide:
         self.tuned=False
         self.shop_target=None
         self.shop_route=()
+        self.poi_target=None
         self.cruise=self.delivered=False
         self.keys=set()
         self.contact=None
@@ -511,6 +512,7 @@ class StreetRide:
             from pnw.street_map import road_route
             name,point=min(repair_shops(),key=lambda shop:math.dist(here,shop[1]))
             curb,_=service_frontage(point)
+            self.poi_target=None
             self.shop_target=name,curb
             self.shop_route=road_route(here,curb)
             return self.shop_target[0]
@@ -536,8 +538,8 @@ class StreetRide:
     def drive_guidance(self):
         from pnw.seattle_places import corridor_milestones,corridor_position
         here=(self.x,self.z)
-        if self.shop_target:
-            name,point=self.shop_target
+        if self.shop_target or self.poi_target:
+            name,point=self.shop_target or self.poi_target
             return point,name,math.dist(here,point)
         position=corridor_position(*here)
         marks=corridor_milestones()
@@ -568,7 +570,7 @@ class StreetRide:
                 roads.extend((*project(x,z),*project(x+dx,z+dz)))
         add(nearby_driving_segments(cx,cz,reach,False))
         ordinary=len(roads)//4
-        if self.shop_target:
+        if self.shop_target or self.poi_target:
             for a,b in zip(self.shop_route,self.shop_route[1:]):
                 if math.dist(a,(self.x,self.z))<radius*1.65:roads.extend((*project(*a),*project(*b)))
         else:add(nearby_driving_segments(cx,cz,reach,True))
@@ -669,10 +671,14 @@ class PauseMenu:
                 rows+=('Reduce throttle','Increase throttle',f'Flaps: {flight.flaps*10} deg',
                        'Gear: '+('down' if flight.gear_down else 'up'))
             return (*rows,'Back')
+        if self.page=='Places':
+            road=self.view.road
+            if road.at_shop():return ('Repair vehicle','Change paint','Toggle street tune','Back')
+            return ('Nearest repair shop',*(name for _,_,name in self.destinations),'Clear destination','Back')
         if self.page=='Driving controls':return ('Resume','Back')
         if self.page=='Flight guide':
             return ('Next page','Back')
-        if getattr(self.view,'road',None):return ('Resume','Driving controls','Weather: '+('Clear','Mist','Showers')[self.view.weather],'Vehicle damage: '+('On' if self.view.vehicle_damage else 'Off'),'Controller')
+        if getattr(self.view,'road',None):return ('Resume','Driving controls','Places','Weather: '+('Clear','Mist','Showers')[self.view.weather],'Vehicle damage: '+('On' if self.view.vehicle_damage else 'Off'),'Controller')
         flight=self.view.outing in AIRCRAFT and self.view.glider
         rows=('Resume','Controller','Flight controls','Flight guide')
         return rows+('Leave aircraft',) if flight else rows
@@ -714,7 +720,27 @@ class PauseMenu:
 
     def activate(self,direction=1):
         label=self.rows()[self.selected]
-        if self.page=='Controller' and label!='Back':
+        if label=='Places':
+            road=self.view.road
+            places=self.view.neighborhood.places if self.view.neighborhood else ()
+            self.destinations=sorted(places,key=lambda p:math.hypot(p[0]-road.x,p[1]-road.z))[:6]
+            self.page='Places'
+            self.selected=0
+        elif self.page=='Places' and label!='Back':
+            road=self.view.road
+            actions={'Nearest repair shop':'shop','Repair vehicle':'repair','Change paint':'paint','Toggle street tune':'tune'}
+            if label=='Clear destination':
+                road.poi_target=None
+                road.shop_action('leave-shop')
+            elif label in actions:road.shop_action(actions[label])
+            else:
+                from pnw.street_map import road_route
+                x,z,name=self.destinations[self.selected-1]
+                road.shop_target=None
+                road.poi_target=name,(x,z)
+                road.shop_route=road_route((road.x,road.z),(x,z))
+            if label not in ('Repair vehicle','Change paint','Toggle street tune'):self.view.resume_game()
+        elif self.page=='Controller' and label!='Back':
             key,choices=(('stick-layout',('Standard','Southpaw')) if self.selected==0
                          else ('look-speed',('Gentle','Standard','Quick')))
             context=self.view.app_context
