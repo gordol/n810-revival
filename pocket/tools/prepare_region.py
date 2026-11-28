@@ -68,6 +68,8 @@ def add_regional_roads(region,folder,database):
     subprocess.run(['osmium','tags-filter',region,'w/highway='+','.join(kinds),'-o',streets],check=True)
     with sqlite3.connect(database) as db:
         known.update(r[0] for r in db.execute('SELECT way FROM airport_roads'))
+        db.execute('CREATE TABLE traffic_paths(way INTEGER PRIMARY KEY, directions INTEGER, points BLOB)')
+        db.execute('CREATE TABLE traffic_cells(tx INTEGER,tz INTEGER,way INTEGER)')
         tiles=defaultdict(bytearray)
         ways=0
         with subprocess.Popen(['osmium','export',streets,'-f','geojsonseq','--add-unique-id=type_id'],stdout=subprocess.PIPE) as export:
@@ -79,6 +81,19 @@ def add_regional_roads(region,folder,database):
                 if kind not in kinds:continue
                 width=2.9 if kind.endswith('_link') else WIDTHS[kind]
                 points=[location('sound',lat,lon) for lon,lat in row['geometry']['coordinates']]
+                one=props.get('oneway')
+                reversed_way=one=='-1'
+                directed=reversed_way or one in ('yes','1','true') or (not one and
+                         (kind=='motorway' or props.get('junction')=='roundabout'))
+                if kind in ('primary','secondary','tertiary','trunk','motorway','residential') and math.dist(points[0],points[-1])>100:
+                    way=int(row['id'][1:])
+                    ordered=list(reversed(points)) if reversed_way else points
+                    blob=json.dumps([(round(x,1),round(z,1)) for x,z in ordered],separators=(',',':')).encode()
+                    db.execute('INSERT INTO traffic_paths VALUES(?,?,?)',(way,1 if directed else 2,zlib.compress(blob)))
+                    covered={(i,j) for a,b in zip(points,points[1:])
+                             for i in range(math.floor(min(a[0],b[0])/512),math.floor(max(a[0],b[0])/512)+1)
+                             for j in range(math.floor(min(a[1],b[1])/512),math.floor(max(a[1],b[1])/512)+1)}
+                    db.executemany('INSERT INTO traffic_cells VALUES(?,?,?)',((i,j,way) for i,j in covered))
                 ways+=1
                 for (x,z),(u,v) in zip(points,points[1:]):
                     steps=max(1,math.ceil(math.hypot(u-x,v-z)/48))
@@ -90,6 +105,7 @@ def add_regional_roads(region,folder,database):
                         ax,az=bx,bz
             if export.wait():raise SystemExit('Regional road export failed.')
         if not ways:raise SystemExit('No regional roads exported.')
+        db.execute('CREATE INDEX traffic_tile ON traffic_cells(tx,tz)')
         db.execute('CREATE TABLE road_tiles(tx INTEGER,tz INTEGER,data BLOB,PRIMARY KEY(tx,tz)) WITHOUT ROWID')
         db.executemany('INSERT INTO road_tiles VALUES (?,?,?)',((x,z,zlib.compress(data,3)) for (x,z),data in tiles.items()))
         db.execute('PRAGMA user_version=4')
@@ -130,7 +146,7 @@ def prepare(launch=False):
         with sqlite3.connect(f'{target.resolve().as_uri()}?mode=ro', uri=True) as db:
             db.execute('SELECT tx,tz,model,data FROM features LIMIT 1').fetchone()
             version = db.execute('PRAGMA user_version').fetchone()[0]
-        if launch or version >= 5 or os.environ.get('POCKET_REGION_SCENERY'):
+        if launch or version >= 6 or os.environ.get('POCKET_REGION_SCENERY'):
             print(f'Using installed regional scenery from {target}')
             return True
         return False
@@ -172,6 +188,7 @@ def install(target):
         add_airport_roads(region, folder, database)
         add_regional_roads(region,folder,database)
         add_woodland(region,folder,database)
+        with sqlite3.connect(database) as db:db.execute("PRAGMA user_version=6")
         os.replace(database, target)
         print(f'Installed {target} ({dict(counts)})')
 

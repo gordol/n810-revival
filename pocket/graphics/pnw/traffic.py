@@ -40,19 +40,40 @@ def routes():
         for _,kind,points,_,_ in street_lines(city):
             if kind in ('primary','secondary','tertiary') and math.dist(points[0],points[-1])>100:
                 extras.append(points)
-    paths=[]
-    for points in (south,north,*extras):
-        spans=[];ends=[];cells={};start=0.
-        for a,b in zip(points,points[1:]):
-            length=math.dist(a,b)
-            if length<.01:continue
-            spans.append((*a,(b[0]-a[0])/length,(b[1]-a[1])/length,start))
-            for i in range(math.floor(min(a[0],b[0])/256),math.floor(max(a[0],b[0])/256)+1):
-                for j in range(math.floor(min(a[1],b[1])/256),math.floor(max(a[1],b[1])/256)+1):
-                    cells.setdefault((i,j),[]).append(len(spans)-1)
-            start+=length;ends.append(start)
-        paths.append((spans,ends,cells))
-    return paths
+    return [make_route(points) for points in (south,north,*extras)]
+
+
+def make_route(points):
+    spans=[];ends=[];cells={};start=0.
+    for a,b in zip(points,points[1:]):
+        length=math.dist(a,b)
+        if length<.01:continue
+        spans.append((*a,(b[0]-a[0])/length,(b[1]-a[1])/length,start))
+        for i in range(math.floor(min(a[0],b[0])/256),math.floor(max(a[0],b[0])/256)+1):
+            for j in range(math.floor(min(a[1],b[1])/256),math.floor(max(a[1],b[1])/256)+1):
+                cells.setdefault((i,j),[]).append(len(spans)-1)
+        start+=length;ends.append(start)
+    return spans,ends,cells
+
+
+@lru_cache(maxsize=1024)
+def mapped_paths(way,directions,blob):
+    import json,zlib
+    points=json.loads(zlib.decompress(blob))
+    return [make_route(points if i==0 else points[::-1]) for i in range(directions)]
+
+
+@lru_cache(maxsize=96)
+def traffic_tile(path,tx,tz):
+    import sqlite3
+    with sqlite3.connect(path.as_uri()+'?mode=ro',uri=True) as db:
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE name='traffic_cells'").fetchone():return ()
+        result=[]
+        for way,dirs,blob in db.execute('SELECT way,directions,points FROM traffic_cells JOIN traffic_paths USING(way) WHERE tx=? AND tz=?',(tx,tz)):
+            for i,route in enumerate(mapped_paths(way,dirs,blob)):
+                result.append((10000000+2*way+i,route))
+        return result
+
 
 @lru_cache(maxsize=1)
 def road_cells():
@@ -120,15 +141,19 @@ class Traffic:
         nearby=[(cx,cz) for cx in range(math.floor((x-radius)/256),math.floor((x+radius)/256)+1)
                           for cz in range(math.floor((z-radius)/256),math.floor((z+radius)/256)+1)]
         directions={d for cell in nearby for d in road_cells().get(cell,())}
-        for direction in sorted(directions):
-            route=routes()[direction]
+        from pnw.regional_scenery import database_path
+        network={d:routes()[d] for d in directions}
+        path=database_path().resolve()
+        for i,j in {(cx//2,cz//2) for cx,cz in nearby}:
+            network.update(traffic_tile(path,i,j))
+        for direction,route in sorted(network.items()):
             spans,ends,cells=route
             indices={i for cell in nearby for i in cells.get(cell,())}
             if not indices:continue
             for lane,pace in enumerate((24.,29.) if direction<2 else (12.,)):
                 home=(1.8,-1.8)[lane]
                 gap=69.+lane*11 if direction<2 else 156.
-                shift=age*pace+direction*32+lane*48
+                shift=age*pace+(direction%4096)*32+lane*48
                 ids={n for i in indices for n in range(math.ceil((spans[i][4]-shift)/gap),
                                                          math.floor((ends[i]-shift)/gap)+1)}
                 ids.update(key[2] for key in self.cars if key[:2]==(direction,lane))
