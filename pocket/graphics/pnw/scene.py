@@ -750,6 +750,7 @@ class RainierView:
         self.traffic=Traffic()
         self.parked_cars=[]
         self.street_walls=self.nearby_walls=None
+        self.traffic_bridges=None
         self.patrol_owner=None
         self.gait_phase=0.
         self.avatar_pose=12.5
@@ -1768,8 +1769,8 @@ class RainierView:
             road=self.road
             old=(road.x,road.z)
             owner.x,owner.z,owner.yaw,owner.pitch=road.advance(dt,self.pad_sticks)
-            if not road.assist and (not road.bridge_roads or road.bridge_roads.deck is None):
-                self.traffic.strike(road,old)
+            if not road.assist:
+                self.traffic.strike(road,old,self.walk_height(*old))
                 if self.traffic.impact>.65:road.alert_patrol(self.traffic.bodies.values())
                 owner.x,owner.z=road.x,road.z
             if road.patrol:
@@ -2210,15 +2211,27 @@ class RainierView:
             altitude=max(0.,eye+origin.y-ground(x,z))
             radius=400. if self.outing not in AIRCRAFT else min(2400.,650.+altitude)
             if altitude<4000.:
-                driver=self.road if self.road and self.road.bridge_roads and self.road.bridge_roads.deck is None else None
-                cars=self.traffic.update(x,z,self.age,radius,driver)
+                from pnw.seattle_places import BridgeRoads
+                from pnw.vehicle_impact import Body
+                terrain=lambda u,v:surface(field,u,v)
+                if self.traffic_bridges is None:self.traffic_bridges=BridgeRoads(terrain)
+                def lane_height(u,v,heading):
+                    return self.traffic_bridges.lane_height(u,v,heading,terrain(u,v))
+                stationary=[]
+                for parked in self.parked_cars:
+                    if math.hypot(parked.x-x,parked.z-z)>radius:continue
+                    py=terrain(parked.x,parked.z)
+                    if parked.bridge_roads:py=parked.bridge_roads.sample(parked.x,parked.z,py)
+                    stationary.append(Body(parked.x,parked.z,parked.heading,0,0,0,1500,
+                                           {11:5.8,12:7.8}.get(parked.actor_kind,2.2),1.,elevation=py))
+                cars=self.traffic.update(x,z,self.age,radius,self.road,lane_height,stationary)
                 for distance,px,pz,angle,index,braking,turn in cars[:max(0,30-len(poses))]:
                     self.traffic_gain=max(self.traffic_gain,1./(1.+distance/12.)**2)
                     lamps=int(braking)+2*int(daylight<.65 or bool(self.weather))
                     if turn==2:lamps+=16
                     if (self.age+index*.17)% .78<.39:lamps+=12 if turn==2 else 4 if turn<0 else 8 if turn>0 else 0
                     from pnw.traffic import vehicle_type
-                    poses.append((vehicle_type(index),px,ground(px,pz)+.06,pz,
+                    poses.append((vehicle_type(index),px,lane_height(px,pz,angle)+.06,pz,
                                   math.degrees(angle),float(lamps),1+index%4+32*int(distance>100)))
         if sound_region and self.outing not in market_visit.FLOORS:
             reserved=[]

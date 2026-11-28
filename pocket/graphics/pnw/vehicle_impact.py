@@ -15,6 +15,7 @@ class Body:
     length: float
     radius: float
     damage: float = 0.
+    elevation: float = 0.
 
     def coast(self, dt):
         self.x += self.vx * dt

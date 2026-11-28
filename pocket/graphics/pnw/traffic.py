@@ -85,7 +85,7 @@ class Traffic:
         self.taken={}
         self.impact=0.
 
-    def update(self,x,z,age,radius,driver=None):
+    def update(self,x,z,age,radius,driver=None,lane_height=None,parked=()):
         dt=min(.15,max(0.,age-self.last)) if self.last is not None else 0.
         self.last=age
         visible=[];active={};offsets={}
@@ -95,6 +95,7 @@ class Traffic:
         def cell(body):return math.floor(body.x/20),math.floor(body.z/20)
         def reserve(key,body):space.setdefault(cell(body),{})[key]=body
         for key,body in previous.items():reserve(key,body)
+        for index,body in enumerate(parked):reserve(('parked',index),body)
         self.bodies={}
         self.taken={key:pos for key,pos in self.taken.items() if math.dist((x,z),pos)<radius+100}
         for key,body in list(self.wrecks.items()):
@@ -169,7 +170,8 @@ class Traffic:
                     body=Body(px,pz,angle,speed*math.sin(angle),speed*math.cos(angle),0.,
                               {11:10500.,12:18000.,5:2200.}.get(kind,1500.),half_length(identity),1.2 if kind in (11,12) else .95)
                     cx,cz=cell(body)
-                    blocked_by_traffic=any(contact(body,other) for u in range(cx-1,cx+2)
+                    if lane_height:body.elevation=lane_height(px,pz,angle)
+                    blocked_by_traffic=any(abs(body.elevation-other.elevation)<2.7 and contact(body,other) for u in range(cx-1,cx+2)
                         for v in range(cz-1,cz+2) for k,other in space.get((u,v),{}).items() if k!=key)
                     if blocked_by_traffic:
                         if key not in previous:
@@ -200,7 +202,7 @@ class Traffic:
         self.bodies.pop(key,None)
         self.wrecks.pop(key,None)
 
-    def strike(self,road,previous):
+    def strike(self,road,previous,elevation=None,damage=True):
         sn,cs=math.sin(road.heading),math.cos(road.heading)
         player=Body(*previous,road.heading,road.speed*sn+road.slip*cs,road.speed*cs-road.slip*sn,
                     road.spin,{11:10500.,12:18000.,5:2200.}.get(road.actor_kind,1500.),
@@ -211,14 +213,17 @@ class Traffic:
             player.x+=dx/steps
             player.z+=dz/steps
             for key,body in (*self.bodies.items(),*self.wrecks.items()):
+                if elevation is not None and abs(elevation-body.elevation)>2.7:continue
+                if contact(player,body) is None:continue
+                old_damage=body.damage
                 impact=collide(player,body)
-                if not impact:continue
+                if not damage:body.damage=old_damage
                 self.wrecks[key]=body
                 self.bodies.pop(key,None)
                 road.x,road.z=player.x,player.z
                 road.speed=player.vx*sn+player.vz*cs
                 road.slip=player.vx*cs-player.vz*sn
                 road.spin=player.spin
-                road.damage=player.damage
+                if damage:road.damage=player.damage
                 self.impact=max(self.impact,min(1.,impact/18.))
                 return

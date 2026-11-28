@@ -420,6 +420,22 @@ class BridgeRoads:
         self.deck=None
         self.last_height=None
 
+    def lane_height(self,x,z,heading,ground):
+        # A vehicle on a crossing street stays below the elevated lanes.
+        # Resolve by tangent and lateral distance independently of the camera.
+        best=None
+        sn,cs=math.sin(heading),math.cos(heading)
+        for _,kind,width,(ax,az),(bx,bz),length,y,grade in self.cells.get((math.floor(x/32),math.floor(z/32)),()):
+            dx,dz=(bx-ax)/length,(bz-az)/length
+            alignment=abs(dx*sn+dz*cs)
+            if alignment<.92:continue
+            along=max(0.,min(length,(x-ax)*dx+(z-az)*dz))
+            gap=math.hypot(x-ax-dx*along,z-az-dz*along)
+            if gap<=width:
+                candidate=(gap+8*(1-alignment),y+grade*along)
+                if best is None or candidate<best:best=candidate
+        return best[1] if best else ground
+
     def sample(self,x,z,ground,update=False):
         best=None
         for bridge,_,width,(ax,az),(bx,bz),length,y,grade in self.cells.get((math.floor(x/32),math.floor(z/32)),()):
