@@ -679,8 +679,11 @@ streets around Pike Place or downtown Tacoma. Arrow keys or WASD drive and steer
 On touch, drag forward or backward for speed and sideways to steer. On a
 controller use the left stick. Go or A/Cross toggles cruise, and Exit or B/Circle
 continues on foot. In either car, press **0**, tap **View**, or click the right stick
-to switch between the driver’s seat and the overhead camera. Follow the amber
-line on the driving minimap from First Avenue to the I-5 ramp.
+to switch between the driver’s seat and a chase camera behind the car. Follow the amber
+route from First Avenue to I-5. Once you merge, the minimap gives the distance
+along the freeway to the Tacoma exit. With Aerial selected, driving requests a
+512-meter USGS photo tile at 0.25 meters per pixel and a surrounding
+1,024-meter tile at 0.5 meters per pixel. Source resolution varies by location.
 The optional flower run ends when you stop at the destination.
 Set `POCKET_KID_MODE=1` before launching to follow the delivery route at up to
 5 m/s with automatic steering and a stop at the handoff. This switch currently
@@ -731,8 +734,9 @@ Aircraft can cross the prepared overview boundary. Beyond it, terrain needs cach
 elevation or a successful elevation download in Aerial mode. Mountain relief uses
 64 m samples from USGS 3DEP. Lowland runways and built areas inside the overview
 keep their existing elevations. Downloads and decoding run in the background.
-The JPEG and elevation cache keeps the most recently visited patches within 128 MiB
-in the private data directory. Cached patches work offline until evicted. For scale,
+The JPEG and elevation cache keeps the most recently visited patches on disk up to 1 GiB, using at most a tenth of the space available
+to the cache. Below 600 m above ground, aircraft also request the close-range
+driving tiles when memory permits. Cached patches work offline until evicted. For scale,
 a 10 × 10 km area at 1 m/pixel is about 286 MiB of uncompressed RGB imagery before
 elevation, structures or vegetation. Actual JPEG download sizes depend on the scene.
 

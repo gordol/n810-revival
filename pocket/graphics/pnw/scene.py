@@ -1734,6 +1734,7 @@ class RainierView:
             cx,cz=market_visit.site('overlook')
             if abs(x-cx)<=6 and -38<=z-cz<=20:return market_visit.deck_height(terrain,x,z)
             return floor_height(arcade_origin(),terrain,x,z)
+        if self.road:return surface(self.world[0],x,z)
         for slot in sorted(self.flight_surfaces):
             patch=self.flight_surfaces[slot]
             west,east,south,north=bounds(patch)
@@ -1906,7 +1907,10 @@ class RainierView:
             patch=self.flight_imagery.update(x,z,field,self.ground_source)
             if self.flight_horizon is None:self.flight_horizon=FlightHorizon()
             setting=self.horizon_range if self.outing in AIRCRAFT and self.ground_source=='Aerial' else 'Local'
-            removed,distant=self.flight_horizon.update(x,z,field,setting)
+            if self.road and self.ground_source=='Aerial':setting='Street'
+            low_flight=(self.outing in AIRCRAFT and self.ground_source=='Aerial' and
+                        eye+origin.y-self.walk_height(x,z)<600)
+            removed,distant=self.flight_horizon.update(x,z,field,setting,low_flight)
             if removed:
                 drop=ctx.lib.pocket_scene_drop_flight_photo
                 drop.argtypes=[C.c_void_p,C.c_uint]
@@ -1917,8 +1921,9 @@ class RainierView:
                 if tile is None:continue
                 slot,(ix,iz),rgb,(heights,mesh)=tile
                 upload=ctx.lib.pocket_scene_flight_photo
-                upload.argtypes=[C.c_void_p,C.c_uint,C.c_uint,C.c_char_p,C.c_float,C.c_float,C.c_void_p,C.c_uint]
-                ctx.check(upload(ctx.handle,slot,math.isqrt(len(rgb)//3),rgb,ix*PATCH_STEP,iz*PATCH_STEP,mesh.buffer_info()[0],len(mesh)//7))
+                upload.argtypes=[C.c_void_p,C.c_uint,C.c_uint,C.c_char_p,C.c_float,C.c_float,C.c_float,C.c_void_p,C.c_uint]
+                width=self.flight_horizon.resident[slot][1] if tile is distant else 2*PATCH_STEP
+                ctx.check(upload(ctx.handle,slot,math.isqrt(len(rgb)//3),rgb,ix*PATCH_STEP,iz*PATCH_STEP,width,mesh.buffer_info()[0],len(mesh)//7))
                 self.flight_surfaces[slot]=heights
         if sound_region:center=((field.nx-1)*field.dx,(field.nz-1)*field.dz)
         if self.regional and self.outing in (None,'hoh'):
@@ -1992,6 +1997,20 @@ class RainierView:
             for i,lane in enumerate((-4.4,-1.55,1.55,4.4)):
                 dx,dz,heading,gait,identity=stroll(self.outing,i,self.age,8.)
                 poses.append((0,lane+dx,0.,dz,math.degrees(heading),gait,identity))
+        if self.road:
+            from pnw.seattle_places import corridor_path,corridor_position,corridor_sample
+            position=corridor_position(x,z)
+            if position:
+                chainage,_,kind=position
+                speed=24. if kind=='freeway' else 8.
+                gap=82. if kind=='freeway' else 60.
+                offset=self.age*speed
+                first=math.floor((chainage-offset)/gap)
+                for i in range(first-3,first+5):
+                    at=i*gap+offset
+                    if not 0.<at<corridor_path()[1][-1] or len(poses)>=30:continue
+                    px,pz,angle=corridor_sample(at,2.8 if kind=='freeway' and i%2 else 1.3)
+                    poses.append((5 if i%4==0 else 10,px,ground(px,pz)+.06,pz,math.degrees(angle),0.,1+i%4))
         if self.road and self.road.patrol and math.dist((x,z),self.road.patrol)<240 and len(poses)<32:
             px,pz=self.road.patrol
             flash=self.age%1 if self.road.pursuit=='following' else -1.
@@ -2007,16 +2026,19 @@ class RainierView:
             equipment=None
             player=(5 if self.road.kind=='car' else 10,x,ground(x,z)+.05,z,math.degrees(yaw),0.,0.)
             poses=poses[:31]+[player]
-            camera_x=x-3.*math.sin(yaw)
-            camera_z=z-3.*math.cos(yaw)
-            eye=ground(x,z)+14.-origin.y
-            pitch=math.atan2(13.,3.)
+            yaw=self.road.chase_heading
+            pullback=7.4+min(abs(self.road.speed)*.065,3.6)
+            camera_x=x-pullback*math.sin(yaw)
+            camera_z=z-pullback*math.cos(yaw)
+            target=ground(x,z)-origin.y
+            eye=max(ground(camera_x,camera_z)-origin.y+1.2,target+3.1+pullback*.10)
+            pitch=math.atan2(eye-target-.85,pullback+4.)
         if poses:
             actor_count=len(poses)
             packed=[]
             for pose in poses:
                 slopes=(0.,0.)
-                if pose[0]<=1:
+                if pose[0] in (0,1,5,10):
                     px,py,pz=pose[1:4]
                     slopes=(ground(px+.25,pz)-ground(px-.25,pz),
                             ground(px,pz+.25)-ground(px,pz-.25))

@@ -301,10 +301,24 @@ def build_mesh(region,field,raw,aerial):
             box(x,zz,y+1.15,3.5,2.,1.05,(.24,.38,.45))
             box(x,zz,y+2.2,3.8,2.3,.18,(.84,.85,.80))
         from pnw import pike_market
-        from pnw.seattle_places import arcade_origin,buildings,space_needle,streets
+        from pnw.seattle_places import arcade_origin,buildings,roadside_trees,space_needle,streets
         def ground(x,z):return surface(field,x,z)
         pike_market.build(arcade_origin(),ground,quad)
-        streets(ground,quad)
+        streets(ground,quad,field)
+        from pnw.seattle_places import corridor_path
+        last_lamp=-100.
+        for start,x,z,dx,dz,length,_,kind,width in corridor_path()[0]:
+            spacing=95. if kind=='freeway' else 43.
+            at=max(start,last_lamp+spacing)
+            while at<start+length:
+                px=x+dx*(at-start)+dz*(width+.65)
+                pz=z+dz*(at-start)-dx*(width+.65)
+                py=ground(px,pz)
+                box(px,pz,py,.16,.16,7.2,(.38,.41,.42))
+                box(px-dz*.65,pz+dx*.65,py+7.15,.13,1.55,.13,(.40,.43,.44),rotation=(dx,-dz))
+                box(px-dz*1.35,pz+dx*1.35,py+7.04,.54,.42,.12,(.98,.84,.59),.247)
+                last_lamp=at;at+=spacing
+        roadside_trees(ground,quad)
         buildings(ground,quad)
         space_needle(ground,quad)
         market_visit.outdoor(ground,quad,box)
@@ -382,6 +396,7 @@ class StreetRide:
         self.x,self.z=self.route[0]
         self.leg=1
         self.heading=self.bearing(self.route[1])
+        self.chase_heading=self.heading
         self.speed=self.steer=0.
         self.cruise=self.delivered=False
         self.keys=set()
@@ -465,18 +480,36 @@ class StreetRide:
             z=self.z+distance*math.cos(self.heading)
             self.x,self.z=x,z
         if self.kind=='sports-car' and not self.assist:
-            while self.leg<len(self.route)-1 and math.dist((self.x,self.z),self.route[self.leg])<30:self.leg+=1
+            from bisect import bisect_right
+            from pnw.seattle_places import corridor_position,corridor_path
+            position=corridor_position(self.x,self.z)
+            if position:
+                self.leg=min(len(self.route)-1,1+bisect_right(corridor_path()[1],position[0]+8.))
             self.advance_patrol(dt)
         if abs(self.speed)<.5 and math.dist((self.x,self.z),self.route[-1])<6:self.delivered=True
+        turn=math.remainder(self.heading-self.chase_heading,math.tau)
+        self.chase_heading+=turn*(-math.expm1(-dt*6))
         return self.x,self.z,self.heading,.045
 
     @property
     def has_car_camera(self):
         return self.kind in ('car','sports-car')
 
+    def drive_guidance(self):
+        from pnw.seattle_places import corridor_milestones,corridor_position
+        here=(self.x,self.z)
+        position=corridor_position(*here)
+        marks=corridor_milestones()
+        if position:
+            along=position[0]
+            distance,target,label=next((mark for mark in marks if mark[0]>along+1.),marks[-1])
+            return target,label,max(0.,distance-along)
+        _,target,_=min((marks[0],marks[-2]),key=lambda mark:math.dist(here,mark[1]))
+        return target,'I-5 ramp',math.dist(here,target)
+
     def draw_minimap(self,ink,width,height):
         import ctypes as C
-        from pnw.seattle_places import nearby_driving_segments,tacoma_corridor
+        from pnw.seattle_places import nearby_driving_segments
         size=min(144,width*3,height*5)
         if size<40:return
         x0,y0=ink.x+8,ink.y+height*16-size-6
@@ -495,17 +528,15 @@ class StreetRide:
         add(nearby_driving_segments(cx,cz,reach,False))
         ordinary=len(roads)//4
         add(nearby_driving_segments(cx,cz,reach,True))
-        ramps=[points for name,_,points,_,_ in tacoma_corridor() if name=='Ramp']
-        access=min((ramps[0][0],ramps[-1][-1]),key=lambda p:math.dist(p,(self.x,self.z)))
+        access,label,distance=self.drive_guidance()
         ax,ay=project(*access)
         edge=max(1.,abs(ax-size*.5)/(size*.5-5),abs(ay-size*.5)/(size*.5-5))
         draw=ink.ctx.lib.pocket_scene_drive_map
         draw.argtypes=[C.c_void_p,C.c_int,C.c_int,C.c_int,C.c_void_p,C.c_uint,C.c_uint,C.c_float,C.c_float]
         ink.ctx.check(draw(ink.ctx.handle,x0,y0,size,roads.buffer_info()[0],len(roads)//4,ordinary,
                            size*.5+(ax-size*.5)/edge,size*.5+(ay-size*.5)/edge))
-        distance=math.dist(access,(self.x,self.z))
         units=f'{distance/1000:.1f} km' if distance>=1000 else f'{round(distance)} m'
-        ink.label(1,(y0-ink.y)/16-1,'I-5 ramp · '+units,0xFFCB68)
+        ink.label(1,(y0-ink.y)/16-1,label+' · '+units,0xFFCB68)
 
     def hint(self):
         if self.kind=='sports-car':
@@ -516,7 +547,9 @@ class StreetRide:
             turn=math.remainder(self.bearing(next_point)-self.heading,math.tau)
             arrow='↑' if abs(turn)<.35 else '↓' if abs(turn)>2.65 else '→' if turn>0 else '←'
             street=self.road_names[min(self.leg-1,len(self.road_names)-1)]
-            note=self.pursuit if self.patrol and self.pursuit in ('Clear','Traffic stop') else street
+            from pnw.seattle_places import corridor_position
+            position=corridor_position(self.x,self.z)
+            note=position[1] if position else street
             return f'{arrow} {note} · {round(abs(self.speed)*3.6)} km/h'
         if self.delivered:return 'Flowers delivered'
         end=self.route[-1]

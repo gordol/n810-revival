@@ -116,7 +116,76 @@ def on_road(x,z):
         if math.hypot(x-ox-t*dx,z-oz-t*dz)<=width:return True
     return False
 
-def streets(height,quad):
+@lru_cache(maxsize=1)
+def corridor_path():
+    """Centreline chainage in metres, indexed for nearby traffic and guidance."""
+    spans=[];ends=[];cells={};distance=0.
+    for name,kind,points,width,_ in tacoma_corridor():
+        for (x,z),(ex,ez) in zip(points,points[1:]):
+            length=math.hypot(ex-x,ez-z)
+            if not length:continue
+            span=(distance,x,z,(ex-x)/length,(ez-z)/length,length,name,kind,width)
+            for i in range(math.floor((min(x,ex)-24)/64),math.floor((max(x,ex)+24)/64)+1):
+                for j in range(math.floor((min(z,ez)-24)/64),math.floor((max(z,ez)+24)/64)+1):
+                    cells.setdefault((i,j),[]).append(span)
+            spans.append(span);distance+=length;ends.append(distance)
+    return spans,ends,cells
+
+@lru_cache(maxsize=1)
+def corridor_milestones():
+    distance=0.;marks=[]
+    for name,kind,points,_,_ in tacoma_corridor():
+        if name=='Ramp' and not marks:marks.append((distance,points[0],'I-5 ramp'))
+        distance+=sum(math.dist(a,b) for a,b in zip(points,points[1:]))
+        if name=='Ramp':marks.append((distance,points[-1],'Merge onto I-5' if len(marks)==1 else 'Ramp end'))
+        if kind=='freeway':marks.append((distance,points[-1],'I-5 S · Exit'))
+    marks.append((distance,points[-1],'Dock Street'))
+    return tuple(marks)
+
+def corridor_position(x,z):
+    _,_,cells=corridor_path()
+    best=None;gap=math.inf
+    for start,ox,oz,dx,dz,length,name,kind,width in cells.get((math.floor(x/64),math.floor(z/64)),()):
+        t=max(0.,min(length,(x-ox)*dx+(z-oz)*dz))
+        error=math.hypot(x-ox-t*dx,z-oz-t*dz)
+        if error<gap and error<=width+2:
+            best=(start+t,name,kind);gap=error
+    return best
+
+def corridor_sample(distance,lane):
+    from bisect import bisect_left
+    spans,ends,_=corridor_path()
+    start,x,z,dx,dz,*_=spans[min(bisect_left(ends,distance),len(ends)-1)]
+    along=distance-start
+    return x+dx*along+dz*lane,z+dz*along-dx*lane,math.atan2(dx,dz)
+
+def streets(height,quad,field=None):
+    def pavement(points,color,material,lift):
+        # Split where the DEM changes slope, including the diagonal inside each cell.
+        faces=[points]
+        if field:
+            origin=field.origin;step=field.dx
+            for a,b,offset in ((1,0,origin.x),(0,1,origin.z),(1,1,origin.x+origin.z)):
+                values=[a*x+b*z-offset for x,z in points]
+                for k in range(math.floor(min(values)/step)+1,math.ceil(max(values)/step)):
+                    split=[]
+                    for face in faces:
+                        parts=([],[])
+                        for (x,z),(ex,ez) in zip(face,face[1:]+face[:1]):
+                            d=a*x+b*z-offset-k*step;e=a*ex+b*ez-offset-k*step
+                            if d<=0:parts[0].append((x,z))
+                            if d>=0:parts[1].append((x,z))
+                            if d*e<0:
+                                t=d/(d-e);point=(x+t*(ex-x),z+t*(ez-z))
+                                for part in parts:part.append(point)
+                        split.extend(part for part in parts if len(part)>=3)
+                    faces=split
+        for face in faces:
+            vertices=[(x,height(x,z)+lift,z) for x,z in face]
+            if len(vertices)==4:quad(vertices,color,material)
+            else:
+                for i in range(1,len(vertices)-1):
+                    quad((vertices[0],vertices[i],vertices[i+1],vertices[i+1]),color,material)
     junctions={}
     for name,kind,points,half,crossings in (*tacoma_corridor(),*street_lines('seattle'),*street_lines('tacoma')):
         for pt in (points[0],points[-1]):junctions.setdefault(pt,set()).add(name)
@@ -128,10 +197,8 @@ def streets(height,quad):
                 corners=[]
                 for d,w in ((t,left),(end,left),(end,right),(t,right)):
                     px,pz=x+d*dx+w*dz,z+d*dz-w*dx
-                    corners.append((px,height(px,pz)+lift,pz))
-                if left==-half and right==half:quad(corners,color,.249)
-                elif material:quad(corners,color,material)
-                else:quad(corners,color)
+                    corners.append((px,pz))
+                pavement(corners,color,.249 if left==-half and right==half else material,lift)
             for t in range(0,math.ceil(length),16):
                 end=min(length,t+16)
                 if kind in ('freeway','connector'):
@@ -139,6 +206,16 @@ def streets(height,quad):
                     band(-half,-half+.13,t,end,.039,(.86,.76,.45))
                     band(half-.14,half,t,end,.039,(.85,.85,.80))
                     if kind=='freeway':
+                        # A profiled concrete median follows the grade at each end.
+                        profile=((-half-.75,0.),(-half-.63,.40),(-half-.57,.84),
+                                 (-half-.36,.84),(-half-.31,.40),(-half-.12,0.))
+                        for (u,h),(v,k),shade in zip(profile,profile[1:],(.43,.54,.67,.58,.49)):
+                            wall=[]
+                            for along,lateral,rise in ((t,u,h),(end,u,h),(end,v,k),(t,v,k)):
+                                px=x+along*dx+lateral*dz
+                                pz=z+along*dz-lateral*dx
+                                wall.append((px,height(px,pz)+rise,pz))
+                            quad(wall,(shade,shade*.99,shade*.95),0.)
                         for stripe in (-half/3,half/3):
                             band(stripe,stripe+.14,t,min(t+4,end),.039,(.84,.84,.8))
                     continue
@@ -151,6 +228,24 @@ def streets(height,quad):
                 for n in range(-int(half),int(half)):
                     band(n+.12,n+.54,0.,min(2.8,length),.092,(.79,.78,.71))
     from pnw.market_visit import lettering
+    entrance,merge,exit_mark,*_=corridor_milestones()
+    signs=[(entrance[0]-35,'I-5 SOUTH'),(merge[0]+65,'SOUTH  I-5'),
+           (exit_mark[0]-300,'TACOMA  EXIT')]
+    signs.extend((along,'I-5  TACOMA') for along in range(5500,int(exit_mark[0])-500,12000))
+    for along,label in signs:
+        x,z,angle=corridor_sample(along,7.7)
+        py=height(x,z)
+        dx,dz=math.sin(angle),math.cos(angle)
+        def sign_face(points,color):
+            quad([(x+u*dz+offset*dx,py+h,z-u*dx+offset*dz) for u,h,offset in points],color)
+        for lateral in (-1.3,1.3):
+            sign_face([(lateral-.06,0,.06),(lateral+.06,0,.06),(lateral+.06,4,.06),
+                       (lateral-.06,4,.06)],(.46,.49,.47))
+        for width,bottom,top,offset,color in ((2.,2.4,4.,0.,(.85,.88,.83)),
+                (1.94,2.46,3.94,-.01,(.035,.25,.15))):
+            sign_face([(-width,bottom,offset),(width,bottom,offset),(width,top,offset),
+                       (-width,top,offset)],color)
+        lettering(label,-1.62,2.94,-.025,.48,sign_face,(.96,.97,.88))
     for (x,z),names in junctions.items():
         if '2nd Avenue' not in names or len(names)<2:continue
         name=next(iter(sorted(names-{'2nd Avenue'})))
@@ -158,6 +253,47 @@ def streets(height,quad):
         quad(((x-.05,y,z),(x+.05,y,z),(x+.05,y+2.9,z),(x-.05,y+2.9,z)),(.39,.43,.40))
         quad(((x-1.1,y+2.50,z),(x+1.1,y+2.50,z),(x+1.1,y+2.89,z),(x-1.1,y+2.89,z)),(.11,.29,.22))
         lettering(name,x-.97,y+2.60,z-.012,min(.23,2.2/len(name)),quad,(.92,.92,.84))
+
+
+def roadside_trees(height,quad):
+    import json
+    import random
+    from pnw.terrain import location
+    source=Path(__file__).resolve().parents[1]/'assets/seattle/freeway-trees.json'
+    trees,woods=json.loads(source.read_text())
+    project=lambda point:location('sound',point[1]/1e7,point[0]/1e7)
+    positions=[project(point) for point in trees]
+    rng=random.Random(3205)
+    for ring in woods:
+        points=[project(point) for point in ring]
+        xs,zs=zip(*points)
+        for gx in range(math.floor(min(xs)),math.ceil(max(xs)),11):
+            for gz in range(math.floor(min(zs)),math.ceil(max(zs)),11):
+                x,z=gx+rng.uniform(0,11),gz+rng.uniform(0,11)
+                crossings=sum((az>z)!=(bz>z) and x<ax+(bx-ax)*(z-az)/(bz-az)
+                              for (ax,az),(bx,bz) in zip(points,points[1:]))
+                if crossings%2:positions.append((x,z))
+    for x,z in positions:
+        if on_road(x,z):continue
+        base=height(x,z)
+        h=rng.uniform(5.,13.)
+        spread=rng.uniform(.20,.35)*h
+        green=rng.uniform(.25,.39)
+        angle=rng.uniform(0,math.tau)
+        previous=None
+        for rise,radius in ((0,.18),(.44,.14),(.35,spread*.48),(.58,spread),(.81,spread*.78),(1.,.12)):
+            ring=[]
+            for j in range(7):
+                a=angle+math.tau*j/7
+                r=radius*rng.uniform(.83,1.12)
+                ring.append((x+r*math.cos(a),base+h*rise+rng.uniform(-.04,.04)*radius,z+r*math.sin(a)))
+            if previous:
+                for j in range(7):
+                    k=(j+1)%7
+                    light=.65+.22*math.cos(angle+math.tau*j/7)+rise*.22
+                    tone=(.23,.18,.13) if radius==.14 else (.15,green,.14)
+                    quad((previous[j],previous[k],ring[k],ring[j]),tuple(c*light for c in tone),0. if radius==.14 else .512)
+            previous=ring
 
 
 def buildings(height,quad):
@@ -182,7 +318,7 @@ def buildings(height,quad):
             if norm==0:continue
             light=.82+.13*(ex-x)/norm+.09*(ez-z)/norm
             quad(((x,height(x,z)-1,z),(ex,height(ex,ez)-1,ez),(ex,top,ez),(x,top,z)),
-                 tuple(light*c for c in tone),facade)
+                 tuple(light*c for c in tone),facade if abs(ex-x)>=abs(ez-z) else facade-.002)
         for a,b,c in zip(roof[::3],roof[1::3],roof[2::3]):
             quad([(points[k][0],top,points[k][1]) for k in (a,b,c,c)],(.47,.48,.46))
 

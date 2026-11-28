@@ -21,6 +21,74 @@ static void market_panel(float x,float y,float z,float w,float h,float d,float r
  glVertex3f(x+w,y+h,z+d);glVertex3f(x-w,y+h,z+d);glEnd();
 }
 
+/* Cross sections run from tail to nose. Each has a sill, a shoulder and
+ * an inset roof or hood, so the glazing follows the rake of the pillars. */
+static void street_vehicle(int van,unsigned paint){
+ static const float coupe[][5]={
+  {-2.18f,.78f,.76f,.82f,.70f},{-1.74f,.94f,.85f,.92f,.78f},
+  {-1.26f,.98f,.87f,.97f,.78f},{-.70f,.96f,.89f,1.33f,.62f},
+  {.14f,.94f,.89f,1.35f,.64f},{.93f,.93f,.80f,.88f,.79f},
+  {1.66f,.91f,.73f,.79f,.76f},{2.18f,.74f,.56f,.63f,.65f}};
+ static const float delivery[][5]={
+  {-2.20f,.87f,1.16f,1.99f,.81f},{-1.96f,.94f,1.19f,2.08f,.85f},
+  {-1.30f,.94f,1.19f,2.08f,.85f},{-.58f,.94f,1.19f,2.08f,.85f},
+  {.46f,.93f,1.17f,2.02f,.82f},{1.18f,.90f,1.10f,1.26f,.80f},
+  {1.75f,.88f,.99f,1.05f,.80f},{2.14f,.84f,.86f,.92f,.77f}};
+ static const float colors[][3]={{.73f,.12f,.055f},{.23f,.36f,.45f},{.74f,.71f,.62f},{.16f,.22f,.26f},{.43f,.17f,.18f}};
+ const float (*profile)[5]=van?delivery:coupe;
+ const float *body=colors[van && !paint?2:paint%5];
+ for(int i=0;i<7;i++)for(int side=-1;side<=1;side+=2){
+  glBegin(GL_QUAD_STRIP);
+  for(int edge=0;edge<4;edge++)for(int end=0;end<2;end++){
+   const float *p=profile[i+end];
+   float w=edge==0?p[1]*.90f:edge==1?p[1]:edge==2?p[4]:0.f;
+   float y=edge==0?.33f:edge==1?p[2]:p[3];
+   float light=edge==0?.45f:edge==1?.84f:1.f;
+   int glass=(edge>=2 && (i==4 || (!van && i==2))) || (edge==1 && i==3);
+   float sheen=edge==2?.20f:edge==3?.08f:0.f;
+   if(glass)glColor3f(.08f+sheen,.14f+sheen,.20f+sheen);
+   else glColor3f(light*body[0]+sheen*.45f,light*body[1]+sheen*.60f,light*body[2]+sheen*.70f);
+   glVertex3f(side*w,y,p[0]);
+  }
+  glEnd();
+ }
+ for(int side=-1;side<=1;side+=2){
+  const float *end=profile[side<0?0:7];
+  glColor3f(body[0]*.85f,body[1]*.85f,body[2]*.85f);
+  glBegin(GL_QUADS);
+  glVertex3f(-end[1],end[2],end[0]);glVertex3f(end[1],end[2],end[0]);
+  glVertex3f(end[4],end[3],end[0]);glVertex3f(-end[4],end[3],end[0]);
+  glEnd();
+  if(van && side<0)for(int k=-1;k<=1;k+=2)
+   market_panel(k*.42f,1.32f,end[0]-.02f,.33f,.48f,.015f,.11f,.17f,.20f);
+  market_panel(0,.32f,end[0],end[1]*.98f,end[2]-.32f,.018f,body[0],body[1],body[2]);
+  market_panel(0,.38f,end[0]+side*.03f,.48f,.11f,.015f,.10f,.11f,.12f);
+  if(side<0){
+   market_panel(0,.51f,end[0]-.027f,.17f,.09f,.012f,.83f,.85f,.80f);
+   if(!van)market_panel(0,.805f,end[0]+.05f,.76f,.035f,.075f,.14f,.14f,.15f);
+  }
+  for(int k=-1;k<=1;k+=2){
+   market_panel(k*end[1]*.72f,end[2]-.14f,end[0]+side*.04f,.17f,.085f,.02f,1.f,side<0?.055f:.91f,side<0?.025f:.76f);
+   float z=k*1.37f;
+   glBegin(GL_QUAD_STRIP);
+   for(int j=0;j<=24;j++){
+    float a=j*.2617994f,y=.36f+.34f*cosf(a),wz=z+.34f*sinf(a);
+    glColor3f(.065f,.07f,.074f);glVertex3f(side*.79f,y,wz);glVertex3f(side*.99f,y,wz);
+   }
+   glEnd();
+   for(int ring=0;ring<2;ring++){
+    float radius=ring?.215f:.34f;
+    glBegin(GL_TRIANGLE_FAN);glColor3f(.12f,.13f,.14f);
+    glVertex3f(side*(.992f+.002f*ring),.36f,z);
+    for(int j=0;j<=24;j++){
+     float shade=ring?(j%3==0?.32f:.68f):.095f;
+     glColor3f(shade,shade,shade);glVertex3f(side*(.992f+.002f*ring),.36f+radius*cosf(j*.2617994f),z+radius*sinf(j*.2617994f));
+    }
+    glEnd();
+   }
+  }
+ }
+}
 /* Double-ended Sound ferry. The open vehicle deck runs between the two ramps. */
 static void docked_ferry(void){
  for(int k=0;k<48;k++){
@@ -229,9 +297,11 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
   int kind=(int)p[0];
   float pose=p[5];
   glPushMatrix();glTranslatef(p[1],p[2],p[3]);
-  if(kind<=1){
+  if(kind<=1 || kind==5 || kind==10){
    GLfloat plane[16]={1,p[7],0,0, 0,1,0,0, 0,p[8],1,0, 0,0,0,1};
    glMultMatrixf(plane);
+  }
+  if(kind<=1){
    glPushAttrib(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT);
    glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
    glBegin(GL_TRIANGLE_FAN);glColor4f(.09f,.08f,.07f,.38f);glVertex3f(0,.012f,0);
@@ -240,6 +310,14 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
    glEnd();glPopAttrib();
   }
   glRotatef(p[4],0,1,0);
+  if(kind==5 || kind==10){
+   glPushAttrib(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_ENABLE_BIT);
+   glEnable(GL_BLEND);glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);glDepthMask(GL_FALSE);
+   glBegin(GL_TRIANGLE_FAN);glColor4f(.025f,.026f,.032f,.65f);glVertex3f(0,.025f,0);
+   glColor4f(.04f,.04f,.045f,0);
+   for(int j=0;j<=28;j++){float a=j*.2243995f;glVertex3f(1.38f*cosf(a),.025f,2.7f*sinf(a));}
+   glEnd();glPopAttrib();
+  }
   if(kind<=1){
    unsigned identity=(unsigned)p[6],seed=identity&32767u;
    const float *coat=market_dyes[market_choice(seed,2,20)];
@@ -271,15 +349,8 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
      market_tied_hair(hair,locks,pose<12.f?sinf(pose*.5235988f):0.f);
     glPopMatrix();
    }
-  }else if(kind==10){
-   market_body(0,.66f,0,.94f,.35f,2.15f,.70f,.13f,.075f);
-   market_body(0,1.01f,-.18f,.80f,.34f,1.16f,.14f,.23f,.28f);
-   market_body(0,1.23f,-.26f,.70f,.13f,.64f,.64f,.12f,.07f);
-   for(int side=-1;side<=1;side+=2){
-    for(int axle=-1;axle<=1;axle+=2)
-     market_body(side*.85f,.36f,axle*1.32f,.17f,.34f,.34f,.10f,.11f,.12f);
-    market_panel(side*.58f,.66f,1.97f,.18f,.06f,.08f,.96f,.92f,.74f);
-   }
+  }else if(kind==10 || kind==5){
+   street_vehicle(kind==5,(unsigned)p[6]);
   }else if(kind==9){
    market_panel(0,.33f,0,.92f,.49f,2.26f,.10f,.13f,.16f);
    market_body(0,.91f,-.10f,.87f,.55f,1.42f,.32f,.39f,.43f);
@@ -306,16 +377,6 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
    plaza_dog(pose);
   }else if(kind==6){
    market_body(0,0,0,.12f,.12f,.44f,.86f,.83f,.72f);
-  }else if(kind==5){
-   market_panel(0,.36f,0,.91f,.84f,2.15f,.83f,.80f,.69f);
-   market_panel(0,1.20f,-.55f,.90f,1.00f,1.57f,.89f,.86f,.74f);
-   market_panel(0,1.20f,1.44f,.86f,.68f,.40f,.30f,.41f,.45f);
-   market_panel(0,1.88f,1.38f,.91f,.14f,.49f,.83f,.80f,.69f);
-   for(int side=-1;side<=1;side+=2){
-    for(int end=-1;end<=1;end+=2)
-     market_body(side*.90f,.37f,end*1.41f,.13f,.34f,.34f,.14f,.15f,.15f);
-    market_panel(side*.68f,.81f,2.15f,.15f,.14f,.014f,.95f,.91f,.69f);
-   }
   }else if(kind==2){
    glRotatef(55*pose,1,0,0);
    static const float profile[][3]={{-.42f,.023f,.042f},{-.30f,.055f,.088f},

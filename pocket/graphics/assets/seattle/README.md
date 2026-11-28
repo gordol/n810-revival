@@ -39,6 +39,11 @@ I-5. Widths, painted lane lines, rental stand and patrol encounter are game
 reconstructions. Bridge and interchange deck heights are not surveyed.
 [Route source](https://routing.openstreetmap.de/routed-car/route/v1/driving/-122.3400015,47.6088449;-122.4347,47.2459?geometries=geojson&overview=full&steps=true)
 
+The SoDo and Beacon Hill freeway scenery uses two additional OSM API extracts
+(-122.336,47.584,-122.314,47.604 and -122.327,47.563,-122.312,47.585).
+They add 320 height- or level-tagged buildings, 1,280 mapped trees, and nine
+woodland outlines. Tree heights, crowns and tree positions inside woods are generated.
+
 The green siren on the modeled takeaway cups uses the Starbucks mark from
 [Simple Icons 13.0.0](https://cdn.jsdelivr.net/npm/simple-icons@13.0.0/icons/starbucks.svg).
 Starbucks owns the mark. Counter layouts and baked goods are visual reconstructions.

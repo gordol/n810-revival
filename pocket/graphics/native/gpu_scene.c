@@ -33,7 +33,7 @@ struct gpu_scene {
  struct river_bounds {float x,y,z,r;} *river_blocks;
  SDL_Texture *river_print;int print_w,print_h;
  struct posed_person {GLuint program,mesh,atlas;unsigned nv,ni,skin_tile;float sole[16][2][3],attachments[16][2][3];} people[2];
- GLuint flight_photo[109],flight_mesh[109];GLsizei flight_count[109];GLfloat flight_areas[109][3];
+ GLuint flight_photo[111],flight_mesh[111];GLsizei flight_count[111];GLfloat flight_areas[111][3];
  float market_lamps[12];int market_glow;GLuint market_materials;
  GLuint snack_mesh[2]; GLsizei snack_count[2];
  GLuint cockpit_panel;float cockpit_speed,cockpit_altitude,cockpit_look_yaw,cockpit_look_pitch;
@@ -569,8 +569,8 @@ void pocket_scene_rainier_release(void *ptr){
  pocket_scene_river_sound(s,0,0,0,0,0);s->river_audio_failed=0;
  if(s->river_print){SDL_DestroyTexture(s->river_print);s->river_print=NULL;}
  for(int i=0;i<2;i++)market_person_release(&s->people[i]);
- glDeleteTextures(109,s->flight_photo);memset(s->flight_photo,0,sizeof s->flight_photo);
- glDeleteBuffers(109,s->flight_mesh);memset(s->flight_mesh,0,sizeof s->flight_mesh);
+ glDeleteTextures(111,s->flight_photo);memset(s->flight_photo,0,sizeof s->flight_photo);
+ glDeleteBuffers(111,s->flight_mesh);memset(s->flight_mesh,0,sizeof s->flight_mesh);
  memset(s->flight_count,0,sizeof s->flight_count);memset(s->flight_areas,0,sizeof s->flight_areas);
  glDeleteTextures(1,&s->market_materials);s->market_materials=0;
  glDeleteBuffers(2,s->snack_mesh);memset(s->snack_mesh,0,sizeof(s->snack_mesh));

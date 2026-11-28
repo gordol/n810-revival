@@ -474,6 +474,38 @@ class OutingTests(unittest.TestCase):
         self.assertGreater(car.speed,10.)
         self.assertGreater(car.z,10.)
 
+    def test_driving_requests_detail_at_two_scales(self):
+        from unittest.mock import patch
+        horizon=pnw_terrain.FlightHorizon()
+        self.addCleanup(horizon.close)
+        with patch('pnw.terrain.flight_patch',return_value=(b'image',None)) as fetch:
+            for _ in range(4):
+                horizon.update(350,50,None,'Street')
+                if horizon.job:horizon.job.result()
+            self.assertEqual(horizon.resident[110],((.0625,0),512))
+            self.assertEqual(horizon.resident[109],((0,0),1024))
+            self.assertEqual([call.args[2:] for call in fetch.call_args_list],[(2048,512),(2048,1024)])
+
+    def test_driving_photo_matches_the_road_dem_between_samples(self):
+        from geometry import HeightField,Vec
+        from pnw.scene import surface
+        field=HeightField(9,9,Vec(-801,0,-763),200.,200.,
+                          tuple((i*71+j*43)%170 for j in range(9) for i in range(9)),'meters')
+        tile,_=pnw_terrain.relief_mesh((0,0),field,width=1024)
+        for x,z in ((-511,509),(-420,-317),(19,127),(501,505)):
+            self.assertAlmostEqual(surface(tile,x,z),surface(field,x,z))
+
+    def test_freeway_guidance_advances_after_merge(self):
+        from pnw.seattle_places import corridor_sample
+        car=pnw.StreetRide('sports-car')
+        distances=[]
+        for along in (5200,6200):
+            car.x,car.z,car.heading=corridor_sample(along,1.5)
+            _,label,distance=car.drive_guidance()
+            self.assertEqual(label,'I-5 S · Exit')
+            distances.append(distance)
+        self.assertAlmostEqual(distances[0]-distances[1],1000,delta=2)
+
     def test_tacoma_corridor_and_fictional_patrol(self):
         from pnw.seattle_places import on_road,tacoma_corridor
         from unittest.mock import patch

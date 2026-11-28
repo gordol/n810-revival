@@ -5,6 +5,7 @@ import json
 import math
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -86,7 +87,7 @@ def elevations(region):
 # Tile keys use the original cache coordinate system (two steps per tile).
 PATCH_WIDTH=8192
 PATCH_STEP=4096
-PATCH_LIMIT=128*1024**2
+PATCH_LIMIT=1024**3
 
 # A 5:6 export matches the 240 by 288 Sound grid cells.
 IMAGE_SIZE=(1280,1536)
@@ -198,6 +199,23 @@ def relief_mesh(key,field,values=None,width=PATCH_WIDTH):
     inside=west<=x0 and x0+width<=east and south<=z0 and z0+width<=north
     if not inside and values is None:
         raise ValueError('Elevation is unavailable beyond the prepared map')
+    if inside:
+        # Use the source DEM triangles where roads are baked onto that surface.
+        # An independently sampled regular grid cuts across its ridges and valleys.
+        ix=max(0,math.floor((x0-west)/field.dx))
+        iz=max(0,math.floor((z0-south)/field.dz))
+        ex=min(field.nx-1,math.ceil((x0+width-west)/field.dx))
+        ez=min(field.nz-1,math.ceil((z0+width-south)/field.dz))
+        samples=[field.values[j*field.nx+i] for j in range(iz,ez+1) for i in range(ix,ex+1)]
+        if max(samples)<=400 and (ex-ix)*(ez-iz)<=128*128:
+            vertex=Struct('=7f').pack
+            rows=[[vertex(west+i*field.dx,field.values[j*field.nx+i],south+j*field.dz,.28,.39,.24,.219)
+                   for i in range(ix,ex+1)] for j in range(iz,ez+1)]
+            mesh=array('f')
+            for a,b in zip(rows,rows[1:]):
+                mesh.frombytes(b''.join(v for i in range(ex-ix) for v in (a[i],b[i],a[i+1],a[i+1],b[i],b[i+1])))
+            return HeightField(ex-ix+1,ez-iz+1,Vec(west+ix*field.dx,0,south+iz*field.dz),
+                               field.dx,field.dz,tuple(samples),'meters'),mesh
     cells=128 if values is not None and (width>PATCH_WIDTH or not inside or max(values)>=400) else 32
     heights=[]
     rows=[]
@@ -251,7 +269,11 @@ def flight_patch(key,field=None,pixels=1024,width=PATCH_WIDTH):
         if cached and target.exists():os.utime(target,None)
         else:image.replace(target)
         relief=None
-        if field is not None:
+        if field is not None and width<PATCH_WIDTH:
+            try:relief=relief_mesh(key,field,width=width)
+            except ValueError:pass  # Outside the overview, 3DEP supplies the surface.
+            if relief is not None and max(relief[0].values)>400:relief=None
+        if field is not None and relief is None:
             try:relief=flight_relief(key,field,width=width)
             except (OSError,ValueError,ImportError,subprocess.SubprocessError):pass
         trim_patch_cache(cache)
@@ -267,8 +289,9 @@ def trim_patch_cache(cache):
         except FileNotFoundError:continue
         files.append((stat.st_mtime,stat.st_size,path))
     total=sum(size for _,size,_ in files)
+    limit=min(PATCH_LIMIT,(total+shutil.disk_usage(cache).free)//10)
     for _,size,path in sorted(files):
-        if total<=PATCH_LIMIT:break
+        if total<=limit:break
         path.unlink(missing_ok=True)
         total-=size
 
@@ -394,7 +417,7 @@ class FlightHorizon:
         self.next_sample=0.
         self.auto=90
 
-    def update(self,x,z,field,setting):
+    def update(self,x,z,field,setting,near_ground=False):
         now=time.monotonic()
         if setting=='Auto' and now>=self.next_sample:
             free=available_memory()
@@ -402,7 +425,7 @@ class FlightHorizon:
             if free is not None and free<1024**3:
                 self.auto=0 if free<512*1024**2 else 50
             self.next_sample=now+30.
-        radius={'Local':0,'50 km':50,'80 km':80,'90 km':90,'120 km':120}.get(setting,self.auto)
+        radius={'Street':0,'Local':0,'50 km':50,'80 km':80,'90 km':90,'120 km':120}.get(setting,self.auto)
         if radius in (0,50,80):
             rings={0:0,50:1,80:2}[radius]
             cx,cz=(round(v/HORIZON_WIDTH) for v in (x,z))
@@ -411,10 +434,15 @@ class FlightHorizon:
             metres=radius*1000
             west,east,south,north=(math.floor(v/HORIZON_WIDTH+.5)
                                    for v in (x-metres,x+metres,z-metres,z+metres))
-        neighborhood=(west,east,south,north,radius)
+        detail=setting=='Street' or near_ground and (setting!='Auto' or self.auto!=0)
+        street_key=tuple(round(v/256)/16 for v in (x,z)) if detail else None
+        neighborhood=(west,east,south,north,radius,street_key,tuple(round(v/1024) for v in (x,z)) if street_key else None)
         if self.settled==neighborhood:return [],None
         self.settled=None
-        wanted={}
+        wanted={} if street_key is None else {
+            110:(street_key,512),
+            109:(tuple(round(v/1024)/4 for v in (x,z)),1024),
+        }
         if radius:
             # Slots 25..27 are always reserved for detailed landmark scenery.
             for i,key in enumerate(LANDMARKS):wanted[25+i]=(key,PATCH_WIDTH)
@@ -439,7 +467,7 @@ class FlightHorizon:
             for slot,entry in wanted.items():
                 if self.resident.get(slot)==entry or (slot,entry) in self.retry:continue
                 self.pending=slot,entry
-                self.job=self.pool.submit(flight_patch,entry[0],field,1024,entry[1])
+                self.job=self.pool.submit(flight_patch,entry[0],field,2048 if slot>=109 else 1024,entry[1])
                 break
         if not self.job and not self.retry:self.settled=neighborhood
         return removed,patch
