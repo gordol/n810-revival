@@ -2337,6 +2337,9 @@ class RainierView:
                         from pnw.seattle_places import bearing_label
                         label=bearing_label(self.shop_target,x,z)
                 ink.label(1,h-7 if self.outing in ('market','fishshop') else h-5,label,0xFFF6DD)
+            if sound_region and patrol and patrol.patrol and patrol.pursuit in ('following','Traffic stop'):
+                label='* WANTED - POLICE PURSUIT' if patrol.pursuit=='following' else '* WANTED - TRAFFIC STOP'
+                ink.label(1,3,label[:w-4],0xFFD15A)
             if self.road:
                 ink.label(1,1,self.road.hint(),0xFFEDBF)
                 self.road.draw_minimap(ink,w-2,h-3)
