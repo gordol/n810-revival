@@ -130,3 +130,8 @@ the Pocket data directory. Allow 1 GiB of temporary free space. Later launches
 reuse the installed pack offline. macOS uses Homebrew for osmium-tool and
 Termux uses pkg. On Linux install osmium-tool with your package manager.
 Use REGIONAL_SCENERY=bundled to skip preparation when traveling offline.
+
+Regional pack version 2 adds ground-level OSM streets around Thun Field,
+Tacoma Narrows and Sea-Tac. Make upgrades the default installation once.
+Airport pavement is paged with nearby buildings. Traffic follows the local
+primary, secondary and tertiary roads during outdoor outings.

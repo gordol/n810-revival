@@ -67,14 +67,24 @@ def delivery_route():
     return tuple(points)
 
 
-@lru_cache(maxsize=2)
+@lru_cache(maxsize=3)
 def street_lines(city):
     from pnw.terrain import location
     import json
-    source=Path(__file__).resolve().parents[1]/'assets/seattle'/('tacoma-streets.json' if city=='tacoma' else 'streets.json')
+    if city=='airports':
+        import sqlite3
+        from pnw.regional_scenery import database_path
+        db=sqlite3.connect(f'{database_path().resolve().as_uri()}?mode=ro',uri=True)
+        try:
+            if not db.execute("SELECT 1 FROM sqlite_master WHERE name='airport_roads'").fetchone():return ()
+            rows=[(name,kind,json.loads(points)) for name,kind,points in db.execute('SELECT name,kind,points FROM airport_roads')]
+        finally:db.close()
+    else:
+        source=Path(__file__).resolve().parents[1]/'assets/seattle'/('tacoma-streets.json' if city=='tacoma' else 'streets.json')
+        rows=json.loads(source.read_text()).values()
     return tuple((name,kind,tuple(location('sound',lat/1e7,lon/1e7) for lon,lat,*_ in coords),
                   {'primary':8.,'secondary':7.,'tertiary':5.5,'pedestrian':3.}.get(kind,4.4),tuple(len(c)==3 for c in coords))
-                 for name,kind,coords in json.loads(source.read_text()).values())
+                 for name,kind,coords in rows)
 
 @lru_cache(maxsize=1)
 def tacoma_corridor():
@@ -114,7 +124,7 @@ def road_lines():
 @lru_cache(maxsize=2)
 def driving_lanes(corridor_only=False):
     cells={}
-    lines=tacoma_corridor() if corridor_only else (*road_lines(),('Delivery','access',delivery_route(),3.,()))
+    lines=tacoma_corridor() if corridor_only else (*road_lines(),*street_lines('airports'),('Delivery','access',delivery_route(),3.,()))
     if not corridor_only:
         lines=(*lines,*((name,kind,list(reversed(before))+points+after,width,())
                         for name,kind,width,points,before,after in overpasses() if kind!='footway'))

@@ -2012,10 +2012,11 @@ class RainierView:
                 width=self.flight_horizon.resident[slot][1] if tile is distant else 2*PATCH_STEP
                 ctx.check(upload(ctx.handle,slot,math.isqrt(len(rgb)//3),rgb,ix*PATCH_STEP,iz*PATCH_STEP,width,mesh.buffer_info()[0],len(mesh)//7))
                 self.flight_surfaces[slot]=heights
+                if self.neighborhood and slot==0:self.neighborhood.cell=None
         if sound_region and self.outing not in (*market_visit.FLOORS,'scuba'):
             from pnw.regional_scenery import Neighborhood
             if self.neighborhood is None:self.neighborhood=Neighborhood()
-            stand=self.neighborhood.update(x,z,lambda px,pz:surface(field,px,pz))
+            stand=self.neighborhood.update(x,z,self.walk_height)
             if stand is not None:
                 stand_ptr=stand.buffer_info()[0];self.stand_count=len(stand)//7
         if sound_region:center=((field.nx-1)*field.dx,(field.nz-1)*field.dz)
@@ -2091,7 +2092,7 @@ class RainierView:
                 dx,dz,heading,gait,identity=stroll(self.outing,i,self.age,8.)
                 poses.append((0,lane+dx,0.,dz,math.degrees(heading),gait,identity))
         self.traffic_gain=0.
-        if self.road or (sound_region and self.outing in (*AIRCRAFT,'market','tacoma')):
+        if sound_region and self.outing not in (*market_visit.FLOORS,'scuba'):
             altitude=max(0.,eye+origin.y-ground(x,z))
             radius=400. if self.outing not in AIRCRAFT else min(2400.,650.+altitude)
             if altitude<4000.:

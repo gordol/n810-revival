@@ -34,11 +34,37 @@ def roof_faces(points):
             ring.pop(i);break
         else:return
 
+def database_path():
+    configured=os.environ.get('POCKET_REGION_SCENERY')
+    folder=Path(os.environ.get('XDG_DATA_HOME') or Path.home()/'.local/share')
+    full=Path(configured) if configured else folder/'pocket/rainier-walk/puget-sound-scenery.sqlite'
+    return full if full.is_file() else ASSETS/'neighborhoods.sqlite'
+
+
+@lru_cache(maxsize=1)
+def airport_road_cells():
+    from pnw.seattle_places import street_lines
+    cells={}
+    for _,kind,points,width,_ in street_lines('airports'):
+        for (x,z),(ex,ez) in zip(points,points[1:]):
+            length=math.hypot(ex-x,ez-z)
+            if length<.1:continue
+            side_x=(ez-z)*width/length
+            side_z=(x-ex)*width/length
+            count=math.ceil(length/16)
+            for i in range(count):
+                a,b=i/count,(i+1)/count
+                ax,az=x+a*(ex-x),z+a*(ez-z)
+                bx,bz=x+b*(ex-x),z+b*(ez-z)
+                tile=math.floor((ax+bx)/1024),math.floor((az+bz)/1024)
+                cells.setdefault(tile,[]).append(((ax-side_x,az-side_z),(bx-side_x,bz-side_z),
+                                                   (bx+side_x,bz+side_z),(ax+side_x,az+side_z)))
+    return cells
+
+
 class Neighborhood:
     def __init__(self):
-        configured=os.environ.get('POCKET_REGION_SCENERY')
-        full=Path(configured) if configured else Path(os.environ.get('XDG_DATA_HOME') or Path.home()/'.local/share')/'pocket/rainier-walk/puget-sound-scenery.sqlite'
-        self.db=sqlite3.connect(f'{(full if full.is_file() else ASSETS/"neighborhoods.sqlite").resolve().as_uri()}?mode=ro',uri=True)
+        self.db=sqlite3.connect(f'{database_path().resolve().as_uri()}?mode=ro',uri=True)
         self.cell=None
         self.places=[]
 
@@ -53,6 +79,10 @@ class Neighborhood:
             for px,py,pz in vertices:mesh.extend((px,py,pz,*color,material))
         for tx,tz in sorted(((cell[0]+dx,cell[1]+dz) for dx in (-1,0,1) for dz in (-1,0,1)),
                             key=lambda ij:math.hypot(x-(ij[0]+.5)*512,z-(ij[1]+.5)*512)):
+            for corners in airport_road_cells().get((tx,tz),()):
+                if len(mesh)//7>=246000:break
+                a,b,c,d=((u,ground(u,v)+.095,v) for u,v in corners)
+                face((a,b,c,a,c,d),(.27,.28,.28),.249)
             for kind,blob in self.db.execute('SELECT model,data FROM features WHERE tx=? AND tz=?',(tx,tz)):
                 row=json.loads(zlib.decompress(blob))
                 if kind=='place':

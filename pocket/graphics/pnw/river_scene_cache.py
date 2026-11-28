@@ -167,6 +167,10 @@ def regional_mesh(region,elevation,textured,build,*,require_cache=False,prepare=
         inputs.extend(sorted((graphics/'assets/seattle').glob('*.json')))
         inputs.extend(sorted((graphics/'assets/seattle').glob('*.csv')))
     for path in inputs:digest.update(hashlib.sha256(path.read_bytes()).digest())
+    if region=='sound':
+        from pnw.regional_scenery import database_path
+        stat=database_path().stat()
+        digest.update(f'{stat.st_size}/{stat.st_mtime_ns}'.encode())
     key=digest.digest()
     folder=Path(os.environ.get('XDG_CACHE_HOME') or Path.home()/'.cache')/'pocket/rainier-walk'
     target=folder/(region+'-mesh.zip')

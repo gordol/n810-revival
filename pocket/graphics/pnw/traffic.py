@@ -36,7 +36,7 @@ def routes():
                 else:path.extend(extension[1:])
                 if k=='motorway':break
         if sum(math.dist(a,b) for a,b in zip(path,path[1:]))>250:extras.append(path)
-    for city in ('seattle','tacoma'):
+    for city in ('seattle','tacoma','airports'):
         for _,kind,points,_,_ in street_lines(city):
             if kind in ('primary','secondary','tertiary') and math.dist(points[0],points[-1])>100:
                 extras.append(points)
