@@ -870,7 +870,9 @@ class RainierView:
                 road.cruise=False
                 road.speed=road.spin=road.slip=0.
                 self.parked_cars.append(road)
-                self.trip_pose=(road.x+2.1*math.cos(road.heading),road.z-2.1*math.sin(road.heading),road.heading,0.)
+                self.third_person=True
+                self.trip_pose=(road.x+3.*math.cos(road.heading),road.z-3.*math.sin(road.heading),
+                                road.heading-math.pi/2,.08)
             self.road=None
         elif self.camera and self.outing in ('market','tacoma'):
             from pnw.outings import StreetRide
@@ -1849,6 +1851,12 @@ class RainierView:
             ground=surface(self.world[0],x,z)
             if self.road.bridge_roads and self.road.bridge_roads.deck is not None:
                 return self.road.bridge_roads.sample(x,z,ground)
+        if not self.road and self.outing in market_visit.STREETS:
+            for parked in reversed(self.parked_cars):
+                if parked.bridge_roads and parked.bridge_roads.deck is not None and math.hypot(parked.x-x,parked.z-z)<30:
+                    bed=surface(self.world[0],x,z)
+                    deck=parked.bridge_roads.sample(x,z,bed)
+                    if deck>bed:return deck
         if self.outing in market_visit.STREETS:
             from pnw.pike_market import floor_height
             from pnw.seattle_places import arcade_origin
@@ -2157,13 +2165,14 @@ class RainierView:
                     poses.append((vehicle_type(index),px,ground(px,pz)+.06,pz,
                                   math.degrees(angle),float(lamps),1+index%4))
         if sound_region and self.outing not in market_visit.FLOORS:
-            for car in self.parked_cars:
-                if len(poses)>=30:break
+            reserved=[]
+            for car in sorted(self.parked_cars,key=lambda car:math.hypot(car.x-x,car.z-z))[:8]:
                 if math.hypot(car.x-x,car.z-z)<350:
-                    y=surface(field,car.x,car.z)
+                    y=ground(car.x,car.z)
                     if car.bridge_roads:y=car.bridge_roads.sample(car.x,car.z,y)
-                    poses.append((car.actor_kind,car.x,y+.05,car.z,math.degrees(car.heading),
+                    reserved.append((car.actor_kind,car.x,y+.05,car.z,math.degrees(car.heading),
                                   16*int(car.damage>.35),car.paint))
+            poses=poses[:30-len(reserved)]+reserved
         if self.road and self.road.patrol and math.dist((x,z),self.road.patrol)<240 and len(poses)<32:
             px,pz=self.road.patrol
             flash=self.age%1 if self.road.pursuit=='following' else -1.
