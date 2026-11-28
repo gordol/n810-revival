@@ -459,6 +459,8 @@ class BikeLoop:
     def advance(self,dt,height):
         x,z=self.position(self.angle)
         tx,tz=self.position(self.angle+.01)
+        if dt==0:
+            return x,z,math.atan2(tx-x,tz-z),.10
         segment=math.hypot(tx-x,tz-z)
         grade=(height(tx,tz)-height(x,z))/segment
         target=max(2.,min(11.,6.-8.*grade)) if self.pedaling else 0.
