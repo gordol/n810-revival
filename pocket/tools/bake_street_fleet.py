@@ -128,6 +128,22 @@ def electric():
     box((0,.80,-2.18),(1.49,.05,.06),TAIL)
 
 
+def motorbike():
+    for z in (-.72,.70):
+        cylinder((0,.30,z),.30,.15,RUBBER)
+        cylinder((0,.30,z),.215,.16,CHROME)
+        cylinder((0,.30,z),.15,.168,RUBBER)
+    shell([(-.89,.12,.50,.67),(-.49,.19,.50,.76),(.14,.21,.39,.83),(.50,.16,.47,.83)],PAINT)
+    box((0,.76,-.30),(.32,.09,.46),RUBBER)
+    box((0,.48,.04),(.36,.27,.38),CHROME)
+    for side in (-1,1):
+        fork=box((side*.11,.54,.60),(.05,.53,.05),CHROME)
+        fork.rotation_euler.x=-.29
+    box((0,.94,.45),(.64,.05,.07),RUBBER)
+    box((0,.78,.56),(.23,.16,.08),HEAD)
+    box((0,.63,-.89),(.17,.07,.05),TAIL)
+
+
 def bake(name):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     if name=='pickup':
@@ -136,6 +152,10 @@ def bake(name):
         return
     if name=='electric':
         electric()
+        export(name)
+        return
+    if name=='motorbike':
+        motorbike()
         export(name)
         return
     if name in ('sedan','crossover','patrol'):
@@ -202,4 +222,4 @@ def export(name):
     (OUTPUT/(name+'.zlib')).write_bytes(zlib.compress(blob,9))
 
 
-for vehicle in ('tractor-trailer','transit-bus','delivery-van','sedan','crossover','patrol','pickup','electric'):bake(vehicle)
+for vehicle in ('tractor-trailer','transit-bus','delivery-van','sedan','crossover','patrol','pickup','electric','motorbike'):bake(vehicle)

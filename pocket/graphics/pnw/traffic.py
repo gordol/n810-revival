@@ -86,6 +86,7 @@ def vehicle_type(identity):
     if identity%67==39:return 9  # occasional marked cruiser on ordinary routes
     if identity%19==12:return 17  # pickup
     if identity%29==13:return 18  # electric
+    if identity%43==14:return 19  # motorbike
     value=identity%23
     if value==3:return 11  # bus
     if value==7:return 12  # tractor-trailer
@@ -94,7 +95,7 @@ def vehicle_type(identity):
     return 14 if value%2 else 15  # sedan or crossover
 
 def half_length(identity):
-    return {11:5.8,12:7.8}.get(vehicle_type(identity),2.2)
+    return {11:5.8,12:7.8,17:2.6,19:1.02}.get(vehicle_type(identity),2.2)
 
 def point(route,at,lane):
     spans,ends,_=route
@@ -217,7 +218,7 @@ class Traffic:
                     identity=n+direction
                     kind=vehicle_type(identity)
                     body=Body(px,pz,angle,speed*math.sin(angle),speed*math.cos(angle),0.,
-                              {11:10500.,12:18000.,5:2200.}.get(kind,1500.),half_length(identity),1.2 if kind in (11,12) else .95)
+                              {11:10500.,12:18000.,5:2200.,17:2250.,18:1950.,19:260.}.get(kind,1500.),half_length(identity),.36 if kind==19 else 1.2 if kind in (11,12) else .95)
                     cx,cz=cell(body)
                     body.elevation=lane_height(px,pz,angle) if lane_height else py
                     blocked_by_traffic=any(abs(body.elevation-other.elevation)<2.7 and contact(body,other) for u in range(cx-1,cx+2)
@@ -279,8 +280,8 @@ class Traffic:
     def strike(self,road,previous,elevation=None,damage=True):
         sn,cs=math.sin(road.heading),math.cos(road.heading)
         player=Body(*previous,road.heading,road.speed*sn+road.slip*cs,road.speed*cs-road.slip*sn,
-                    road.spin,{11:10500.,12:18000.,5:2200.}.get(road.actor_kind,1500.),
-                    {11:5.8,12:7.8}.get(road.actor_kind,2.2),.95,road.damage)
+                    road.spin,{11:10500.,12:18000.,5:2200.,17:2250.,18:1950.,19:260.}.get(road.actor_kind,1500.),
+                    {11:5.8,12:7.8,17:2.6,19:1.02}.get(road.actor_kind,2.2),.36 if road.actor_kind==19 else .95,road.damage)
         dx,dz=road.x-player.x,road.z-player.z
         steps=max(1,math.ceil(math.hypot(dx,dz)/.7))
         for _ in range(steps):

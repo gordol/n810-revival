@@ -391,7 +391,7 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
    glEnd();glPopAttrib();
   }
   glRotatef(p[4],0,1,0);
-  if(kind==5 || kind==9 || (kind>=10 && kind<=12) || kind==14 || kind==17 || kind==18 || kind==15){
+  if(kind==5 || kind==9 || (kind>=10 && kind<=12) || kind==14 || kind==17 || kind==18 || kind==19 || kind==15){
    /* Rotate a rigid chassis on its longitudinal grade. */
    float yaw=p[4]*.017453293f;
    float grade=fminf(.28f,fmaxf(-.28f,p[7]*sinf(yaw)+p[8]*cosf(yaw)));
@@ -439,17 +439,25 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
      market_tied_hair(hair,locks,pose<12.f?sinf(pose*.5235988f):0.f);
     glPopMatrix();
    }
-  }else if(kind==5 || kind==10 || kind==11 || kind==12 || kind==14 || kind==17 || kind==18 || kind==15){
+  }else if(kind==5 || kind==10 || kind==11 || kind==12 || kind==14 || kind==17 || kind==18 || kind==19 || kind==15){
    glPushMatrix();
    if((int)pose&16){
     glRotatef(4.f,0,0,1);
     glScalef(1.02f,.94f,.91f);
    }
-   unsigned slot=kind==5?1:kind==11?2:kind==12?3:kind==14?4:kind==17?7:kind==18?8:kind==15?5:0;
+   unsigned slot=kind==5?1:kind==11?2:kind==12?3:kind==14?4:kind==17?7:kind==18?8:kind==19?9:kind==15?5:0;
    unsigned paint=(unsigned)p[6];
-   if(paint<32 && s->vehicle_mesh[slot])detailed_vehicle(s,slot,paint,(int)pose);
+   if((paint<32 || kind>=17) && s->vehicle_mesh[slot])detailed_vehicle(s,slot,paint%32,(int)pose);
    else if(kind==11 || kind==12)heavy_vehicle(kind,(int)pose);
    else street_vehicle(kind==5,paint%32,(int)pose);
+   if(kind==19 && ((int)pose&32)){
+    market_body(0,1.14f,-.14f,.19f,.33f,.15f,.12f,.16f,.20f);
+    market_body(0,1.57f,-.07f,.14f,.16f,.15f,.17f,.20f,.22f);
+    for(int side=-1;side<=1;side+=2){
+     market_body(side*.20f,.72f,-.19f,.10f,.19f,.21f,.13f,.16f,.20f);
+     market_body(side*.20f,1.10f,.14f,.08f,.10f,.27f,.14f,.18f,.21f);
+    }
+   }
    if((int)pose&16 && kind<11){
     glTranslatef(.07f,.70f,1.6f);glRotatef(-17.f,1,0,0);
     market_panel(0,0,0,.80f,.06f,.48f,.25f,.23f,.22f);

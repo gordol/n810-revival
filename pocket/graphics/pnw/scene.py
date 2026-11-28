@@ -2144,7 +2144,7 @@ class RainierView:
                 from pathlib import Path
                 upload=ctx.lib.pocket_scene_vehicle_mesh
                 upload.argtypes=[C.c_void_p,C.c_uint,C.POINTER(C.c_uint),C.c_char_p,C.c_uint]
-                for slot,model in enumerate(('coupe','delivery-van','transit-bus','tractor-trailer','sedan','crossover','patrol','pickup','electric')):
+                for slot,model in enumerate(('coupe','delivery-van','transit-bus','tractor-trailer','sedan','crossover','patrol','pickup','electric','motorbike')):
                     mesh=zlib.decompress((Path(__file__).resolve().parents[1]/'assets/seattle'/(model+'.zlib')).read_bytes())
                     groups=(C.c_uint*29).from_buffer_copy(mesh)
                     ctx.check(upload(ctx.handle,slot,groups,mesh[116:],(len(mesh)-116)//24))
@@ -2251,7 +2251,7 @@ class RainierView:
                 setup.argtypes=[C.c_void_p,C.c_uint,C.c_void_p,C.c_uint]
                 ctx.check(setup(ctx.handle,int(self.market_snack=='piroshky'),mesh.buffer_info()[0],len(mesh)//6))
             equipment=(C.c_float*3)({'coffee':5,'piroshky':6,'flowers':7,'honey':8}[self.market_snack],0.,0.)
-        if self.road:equipment=(C.c_float*3)({'car':12,'motorcycle':13,'bicycle':14,'sports-car':12,'scooter':16}[self.road.kind],self.road.steer,self.road.speed)
+        if self.road:equipment=(C.c_float*3)({'car':12,'motorcycle':13,'bicycle':14,'sports-car':12,'scooter':16}[self.road.kind] if self.road.actor_kind!=19 else 13,self.road.steer,self.road.speed)
         if self.outing=='ferry':equipment=(C.c_float*3)(4,0.,0.)
         market=None
         actor_count=0
@@ -2318,7 +2318,7 @@ class RainierView:
                     from pnw.traffic import vehicle_type
                     kind=vehicle_type(index)
                     poses.append((kind,px,lane_height(px,pz,angle)+.06,pz,
-                                  math.degrees(angle),-1. if kind==9 else float(lamps),1+index%4+32*int(distance>100)))
+                                  math.degrees(angle),-1. if kind==9 else float(lamps+32*(kind==19)),1+index%4+32*int(distance>100)))
         if sound_region and self.outing not in market_visit.FLOORS:
             reserved=[]
             for car in sorted(self.parked_cars,key=lambda car:math.hypot(car.x-x,car.z-z))[:8]:
@@ -2342,7 +2342,7 @@ class RainierView:
         camera_x,camera_z=x,z
         if self.road and self.road.overhead:
             equipment=None
-            player=(self.road.actor_kind,x,ground(x,z)+.05,z,math.degrees(yaw),2.*int(daylight<.65 or bool(self.weather))+16*int(self.road.damage>.35),self.road.paint)
+            player=(self.road.actor_kind,x,ground(x,z)+.05,z,math.degrees(yaw),2.*int(daylight<.65 or bool(self.weather))+16*int(self.road.damage>.35)+32*int(self.road.actor_kind==19),self.road.paint)
             if self.road.actor_kind==9:player=(*player[:5],self.age%1 if self.road.siren else -1.,player[6])
             poses=poses[:actor_limit-1]+[player]
             yaw=self.road.chase_heading
@@ -2372,7 +2372,7 @@ class RainierView:
             packed=[]
             for pose in poses:
                 slopes=(0.,0.)
-                if pose[0] in (5,9,10,11,12,14,17,18,15):
+                if pose[0] in (5,9,10,11,12,14,17,18,19,15):
                     px,py,pz=pose[1:4]
                     angle=math.radians(pose[4])
                     sn,cs=math.sin(angle),math.cos(angle)

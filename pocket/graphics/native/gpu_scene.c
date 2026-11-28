@@ -37,7 +37,7 @@ struct gpu_scene {
  struct posed_person {GLuint program,mesh,atlas;unsigned nv,ni,skin_tile;float sole[28][2][3],attachments[28][2][3];} people[2];
  GLuint flight_photo[111],flight_mesh[111];GLsizei flight_count[111];GLfloat flight_areas[111][3];
  float market_lamps[12];int market_glow;GLuint market_materials;
- GLuint vehicle_mesh[9];unsigned vehicle_groups[9][29];
+ GLuint vehicle_mesh[10];unsigned vehicle_groups[10][29];
  GLuint snack_mesh[2]; GLsizei snack_count[2];
  GLuint cockpit_panel;float cockpit_speed,cockpit_altitude,cockpit_look_yaw,cockpit_look_pitch;
  GLuint rainier_shadow,rainier_bloom,rainier_color;int bloom_w,bloom_h,rainier_bloom_failed;
@@ -576,7 +576,7 @@ void pocket_scene_rainier_release(void *ptr){
  glDeleteBuffers(111,s->flight_mesh);memset(s->flight_mesh,0,sizeof s->flight_mesh);
  memset(s->flight_count,0,sizeof s->flight_count);memset(s->flight_areas,0,sizeof s->flight_areas);
  glDeleteTextures(1,&s->market_materials);s->market_materials=0;
- glDeleteBuffers(9,s->vehicle_mesh);memset(s->vehicle_mesh,0,sizeof(s->vehicle_mesh));
+ glDeleteBuffers(10,s->vehicle_mesh);memset(s->vehicle_mesh,0,sizeof(s->vehicle_mesh));
  glDeleteBuffers(2,s->snack_mesh);memset(s->snack_mesh,0,sizeof(s->snack_mesh));
  glDeleteTextures(1,&s->cockpit_panel);s->cockpit_panel=0;
  if(!s->rainier_program)return;
