@@ -1893,11 +1893,11 @@ class RainierView:
             equipment_pitch=-self.glider.elevation/.40 if self.outing in AIRCRAFT else self.glider.pitch
             if self.outing!='skydive' or mode:equipment=(C.c_float*3)(mode,self.glider.bank,equipment_pitch)
         if self.glider and self.outing in AIRCRAFT:
-            from pnw.cockpit import panel
+            from pnw.cockpit import flight_panel
             jet=self.outing in ('jet','hangar-jet')
             setup=ctx.lib.pocket_scene_cockpit
             setup.argtypes=[C.c_void_p,C.c_void_p,C.c_float,C.c_float]
-            pixels=panel(jet) if self.cockpit_kind!=jet else None
+            pixels=flight_panel(jet) if self.cockpit_kind!=jet else None
             ctx.check(setup(ctx.handle,pixels,self.glider.speed,self.glider.altitude))
             self.cockpit_kind=jet
             if jet:equipment=(C.c_float*5)(mode,self.glider.bank,equipment_pitch,self.glider.heading,self.glider.throttle)

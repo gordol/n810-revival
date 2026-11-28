@@ -121,8 +121,11 @@ def decode_aerial(folder,size=IMAGE_SIZE):
 
 def convert_local(folder,mode,convert_image):
     if os.environ.get('POCKET_TERMUX')=='1':
-        run_image_worker(Path(__file__),folder,mode)
-    else:convert_image()
+        try:from PIL import Image
+        except ImportError:
+            run_image_worker(Path(__file__),folder,mode)
+            return
+    convert_image()
 
 def sound_aerial():
     from data_paths import rainier_cache
@@ -505,8 +508,8 @@ def run_image_worker(source,folder,*args):
     """Run only the standalone image worker in the Android map interpreter."""
     script=folder/source.name
     script.write_bytes(source.read_bytes())
-    subprocess.run(['proot-distro','login','pocket-maps','--bind',str(folder),'--',
-                    '/usr/bin/python3',str(script),*args,str(folder)],check=True,timeout=45)
+    subprocess.run(['proot-distro','login','pocket-maps','--bind',f'{folder.resolve()}:/mnt','--',
+                    '/usr/bin/python3',f'/mnt/{script.name}',*args,'/mnt'],check=True,timeout=45)
 
 if __name__=='__main__':
     folder=Path(sys.argv[2])
