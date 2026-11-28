@@ -831,7 +831,7 @@ class RainierView:
         if self.outing=='scuba':labels=('Surface','Restart','Explore','Mute' if self.sound else 'Sound','Pause')
         if self.outing in rail.RIDES.values():labels=('Exit','Next stop','Explore','Mute' if self.sound else 'Sound','Pause')
         if self.road:labels=('Exit','Stop' if self.road.cruise else 'Go','Explore','Pause','View (0)' if self.road.has_car_camera else 'Restart')
-        if not self.road and self.outing in ('market','tacoma'):
+        if self.on_city_foot():
             labels=('Enter car',*labels[1:])
         width=self.host.window(self.name).w-2
         bounds=[0,width//6,width*3//7,width*4//7,width*3//4,width]
@@ -869,6 +869,10 @@ class RainierView:
         self.cruise=False
         return True
 
+    def on_city_foot(self):
+        return (self.regional and self.outing and not (self.road or self.glider or self.ski or self.bike or self.climb)
+                and self.outing not in ('hoh','wheel','ferry','scuba',*rail.RIDES.values(),*market_visit.FLOORS))
+
     def change_car(self):
         if self.road:
             road=self.road
@@ -882,7 +886,7 @@ class RainierView:
                 self.trip_pose=(road.x+3.*math.cos(road.heading),road.z-3.*math.sin(road.heading),
                                 road.heading-math.pi/2,.08)
             self.road=None
-        elif self.camera and self.outing in ('market','tacoma'):
+        elif self.camera and self.on_city_foot():
             from pnw.outings import StreetRide
             from pnw.traffic import vehicle_type
             x,z=self.camera[:2]
@@ -945,7 +949,7 @@ class RainierView:
             else:self.pause_game()
             self.pixel_dirty=True
             return True
-        if not self.road and self.outing in ('market','tacoma') and x<width//6:
+        if self.on_city_foot() and x<width//6:
             return self.change_car()
         if self.road:
             if x<width//6:self.change_car()
@@ -1886,6 +1890,8 @@ class RainierView:
         if self.outing in market_visit.STREETS:
             cx,cz=market_visit.site('gum')
             if abs(owner.x-cx)<2.55 and cz-16<=owner.z<=cz+15:owner.x=max(cx-2.1,min(cx+2.1,owner.x))
+        if self.on_city_foot():
+            owner.x,owner.z=self.traffic.separate_walker(owner.x,owner.z,self.walk_height(owner.x,owner.z))
         camera=(owner.x,owner.z,owner.yaw,owner.pitch)
         age=owner.clock()-owner.started-owner.paused_total
         if self.fishing.state!='idle':
@@ -2227,7 +2233,8 @@ class RainierView:
                     if parked.bridge_roads:py=parked.bridge_roads.sample(parked.x,parked.z,py)
                     stationary.append(Body(parked.x,parked.z,parked.heading,0,0,0,1500,
                                            {11:5.8,12:7.8}.get(parked.actor_kind,2.2),1.,elevation=py))
-                cars=self.traffic.update(x,z,self.age,radius,self.road,lane_height,stationary)
+                pedestrian=Body(x,z,yaw,0,0,0,75,.32,.32,elevation=ground(x,z)) if self.on_city_foot() else None
+                cars=self.traffic.update(x,z,self.age,radius,self.road,lane_height,stationary,pedestrian)
                 for distance,px,pz,angle,index,braking,turn in cars[:max(0,30-len(poses))]:
                     self.traffic_gain=max(self.traffic_gain,1./(1.+distance/12.)**2)
                     lamps=int(braking)+2*int(daylight<.65 or bool(self.weather))

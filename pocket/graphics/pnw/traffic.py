@@ -85,7 +85,7 @@ class Traffic:
         self.taken={}
         self.impact=0.
 
-    def update(self,x,z,age,radius,driver=None,lane_height=None,parked=()):
+    def update(self,x,z,age,radius,driver=None,lane_height=None,parked=(),pedestrian=None):
         dt=min(.15,max(0.,age-self.last)) if self.last is not None else 0.
         self.last=age
         visible=[];active={};offsets={}
@@ -95,6 +95,7 @@ class Traffic:
         def cell(body):return math.floor(body.x/20),math.floor(body.z/20)
         def reserve(key,body):space.setdefault(cell(body),{})[key]=body
         for key,body in previous.items():reserve(key,body)
+        if pedestrian:reserve("walker",pedestrian)
         for index,body in enumerate(parked):reserve(('parked',index),body)
         self.bodies={}
         self.taken={key:pos for key,pos in self.taken.items() if math.dist((x,z),pos)<radius+100}
@@ -136,14 +137,16 @@ class Traffic:
                     distance=math.hypot(x-px,z-pz)
                     if distance>radius+30:continue
                     clearance=leader-at-half_length(n+direction)-1.
-                    if driver:
-                        dx,dz=driver.x-px,driver.z-pz
+                    obstacle=driver or pedestrian
+                    py=lane_height(px,pz,angle) if lane_height else 0.
+                    if obstacle and (not pedestrian or abs(py-pedestrian.elevation)<2.7):
+                        dx,dz=obstacle.x-px,obstacle.z-pz
                         along=dx*math.sin(angle)+dz*math.cos(angle)
                         across=dx*math.cos(angle)-dz*math.sin(angle)
                         if abs(across)<2.1 and along>=0:clearance=min(clearance,along-half_length(n+direction)-2.6)
                         on_freeway=direction==1 or (route is routes()[0] and
                             corridor_path()[0][min(bisect_left(ends,at),len(ends)-1)][7]=='freeway')
-                        if on_freeway and lateral==home and 12<along<38 and abs(across)<2.1:
+                        if driver and on_freeway and lateral==home and 12<along<38 and abs(across)<2.1:
                             adjacent=occupied.get((direction,1-lane),())
                             if all(abs(other-at)>32 for _,other in adjacent):
                                 self.offsets[key]=lateral-home*.001
@@ -161,7 +164,7 @@ class Traffic:
                     speed+=max(-8.*dt,min(3.*dt,target-speed))
                     at+=max(0.,min(clearance,dt*speed))
                     stopped=clearance<5
-                    if driver and stopped and not blocked and distance<14:self.horn=True
+                    if obstacle and stopped and not blocked and distance<14:self.horn=True
                     leader=at-half_length(n+direction)
                     active[key]=(at,speed,stopped)
                     px,pz,angle=point(route,at,lateral)
@@ -170,7 +173,7 @@ class Traffic:
                     body=Body(px,pz,angle,speed*math.sin(angle),speed*math.cos(angle),0.,
                               {11:10500.,12:18000.,5:2200.}.get(kind,1500.),half_length(identity),1.2 if kind in (11,12) else .95)
                     cx,cz=cell(body)
-                    if lane_height:body.elevation=lane_height(px,pz,angle)
+                    body.elevation=lane_height(px,pz,angle) if lane_height else py
                     blocked_by_traffic=any(abs(body.elevation-other.elevation)<2.7 and contact(body,other) for u in range(cx-1,cx+2)
                         for v in range(cz-1,cz+2) for k,other in space.get((u,v),{}).items() if k!=key)
                     if blocked_by_traffic:
@@ -196,6 +199,19 @@ class Traffic:
         return min(((min(math.hypot(u-x,v-z) for u,v in body.discs())-body.radius,key,body)
                     for rows in (self.bodies,self.wrecks) for key,body in rows.items()),
                    key=lambda entry:entry[0],default=(math.inf,None,None))
+
+    def separate_walker(self,x,z,elevation):
+        for body in (*self.bodies.values(),*self.wrecks.values()):
+            if abs(elevation-body.elevation)>2.7 or math.hypot(x-body.x,z-body.z)>body.length+1.5:continue
+            sn,cs=math.sin(body.heading),math.cos(body.heading)
+            dx,dz=x-body.x,z-body.z
+            side,along=dx*cs-dz*sn,dx*sn+dz*cs
+            width,length=body.radius+.32,body.length+.32
+            if abs(side)>=width or abs(along)>=length:continue
+            if width-abs(side)<length-abs(along):side=math.copysign(width,side)
+            else:along=math.copysign(length,along)
+            x,z=body.x+side*cs+along*sn,body.z-side*sn+along*cs
+        return x,z
 
     def take(self,key,body):
         self.taken[key]=(body.x,body.z)
