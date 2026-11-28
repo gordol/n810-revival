@@ -436,6 +436,15 @@ def roadside_trees(height,quad):
                 if crossings%2:positions.append((x,z))
     for x,z in positions:
         if on_road(x,z):continue
+        # Ground cover follows mapped tree stands and avoids the carriageways.
+        for _ in range(2):
+            gx,gz=x+rng.uniform(-3,3),z+rng.uniform(-3,3)
+            if on_road(gx,gz):continue
+            gy=height(gx,gz)
+            for blade in range(3):
+                a=blade*2.4+rng.random();dx,dz=.32*math.cos(a),.32*math.sin(a)
+                tip=(gx+.22,gy+rng.uniform(.4,.85),gz+.1)
+                quad(((gx-dx,gy,gz-dz),(gx+dx,gy,gz+dz),tip,tip),(.30,.40+rng.random()*.12,.19))
         base=height(x,z)
         h=rng.uniform(5.,13.)
         spread=rng.uniform(.20,.35)*h
@@ -455,6 +464,47 @@ def roadside_trees(height,quad):
                     tone=(.23,.18,.13) if radius==.14 else (.15,green,.14)
                     quad((previous[j],previous[k],ring[k],ring[j]),tuple(c*light for c in tone),0. if radius==.14 else .512)
             previous=ring
+
+
+def sound_landmarks(height,quad,box):
+    from pnw.terrain import location
+    x,z=location('sound',47.2367,-122.4267)
+    base=height(x,z)
+    def rim(radius,rise):
+        return [(x+radius*math.cos(j*math.tau/64),base+rise,z+radius*math.sin(j*math.tau/64)) for j in range(64)]
+    ring=rim(80,-2)
+    for radius,rise in ((80,9),(79,12),(74,17),(62,25),(44,31),(24,34),(0,35)):
+        upper=rim(radius,rise)
+        for j in range(64):
+            shade=.88+.10*math.cos(j*math.tau/64)
+            tone=(.50,.56,.59) if rise<=12 else ((.36,.56,.69) if (j//4+int(radius/18))%7==0 else (.84,.87,.85))
+            quad((ring[j-1],ring[j],upper[j],upper[j-1]),tuple(shade*c for c in tone))
+        ring=upper
+    # Stepped Columbia Center and the terraced crown of Seattle's Smith Tower.
+    for lat,lon,tiers in ((47.6048,-122.3305,((64,58,190),(52,52,58),(39,46,44))),
+                          (47.6019,-122.3318,((38,39,86),(22,22,34),(13,13,14),(5,5,9)))):
+        x,z=location('sound',lat,lon);y=height(x,z)
+        for w,d,h in tiers:
+            tone=(.16,.23,.27) if lat>47.603 else (.76,.73,.64)
+            box(x,z,y,w,d,h,tone,.229)
+            y+=h
+    # Quayside gantries, moored container ships and stacks at working terminals.
+    for lat,lon,heading in ((47.5805,-122.3499,-.16),(47.2700,-122.4087,.77)):
+        x,z=location('sound',lat,lon);c,s=math.cos(heading),math.sin(heading)
+        y=height(x,z)
+        def dock(u,v,lift,w,d,h,color):
+            box(x+c*u-s*v,z+s*u+c*v,y+lift,w,d,h,color,rotation=(c,s))
+        for v in (-75,0,75):
+            for u in (-13,13):
+                for offset in (-7,7):dock(u,v+offset,0,2,2,41,(.78,.35,.15))
+            dock(0,v,32,31,16,4,(.69,.28,.12))
+            dock(-18,v,39,72,3,3,(.85,.42,.15))
+            dock(-39,v,27,1,1,12,(.32,.33,.33))
+        dock(-55,0,-2,28,170,8,(.18,.24,.29))
+        dock(-55,-61,6,23,17,14,(.83,.83,.76))
+        for u in (-60,-51,37,46,55):
+            for v in range(-44,67,14):
+                dock(u,v,6 if u<0 else .1,7,12,5,(.43+.08*(v%3),.28+.09*(v%4),.21+.11*(v%2)))
 
 
 def buildings(height,quad):

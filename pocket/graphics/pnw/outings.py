@@ -16,7 +16,8 @@ _VERTEX = Struct('=7f')
 
 PLACES=(('Thun Field',47.104,-122.287),('Tacoma waterfront',47.266,-122.449),
         ('Tacoma Narrows Airport',47.268,-122.578),('Seattle waterfront',47.604,-122.339),
-        ('Rainier',46.852,-121.760))
+        ('Rainier',46.852,-121.760),('Sea-Tac Airport',47.4502,-122.3093),
+        ('Tacoma Dome',47.2367,-122.4267))
 BAY=(47.295,-122.435)
 @dataclass(frozen=True)
 class Aircraft:
@@ -73,7 +74,10 @@ def ferry_stop(elapsed):
 def runway_geometry():
     # Threshold coordinates and widths from OurAirports runways.csv.
     for a,b,width in (((47.108898,-122.287003),(47.098918,-122.287278),18.29),
-                      ((47.2747,-122.577004),(47.261135,-122.579335),30.48)):
+                      ((47.2747,-122.577004),(47.261135,-122.579335),30.48),
+                      ((47.463799,-122.310997),(47.438,-122.310997),45.72),
+                      ((47.463799,-122.307999),(47.431198,-122.307999),45.72),
+                      ((47.463799,-122.318001),(47.440498,-122.318001),45.72)):
         x,z=location('sound',*a)
         ex,ez=location('sound',*b)
         yield x,z,math.atan2(ex-x,ez-z),math.hypot(ex-x,ez-z),width
@@ -246,21 +250,8 @@ def build_mesh(region,field,raw,aerial):
             for t in range(0,math.ceil(length),25):
                 strip(width/2,t,min(length,t+25),(.19,.20,.21),.14)
                 if t%50==0:strip(.65,t,min(length,t+15),(.94,.93,.80),.18)
-        for name,lat,lon in (PLACES[1],):
-            rng=random.Random(name)
-            x,z=location(region,lat,lon)
-            for col in range(10):
-                for row in range(18):
-                    xx=x+col*96+rng.uniform(-12,12)
-                    zz=z+(row-8)*106+rng.uniform(-15,15)
-                    y=surface(field,xx,zz)
-                    if y<4:continue
-                    width,depth=rng.uniform(30,63),rng.uniform(34,76)
-                    tower=math.exp(-((col-4)**2+(row-9)**2)/15)
-                    height=rng.uniform(14,48)+tower*rng.uniform(40,200)
-                    color=rng.choice(((.41,.51,.56),(.47,.49,.51),(.59,.47,.40),(.44,.57,.63)))
-                    box(xx,zz,y-2,width,depth,height,color,.228)
-                    box(xx,zz,y+height-2,width*.65,depth*.66,rng.uniform(2,10),color,.228)
+        from pnw.seattle_places import sound_landmarks
+        sound_landmarks(lambda x,z:surface(field,x,z),quad,box)
         # Long timber piers and gabled sheds step out into Elliott Bay.
         for lat,lon,length in ((47.6056,-122.3412,108),(47.6065,-122.3418,122),
                                (47.6075,-122.3423,112),(47.6093,-122.3441,94)):
