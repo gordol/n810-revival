@@ -2272,7 +2272,17 @@ class RainierView:
                     stationary.append(Body(parked.x,parked.z,parked.heading,0,0,0,1500,
                                            {11:5.8,12:7.8}.get(parked.actor_kind,2.2),1.,elevation=py))
                 pedestrian=Body(x,z,yaw,0,0,0,75,.32,.32,elevation=ground(x,z)) if self.on_city_foot() else None
-                cars=self.traffic.update(x,z,self.age,radius,self.road,lane_height,stationary,pedestrian)
+                signals=[]
+                from pnw.seattle_places import service_frontage
+                if self.neighborhood:
+                    for lx,lz in sorted(self.neighborhood.signals,key=lambda p:math.dist((x,z),p))[:16]:
+                        if math.hypot(lx-x,lz-z)>230:break
+                        (u,v),(nx,nz)=service_frontage((lx,lz))
+                        bearing=math.atan2(nz,-nx)
+                        red=(int(self.age+int(lx/90)+int(lz/90))%32)>=16
+                        signals.append((lx,lz,bearing,red,terrain(lx,lz)))
+                        poses.append((16,u+nx*.7,terrain(u,v),v+nz*.7,math.degrees(bearing),float(red),0))
+                cars=self.traffic.update(x,z,self.age,radius,self.road,lane_height,stationary,pedestrian,signals)
                 for distance,px,pz,angle,index,braking,turn in cars[:max(0,actor_limit-2-len(poses))]:
                     self.traffic_gain=max(self.traffic_gain,1./(1.+distance/12.)**2)
                     lamps=int(braking)+2*int(daylight<.65 or bool(self.weather))

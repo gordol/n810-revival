@@ -90,7 +90,7 @@ class Traffic:
         self.taken={}
         self.impact=0.
 
-    def update(self,x,z,age,radius,driver=None,lane_height=None,parked=(),pedestrian=None):
+    def update(self,x,z,age,radius,driver=None,lane_height=None,parked=(),pedestrian=None,signals=()):
         first_frame=self.last is None
         dt=min(.15,max(0.,age-self.last)) if self.last is not None else 0.
         self.last=age
@@ -146,6 +146,14 @@ class Traffic:
                     clearance=leader-at-half_length(n+direction)-1.
                     obstacle=driver or pedestrian
                     py=lane_height(px,pz,angle) if lane_height else 0.
+                    for lx,lz,bearing,red,height in signals:
+                        if abs(py-height)>2.5:continue
+                        aligned=abs(math.cos(bearing-angle))>.707
+                        if aligned!=red:continue
+                        dx,dz=lx-px,lz-pz
+                        along=dx*math.sin(angle)+dz*math.cos(angle)
+                        across=dx*math.cos(angle)-dz*math.sin(angle)
+                        if 0<along<85 and abs(across)<6.5:clearance=min(clearance,along-half_length(n+direction)-1.8)
                     if obstacle and (not pedestrian or abs(py-pedestrian.elevation)<2.7):
                         dx,dz=obstacle.x-px,obstacle.z-pz
                         along=dx*math.sin(angle)+dz*math.cos(angle)

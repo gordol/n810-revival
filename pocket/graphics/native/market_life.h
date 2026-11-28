@@ -455,6 +455,15 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
     market_panel(0,0,0,.80f,.06f,.48f,.25f,.23f,.22f);
    }
    glPopMatrix();
+  }else if(kind==16){
+   market_panel(0,1.8f,0,.08f,1.8f,.08f,.38f,.40f,.39f);
+   for(int face=0;face<4;face++){
+    glRotatef(90.f,0,1,0);
+    int red=(face%2)==(pose>.5f);
+    market_panel(0,3.35f,.12f,.18f,.45f,.09f,.14f,.15f,.15f);
+    market_panel(0,3.61f,.23f,.105f,.11f,.02f,red?.96f:.18f,.055f,.04f);
+    market_panel(0,3.10f,.23f,.105f,.11f,.02f,.04f,red?.16f:.92f,.09f);
+   }
   }else if(kind==13){
    trail_bike();
   }else if(kind==9 && s->vehicle_mesh[6]){
