@@ -125,7 +125,7 @@ From the checkout, run `make regional-scenery` to prepare the full regional
 pack. Desktop `make gui EXTRA="--outing sports-car"` and Termux
 `make mobile EXTRA="--outing sports-car"` install it automatically if missing.
 The first run downloads the Washington Geofabrik extract (about 350 MiB), clips
-it with osmium-tool, and installs the indexed database (about 169 MiB) in
+it with osmium-tool, and installs the indexed database (about 271 MiB for the tested extract) in
 the Pocket data directory. Allow 1 GiB of temporary free space. Later launches
 reuse the installed pack offline, including after a Git update. Run
 `make regional-scenery` explicitly to upgrade its format. New installations
@@ -135,11 +135,10 @@ need one download on their first explicit upgrade if that cache is missing. macO
 Termux uses pkg. On Linux install osmium-tool with your package manager.
 Use REGIONAL_SCENERY=bundled to skip preparation when traveling offline.
 
-Regional pack version 2 adds ground-level OSM streets around Thun Field,
-Tacoma Narrows and Sea-Tac.
-Airport pavement is paged with nearby buildings. Traffic follows the local
-primary, secondary and tertiary roads during outdoor outings.
+Regional pack version 6 pages drivable OSM streets, including residential and service roads, from the clipped Puget Sound extract. It adds directed local traffic routes, mapped signals, parking garages, individual trees, and woodland canopy. Roads and traffic load around the viewer from the installed SQLite database. The tested extract contained 532,191 additional road ways and 87,493 traffic ways. Counts change with the source snapshot.
 
-The auto shop inventory contains named OpenStreetMap nodes tagged `shop=car_repair` in the regional extract (© OpenStreetMap contributors, ODbL). In a car, select **Auto shop** to mark the nearest one. Park within 35 metres to repair, repaint or switch between street and factory tuning.
+The auto shop inventory uses named OpenStreetMap repair businesses (© OpenStreetMap contributors, ODbL). In a car, select **Auto shop** for the nearest shop or press **M** to browse destinations. Stop within 35 metres of the marked street frontage to repair, repaint, or tune the vehicle.
+
+While driving, **H** sounds the horn. In a patrol vehicle, **J** toggles the lights and siren. With the siren on, **K** directs a vehicle ahead traveling in the same direction to pull over. Press **K** again to release it. The corresponding controller inputs are left-stick click, X, and Y.
 
 Locality labels use nearby OpenStreetMap place nodes. The coordinates show the player’s projected world position in decimal degrees.
