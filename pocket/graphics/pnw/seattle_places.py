@@ -472,6 +472,22 @@ def roadside_trees(height,quad):
             previous=ring
 
 
+def waterfront_piers(height,quad):
+    import json
+    from pnw.terrain import location
+    source=Path(__file__).resolve().parents[1]/'assets/seattle/piers.json'
+    for ring,faces in json.loads(source.read_text()):
+        points=[location('sound',lat/1e7,lon/1e7) for lon,lat in ring]
+        # Keep each deck level across the coarse coastal elevation grid.
+        deck=min(height(x,z) for x,z in points)+2.
+        top=[(x,deck,z) for x,z in points]
+        for i in range(0,len(faces),3):
+            a,b,c=(top[index] for index in faces[i:i+3])
+            quad((a,b,c,c),(.47,.40,.32))
+        for a,b in zip(top,top[1:]+top[:1]):
+            quad((a,b,(b[0],deck-1.2,b[2]),(a[0],deck-1.2,a[2])),(.31,.29,.24))
+
+
 def sound_landmarks(height,quad,box):
     from pnw.terrain import location
     x,z=location('sound',47.2367,-122.4267)

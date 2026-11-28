@@ -107,3 +107,9 @@ To build the larger pack from a Washington OSM PBF, use Osmium extract with
 bounds -123.30,46.70,-121.50,48.15, filter w/building, n/shop, n/amenity,
 n/tourism and n/natural=tree, then use osmium export -f geojsonseq. Run
 pocket/tools/bake_region.py with a new database path followed by the sequence.
+
+piers.json contains 160 mapped pier deck outlines on the Seattle and Tacoma
+waterfronts from the same Geofabrik OSM extract. To regenerate it, select ways
+tagged man_made=pier with osmium tags-filter, export as geojsonseq, and pipe
+the sequence through pocket/tools/bake_piers.py. Deck elevations and materials
+are approximations. Open-line docks have no measured outline and are omitted.

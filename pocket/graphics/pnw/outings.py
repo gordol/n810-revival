@@ -255,22 +255,8 @@ def build_mesh(region,field,raw,aerial):
         from pnw.seattle_places import sound_landmarks
         sound_landmarks(lambda x,z:surface(field,x,z),quad,box)
         rail.mesh(lambda x,z:surface(field,x,z),quad,box)
-        # Long timber piers and gabled sheds step out into Elliott Bay.
-        for lat,lon,length in ((47.6056,-122.3412,108),(47.6065,-122.3418,122),
-                               (47.6075,-122.3423,112),(47.6093,-122.3441,94)):
-            x,z=location(region,lat,lon)
-            deck=surface(field,x,z)+2.
-            box(x,z,deck-1.2,length,29,1.2,(.42,.34,.25))
-            for u in range(-int(length/2)+3,int(length/2),7):
-                for side in (-1,1):
-                    box(x+u,z+side*13,deck-11,.7,.7,10.,(.22,.22,.17))
-            box(x+5,z,deck,length*.79,19.,6.,(.64,.42,.32),.228)
-            for side in (-1,1):
-                eave=z+side*10.
-                left=x+5-length*.41
-                right=x+5+length*.41
-                quad(((left,deck+6,eave),(right,deck+6,eave),(right,deck+10,z),
-                      (left,deck+10,z)),(.33,.38,.39))
+        from pnw.seattle_places import waterfront_piers
+        waterfront_piers(lambda x,z:surface(field,x,z),quad)
         x,z=location('sound',*WHEEL)
         base=field.height(x,z)+27
         # Two rims, axle braces and radial spokes facing Elliott Bay.
