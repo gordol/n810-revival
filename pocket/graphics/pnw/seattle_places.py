@@ -733,3 +733,21 @@ def repair_shops():
     from pnw.terrain import location
     rows=json.loads((Path(__file__).resolve().parents[1]/'assets/seattle/repair-shops.json').read_text())
     return [(name,location('sound',lat/1e7,lon/1e7)) for name,lon,lat in rows]
+
+
+@lru_cache(maxsize=1024)
+def service_frontage(point):
+    """Find the curb on the shop side of the closest mapped street."""
+    x,z=point
+    segments=nearby_driving_segments(math.floor(x/32),math.floor(z/32),7,False)
+    best=None
+    for ax,az,dx,dz,l2,half in segments:
+        t=min(1.,max(0.,((x-ax)*dx+(z-az)*dz)/l2))
+        u,v=ax+t*dx,az+t*dz
+        gap=math.hypot(x-u,z-v)
+        score=gap+max(0.,half-4.5)*3.
+        if best is not None and score>=best[0]:continue
+        side=math.copysign(1.,(x-u)*dz-(z-v)*dx)
+        nx,nz=side*dz/math.sqrt(l2),-side*dx/math.sqrt(l2)
+        best=score,(u+half*nx,v+half*nz),(nx,nz)
+    return best[1:] if best else (point,(0.,1.))

@@ -388,6 +388,7 @@ class StreetRide:
         self.stop_target=None
         self.tuned=False
         self.shop_target=None
+        self.shop_route=()
         self.cruise=self.delivered=False
         self.keys=set()
         self.contact=None
@@ -506,8 +507,17 @@ class StreetRide:
         from pnw.seattle_places import repair_shops
         here=self.x,self.z
         if action=='shop':
-            self.shop_target=min(repair_shops(),key=lambda shop:math.dist(here,shop[1]))
+            from pnw.seattle_places import service_frontage
+            from pnw.street_map import road_route
+            name,point=min(repair_shops(),key=lambda shop:math.dist(here,shop[1]))
+            curb,_=service_frontage(point)
+            self.shop_target=name,curb
+            self.shop_route=road_route(here,curb)
             return self.shop_target[0]
+        if action=='leave-shop':
+            self.shop_target=None
+            self.shop_route=()
+            return ''
         if not self.at_shop():return 'Park near the shop to service this vehicle'
         if action=='repair':
             self.spin=self.slip=self.damage=0.
@@ -518,7 +528,6 @@ class StreetRide:
         if action=='tune':
             self.tuned=not self.tuned
             return 'Street tune installed' if self.tuned else 'Factory tune restored'
-        if action=='leave-shop':self.shop_target=None
         return ''
 
     def at_shop(self):
@@ -559,7 +568,10 @@ class StreetRide:
                 roads.extend((*project(x,z),*project(x+dx,z+dz)))
         add(nearby_driving_segments(cx,cz,reach,False))
         ordinary=len(roads)//4
-        add(nearby_driving_segments(cx,cz,reach,True))
+        if self.shop_target:
+            for a,b in zip(self.shop_route,self.shop_route[1:]):
+                if math.dist(a,(self.x,self.z))<radius*1.65:roads.extend((*project(*a),*project(*b)))
+        else:add(nearby_driving_segments(cx,cz,reach,True))
         access,label,distance=self.drive_guidance()
         ax,ay=project(*access)
         edge=max(1.,abs(ax-size*.5)/(size*.5-5),abs(ay-size*.5)/(size*.5-5))

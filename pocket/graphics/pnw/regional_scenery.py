@@ -79,6 +79,7 @@ class Neighborhood:
         mesh=array('f');self.places=[];self.signals=[];self.parking={}
         def face(vertices,color,material):
             for px,py,pz in vertices:mesh.extend((px,py,pz,*color,material))
+        service_signs(x,z,ground,face)
         for tx,tz in sorted(((cell[0]+dx,cell[1]+dz) for dx in (-1,0,1) for dz in (-1,0,1)),
                             key=lambda ij:math.hypot(x-(ij[0]+.5)*512,z-(ij[1]+.5)*512)):
             from pnw.regional_roads import tile
@@ -153,3 +154,22 @@ class Neighborhood:
     def nearby(self,x,z):
         distance,name=min(((math.hypot(x-u,z-v),label) for u,v,label in self.places),default=(math.inf,''))
         return name if distance<32 else ''
+
+
+def service_signs(x,z,ground,face):
+    from pnw.market_visit import lettering
+    from pnw.seattle_places import repair_shops,service_frontage
+    for name,point in repair_shops():
+        if math.dist((x,z),point)>630:continue
+        (u,v),(nx,nz)=service_frontage(point)
+        y=ground(u,v)
+        # Place the sign behind the curb; leave the service stop clear.
+        def panel(vertices,color):
+            pts=[(u+nx*(3+d)+nz*t,y+h,v+nz*(3+d)-nx*t) for t,h,d in vertices]
+            face((pts[0],pts[1],pts[2],pts[0],pts[2],pts[3]),color,0.)
+        def rect(l,b,r,t,d,color):panel(((l,b,d),(r,b,d),(r,t,d),(l,t,d)),color)
+        rect(-.12,-.35,.12,3.9,0,(.38,.40,.42))
+        rect(-2.4,2.0,2.4,4.1,-.02,(.05,.16,.25))
+        rect(-2.4,2.0,2.4,2.18,-.04,(.89,.48,.08))
+        lettering('AUTO SERVICE',-2.3,3.05,-.05,.65,panel,(.96,.96,.86),board_width=4.6)
+        lettering(name.upper()[:32],-2.2,2.38,-.05,.39,panel,(.95,.83,.46),board_width=4.4)
