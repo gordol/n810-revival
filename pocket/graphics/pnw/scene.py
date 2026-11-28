@@ -2269,12 +2269,13 @@ class RainierView:
             player=(self.road.actor_kind,x,ground(x,z)+.05,z,math.degrees(yaw),2.*int(daylight<.65 or bool(self.weather))+16*int(self.road.damage>.35),self.road.paint)
             poses=poses[:31]+[player]
             yaw=self.road.chase_heading
-            pullback=7.4+min(abs(self.road.speed)*.065,3.6)
+            length,height={12:(15.6,4.1),11:(11.6,3.4),5:(4.5,2.35)}.get(self.road.actor_kind,(4.4,1.45))
+            pullback=length*.85+3.7+min(abs(self.road.speed)*.065,3.6)
             camera_x=x-pullback*math.sin(yaw)
             camera_z=z-pullback*math.cos(yaw)
             target=ground(x,z)-origin.y
-            eye=max(ground(camera_x,camera_z)-origin.y+1.2,target+3.1+pullback*.10)
-            pitch=math.atan2(eye-target-.85,pullback+4.)
+            eye=max(ground(camera_x,camera_z)-origin.y+1.2,target+height+1.65+pullback*.12)
+            pitch=math.atan2(eye-target-height*.48,pullback+length*.65)
         if self.regional and self.outing is None and self.parked_bike:
             bx,bz,bh,_=self.parked_bike.advance(0.,ground)
             if math.hypot(x-bx,z-bz)<140:
