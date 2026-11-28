@@ -7,6 +7,38 @@ from pnw.terrain import location
 from pnw.vehicle_impact import Body, collide, contact
 
 @lru_cache(maxsize=1)
+def highway_geometry():
+    """Index the directed OSM pavement used to draw the freeway."""
+    nodes={}
+    widths={}
+    for _,_,points,half,_ in freeway_lines():
+        for index,p in enumerate(points):
+            nodes.setdefault((round(p[0]),round(p[1])),[]).append((points,index))
+        for a,b in zip(points,points[1:]):
+            widths[a,b]=round((half-.6)/1.8)
+    return nodes,widths
+
+
+def pavement_path(points):
+    # The bundled itinerary rounds coordinates and simplifies bends. Restore
+    # intermediate road vertices before placing traffic on either carriageway.
+    nodes,_=highway_geometry()
+    def matches(p):
+        x,z=map(round,p)
+        return [(way,i) for u in range(x-1,x+2) for v in range(z-1,z+2)
+                for way,i in nodes.get((u,v),()) if math.dist(way[i],p)<.25]
+    result=[]
+    prev=matches(points[0])
+    result.append(prev[0][0][prev[0][1]] if prev else points[0])
+    for p in points[1:]:
+        curr=matches(p)
+        part=next((way[i+1:j+1] for way,i in prev for other,j in curr if way is other and i<j),None)
+        result.extend(part or [curr[0][0][curr[0][1]] if curr else p])
+        prev=curr
+    return result
+
+
+@lru_cache(maxsize=1)
 def routes():
     south=[(s[1],s[2]) for s in corridor_path()[0]]
     last=corridor_path()[0][-1]
@@ -40,15 +72,16 @@ def routes():
         for _,kind,points,_,_ in street_lines(city):
             if kind in ('primary','secondary','tertiary') and math.dist(points[0],points[-1])>100:
                 extras.append(points)
-    return [make_route(points) for points in (south,north,*extras)]
+    return [make_route(points,highways=True) for points in (pavement_path(south),pavement_path(north),*extras)]
 
 
-def make_route(points):
+def make_route(points,highways=False):
+    widths=highway_geometry()[1] if highways else {}
     spans=[];ends=[];cells={};start=0.
     for a,b in zip(points,points[1:]):
         length=math.dist(a,b)
         if length<.01:continue
-        spans.append((*a,(b[0]-a[0])/length,(b[1]-a[1])/length,start))
+        spans.append((*a,(b[0]-a[0])/length,(b[1]-a[1])/length,start,widths.get((a,b),0)))
         for i in range(math.floor(min(a[0],b[0])/256),math.floor(max(a[0],b[0])/256)+1):
             for j in range(math.floor(min(a[1],b[1])/256),math.floor(max(a[1],b[1])/256)+1):
                 cells.setdefault((i,j),[]).append(len(spans)-1)
@@ -99,7 +132,12 @@ def half_length(identity):
 
 def point(route,at,lane):
     spans,ends,_=route
-    x,z,dx,dz,start=spans[min(bisect_left(ends,at),len(spans)-1)]
+    x,z,dx,dz,start,lanes=spans[min(bisect_left(ends,at),len(spans)-1)]
+    if lanes:
+        # Route streams use the two rightmost lanes; one-lane links merge
+        # both streams onto their centre. Keep a stopped vehicle inside it.
+        outer=(lanes-1)*1.8
+        lane=max(-outer,min(outer,lane+outer-1.8))
     return x+dx*(at-start)+dz*lane,z+dz*(at-start)-dx*lane,math.atan2(dx,dz)
 
 class Traffic:
@@ -166,6 +204,7 @@ class Traffic:
                     if key in self.wrecks or key in self.taken:continue
                     at,speed,blocked=self.cars.get(key,(n*gap+shift,pace,False))
                     if not 0<=at<=ends[-1]:continue
+                    if lane and key not in previous and spans[bisect_left(ends,at)][5]==1:continue
                     lateral=self.offsets.get(key,home)
                     px,pz,angle=point(route,at,lateral)
                     distance=math.hypot(x-px,z-pz)
@@ -187,8 +226,7 @@ class Traffic:
                         along=dx*math.sin(angle)+dz*math.cos(angle)
                         across=dx*math.cos(angle)-dz*math.sin(angle)
                         if abs(across)<2.1 and along>=0:clearance=min(clearance,along-half_length(n+direction)-2.6)
-                        on_freeway=direction==1 or (route is routes()[0] and
-                            corridor_path()[0][min(bisect_left(ends,at),len(ends)-1)][7]=='freeway')
+                        on_freeway=direction<2 and spans[bisect_left(ends,at)][5]>=2
                         if driver and on_freeway and lateral==home and 12<along<38 and abs(across)<2.1:
                             adjacent=occupied.get((direction,1-lane),())
                             if all(abs(other-at)>32 for _,other in adjacent):

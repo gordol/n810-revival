@@ -33,6 +33,22 @@ class RoadSurfaceTests(unittest.TestCase):
         self.assertFalse(inside_ground_ramp(8,4,index))
         self.assertFalse(inside_ground_ramp(24,0,index))
 
+    def test_first_hill_portland_ramp_uses_a_single_centered_lane(self):
+        from pnw.terrain import location
+        from pnw.traffic import routes,point
+        x,z=location('sound',47.6058,-122.3292)
+        route=routes()[0]
+        candidates=[]
+        for (a,b,dx,dz,start,lanes),end in zip(route[0],route[1]):
+            d=(x-a)*dx+(z-b)*dz
+            if not 0<=d<=end-start:continue
+            px,pz,_=point(route,start+d,0.)
+            candidates.append((math.hypot(px-x,pz-z),start+d,lanes))
+        gap,at,lanes=min(candidates)
+        self.assertLess(gap,8)
+        self.assertEqual(lanes,1)
+        self.assertEqual(point(route,at,-1.8),point(route,at,1.8))
+
     def test_wall_blocks_inward_motion_and_allows_sliding_parallel(self):
         walls=StreetObstacles([],0)
         walls.cells[(0,0)]={(10.,0.,0.,20.,0.,1.)}
