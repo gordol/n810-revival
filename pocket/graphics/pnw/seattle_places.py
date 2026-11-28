@@ -168,13 +168,14 @@ def buildings(height,quad):
         rise=levels*3.15 if levels else value
         base=height(cx,cz)
         top=base+rise
+        facade=.229 if rise>=45 else .228
         tone=((.47,.54,.56),(.62,.56,.48),(.53,.43,.36),(.63,.64,.61))[int(way)%4]
         for (x,z),(ex,ez) in zip(points,points[1:]+points[:1]):
             norm=math.hypot(ex-x,ez-z)
             if norm==0:continue
             light=.82+.13*(ex-x)/norm+.09*(ez-z)/norm
             quad(((x,height(x,z)-1,z),(ex,height(ex,ez)-1,ez),(ex,top,ez),(x,top,z)),
-                 tuple(light*c for c in tone),.228)
+                 tuple(light*c for c in tone),facade)
         for a,b,c in zip(roof[::3],roof[1::3],roof[2::3]):
             quad([(points[k][0],top,points[k][1]) for k in (a,b,c,c)],(.47,.48,.46))
 
