@@ -25,6 +25,19 @@ class RoadSurfaceTests(unittest.TestCase):
         for z in range(21):y=roads.sample(0,z,0.,True)
         self.assertAlmostEqual(y,.7)
 
+    def test_entry_deck_meets_sloping_pavement_across_its_width(self):
+        from pnw.seattle_places import bridge_sections
+        terrain=lambda x,z:.25*x
+        span=(5,'motorway_link',2.4,(0.,0.),(0.,10.),10.,.055,.06)
+        faces=[]
+        bridge_sections([span],terrain,lambda vertices,*_:faces.append(vertices),lambda *args,**kwargs:None,{})
+        with patch('pnw.seattle_places.bridge_spans',return_value=[span]):
+            roads=BridgeRoads(terrain)
+        for x,y,z in (faces[0][0],faces[0][-1]):
+            self.assertAlmostEqual(y,terrain(x,z)+.055)
+            self.assertAlmostEqual(roads.sample(x,z,terrain(x,z),True),y)
+            self.assertAlmostEqual(roads.lane_height(x,z,0.,terrain(x,z),5),y)
+
     def test_ground_median_opens_only_on_ground_ramp(self):
         from pnw.seattle_places import ground_ramp_cells,inside_ground_ramp
         points=[(0,0),(16,0),(32,0)]

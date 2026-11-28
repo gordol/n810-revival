@@ -452,9 +452,15 @@ def bridge_spans(height):
             chain+=length
 
 
+def approach_crossfall(deck,center_ground):
+    """Carry terrain cross-slope onto a low deck, fading over 2 m of clearance."""
+    return max(0.,min(1.,1.-(deck-center_ground-.055)/2.))
+
+
 class BridgeRoads:
     """Track which road surface a car entered at a stacked crossing."""
     def __init__(self,height):
+        self.height=height
         self.cells={}
         terminals={}
         for span in bridge_spans(height):
@@ -489,7 +495,9 @@ class BridgeRoads:
             along=max(0.,min(length,(x-ax)*dx+(z-az)*dz))
             gap=math.hypot(x-ax-dx*along,z-az-dz*along)
             if gap<=width:
-                candidate=(gap+8*(1-alignment),y+grade*along)
+                top=y+grade*along
+                bed=self.height(ax+dx*along,az+dz*along)
+                candidate=(gap+8*(1-alignment),top+approach_crossfall(top,bed)*(ground-bed))
                 if best is None or candidate<best:best=candidate
         return best[1] if best else ground
 
@@ -501,6 +509,8 @@ class BridgeRoads:
             gap=math.hypot(x-ax-dx*along,z-az-dz*along)
             top=y+grade*along
             if gap>width:continue
+            bed=self.height(ax+dx*along,az+dz*along)
+            top+=approach_crossfall(top,bed)*(ground-bed)
             connected=bridge==self.deck
             if update and not connected:
                 if self.deck is None:
@@ -541,10 +551,16 @@ def bridge_sections(spans,height,quad,box,neighboring):
     next_pier=16.
     for i,(bridge,kind,half,(x,z),(ex,ez),length,base,grade) in enumerate(spans):
         dx,dz=(ex-x)/length,(ez-z)/length
+        def section_point(end,lateral,rise):
+            px,pz,py=(ex,ez,base+length*grade) if end else (x,z,base)
+            nx,nz=edges[i+end]
+            u,v=px+nx*lateral,pz+nz*lateral
+            bed=height(px,pz)
+            blend=approach_crossfall(py,bed)
+            return u,py+rise+blend*(height(u,v)-bed),v
         def strip(left,h1,right,h2,color,material=0.):
-            quad([(px+n[0]*u,py+h,pz+n[1]*u) for px,py,pz,n,u,h in (
-                (x,base,z,edges[i],left,h1),(ex,base+length*grade,ez,edges[i+1],left,h1),
-                (ex,base+length*grade,ez,edges[i+1],right,h2),(x,base,z,edges[i],right,h2))],color,material)
+            quad([section_point(0,left,h1),section_point(1,left,h1),
+                  section_point(1,right,h2),section_point(0,right,h2)],color,material)
         strip(-half,0,half,0,(.30,.31,.31),.249)
         strip(-half,-.8,half,-.8,(.27,.28,.27))
         for side in (-1,1):
