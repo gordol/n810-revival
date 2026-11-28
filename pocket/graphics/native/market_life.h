@@ -91,6 +91,38 @@ static void street_vehicle(int van,unsigned paint,int lamps){
   }
  }
 }
+static void detailed_coupe(struct gpu_scene *s,unsigned paint,int lamps){
+ static const GLfloat colors[][3]={{.68f,.022f,.032f},{.14f,.27f,.41f},{.74f,.69f,.57f},
+                                    {.12f,.15f,.18f},{.37f,.035f,.072f}};
+ const GLfloat sun[]={-.45f,.85f,.35f,0}, ambient[]={.41f,.44f,.48f,1};
+ const GLfloat sky[]={.92f,.88f,.82f,1}, shine[]={.76f,.79f,.84f,1}, dull[]={.06f,.06f,.06f,1};
+ glPushAttrib(GL_ENABLE_BIT|GL_LIGHTING_BIT|GL_CURRENT_BIT);
+ glPushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
+ glEnable(GL_LIGHTING);glEnable(GL_LIGHT0);glEnable(GL_NORMALIZE);glDisable(GL_CULL_FACE);
+ glEnable(GL_COLOR_MATERIAL);glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
+ glLightModelfv(GL_LIGHT_MODEL_AMBIENT,ambient);glLightfv(GL_LIGHT0,GL_POSITION,sun);
+ glLightfv(GL_LIGHT0,GL_DIFFUSE,sky);glLightfv(GL_LIGHT0,GL_SPECULAR,sky);
+ glBindBuffer(GL_ARRAY_BUFFER,s->coupe_mesh);
+ glEnableClientState(GL_VERTEX_ARRAY);glEnableClientState(GL_NORMAL_ARRAY);glDisableClientState(GL_COLOR_ARRAY);
+ glVertexPointer(3,GL_FLOAT,24,0);glNormalPointer(GL_FLOAT,24,(void *)12);
+ unsigned first=0;
+ for(unsigned m=0;m<29;m++){
+  unsigned n=s->coupe_groups[m];if(!n)continue;
+  int glossy=m==1||m==10||m==11||m==15||m==21;
+  glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,glossy?shine:dull);
+  glMaterialf(GL_FRONT_AND_BACK,GL_SHININESS,glossy?46.f:8.f);
+  if(m==10||m==11)glColor3fv(colors[paint%5]);
+  else if(m==1)glColor3f(.095f,.17f,.23f);
+  else if(m==13)glColor3f(lamps&1?1.f:.65f,.025f,.025f);
+  else if(m==12)glColor3f(.58f,.24f,.04f);
+  else if(m==14)glColor3f(lamps&2?1.f:.69f,lamps&2?.97f:.75f,.78f);
+  else if(m==15||m==21||m==17||m==9)glColor3f(.62f,.66f,.68f);
+  else glColor3f(.065f,.07f,.076f);
+  glDrawArrays(GL_TRIANGLES,first,n);first+=n;
+ }
+ glPopClientAttrib();glPopAttrib();
+}
+
 /* Double-ended Sound ferry. The open vehicle deck runs between the two ramps. */
 static void docked_ferry(void){
  for(int k=0;k<48;k++){
@@ -352,7 +384,8 @@ static void market_people(struct gpu_scene *s,const float *actors,unsigned count
     glPopMatrix();
    }
   }else if(kind==10 || kind==5){
-   street_vehicle(kind==5,(unsigned)p[6],(int)pose);
+   if(kind==10 && s->coupe_mesh && p[6]==0)detailed_coupe(s,0,(int)pose);
+   else street_vehicle(kind==5,(unsigned)p[6],(int)pose);
   }else if(kind==9){
    market_panel(0,.33f,0,.92f,.49f,2.26f,.10f,.13f,.16f);
    market_body(0,.91f,-.10f,.87f,.55f,1.42f,.32f,.39f,.43f);

@@ -1911,6 +1911,12 @@ class RainierView:
                 from pnw.seattle_places import arcade_origin
                 from pnw.pike_market import offset
                 from pathlib import Path
+                if self.road:
+                    mesh=zlib.decompress((Path(__file__).resolve().parents[1]/'assets/seattle/coupe.zlib').read_bytes())
+                    upload=ctx.lib.pocket_scene_coupe
+                    upload.argtypes=[C.c_void_p,C.POINTER(C.c_uint),C.c_char_p,C.c_uint]
+                    groups=(C.c_uint*29).from_buffer_copy(mesh)
+                    ctx.check(upload(ctx.handle,groups,mesh[116:],(len(mesh)-116)//24))
                 materials=zlib.decompress((Path(__file__).resolve().parents[1]/'assets/seattle/materials.rgba.zlib').read_bytes())
                 upload=ctx.lib.pocket_scene_market_materials
                 upload.argtypes=[C.c_void_p,C.c_char_p,C.c_uint]

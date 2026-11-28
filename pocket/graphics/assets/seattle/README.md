@@ -71,3 +71,12 @@ The freeway.json extract contains OpenStreetMap motorway and ramp geometry,
 lane counts, posted speed limits and numbered junctions along the Seattle–Tacoma
 drive. The northbound route follows OSRM routing over OpenStreetMap. Road data
 © OpenStreetMap contributors, distributed under the Open Database License 1.0.
+
+The sports coupe is an exterior-only, simplified adaptation of Eric Chadwick’s
+[Car Concept](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CarConcept),
+© 2024 Darmstadt Graphics Group GmbH, licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The original model was
+created by Unity Fan. The adaptation omits the original logo textures, clusters
+vertices, and replaces glTF materials with runtime paint, glass and lamp colors.
+Run pocket/tools/bake_coupe.py with the upstream CarConcept.glb and an output
+path. Source SHA-256 is c272098089d78c5cd9fd9f24ff50ee8acf8d932c55f2d55fc10adb6c8998966b.
